@@ -100,6 +100,37 @@ def _settings():
     return SimpleNamespace(DOCS=DOCS, QUARTO=QUARTO, SOPS=SOPS)
 
 
+def procedure(name: str) -> Path | None:
+    """The project's `variant-...` procedure, wherever its layout puts it.
+
+    A project files procedures directly under the procedure root, in
+    `workflows/` or in `protocols/`, and the catalog finds all three. This once
+    looked only in the root, so a project that followed its own documented
+    convention and filed the shared voice rules under `protocols/` got "no SOP
+    'variant-manager'" from a command that was standing next to the file.
+    """
+    root = _settings().SOPS
+    found = [
+        candidate
+        for folder in ("", "workflows", "protocols")
+        if (candidate := root / folder / f"{name}.md").is_file()
+    ]
+    return found[0] if found else None
+
+
+def kinds() -> list[str]:
+    """Every variant kind the project declares, by its procedure's name."""
+    root = _settings().SOPS
+    return sorted(
+        {
+            path.stem[len("variant-") :]
+            for folder in ("", "workflows", "protocols")
+            for path in (root / folder).glob("variant-*.md")
+            if path.stem != "variant-common"
+        }
+    )
+
+
 def _rel(path: Path) -> str:
     """A path as the operator would type it, from the project root."""
     try:
@@ -248,16 +279,10 @@ def read_brief(kind: str) -> tuple[str, str]:
     rules from variant-common.md, the reader profile from variant-<kind>.md -- so
     the playbook a human reads is the same text the drafter is handed.
     """
-    common = _settings().SOPS / "variant-common.md"
-    per = _settings().SOPS / f"variant-{kind}.md"
-    voice = (
-        section_body(common.read_text(), "Blind-draft brief")
-        if common.exists()
-        else None
-    )
-    reader = (
-        section_body(per.read_text(), "Blind-draft brief") if per.exists() else None
-    )
+    common = procedure("variant-common")
+    per = procedure(f"variant-{kind}")
+    voice = section_body(common.read_text(), "Blind-draft brief") if common else None
+    reader = section_body(per.read_text(), "Blind-draft brief") if per else None
     if not voice:
         raise ValueError("variant-common.md has no `## Blind-draft brief` section")
     if not reader:
@@ -349,19 +374,15 @@ def run_blind(prompt: str, model: str, timeout: int) -> tuple[bool, str]:
 # commands
 # --------------------------------------------------------------------------- #
 def _print_sop(kind: str | None) -> int:
-    avail = sorted(
-        p.stem[len("variant-") :]
-        for p in _settings().SOPS.glob("variant-*.md")
-        if p.stem != "variant-common"
-    )
+    avail = kinds()
     if kind is None:
         print("variant kinds (quirework book variant <kind> prints its SOP):")
         for k in avail:
             print(f"  {k}")
         print("\nbuild the drafts: quirework book variant build <kind>")
         return 0
-    f = _settings().SOPS / f"variant-{kind}.md"
-    if not f.exists():
+    f = procedure(f"variant-{kind}")
+    if f is None:
         print(
             f"no SOP 'variant-{kind}'. available: {', '.join(avail) or '(none yet)'}",
             file=sys.stderr,
@@ -412,7 +433,7 @@ def cmd_build(argv: list[str]) -> int:
     if kind is None:
         print("usage: quirework book variant build <kind> [...]", file=sys.stderr)
         return 2
-    if not (_settings().SOPS / f"variant-{kind}.md").exists():
+    if procedure(f"variant-{kind}") is None:
         print(f"no SOP 'variant-{kind}.md' to build against", file=sys.stderr)
         return 2
 
@@ -486,7 +507,7 @@ def cmd_build(argv: list[str]) -> int:
     print(f"\n{len(chapters) - fails}/{len(chapters)} drafts written to {raw_dir}")
     print(
         "next (operator): the analyze and compose steps in "
-        f"{_rel(_settings().SOPS / 'variant-common.md')}. Composing the edition "
+        f"{_rel(procedure('variant-common'))}. Composing the edition "
         "is judgment, so the tool stops here."
     )
     return 1 if fails else 0

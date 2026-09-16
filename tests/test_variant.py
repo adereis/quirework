@@ -131,6 +131,29 @@ def test_the_brief_is_read_out_of_the_two_procedures(tmp_path):
     assert reader == "A reader in a hurry."
 
 
+def test_a_procedure_is_found_in_any_layer_the_project_uses(tmp_path):
+    """Shared fragments belong under protocols/, and the catalog files them there.
+
+    Reading only the procedure root meant a project that followed its own
+    documented layout got "no SOP" from a command standing next to the file.
+    """
+    root = _book(tmp_path)
+    protocols = root / "procedures" / "protocols"
+    protocols.mkdir()
+    (root / "procedures" / "variant-common.md").rename(protocols / "variant-common.md")
+    workflows = root / "procedures" / "workflows"
+    workflows.mkdir()
+    (root / "procedures" / "variant-postcard.md").rename(
+        workflows / "variant-postcard.md"
+    )
+    with project_scope(_project(root)):
+        assert variant.kinds() == ["postcard"]
+        assert variant.procedure("variant-common") == protocols / "variant-common.md"
+        voice, reader = variant.read_brief("postcard")
+    assert voice == "Short sentences. No jokes."
+    assert reader == "A reader in a hurry."
+
+
 def test_a_kind_without_a_procedure_says_which_file_is_missing(tmp_path):
     root = _book(tmp_path)
     with project_scope(_project(root)):

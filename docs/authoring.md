@@ -233,10 +233,14 @@ catalog = "procedures/catalog.json"
 skill_prefix = "nb-"
 ```
 
-Files directly under that root are procedures. `workflows/` holds the
-task-level entry points and `protocols/` holds shared fragments, which
-open with a `# SOP fragment` heading and get no invocation route of
-their own. A procedure declares its own one-line purpose in a marker:
+Files directly under that root are procedures, and so are the ones in
+`workflows/` and `protocols/`: all three are discovered, and every
+command that resolves a procedure by name looks in all three. The
+directories are a filing convention for a reader. What makes a file a
+shared fragment rather than a procedure is its opening `# SOP fragment`
+heading, which is checked against the `kind` its catalog entry declares,
+so a fragment filed anywhere is still a fragment and a procedure filed
+under `protocols/` is still a procedure. A procedure declares its own one-line purpose in a marker:
 
 ```markdown
 # Tidy the notebook
