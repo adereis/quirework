@@ -80,12 +80,15 @@ def load(root=None):
     if root is None:
         root = current_project().root
     root = Path(root)
-    data = json.loads(
-        (
-            current_project().path_at(root, "sops.catalog", "sops/catalog.json")
-        ).read_text(),
-        object_pairs_hook=_unique_object,
-    )
+    catalog = current_project().path_at(root, "sops.catalog", "sops/catalog.json")
+    if not catalog.is_file():
+        # The first thing a new project asks the SOP layer, and an errno tells
+        # it nothing. Name the file and where its shape is written down.
+        raise ValueError(
+            f"no procedure catalog at {catalog}. A project declares its "
+            "procedures in one; docs/authoring.md has the shape."
+        )
+    data = json.loads(catalog.read_text(), object_pairs_hook=_unique_object)
     _keys(data, {"version", "families", "entries"}, "catalog")
     if type(data["version"]) is not int or data["version"] != 1:
         raise ValueError("unsupported SOP catalog version")
