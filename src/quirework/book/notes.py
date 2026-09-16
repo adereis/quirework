@@ -458,6 +458,20 @@ def _configured_book_file(docs, key, fallback):
     return configured
 
 
+def _spec_path(docs=None) -> Path:
+    """This project's spec file. `_framework.md` is one book's choice of name."""
+    docs = (
+        Path(docs)
+        if docs is not None
+        else current_project().path("book.source", "docs")
+    )
+    return _configured_book_file(docs, "book.spec", SPEC_FILE)
+
+
+def _spec_name(docs=None) -> str:
+    return _spec_path(docs).name
+
+
 def spec_sections(docs: Path | None = None) -> list[tuple[str | None, str, str]]:
     """(anchor, title, body) for each level-2 section of the framework spec,
     in file order. The anchor is None where a section is missing its {#slug}
@@ -467,7 +481,7 @@ def spec_sections(docs: Path | None = None) -> list[tuple[str | None, str, str]]
         if docs is not None
         else current_project().path("book.source", "docs")
     )
-    spec = _configured_book_file(docs, "book.spec", SPEC_FILE)
+    spec = _spec_path(docs)
     if not spec.exists():
         return []
     text = _mask_fences(spec.read_text())
@@ -573,7 +587,7 @@ def _print_spec_toc(docs: Path | None = None) -> None:
     if not sections:
         return
     print(
-        f"framework spec — docs/canon/{SPEC_FILE} "
+        f"spec — {_rel(_spec_path(docs))} "
         f"({len(sections)} section(s); read it before the marks):"
     )
     for slug, title, _ in sections:
@@ -690,7 +704,9 @@ def _blocks(text: str) -> list[tuple[str, int]]:
     return out
 
 
-def _attributed_spans(block: str, stems: set[str]) -> list[tuple[str, int]]:
+def _attributed_spans(
+    block: str, stems: set[str], spec_name: str = SPEC_FILE
+) -> list[tuple[str, int]]:
     """Quotations in one block that are attributed to canon, with offsets.
 
     Two filters do the discriminating, and both were forced by real false
@@ -724,7 +740,7 @@ def _attributed_spans(block: str, stems: set[str]) -> list[tuple[str, int]]:
             _BIND_REF.search(window)
             or _code_spec_refs(window)
             or _CH_REF.search(window)
-            or SPEC_FILE in window
+            or spec_name in window
             or any(s in window for s in stems)
         ):
             continue
@@ -909,7 +925,7 @@ def companion_check(
             ln = text.count("\n", 0, m.start()) + 1
             problems.append(
                 f"{rel}:{ln}: @bind('{m.group(1)}') names no section of "
-                f"{SPEC_FILE}. The entry cites a commitment that has been "
+                f"{_spec_name(docs)}. The entry cites a commitment that has been "
                 f"renamed or folded away: repoint it at the section that "
                 f"holds the content now."
             )
@@ -925,12 +941,12 @@ def companion_check(
                 continue
             ln = text.count("\n", 0, pos) + 1
             problems.append(
-                f"{rel}:{ln}: framework section '#{slug}' does not exist in "
-                f"{SPEC_FILE}. The entry cites a commitment that has been "
+                f"{rel}:{ln}: spec section '#{slug}' does not exist in "
+                f"{_spec_name(docs)}. The entry cites a commitment that has been "
                 f"renamed or folded away."
             )
         for block, offset in _blocks(text):
-            for span, pos in _attributed_spans(block, stems):
+            for span, pos in _attributed_spans(block, stems, _spec_name(docs)):
                 quote = _norm(span)
                 # An elided quotation is deliberately partial; measure its
                 # longest piece, or the ellipsis alone reports it as absent.

@@ -12,7 +12,7 @@ from quirework.project import (
     project_scope,
     submit,
 )
-from quirework.book import chapters, graybuild
+from quirework.book import chapters, fonts, graybuild, notes
 from quirework.sops import catalog, commands, personas
 
 
@@ -170,6 +170,38 @@ def test_generated_skills_name_the_project_own_guide(tmp_path):
     with project_scope(Project.from_settings(tmp_path, silent)):
         body = commands._skill_md("tidy", "Tidy it.")
         assert "as the operator: drive" in body
+
+
+def test_a_generic_font_family_is_not_a_missing_typeface(tmp_path):
+    """`sans-serif` resolves to whatever is installed; it cannot be missing."""
+    figures = tmp_path / "plates"
+    figures.mkdir()
+    (figures / "kettle.svg").write_text(
+        '<svg xmlns="http://www.w3.org/2000/svg"><text font-family="sans-serif">'
+        "steam</text></svg>"
+    )
+    settings = {"book": {"figures": "plates"}}
+    with project_scope(Project.from_settings(tmp_path, settings)):
+        assert fonts._family_in_figures() == []
+    (figures / "kettle.svg").write_text(
+        '<svg xmlns="http://www.w3.org/2000/svg"><text font-family="Spectral,serif">'
+        "steam</text></svg>"
+    )
+    with project_scope(Project.from_settings(tmp_path, settings)):
+        assert fonts._family_in_figures() == ["Spectral"]
+
+
+def test_the_spec_is_named_by_configuration_not_by_convention(tmp_path):
+    """A project's register has its own name; diagnostics must say that one."""
+    source = tmp_path / "manuscript"
+    source.mkdir()
+    (source / "_register.md").write_text(
+        "# Held\n\n## A kettle signals {#kettle-signal}\n\nA whistle reports.\n"
+    )
+    settings = {"book": {"source": "manuscript", "spec": "manuscript/_register.md"}}
+    with project_scope(Project.from_settings(tmp_path, settings)):
+        assert notes._spec_name() == "_register.md"
+        assert notes.spec_sections()[0][0] == "kettle-signal"
 
 
 def test_generic_grayscale_has_no_book_palette(tmp_path):

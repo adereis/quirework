@@ -96,11 +96,32 @@ def _families_in_template() -> list[str]:
     return out
 
 
+# CSS's generic families are a renderer instruction, not a typeface: whatever
+# `sans-serif` resolves to is installed by definition. A plate lettered in one
+# of them was failing the gate with "sans-serif not installed", which is both
+# unfixable and untrue, and it is what a first hand-authored SVG usually says.
+CSS_GENERIC = {
+    "cursive",
+    "emoji",
+    "fangsong",
+    "fantasy",
+    "math",
+    "monospace",
+    "sans-serif",
+    "serif",
+    "system-ui",
+    "ui-monospace",
+    "ui-rounded",
+    "ui-sans-serif",
+    "ui-serif",
+}
+
+
 def _family_in_figures() -> list[str]:
     """The family the illustrations are lettered in, from the SVGs themselves."""
     for svg in sorted(_settings().ILLUSTRATIONS.glob("*.svg")):
         m = re.search(r'font-family="\'?([^",\']+)', svg.read_text(encoding="utf-8"))
-        if m:
+        if m and m.group(1).strip().lower() not in CSS_GENERIC:
             return [m.group(1)]
     return []
 
