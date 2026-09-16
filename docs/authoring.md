@@ -288,12 +288,31 @@ so either can vary alone. A persona is one JSON file per profile under
 }
 ```
 
-An instrument under `sops.instruments` carries an `id`, a `revision`
-string, a `prompts` object keyed by ask (`first`, `next`, `wrap`, and
-any others a procedure uses), and optionally a `default_persona` and
-`default_scope`. Bump the revision when the questions change: a prepared
-run freezes the rendered prompt, so an old record keeps the questions it
-actually asked.
+An instrument under `sops.instruments` is one JSON file of questions:
+
+```json
+{
+  "id": "first-reader",
+  "revision": "1",
+  "default_persona": "reader",
+  "default_scope": "book",
+  "prompts": {
+    "first": {"text": "{{persona}} Read the opening. What do you expect next?"},
+    "next": {"text": "Keep reading. Where did you stop believing it?"},
+    "wrap": {"text": "Say in three sentences what the book was for."}
+  },
+  "sequence": {"first": "first", "next": "next", "wrap": "wrap"}
+}
+```
+
+Every ask is an object with `text`, not a bare string, so an ask can
+also carry `scopes` and `headings` later without changing shape.
+`sequence` names which ask opens, which repeats, and which closes; it is
+what makes a set of questions an order rather than a collection.
+`{{persona}}` is where the selected profile's prompt lands. `revision`
+is a string and is bumped whenever the questions change, because a
+prepared run freezes the rendered prompt and an old record has to keep
+the questions it actually asked.
 
 ## 6. Checks of your own
 
