@@ -446,9 +446,14 @@ def main(argv: list[str] | None = None) -> int:
         if unknown:
             # restrict_formats keeps only declared blocks, so an unknown name
             # would silently render nothing it promised.
+            config = current_project().path("book.quarto", "docs/_quarto.yml")
+            try:
+                named = config.relative_to(current_project().root)
+            except ValueError:
+                named = config
             print(
                 f"render: unknown format(s): {', '.join(unknown)} "
-                f"(declared in docs/_quarto.yml: {', '.join(declared)})",
+                f"(declared in {named}: {', '.join(declared)})",
                 file=sys.stderr,
             )
             return 2

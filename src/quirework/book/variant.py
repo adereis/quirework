@@ -1,4 +1,4 @@
-"""Build an audience/medium variant of the canonical book (see sops/variant-*.md).
+"""Build an audience or medium variant of the canonical book.
 
 Three entry points, dispatched from ``main``:
 
@@ -6,21 +6,22 @@ Three entry points, dispatched from ``main``:
     quirework book variant <kind>          print the variant SOP (operator playbook)
     quirework book variant build <kind>    run the MECHANICAL layer of the build
 
-``build`` is the part sops/variant-common.md hands to a tool: assemble a
-*blindness-safe* bundle of the canonical book -- every ``<!-- ... -->`` comment
-stripped, so the ``@bind``/``@todo``/``@figure`` marks (the project's own
-self-understanding) never reach the drafter, and ``_map.md`` never included --
-then fan out one headless, blind ``claude -p`` per chapter. Each drafter is fed
+``build`` is the part the project's ``variant-common`` procedure hands to a
+tool: assemble a *blindness-safe* bundle of the canonical book -- every
+``<!-- ... -->`` comment stripped, so the ``@bind``/``@todo``/``@figure`` marks
+(the project's own self-understanding) never reach the drafter -- then fan out
+one headless, blind ``claude -p`` per chapter. Each drafter is fed
 the whole book for grounding but asked to rewrite only its chapter, from a
 neutral CWD with tools off (no project ``CLAUDE.md``/memory loads there), so it
 is structurally an outside reader. The raw drafts land under
 ``variants/<kind>/_raw/`` for the operator's fidelity/honesty/voice pass.
 
 The tool stops at raw drafts on purpose: the *analyze* and *compose* steps
-(walking the load-bearing claims, fixing any drift, wiring the figures, writing
-the final ``.qmd`` + ``_quarto.yml``) are human judgment, per the house
-workflow. This mirrors ``coldread analyze``'s blind-``claude -p`` mechanism; the
-shared rule lives in docs/workflows.md#execution-and-recovery.
+(checking each draft against what the book commits to, fixing any drift, wiring
+the figures, writing the final ``.qmd`` and ``_quarto.yml``) are human
+judgment, and the project's own procedures own them. This mirrors
+``coldread analyze``'s blind-``claude -p`` mechanism; the shared rule lives in
+docs/workflows.md#execution-and-recovery.
 """
 
 from __future__ import annotations
@@ -32,13 +33,11 @@ import sys
 from pathlib import Path
 
 from quirework.project import current_project
-from quirework.providers.blind import NEUTRAL_CWD
 from quirework.providers.blind import BLIND_SETTINGS
 from quirework.providers.blind import NO_SETTING_SOURCES
 from quirework.providers.blind import MIN_TOOLS
 from quirework.providers.blind import NO_MCP
 from quirework.providers.blind import confine
-from quirework.providers.blind import ensure_neutral_cwd
 from quirework.providers.blind import seat_dir
 from quirework.book import notes as _notes
 
@@ -97,8 +96,16 @@ def _settings():
 
     SOPS = current_project().path("sops.root", "sops")
     DOCS = current_project().path("book.source", "docs")
-    QUARTO = DOCS / "_quarto.yml"
+    QUARTO = current_project().path("book.quarto", str(DOCS / "_quarto.yml"))
     return SimpleNamespace(DOCS=DOCS, QUARTO=QUARTO, SOPS=SOPS)
+
+
+def _rel(path: Path) -> str:
+    """A path as the operator would type it, from the project root."""
+    try:
+        return str(path.relative_to(current_project().root))
+    except ValueError:
+        return str(path)
 
 
 def strip_comments(text: str) -> str:
@@ -166,7 +173,7 @@ def _title_of(path: Path) -> str:
 
 
 def chapter_order() -> list[dict]:
-    """Every canonical chapter in ``docs/_quarto.yml`` reading order.
+    """Every canonical chapter in the configured Quarto reading order.
 
     Returns dicts of ``{path, slug, title}``. Order comes from the book config so
     the bundle a drafter reads is the book a reader reads.
@@ -279,11 +286,17 @@ def assemble_prompt(
     )
 
 
-def assert_blind(bundle: str) -> None:
-    """Fail fast if any project marginalia survived into the drafter's bundle."""
+def assert_blind(bundle: str, tells: tuple[str, ...] = ()) -> None:
+    """Fail fast if any project marginalia survived into the drafter's bundle.
+
+    The built-in tells are Quirework's own annotation syntax, which every book
+    shares. A book whose metadata layer has private vocabulary of its own adds
+    those words through ``blind_tells`` in its variant policy, because the tool
+    cannot know them and must not carry one book's words for the next.
+    """
     if _COMMENT.search(bundle):
         raise AssertionError("bundle still contains HTML comments -- blindness leak")
-    for tell in ("@bind", "@todo", "@figure", "load-bearing"):
+    for tell in ("@bind", "@todo", "@figure", *tells):
         if tell in bundle:
             raise AssertionError(
                 f"bundle contains project marginalia {tell!r} -- blindness leak"
@@ -413,12 +426,14 @@ def cmd_build(argv: list[str]) -> int:
             print(f"--only {only!r} matched no chapter", file=sys.stderr)
             return 2
     bundle = build_bundle(all_chapters)  # always the WHOLE book for grounding
-    assert_blind(bundle)
+    policy = current_project().data("book.variant_policy", {})
+    assert_blind(bundle, tuple(policy.get("blind_tells", ())))
 
     out_dir = out_dir or (current_project().root / "variants" / kind)
     raw_dir = out_dir / "_raw"
     print(
-        f"variant build: {kind}  ({len(chapters)} chapter(s), model={model}, par={par})"
+        f"variant build: {kind}  ({len(chapters)} chapter(s), "
+        f"model={model or 'unset'}, par={par})"
     )
     print(f"  bundle: {len(bundle.split())} words, blindness check OK")
     print(f"  raw drafts -> {raw_dir}")
@@ -430,6 +445,13 @@ def cmd_build(argv: list[str]) -> int:
             )
         print("dry run: no claude -p launched.")
         return 0
+    if model is None:
+        print(
+            "no model selected: pass --model, or set default_model in the file "
+            "book.variant_policy names.",
+            file=sys.stderr,
+        )
+        return 2
     if not _have_claude():
         print(
             "`claude` not found on PATH; cannot run the blind drafters.",
@@ -463,17 +485,18 @@ def cmd_build(argv: list[str]) -> int:
 
     print(f"\n{len(chapters) - fails}/{len(chapters)} drafts written to {raw_dir}")
     print(
-        "next (operator, per sops/variant-common.md): analyze each raw draft against "
-        "docs/canon/_map.md, then compose the final .qmd + _quarto.yml."
+        "next (operator): the analyze and compose steps in "
+        f"{_rel(_settings().SOPS / 'variant-common.md')}. Composing the edition "
+        "is judgment, so the tool stops here."
     )
     return 1 if fails else 0
 
 
 USAGE = """usage: quirework book variant [KIND | build KIND [OPTIONS]]
 
-Derived editions of the book (young-reader, SWE, philosopher, ...). The
-canonical accessible text is always the master; a variant is generated from it,
-never the other way round.
+Derived editions of the book, one per audience or medium the project declares
+as a variant-KIND procedure. The canonical text is always the master; a variant
+is generated from it, never the other way round.
 
   quirework book variant                 list the kinds
   quirework book variant KIND            print that kind's operator playbook (SOP)
@@ -485,7 +508,8 @@ never the other way round.
 
 build options:
   --out DIR      output dir (default: variants/KIND/)
-  --model M      model for the per-chapter runs (default: opus)
+  --model M      model for the per-chapter runs (default: the variant
+                 policy's default_model)
   --par N        how many chapters to run in parallel (default: 5)
   --only SUBSTR  restrict to chapters whose slug contains SUBSTR
   --timeout S    per-chapter timeout in seconds (default: 600)
