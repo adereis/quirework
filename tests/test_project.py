@@ -183,13 +183,58 @@ def test_a_generic_font_family_is_not_a_missing_typeface(tmp_path):
     )
     settings = {"book": {"figures": "plates"}}
     with project_scope(Project.from_settings(tmp_path, settings)):
-        assert fonts._family_in_figures() == []
+        assert fonts._stacks_in_figures() == []
     (figures / "kettle.svg").write_text(
         '<svg xmlns="http://www.w3.org/2000/svg"><text font-family="Spectral,serif">'
         "steam</text></svg>"
     )
     with project_scope(Project.from_settings(tmp_path, settings)):
-        assert fonts._family_in_figures() == ["Spectral"]
+        assert fonts._stacks_in_figures() == [("Spectral",)]
+
+
+def test_a_fallback_chain_is_read_as_a_chain(tmp_path):
+    """A stack asks for its first family and says what to do without it.
+
+    Reading only the first name turns a deliberate fallback into a hard
+    dependency, and refuses to render on a machine that has every alternative
+    the author named.
+    """
+    figures = tmp_path / "plates"
+    figures.mkdir()
+    (figures / "kettle.svg").write_text(
+        '<svg xmlns="http://www.w3.org/2000/svg"><text '
+        "font-family=\"Nothing Installed Here, Liberation Serif, serif\">"
+        "steam</text></svg>"
+    )
+    (figures / "whistle.svg").write_text(
+        '<svg xmlns="http://www.w3.org/2000/svg"><text font-family="Second Plate">'
+        "steam</text></svg>"
+    )
+    settings = {"book": {"figures": "plates"}}
+    with project_scope(Project.from_settings(tmp_path, settings)):
+        stacks = fonts._stacks_in_figures()
+        assert stacks == [
+            ("Nothing Installed Here", "Liberation Serif"),
+            ("Second Plate",),
+        ]
+        assert fonts.available(stacks[0], "rsvg")
+        assert not fonts.available(stacks[1], "rsvg")
+
+
+def test_a_format_the_reader_letters_needs_nothing_installed(tmp_path):
+    """HTML and EPUB ship the SVG; the browser resolves its fonts, not this machine."""
+    figures = tmp_path / "plates"
+    figures.mkdir()
+    (figures / "kettle.svg").write_text(
+        '<svg xmlns="http://www.w3.org/2000/svg"><text font-family="Second Plate">'
+        "steam</text></svg>"
+    )
+    settings = {"book": {"figures": "plates"}}
+    with project_scope(Project.from_settings(tmp_path, settings)):
+        assert fonts.missing(["html"]) == []
+        assert fonts.missing(["epub", "html"]) == []
+        assert fonts.missing(["pdf"]) == [(("Second Plate",), "rsvg")]
+        assert fonts.missing() == [(("Second Plate",), "rsvg")]
 
 
 def test_the_spec_is_named_by_configuration_not_by_convention(tmp_path):

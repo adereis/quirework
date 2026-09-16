@@ -418,26 +418,9 @@ def main(argv: list[str] | None = None) -> int:
         )
         return 127
 
-    # Fonts are refused rather than warned about, and the asymmetry with every
-    # other advisory in this project is deliberate. A missing font does not
-    # fail: Typst takes the next family in the stack and rsvg substitutes, so
-    # the render SUCCEEDS and hands back a whole, plausible book set in the
-    # wrong face, with every gate green. There is no later step that catches
-    # it, and a warning scrolls past in a build log. `--any-font` is the way
-    # through for anyone who means it.
-    if "--any-font" in argv:
+    any_font = "--any-font" in argv
+    if any_font:
         argv.remove("--any-font")  # consumed here; never reaches quarto
-    else:
-        from quirework.book import fonts as _fonts
-
-        if _fonts.missing():
-            _fonts.report(as_check=False)
-            print(
-                "  Refusing to render in a substituted face. Install them, or "
-                "pass --any-font\n  to render anyway.",
-                file=sys.stderr,
-            )
-            return 3
 
     requested, passthru = split_to(argv)
     declared = book_formats()
@@ -457,6 +440,31 @@ def main(argv: list[str] | None = None) -> int:
                 file=sys.stderr,
             )
             return 2
+    # Fonts are refused rather than warned about, and the asymmetry with every
+    # other advisory in this project is deliberate. A missing font does not
+    # fail: Typst takes the next family in the stack and rsvg substitutes, so
+    # the render SUCCEEDS and hands back a whole, plausible book set in the
+    # wrong face, with every gate green. There is no later step that catches
+    # it, and a warning scrolls past in a build log. `--any-font` is the way
+    # through for anyone who means it.
+    #
+    # The check runs after the formats are known, because only the formats
+    # typeset or rasterized here depend on this machine's fonts. An HTML or
+    # EPUB build ships the SVG as SVG and the reader's software letters it, so
+    # refusing that render answers a question about a computer this one cannot
+    # see.
+    if not any_font:
+        from quirework.book import fonts as _fonts
+
+        if _fonts.missing(requested or declared):
+            _fonts.report(as_check=False)
+            print(
+                "  Refusing to render in a substituted face. Install them, or "
+                "pass --any-font\n  to render anyway.",
+                file=sys.stderr,
+            )
+            return 3
+
     screen, printed, less = partition_formats(requested)
     if not screen and not printed and not less:
         print(

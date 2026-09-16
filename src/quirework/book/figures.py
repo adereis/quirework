@@ -67,7 +67,18 @@ GRAY_GALLERY = f"{GALLERY}-gray"
 # generated gray, for inspection
 RASTER_W = 1920  # 2x the 960px viewBox
 
-_EMBED = re.compile(rf"\]\({GALLERY}/([A-Za-z0-9][A-Za-z0-9_-]*)\.svg\)")
+# One definition of what a figure embed looks like, with its caption, its name
+# and its optional attribute block. It lives here because this module owns the
+# gallery, and `fignumbers` reads the same pattern rather than writing a second
+# one: when the two disagreed, a caption wrapped across two lines matched here
+# and not there, so the figure passed this check and then failed the numbering
+# cross-check with "the book numbers 0". DOTALL is what admits the wrapped
+# caption; the length bound keeps a stray "![" from swallowing a page.
+EMBED = re.compile(
+    rf"!\[(?P<cap>.{{0,500}}?)\]\({GALLERY}/(?P<name>[A-Za-z0-9][A-Za-z0-9_-]*)\.svg\)"
+    r"(?P<attrs>\{[^}]*\})?",
+    re.DOTALL,
+)
 _COMMENT = re.compile(r"<!--.*?-->", re.DOTALL)
 
 
@@ -114,7 +125,7 @@ def embedded_names(canonical: Path | None = None) -> set[str]:
     names: set[str] = set()
     for qmd in sorted(canonical.glob("*.qmd")):
         prose = _COMMENT.sub("", qmd.read_text(encoding="utf-8"))
-        names.update(_EMBED.findall(prose))
+        names.update(m.group("name") for m in EMBED.finditer(prose))
     return names
 
 

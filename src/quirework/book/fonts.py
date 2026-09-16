@@ -117,30 +117,56 @@ CSS_GENERIC = {
 }
 
 
-def _family_in_figures() -> list[str]:
-    """The family the illustrations are lettered in, from the SVGs themselves."""
+_FONT_FAMILY = re.compile(r'font-family\s*[=:]\s*"?([^";]+)"?')
+
+
+def _stacks_in_figures() -> list[tuple[str, ...]]:
+    """Every font stack the illustrations letter in, from the SVGs themselves.
+
+    A stack is what the author wrote: `Georgia, 'Times New Roman', serif` asks
+    for Georgia and says what to do without it. Reading only the first name
+    refused to render on a machine that had every fallback, which turns a
+    deliberate fallback chain into a hard dependency on one face. Reading only
+    the first *figure* was the other half: a second plate lettered in another
+    family was never checked at all.
+    """
+    stacks: dict[tuple[str, ...], None] = {}
     for svg in sorted(_settings().ILLUSTRATIONS.glob("*.svg")):
-        m = re.search(r'font-family="\'?([^",\']+)', svg.read_text(encoding="utf-8"))
-        if m and m.group(1).strip().lower() not in CSS_GENERIC:
-            return [m.group(1)]
-    return []
+        for match in _FONT_FAMILY.finditer(svg.read_text(encoding="utf-8")):
+            names = tuple(
+                name
+                for name in (
+                    part.strip().strip("'\"") for part in match.group(1).split(",")
+                )
+                if name and name.lower() not in CSS_GENERIC
+            )
+            if names:
+                stacks.setdefault(names, None)
+    return list(stacks)
 
 
-def required() -> list[tuple[str, str]]:
-    """(family, consumer) for everything the build needs, in the order asked."""
-    seen: dict[str, str] = {}
+def required() -> list[tuple[tuple[str, ...], str]]:
+    """(font stack, consumer) for everything the build needs, in the order asked.
+
+    A stack is satisfied by any one of its families. The template's stacks are
+    the exception and are carried one family wide on purpose: there the first
+    name is the face the book is set in, and rendering in its fallback is the
+    silent substitution this module exists to refuse.
+    """
+    seen: dict[tuple[str, ...], str] = {}
     for fam in _families_in_template():
-        seen.setdefault(fam, "typst")
-    for fam in _family_in_figures():
-        seen.setdefault(fam, "rsvg")
+        seen.setdefault((fam,), "typst")
+    for stack in _stacks_in_figures():
+        seen.setdefault(stack, "rsvg")
     return list(seen.items())
 
 
-def available(family: str, consumer: str) -> bool:
-    """Whether `consumer` will actually find `family` on this machine."""
-    if consumer == "typst" and family in TYPST_BUNDLED:
-        return True
-    return installed(family)
+def available(stack: tuple[str, ...], consumer: str) -> bool:
+    """Whether `consumer` will find any family in `stack` on this machine."""
+    return any(
+        (consumer == "typst" and family in TYPST_BUNDLED) or installed(family)
+        for family in stack
+    )
 
 
 def installed(family: str) -> bool:
@@ -162,12 +188,34 @@ def installed(family: str) -> bool:
     return family.lower() in got.lower()
 
 
-def missing() -> list[tuple[str, str]]:
-    return [(f, c) for f, c in required() if not available(f, c)]
+# Which build step resolves a typeface, by output format. A format absent here
+# resolves its fonts on the reader's machine rather than this one: the SVG in
+# an HTML page or an EPUB is lettered by the browser or the reading system, so
+# refusing to render it here answers a question about somebody else's computer.
+# Only the formats rasterized or typeset at build time depend on what is
+# installed now.
+FORMAT_CONSUMERS = {"pdf": ("typst", "rsvg"), "docx": ("rsvg",)}
+
+
+def missing(formats=None) -> list[tuple[tuple[str, ...], str]]:
+    """Unsatisfied requirements, for the formats about to be rendered.
+
+    Passing no formats asks about every consumer, which is what
+    `quirework book fonts` reports.
+    """
+    if formats is None:
+        wanted = None
+    else:
+        wanted = {c for f in formats for c in FORMAT_CONSUMERS.get(f, ())}
+    return [
+        (stack, consumer)
+        for stack, consumer in required()
+        if (wanted is None or consumer in wanted) and not available(stack, consumer)
+    ]
 
 
 def install_hint(families: list[str]) -> str:  # noqa: D401
-    known = [FEDORA_PACKAGES[f] for f in families if f in FEDORA_PACKAGES]
+    known = sorted({FEDORA_PACKAGES[f] for f in families if f in FEDORA_PACKAGES})
     if not known:
         return (
             "  Install the families above from your distribution or from the foundry."
@@ -180,6 +228,17 @@ def install_hint(families: list[str]) -> str:  # noqa: D401
     )
 
 
+def _shown(stack: tuple[str, ...], consumer: str) -> str:
+    """One requirement, naming the family that will actually be used."""
+    for family in stack:
+        if consumer == "typst" and family in TYPST_BUNDLED:
+            return f"{family} (bundled with typst)"
+        if installed(family):
+            head = f"{family} ({consumer})"
+            return head if family == stack[0] else f"{head}, standing in for {stack[0]}"
+    return f"{' or '.join(stack)} ({consumer})"
+
+
 def report(as_check: bool) -> int:
     fams = required()
     if not fams:
@@ -187,25 +246,25 @@ def report(as_check: bool) -> int:
         return 0
     absent = missing()
     if not absent:
-        shown = ", ".join(
-            f"{f} ({'bundled with typst' if c == 'typst' and f in TYPST_BUNDLED else c})"
-            for f, c in fams
-        )
+        shown = ", ".join(_shown(stack, consumer) for stack, consumer in fams)
         print(f"fonts OK ({len(fams)} required: {shown})")
         return 0
     print(
         f"\n✗ fonts: {len(absent)} required family/families not installed:",
         file=sys.stderr,
     )
-    for f, c in absent:
-        print(f"    {f}   (needed by {c})", file=sys.stderr)
+    for stack, c in absent:
+        print(f"    {' or '.join(stack)}   (needed by {c})", file=sys.stderr)
     print(
         "  Nothing will fail loudly without them: Typst takes the next family "
         "in the\n  stack and rsvg substitutes, so the book renders whole and "
         "in the wrong face.",
         file=sys.stderr,
     )
-    print(install_hint([f for f, _ in absent]), file=sys.stderr)
+    print(
+        install_hint([family for stack, _ in absent for family in stack]),
+        file=sys.stderr,
+    )
     return 1 if as_check else 0
 
 
@@ -213,9 +272,8 @@ def main(argv: list[str] | None = None) -> int:
     ap = argparse.ArgumentParser(
         prog="quirework book fonts",
         description="The typefaces the build needs, and whether they are "
-        "installed. Read from the files that name them "
-        "(docs/typst-show.typ and the figure SVGs), never "
-        "declared twice.",
+        "installed. Read from the files that already name them, the Typst "
+        "template and the figure sources, never declared twice.",
         epilog="Exit 1 with --check if a family is missing. Fonts fail "
         "silently by substitution, which is why the render refuses "
         "rather than warns.",

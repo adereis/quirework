@@ -65,13 +65,11 @@ _TAG = re.compile(r"<[^>]+>")
 _FIGCAPTION = re.compile(
     r"<figcaption[^>]*>(.*?)</figcaption>", re.DOTALL | re.IGNORECASE
 )
-# An embed, with its caption and its optional attribute block. The `#fig-` id in
-# that block is what makes Quarto number a figure, so its presence is what says
-# whether this embed is expected to carry a label in the artifacts.
-_EMBED = re.compile(
-    rf"!\[(?P<cap>.*?)\]\({_figures.GALLERY}/[A-Za-z0-9][A-Za-z0-9_-]*\.svg\)"
-    r"(?P<attrs>\{[^}]*\})?"
-)
+# An embed, with its caption and its optional attribute block, from the module
+# that owns the gallery. The `#fig-` id in that block is what makes Quarto
+# number a figure, so its presence is what says whether this embed is expected
+# to carry a label in the artifacts.
+_EMBED = _figures.EMBED
 _FIGID = re.compile(r"#fig-[A-Za-z0-9][A-Za-z0-9_-]*")
 _COMMENT = re.compile(r"<!--.*?-->", re.DOTALL)
 

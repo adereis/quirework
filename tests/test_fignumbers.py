@@ -180,3 +180,24 @@ def test_pdf_reader_reports_a_missing_pdftotext(tmp_path, monkeypatch):
     monkeypatch.setattr(fn.shutil, "which", lambda _: None)
     with pytest.raises(FileNotFoundError, match="poppler"):
         fn.from_pdf(tmp_path / "b.pdf")
+
+
+def test_a_caption_wrapped_across_lines_is_still_one_embed():
+    """The gallery check and the numbering check must see the same embeds.
+
+    They did not: the numbering matcher could not cross a line break, so a
+    wrapped caption passed `figures --check` and then failed the cross-check
+    with "the book numbers 0 figures", pointing at the render rather than at
+    the caption.
+    """
+    from quirework.book import figures, fignumbers
+
+    wrapped = (
+        "![The sidecar carries the marks, and the bike\n"
+        "still runs without it.](illustrations/sidecar.svg)"
+        "{#fig-sidecar fig-alt=\"A motorcycle with a sidecar.\"}\n"
+    )
+    found = list(figures.EMBED.finditer(wrapped))
+    assert [m.group("name") for m in found] == ["sidecar"]
+    assert fignumbers._FIGID.search(found[0].group("attrs"))
+    assert "still runs without it." in found[0].group("cap")
