@@ -104,9 +104,24 @@ session has one, which is per-user, created 0700 and emptied at logout,
 and otherwise a `tempfile` directory honoring `$TMPDIR`. The verbatim
 human-input compilation defaults there because it is private and is
 rebuilt in seconds; `provenance.human_input` keeps it somewhere instead.
-A project that wants its own cache collected can declare a rule in
-`~/.config/user-tmpfiles.d/`, which `systemd-tmpfiles-clean.timer`
-applies in the user session.
+
+To have the cache collected rather than grow, install the bundled
+`systemd-tmpfiles` rule. `systemd-tmpfiles-clean.timer` runs daily in
+the user session and applies it; nothing else has to run.
+
+```bash
+quirework config template tmpfiles \
+  --out ~/.config/user-tmpfiles.d/quirework.conf
+systemd-tmpfiles --user --clean   # apply now instead of waiting
+```
+
+It removes entries under the cache directory that have gone untouched
+for 30 days, leaving anything a current project still reads. It creates
+nothing, so it is inert until Quirework has cached something, and it
+never touches the state directory, where run records live. A
+distribution package installs the same file as
+`/usr/share/user-tmpfiles.d/quirework.conf`, which a user's own copy in
+`~/.config` overrides.
 
 ## Project policy and extensions
 
@@ -148,10 +163,10 @@ build output stays inside the configured build tree.
 ## Annotated templates
 
 `quirework config template project` prints a commented project template.
-Use `template run` for a tiny model plan or `template terminology` for
-an advisory word policy. Add `--out PATH` to create a new file; an
-existing file is never overwritten. Every template is bundled in the
-wheel.
+Use `template run` for a tiny model plan, `template terminology` for an
+advisory word policy, or `template tmpfiles` for the cache-cleanup rule
+above. Add `--out PATH` to create a new file; an existing file is never
+overwritten. Every template is bundled in the wheel.
 
 Run plans accept TOML or JSON. Preparation still freezes canonical JSON
 records, so saved runs and their integrity checks retain their format.

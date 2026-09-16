@@ -205,9 +205,17 @@ def main(argv=None):
                 from importlib.resources import files
                 from pathlib import Path
 
+                # Not every template is TOML: the cache-cleanup rule is a
+                # systemd-tmpfiles drop-in and has to keep that extension.
+                names = {
+                    "project": "project.toml",
+                    "run": "run.toml",
+                    "terminology": "terminology.toml",
+                    "tmpfiles": "tmpfiles.conf",
+                }
                 p.add_argument(
                     "kind",
-                    choices=("project", "run", "terminology"),
+                    choices=tuple(names),
                     nargs="?",
                     default="project",
                 )
@@ -217,7 +225,7 @@ def main(argv=None):
                 options = p.parse_args(selected.arguments)
                 text = (
                     files("quirework")
-                    .joinpath("templates", options.kind + ".toml")
+                    .joinpath("templates", names[options.kind])
                     .read_text(encoding="utf-8")
                 )
                 if options.out is not None:

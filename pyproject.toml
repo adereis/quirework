@@ -29,4 +29,4 @@ addopts = "-q"
 markers = ["live: invokes a paid provider; requires explicit authorization"]
 
 [tool.setuptools.package-data]
-quirework = ["templates/*.toml"]
+quirework = ["templates/*.toml", "templates/*.conf"]

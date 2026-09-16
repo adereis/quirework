@@ -333,6 +333,26 @@ def test_bundled_templates_are_commented_and_parseable():
         assert tomllib.loads(text)
 
 
+def test_the_cache_cleanup_rule_is_a_tmpfiles_line_systemd_accepts():
+    """A drop-in systemd rejects is worse than none, so check its shape here."""
+    from importlib.resources import files
+
+    text = files("quirework").joinpath("templates", "tmpfiles.conf").read_text()
+    lines = [ln for ln in text.splitlines() if ln.strip() and not ln.startswith("#")]
+    assert len(lines) == 1
+    kind, path, mode, user, group, age = lines[0].split()
+    # `e` never creates the directory, so the rule is inert until something is
+    # cached; `d` would make one on every timer run.
+    assert kind == "e"
+    # %C is the XDG cache directory under `systemd-tmpfiles --user`.
+    assert path == "%C/quirework"
+    assert (mode, user, group) == ("-", "-", "-")
+    assert age.endswith("d") and int(age[:-1]) > 0
+    # Run records are evidence and live under the state directory, whose
+    # specifier is %S. No rule in this file may ever reach them.
+    assert "%S" not in text
+
+
 def test_template_command_does_not_overwrite_configuration(tmp_path, capsys):
     from quirework.cli import main
 
