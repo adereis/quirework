@@ -1,0 +1,13 @@
+# Example advisory terminology policy. Point text.terminology at this file.
+
+# Pairs of project-relative directory and filename glob to inspect.
+scope_glob = [["manuscript", "*.qmd"]]
+# Explicit exceptions are path suffix, nearby text, and rationale triples.
+allow = []
+# Basenames in a different register can be excluded deliberately.
+exclude_names = ["sources.qmd"]
+
+# Each regular expression maps to a plain alternative. These findings
+# invite judgment; the tool never replaces a word automatically.
+[terms]
+"utili[sz]e" = "use"

@@ -1,0 +1,7 @@
+# Copy to .envrc and run direnv allow.
+if [ ! -d .venv ]; then
+  python3 -m venv --system-site-packages .venv
+  .venv/bin/python -m pip install -e '.[dev]'
+fi
+PATH_add .venv/bin
+export VIRTUAL_ENV="$PWD/.venv"

@@ -1,0 +1,309 @@
+"""Different books share an installation without sharing configuration."""
+
+import json
+from concurrent.futures import ThreadPoolExecutor
+from pathlib import Path
+
+import pytest
+from quirework.project import (
+    ConfigurationError,
+    Project,
+    current_project,
+    project_scope,
+    submit,
+)
+from quirework.book import chapters, graybuild
+from quirework.sops import catalog, personas
+
+
+def book(root, slug):
+    source = root / "manuscript/sections"
+    source.mkdir(parents=True)
+    (source / f"{slug}.qmd").write_text(
+        f"# {slug.title()} {{#sec-{slug}}}\n\nA small fictional scene.\n"
+    )
+    (source.parent / "_quarto.yml").write_text(
+        f"book:\n  chapters:\n    - sections/{slug}.qmd\nformat:\n  html: default\n"
+    )
+    (root / "quirework.toml").write_text(
+        'schema = 1\n[book]\nsource = "manuscript"\nchapters = "manuscript/sections"\n'
+    )
+    return Project.load(root)
+
+
+def test_different_layout_and_no_private_corpus(tmp_path):
+    project = book(tmp_path / "novel", "arrival")
+    with project_scope(project):
+        assert [c.slug for c in chapters.registry()] == ["arrival"]
+        assert chapters._options().RETIRED_TOKENS == {}
+        assert not (project.root / "private").exists()
+
+
+def test_local_override_paths_are_relative_to_their_file(tmp_path, monkeypatch):
+    project = book(tmp_path / "novel", "arrival")
+    (project.root / "quirework.local.toml").write_text('[runs]\nstore = "local-runs"\n')
+    monkeypatch.chdir(tmp_path)
+    configured = Project.load(project.root)
+    assert configured.state_root == project.root / "local-runs"
+    assert configured.origins["runs.store"].endswith("quirework.local.toml")
+
+
+def test_project_selection_is_restored_after_errors(tmp_path):
+    a, b = book(tmp_path / "a", "arrival"), book(tmp_path / "b", "departure")
+    with project_scope(a):
+        with pytest.raises(RuntimeError):
+            with project_scope(b):
+                assert current_project() is b
+                raise RuntimeError("fictitious failure")
+        assert current_project() is a
+
+
+def test_parallel_projects_have_separate_paths_and_policy(tmp_path):
+    a, b = book(tmp_path / "a", "arrival"), book(tmp_path / "b", "departure")
+
+    def read():
+        return current_project().root, [c.slug for c in chapters.registry()]
+
+    with ThreadPoolExecutor(max_workers=2) as pool:
+        with project_scope(a):
+            one = submit(pool, read)
+        with project_scope(b):
+            two = submit(pool, read)
+        assert one.result() == (a.root, ["arrival"])
+        assert two.result() == (b.root, ["departure"])
+    assert a.cache_root != b.cache_root
+    assert a.state_root != b.state_root
+    assert a.account_state("agy") == b.account_state("agy")
+
+
+def test_unconfigured_corpus_is_distinct_from_missing_corpus(tmp_path):
+    empty = Project.from_settings(tmp_path, {})
+    with pytest.raises(ConfigurationError, match="not configured"):
+        empty.require("provenance")
+    configured = Project.from_settings(
+        tmp_path, {"provenance": {"enabled": True, "root": "missing"}}
+    )
+    with pytest.raises(ConfigurationError, match="missing"):
+        configured.require("provenance")
+
+
+def test_unknown_configuration_section_is_rejected(tmp_path):
+    (tmp_path / "quirework.toml").write_text(
+        "schema = 1\n[provnance]\nenabled = true\n"
+    )
+    with pytest.raises(ConfigurationError, match="unknown sections"):
+        Project.load(tmp_path)
+
+
+def test_custom_persona_directory_and_no_implicit_book_identity(tmp_path):
+    directory = tmp_path / "profiles"
+    directory.mkdir()
+    profile = dict(
+        schema_version=1,
+        id="reader",
+        revision=1,
+        label="Reader",
+        description="A fictional test perspective",
+        tags=["reader"],
+        prompt="Explain what is clear.",
+    )
+    (directory / "reader.json").write_text(json.dumps(profile))
+    project = Project.from_settings(tmp_path, {"sops": {"personas": "profiles"}})
+    with project_scope(project):
+        resolved = personas.resolve("reader")
+        assert resolved["profile"] == profile
+        assert personas._options().DEFAULT is None
+
+
+def test_procedure_catalog_uses_configured_directory(tmp_path):
+    directory = tmp_path / "procedures"
+    directory.mkdir()
+    (directory / "read.md").write_text(
+        "# Read a note\n\n<!-- @skill: Read a supplied note and report what is clear. -->\n\nRead only the supplied note.\n"
+    )
+    data = {
+        "version": 1,
+        "families": [{"id": "read", "label": "Read", "question": "What is clear?"}],
+        "entries": {
+            "read": {
+                "family": "read",
+                "kind": "procedure",
+                "requires": [],
+                "mechanics": [],
+                "followups": [],
+                "note": "",
+            }
+        },
+    }
+    (directory / "index.json").write_text(json.dumps(data))
+    project = Project.from_settings(
+        tmp_path, {"sops": {"root": "procedures", "catalog": "procedures/index.json"}}
+    )
+    with project_scope(project):
+        assert catalog.load()["entries"] == data["entries"]
+        assert catalog.reading_order(data["entries"], "read") == ["read"]
+
+
+def test_generic_grayscale_has_no_book_palette(tmp_path):
+    project = Project.from_settings(tmp_path, {})
+    with project_scope(project):
+        output = graybuild.to_gray_svg(
+            '<svg xmlns="http://www.w3.org/2000/svg"><rect fill="#ff0000"/></svg>'
+        )
+        assert "#4c4c4c" in output
+        assert graybuild.non_gray_hexes(output) == set()
+
+
+def test_external_corpus_uses_declared_format_and_curation(tmp_path):
+    from quirework.provenance.sources import (
+        accepted_files,
+        kind_of_path,
+        source_reference,
+    )
+
+    directory = tmp_path / "external" / "coding"
+    directory.mkdir(parents=True)
+    source = directory / "sample.jsonl"
+    source.write_text("{}\n")
+    project = Project.from_settings(
+        tmp_path / "book",
+        {
+            "provenance": {
+                "root": str(directory.parent),
+                "codex_sessions": str(directory),
+                "curation": "presence",
+            }
+        },
+    )
+    assert accepted_files(directory, ".jsonl", project) == [source]
+    assert kind_of_path(source, project) == "codex"
+    assert source_reference(source, project) == source
+
+
+def test_redaction_policy_changes_have_different_cache_identities(tmp_path):
+    from quirework.provenance.ccfilter import policy_version, redact
+
+    first = Project.from_settings(
+        tmp_path / "a", {"provenance": {"redaction_markers": ["Example Labs"]}}
+    )
+    second = Project.from_settings(
+        tmp_path / "b", {"provenance": {"redaction_markers": ["Fictional Institute"]}}
+    )
+    with project_scope(first):
+        one = policy_version("example-v1")
+        assert "Example Labs" not in redact("Work at Example Labs")
+    with project_scope(second):
+        assert one != policy_version("example-v1")
+        assert redact("Work at Example Labs") == "Work at Example Labs"
+
+
+def test_review_archives_do_not_leak_between_projects(tmp_path):
+    from quirework.provenance.ccfilter import redpen_index
+
+    projects = []
+    for name in ("a", "b"):
+        directory = tmp_path / name
+        directory.mkdir()
+        (directory / "round.md").write_text(f"source-docx: {name}.docx\n")
+        projects.append(
+            Project.from_settings(
+                tmp_path / ("project-" + name),
+                {"provenance": {"redpen": str(directory)}},
+            )
+        )
+    with project_scope(projects[0]):
+        assert set(redpen_index()) == {"a.docx"}
+    with project_scope(projects[1]):
+        assert set(redpen_index()) == {"b.docx"}
+
+
+def test_no_tools_codex_session_uses_documented_prompt_control(tmp_path):
+    from quirework.providers.harness import command
+    from quirework.runs.engine import policy
+
+    config = {"harness": "codex", "model": "fixture-model", "effort": "low"}
+    args, _, _ = command(
+        config,
+        policy({"system_prompt": "A small test prompt."}),
+        "start",
+        "fixture",
+        "Reply briefly.",
+        [],
+        [],
+    )
+    assert any(value.startswith("model_instructions_file=") for value in args)
+    assert "features.shell_tool=false" in args
+    assert "features.apps=false" in args
+    assert not any(value.startswith("base_instructions=") for value in args)
+
+
+def test_bundled_templates_are_commented_and_parseable():
+    from importlib.resources import files
+    import tomllib
+
+    for name in ("project", "run", "terminology"):
+        text = files("quirework").joinpath("templates", name + ".toml").read_text()
+        assert text.startswith("# ")
+        assert sum(line.startswith("#") for line in text.splitlines()) >= 5
+        assert tomllib.loads(text)
+
+
+def test_template_command_does_not_overwrite_configuration(tmp_path, capsys):
+    from quirework.cli import main
+
+    target = tmp_path / "quirework.toml"
+    assert main(["config", "template", "project", "--out", str(target)]) == 0
+    original = target.read_bytes()
+    assert main(["config", "template", "project", "--out", str(target)]) == 2
+    assert target.read_bytes() == original
+
+
+def test_commented_run_plan_freezes_without_comments(tmp_path):
+    from importlib.resources import files
+    from quirework.runs.engine import prepare, Run
+
+    plan = tmp_path / "plan.toml"
+    plan.write_text(files("quirework").joinpath("templates", "run.toml").read_text())
+    record = tmp_path / "record"
+    prepare(plan, record, resolve=False)
+    run = Run(record)
+    assert run.verify()
+    turn = run.seats["reader"]["turns"][0]
+    assert (
+        turn["prompt"]
+        == "A fictional note says the lantern is green. Reply only with the color."
+    )
+    assert "Preparation freezes" not in turn["prompt"]
+
+
+def test_policy_loader_reads_inline_commented_toml(tmp_path):
+    path = tmp_path / "terms.toml"
+    path.write_text(
+        '# Deliberate advisory rules.\n[terms]\n"utilize" = "use" # A plain alternative.\n'
+    )
+    project = Project.from_settings(tmp_path, {"text": {"terminology": "terms.toml"}})
+    assert project.data("text.terminology") == {"terms": {"utilize": "use"}}
+
+
+def test_policy_snapshot_is_local_and_callers_cannot_mutate_it(tmp_path):
+    path = tmp_path / "policy.toml"
+    path.write_text('value = "first"\n')
+    project = Project.from_settings(tmp_path, {"text": {"terminology": "policy.toml"}})
+    value = project.data("text.terminology")
+    value["value"] = "caller change"
+    path.write_text('value = "second"\n')
+    assert project.data("text.terminology") == {"value": "first"}
+    next_operation = Project.from_settings(
+        tmp_path, {"text": {"terminology": "policy.toml"}}
+    )
+    assert next_operation.data("text.terminology") == {"value": "second"}
+
+
+def test_book_without_legacy_aliases_can_check_metadata(tmp_path):
+    directory = tmp_path / "docs/canon/_marks"
+    directory.mkdir(parents=True)
+    (directory / "arrival.md").write_text("# Arrival\n\nA neutral note.\n")
+    project = Project.from_settings(tmp_path, {})
+    with project_scope(project):
+        unresolved, retired, pointers = chapters.scan_layers(known={"arrival"})
+        assert not unresolved and not retired and not pointers

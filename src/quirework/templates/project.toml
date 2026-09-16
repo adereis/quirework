@@ -1,0 +1,52 @@
+# Copy to quirework.toml at the root of a book project.
+# Paths are relative to this file; local overrides go in the ignored
+# quirework.local.toml. Quirework never locates a book from its install.
+
+# Version of the configuration schema.
+schema = 1
+
+[project]
+# A display name for reports and configuration inspection.
+name = "Example Book"
+
+[book]
+# Contains _quarto.yml and the live manuscript sources.
+source = "manuscript"
+# The chapter directory inside source; change to match your layout.
+chapters = "manuscript/sections"
+# Authoritative SVG assets used to materialize render galleries.
+figures = "manuscript/sections/illustrations"
+# Generated output only. Keep this directory out of Git.
+build = "build"
+# Optional semantic register if your book uses annotation bindings.
+# spec = "manuscript/sections/_framework.md"
+# Optional project terminology and formatting policy.
+# chapter_policy = "config/chapters.toml"
+
+[sops]
+# Project-owned procedures and their required-reading catalog.
+root = "procedures"
+catalog = "procedures/catalog.json"
+# Perspectives and questions are separate, independently versioned data.
+personas = "profiles"
+instruments = "questions"
+# The prefix belongs to the book, not to the installed tool.
+skill_prefix = "example-"
+
+[provenance]
+# A book can publish and run model plans without a private corpus.
+enabled = false
+# Uncomment after selecting an existing corpus. Standard runtime
+# subdirectories are derived from this root unless overridden.
+# root = "private/provenance"
+# Use tracked for Git-curated sources. Presence explicitly accepts the
+# files already in an external corpus, so review that choice first.
+# curation = "tracked"
+# Private redaction rules protect blind analyst copies, not primary data.
+# redaction_policy = "private/redactions.toml"
+
+[runs]
+# Omit to use a separate directory for this project in the XDG state tree.
+# store = "~/private/example-book-runs"
+# Reviewed output may live with the book; raw sessions stay private.
+reviews = "analysis/reviews"

@@ -1,0 +1,32 @@
+[project]
+name = "quirework"
+version = "0.1.0"
+description = "A modular book-writing and research companion"
+requires-python = ">=3.11"
+license = {text = "MIT"}
+dependencies = []
+
+[project.optional-dependencies]
+capture = ["websocket-client>=1.6"]
+book = ["quarto-cli>=1.5", "pypdf>=4"]
+semantic = ["numpy>=1.24", "fastembed>=0.4"]
+test = ["pytest>=8"]
+dev = ["quirework[capture,book,semantic,test]"]
+
+[project.scripts]
+quirework = "quirework.cli:main"
+
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-q"
+markers = ["live: invokes a paid provider; requires explicit authorization"]
+
+[tool.setuptools.package-data]
+quirework = ["templates/*.toml"]

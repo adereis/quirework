@@ -1,0 +1,15 @@
+.venv/
+.envrc
+.env
+*.egg-info/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+build/
+dist/
+.coverage
+quirework.local.toml
+.quirework/
+*.rollout.jsonl
+
+.ruff_cache/

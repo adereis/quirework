@@ -1,0 +1,1387 @@
+"""Prepare, execute, recover and inspect explicitly designed model runs.
+
+The operator chooses questions, scope, delivery and acceptance. This controller
+only performs the declared turns, in order, preserving their evidence.
+"""
+
+import argparse
+import hashlib
+import json
+import os
+import shutil
+import signal
+import subprocess
+import sys
+import tempfile
+import time
+import uuid
+from collections import Counter
+from concurrent.futures import ThreadPoolExecutor
+from pathlib import Path
+
+from quirework.providers import blind
+from quirework.providers import quota
+from quirework.providers import models as workshop_drivers
+from quirework.sops import personas
+from quirework.project import current_project
+from quirework.delivery import artifacts
+from quirework.providers import harness
+from quirework.sops import instruments
+from quirework.runs.storage import digest
+from quirework.runs.storage import hashes
+from quirework.runs.storage import identifier
+from quirework.runs.storage import lock
+from quirework.runs.storage import process_identity
+from quirework.runs.storage import read
+from quirework.runs.storage import relative
+from quirework.runs.storage import slot
+from quirework.runs.storage import write
+
+SCHEMA = 1
+# Waiting out a provider's own reset is the default, because the alternative
+# is losing a long read to a limit that clears itself.
+WAIT_QUOTA_DEFAULT = 21600
+POLICY = dict(
+    tools="none",
+    system_prompt=None,
+    filesystem="enforced",
+    allow_compaction=False,
+    # Left unset here and filled at preparation with the resolved model's own
+    # ceiling (see resolve_window). A hardcoded number goes stale silently:
+    # the previous 1,000,000 outlived the ceiling it was written for and only
+    # looked right because the client clamps. Callers that build a policy
+    # without preparing one still get plain numbers, never a sentinel.
+    context_window=None,
+    minimum_context_window=0,
+    read_roots=[],
+)
+# The provider serves a share of the ceiling, and rounds it. Assert we were
+# given essentially the whole window, not the much smaller session default,
+# without failing a run over a rounding change.
+WINDOW_TOLERANCE = 0.99
+# Claude publishes no catalog. Its CLI accepts an auto-compact window up to
+# this, which is also the largest window its current models carry.
+CLAUDE_MAX_WINDOW = 1_000_000
+
+
+def order(seats):
+    """The order seats run in: spend order, with every fork after its parent.
+
+    Two constraints, and they cannot conflict. A fork needs an idle completed
+    parent, so the topological rule is absolute and is enforced by the walk
+    below. Within what that allows, the walk visits seats in the order
+    `quota.spend_order` gives -- one cheap seat, then the premium seat, then
+    the rest -- so a run that has declared its tiers finds a broken assignment
+    on its cheapest seat and meets the quota wall on a replaceable one. A plan
+    that declares no tiers is unaffected and keeps its declared order.
+    """
+    by_id = {s["id"]: s for s in seats}
+    done, active, result = set(), set(), []
+
+    def visit(name):
+        if name in active:
+            raise ValueError("cycle in seat parents")
+        if name in done:
+            return
+        active.add(name)
+        parent = by_id[name].get("parent")
+        if parent:
+            if parent["seat"] not in by_id:
+                raise ValueError("unknown parent seat")
+            source = by_id[parent["seat"]]
+            if parent["after"] != source["turns"][-1]["id"]:
+                raise ValueError("fork boundary must be the declared last parent turn")
+            if source["mode"] != "auto":
+                raise ValueError("external history cannot supply a native fork")
+            if not personas.same_perspective(
+                source.get("persona"), by_id[name].get("persona")
+            ):
+                raise ValueError("a different persona requires a fresh seat")
+            if (
+                source["config"] != by_id[name]["config"]
+                or source["policy"] != by_id[name]["policy"]
+            ):
+                raise ValueError(
+                    "a fork must retain the parent model and execution policy"
+                )
+            visit(parent["seat"])
+        active.remove(name)
+        done.add(name)
+        result.append(name)
+
+    for seat in quota.spend_order(seats):
+        visit(seat["id"])
+    return result
+
+
+def policy(value):
+    if not isinstance(value, dict) or set(value) - set(POLICY):
+        raise ValueError(f"policy fields: {sorted(POLICY)}")
+    p = dict(POLICY, **value)
+    if p["tools"] not in ("none", "read", "write", "research") or p[
+        "filesystem"
+    ] not in ("enforced", "audited"):
+        raise ValueError("invalid tools/filesystem policy")
+    if p["system_prompt"] is not None and not isinstance(p["system_prompt"], str):
+        raise ValueError("system_prompt must be text or null")
+    if type(p["allow_compaction"]) is not bool:
+        raise ValueError("allow_compaction must be boolean")
+    for key in ("context_window", "minimum_context_window"):
+        if p[key] is not None and (type(p[key]) is not int or p[key] < 0):
+            raise ValueError(f"{key} must be a nonnegative integer")
+    if not isinstance(p["read_roots"], list):
+        raise ValueError("read_roots must be a list of explicit directory paths")
+    p["read_roots"] = [
+        str(Path(x).expanduser().resolve(strict=True)) for x in p["read_roots"]
+    ]
+    for root in p["read_roots"]:
+        if Path(root) in (Path("/"), Path.home()) or not Path(root).is_dir():
+            raise ValueError(
+                "read_roots must name specific directories, not the entire home or filesystem"
+            )
+    return p
+
+
+def resolve_window(p, config):
+    """Turn a "max" window request into this model's actual ceiling.
+
+    Done at preparation, where the model is resolved and the catalog is
+    already in hand, so the frozen record states a concrete number and the
+    run can be audited against it later.
+    """
+    ceiling = (
+        config.get("max_context_window")
+        or config.get("context_window")
+        or (CLAUDE_MAX_WINDOW if config["harness"] == "claude" else None)
+    )
+    if p["context_window"] is None:
+        p["context_window"] = ceiling
+    if not p["minimum_context_window"]:
+        # Only Codex reports an effective window per turn. Asserting a
+        # minimum where no receipt can evidence it would fail every run, so
+        # Claude and agy rely on the compaction guard instead -- an asymmetry
+        # in what the providers publish, not a weaker standard.
+        percent = config.get("effective_context_window_percent") or 100
+        p["minimum_context_window"] = (
+            int(ceiling * percent / 100 * WINDOW_TOLERANCE)
+            if ceiling and config["harness"] == "codex"
+            else 0
+        )
+    return p
+
+
+def freeze_executor(destination):
+    """Freeze the generic executor and its resolved project settings."""
+    package = Path(__file__).resolve().parents[1]
+    target = destination / "executor/src/quirework"
+    needed = {
+        "__init__.py",
+        "project.py",
+        "sops/__init__.py",
+        "sops/personas.py",
+        "sops/instruments.py",
+    }
+    for folder in ("runs", "providers", "delivery"):
+        needed.update(
+            str(p.relative_to(package)) for p in (package / folder).rglob("*.py")
+        )
+    for rel in sorted(needed):
+        source = package / rel
+        if source.is_symlink():
+            raise ValueError("symlink in executor source")
+        dest = target / rel
+        dest.parent.mkdir(parents=True, exist_ok=True)
+        shutil.copyfile(source, dest)
+    write(destination / "executor/project.json", current_project().describe())
+    return hashes(destination / "executor")
+
+
+def prepare(plan_path, destination, *, resolve=True):
+    plan_path = Path(plan_path).resolve()
+    destination = Path(destination).expanduser().resolve()
+    raw = read(plan_path)
+    if set(raw) - {"title", "source", "seats", "metadata"}:
+        raise ValueError("plan fields: title, source, seats, metadata")
+    if not isinstance(raw.get("seats"), list) or not raw["seats"]:
+        raise ValueError("declare at least one seat")
+    if destination.exists():
+        raise ValueError("destination exists; inspect or resume it, do not replace it")
+    # Records contain raw sessions. Inside a checkout they belong in build/.
+    if destination.is_relative_to(
+        current_project().root
+    ) and not destination.is_relative_to(current_project().path("book.build", "build")):
+        raise ValueError("raw run records belong outside the checkout or under build/")
+    destination.parent.mkdir(parents=True, exist_ok=True)
+    temporary = Path(tempfile.mkdtemp(prefix=".prepare-", dir=destination.parent))
+    try:
+        seats = []
+        names = set()
+        material_cache = {}
+        for supplied in raw["seats"]:
+            if set(supplied) - {
+                "id",
+                "harness",
+                "model",
+                "effort",
+                "policy",
+                "turns",
+                "library",
+                "parent",
+                "instrument",
+                "mode",
+                "metadata",
+                "persona",
+                "scope",
+                "exposure",
+                "tier",
+            }:
+                raise ValueError("unknown seat field")
+            name = identifier(supplied["id"])
+            if name in names:
+                raise ValueError("duplicate seat id")
+            names.add(name)
+            tier = supplied.get("tier", "standard")
+            if tier not in quota.TIERS:
+                raise ValueError(f"seat tier must be one of {quota.TIERS}")
+            config = {k: supplied[k] for k in ("harness", "model", "effort")}
+            mode = supplied.get("mode", "auto")
+            if mode not in ("auto", "external"):
+                raise ValueError("seat mode must be auto or external")
+            if resolve and mode == "auto":
+                config = workshop_drivers.resolve(
+                    config["harness"], config["model"], config["effort"]
+                )
+            p = resolve_window(policy(supplied.get("policy", {})), config)
+            instrument = (
+                instruments.load(supplied["instrument"])
+                if supplied.get("instrument")
+                else None
+            )
+            # A literal prompt is a complete supplied assignment. Never infer
+            # a second role for it. Higher-level SOP helpers select profiles.
+            default_profile = (
+                (instrument or {}).get("default_persona")
+                if (supplied.get("turns") and "prompt" not in supplied["turns"][0])
+                else None
+            )
+            reference = supplied.get("persona", default_profile)
+            persona = personas.resolve(reference) if reference is not None else None
+            scope = supplied.get(
+                "scope", (instrument or {}).get("default_scope", "artifact")
+            )
+            if scope not in ("book", "artifact", "passage", "changes"):
+                raise ValueError("scope must be book, artifact, passage or changes")
+            exposure = supplied.get(
+                "exposure", "project" if p["read_roots"] else "packet"
+            )
+            if exposure not in ("packet", "project") or bool(p["read_roots"]) != (
+                exposure == "project"
+            ):
+                raise ValueError(
+                    "project exposure requires project read roots, and conversely"
+                )
+            turns = []
+            labels = set()
+            if not supplied.get("turns"):
+                raise ValueError("seat must declare turns")
+            for index, turn in enumerate(supplied["turns"]):
+                if set(turn) - {
+                    "id",
+                    "prompt",
+                    "ask",
+                    "materials",
+                    "headings",
+                    "outputs",
+                    "allow_unchanged_outputs",
+                    "min_bytes",
+                    "metadata",
+                    "addenda",
+                }:
+                    raise ValueError("unknown turn field")
+                label = identifier(turn["id"])
+                if label in labels:
+                    raise ValueError("duplicate turn id")
+                labels.add(label)
+                prompt, headings = instruments.prompt(
+                    turn, instrument, persona=persona, first=index == 0, scope=scope
+                )
+                default_min = (
+                    instrument["prompts"][turn["ask"]].get("min_bytes", 1)
+                    if instrument and "ask" in turn and "prompt" not in turn
+                    else 1
+                )
+                min_bytes = turn.get("min_bytes", default_min)
+                if type(min_bytes) is not int or min_bytes < 1:
+                    raise ValueError("min_bytes must be a positive integer")
+                if not isinstance(headings, list) or any(
+                    not isinstance(h, str) for h in headings
+                ):
+                    raise ValueError("headings must be strings")
+                outputs = turn.get("outputs", [])
+                if type(turn.get("allow_unchanged_outputs", False)) is not bool:
+                    raise ValueError("allow_unchanged_outputs must be boolean")
+                if not isinstance(outputs, list):
+                    raise ValueError("outputs must be a list")
+                for output in outputs:
+                    if relative(output).parts[0] != "drafts":
+                        raise ValueError("model-written outputs must be under drafts/")
+                if outputs and p["tools"] != "write":
+                    raise ValueError("declared output files require tools=write")
+                frozen = temporary / "inputs" / name / f"turn-{index:03d}"
+                items = artifacts.prepare(
+                    turn.get("materials", []), plan_path.parent, frozen, material_cache
+                )
+                turns.append(
+                    dict(
+                        id=label,
+                        prompt=prompt,
+                        headings=headings,
+                        min_bytes=min_bytes,
+                        outputs=outputs,
+                        materials=items,
+                        allow_unchanged_outputs=turn.get(
+                            "allow_unchanged_outputs", False
+                        ),
+                        directory=str(frozen.relative_to(temporary)),
+                        metadata=turn.get("metadata", {}),
+                        prompt_sha256=hashlib.sha256(prompt.encode()).hexdigest(),
+                        prompt_source={
+                            "kind": "literal" if "prompt" in turn else "instrument",
+                            "ask": turn.get("ask") if "prompt" not in turn else None,
+                            "addenda": turn.get("addenda", []),
+                        },
+                    )
+                )
+            library = artifacts.prepare(
+                supplied.get("library", []),
+                plan_path.parent,
+                temporary / "inputs" / name / "library",
+                material_cache,
+            )
+            if library and p["tools"] == "none":
+                raise ValueError(
+                    "a reference library needs file tools; use turn text for no-tools delivery"
+                )
+            parent = supplied.get("parent")
+            if parent and (
+                not isinstance(parent, dict) or set(parent) != {"seat", "after"}
+            ):
+                raise ValueError("parent fields: seat, after")
+            if mode == "auto":
+                harness.validate(config, p, turns, parent)
+            seats.append(
+                dict(
+                    id=name,
+                    config=config,
+                    policy=p,
+                    turns=turns,
+                    library=library,
+                    instrument=instrument,
+                    persona=persona,
+                    scope=scope,
+                    exposure=exposure,
+                    metadata=supplied.get("metadata", {}),
+                    mode=mode,
+                    tier=tier,
+                    parent=parent,
+                    runner_version=blind.runner_version(config["harness"])
+                    if resolve and mode == "auto"
+                    else None,
+                )
+            )
+        sequence = order(seats)
+        frozen = dict(
+            schema=SCHEMA,
+            id=str(uuid.uuid4()),
+            title=raw.get("title", "Model run"),
+            source=raw.get("source", {}),
+            metadata=raw.get("metadata", {}),
+            seats=seats,
+            order=sequence,
+            input_hashes=hashes(temporary / "inputs"),
+            executor_hashes=freeze_executor(temporary),
+            prepared_at=time.time(),
+        )
+        write(temporary / "plan.json", frozen)
+        write(
+            temporary / "plan-digest.json", {"sha256": digest(temporary / "plan.json")}
+        )
+        # Rename only into an absent path; do not merge with another preparation.
+        if destination.exists():
+            raise ValueError("destination was created by another operator")
+        temporary.rename(destination)
+        return dict(
+            record=str(destination),
+            seats=len(seats),
+            input_bytes=sum(
+                (destination / "inputs" / r).stat().st_size
+                for r in frozen["input_hashes"]
+            ),
+        )
+    except BaseException:
+        # Only this transaction's newly created private staging tree is removed.
+        shutil.rmtree(temporary)
+        raise
+
+
+class Run:
+    def __init__(self, root):
+        self.root = Path(root).expanduser().resolve()
+        self.plan = read(self.root / "plan.json")
+        if self.plan["schema"] != SCHEMA:
+            raise ValueError("unsupported run schema")
+        self.seats = {s["id"]: s for s in self.plan["seats"]}
+
+    def verify(self):
+        if (
+            digest(self.root / "plan.json")
+            != read(self.root / "plan-digest.json")["sha256"]
+        ):
+            raise RuntimeError("frozen plan changed")
+        if hashes(self.root / "inputs") != self.plan["input_hashes"]:
+            raise RuntimeError("frozen input changed")
+        if hashes(self.root / "executor") != self.plan["executor_hashes"]:
+            raise RuntimeError("frozen executor changed")
+        for seat in self.seats:
+            state = self.state(seat)
+            for label, attempts in state.get("retired_attempts", {}).items():
+                for attempt, retired in attempts.items():
+                    record = (
+                        self.root
+                        / "records"
+                        / seat
+                        / label
+                        / f"attempt-{int(attempt):03d}"
+                    )
+                    if hashes(record) != retired["record_hashes"]:
+                        raise RuntimeError("retired attempt evidence changed")
+            for label, done in state["done"].items():
+                record = self.record(seat, label)
+                if done["receipt"] != read(record / "receipt.json"):
+                    raise RuntimeError("banked state and receipt disagree")
+                if (
+                    done.get("record_hashes")
+                    and hashes(record) != done["record_hashes"]
+                ):
+                    raise RuntimeError(f"banked receipt changed: {seat}/{label}")
+                if hashes(record / "answers") != done["answer_hashes"]:
+                    raise RuntimeError(f"banked answer changed: {seat}/{label}")
+        return True
+
+    def state(self, seat):
+        path = self.root / "state" / f"{seat}.json"
+        return (
+            read(path)
+            if path.exists()
+            else dict(done={}, session_id=None, pending=None, attempts={})
+        )
+
+    def save(self, seat, state):
+        write(self.root / "state" / f"{seat}.json", state)
+
+    def record(self, seat, turn):
+        state = self.state(seat)
+        attempt = (
+            state["done"]
+            .get(turn, {})
+            .get("attempt", state.get("attempts", {}).get(turn, 0))
+        )
+        return self.root / "records" / seat / turn / f"attempt-{attempt:03d}"
+
+    def workspace(self, seat):
+        return self.root / "work" / seat / "seat"
+
+    def private(self, seat):
+        return (
+            blind.state_root(self.workspace(seat))
+            / self.seats[seat]["config"]["harness"]
+        )
+
+    def check_parent(self, seat):
+        parent = self.seats[seat].get("parent")
+        if not parent:
+            return
+        name = parent["seat"]
+        snap = self.root / "checkpoints" / name
+        state = self.state(name)
+        if state.get("pending") or not state.get("complete"):
+            raise RuntimeError("parent is not completed and idle")
+        expected = read(snap / "hashes.json")
+        if hashes(self.workspace(name)) != read(
+            snap / "workspace-hashes.json"
+        ) or hashes(snap / "workspace") != read(snap / "workspace-hashes.json"):
+            raise RuntimeError("parent workspace changed after checkpoint")
+        if hashes(self.private(name)) != expected or hashes(snap / "home") != expected:
+            raise RuntimeError("parent/checkpoint changed after branching")
+
+    def checkpoint(self, seat):
+        parent = self.seats[seat]["parent"]["seat"]
+        with lock(self.root / "locks" / f"checkpoint-{parent}.lock", wait=True):
+            snap = self.root / "checkpoints" / parent
+            if not snap.exists():
+                snap.parent.mkdir(parents=True, exist_ok=True)
+                temporary = Path(
+                    tempfile.mkdtemp(prefix=".checkpoint-", dir=snap.parent)
+                )
+                try:
+                    home_hashes = hashes(self.private(parent))
+                    work_hashes = hashes(self.workspace(parent))
+                    shutil.copytree(self.private(parent), temporary / "home")
+                    shutil.copytree(self.workspace(parent), temporary / "workspace")
+                    if (
+                        hashes(self.private(parent)) != home_hashes
+                        or hashes(temporary / "home") != home_hashes
+                        or hashes(self.workspace(parent)) != work_hashes
+                        or hashes(temporary / "workspace") != work_hashes
+                    ):
+                        raise RuntimeError("parent changed during checkpoint")
+                    write(temporary / "hashes.json", home_hashes)
+                    write(temporary / "workspace-hashes.json", work_hashes)
+                    temporary.rename(snap)
+                except BaseException:
+                    shutil.rmtree(temporary)
+                    raise
+            self.check_parent(seat)
+            target = self.workspace(seat).parent
+            if not target.exists():
+                temporary = Path(tempfile.mkdtemp(prefix=".branch-", dir=target.parent))
+                try:
+                    shutil.copytree(
+                        snap / "home",
+                        temporary
+                        / "seat.blind-state"
+                        / self.seats[seat]["config"]["harness"],
+                    )
+                    shutil.copytree(snap / "workspace", temporary / "seat")
+                    if hashes(
+                        temporary
+                        / "seat.blind-state"
+                        / self.seats[seat]["config"]["harness"]
+                    ) != read(snap / "hashes.json") or hashes(
+                        temporary / "seat"
+                    ) != read(snap / "workspace-hashes.json"):
+                        raise RuntimeError("incomplete child clone")
+                    temporary.rename(target)
+                except BaseException:
+                    shutil.rmtree(temporary)
+                    raise
+            elif not self.state(seat).get("session_id") and not self.state(seat).get(
+                "pending"
+            ):
+                if hashes(self.private(seat)) != read(snap / "hashes.json") or hashes(
+                    self.workspace(seat)
+                ) != read(snap / "workspace-hashes.json"):
+                    raise RuntimeError("unsubmitted child differs from its checkpoint")
+
+    def prefix_length(self, seat):
+        parent = self.seats[seat].get("parent")
+        if not parent:
+            return 0
+        name = parent["seat"]
+        return self.prefix_length(name) + len(self.seats[name]["turns"])
+
+    def stage(self, seat, index):
+        spec = self.seats[seat]
+        turn = spec["turns"][index]
+        work = self.workspace(seat)
+        (work / "drafts").mkdir(parents=True, exist_ok=True)
+        if spec["policy"].get("system_prompt") is not None:
+            (work / "system-prompt.md").write_text(spec["policy"]["system_prompt"])
+        directory = work / "materials" / f"turn-{self.prefix_length(seat) + index:03d}"
+        # Previous delivered files remain available, but future material and
+        # the operator plan never enter this filesystem. Inputs are read-only.
+        content, images, files = artifacts.stage(
+            turn["materials"],
+            self.root / turn["directory"],
+            directory,
+            harness.VIRTUAL / "materials" / directory.name,
+        )
+        library_note = ""
+        if spec["library"]:
+            _, _, library_files = artifacts.stage(
+                [dict(x, kind="file") for x in spec["library"]],
+                self.root / "inputs" / seat / "library",
+                work / "library" / f"set-{self.prefix_length(seat):03d}",
+                harness.VIRTUAL / "library" / f"set-{self.prefix_length(seat):03d}",
+            )
+            library_note = (
+                "\nOptional reference library (deliberately available now):\n"
+                + "\n".join(str(v) for _, v in library_files)
+            )
+        prompt = turn["prompt"] + content + library_note
+        if turn["outputs"]:
+            prompt += "\nSave the requested contribution at:\n" + "\n".join(
+                str(harness.VIRTUAL / relative(p)) for p in turn["outputs"]
+            )
+        return prompt, images, files
+
+    def expected_images(self, seat, through):
+        spec = self.seats[seat]
+        values = []
+        if spec.get("parent"):
+            parent = spec["parent"]["seat"]
+            values += self.expected_images(parent, len(self.seats[parent]["turns"]) - 1)
+        for turn in spec["turns"][: through + 1]:
+            values += [x["sha256"] for x in turn["materials"] if x["kind"] == "image"]
+        return values
+
+    def collect_turn(self, seat, index):
+        spec = self.seats[seat]
+        turn = spec["turns"][index]
+        state = self.state(seat)
+        pending = state["pending"]
+        record = self.record(seat, turn["id"])
+        if not pending or pending["turn"] != turn["id"]:
+            raise RuntimeError("no matching pending turn to collect")
+        if pending.get("pid") and process_identity(pending["pid"]) == pending.get(
+            "process_identity"
+        ):
+            raise RuntimeError("submitted process is still alive; do not resubmit")
+        receipt = harness.receipt(
+            spec["config"],
+            spec["policy"],
+            record,
+            self.private(seat),
+            state.get("served_model"),
+        )
+        sid = receipt["session_id"]
+        if pending["mode"] == "resume" and sid != state["session_id"]:
+            raise RuntimeError("resume created a different session")
+        if pending["mode"] == "fork":
+            if sid == pending["parent_id"] or sid in {
+                self.state(s).get("session_id") for s in self.seats
+            }:
+                raise RuntimeError("fork did not create a distinct session")
+            if (
+                spec["config"]["harness"] == "codex"
+                and receipt["forked_from"] != pending["parent_id"]
+            ):
+                raise RuntimeError("fork names the wrong parent")
+        answer = receipt.pop("answer")
+        if len(answer.encode()) < turn.get("min_bytes", 1):
+            raise RuntimeError("answer is shorter than the declared minimum")
+        headings = {
+            line.strip().replace("\u2019", "'")
+            for line in answer.splitlines()
+            if line.startswith("## ")
+        }
+        if any(h.replace("\u2019", "'") not in headings for h in turn["headings"]):
+            raise RuntimeError("required answer headings absent")
+        parent = spec.get("parent")
+        if parent and any(
+            done["receipt"].get("compaction_observed")
+            for done in self.state(parent["seat"])["done"].values()
+        ):
+            receipt["compaction_observed"] = True
+            receipt["compaction_inherited_from"] = parent["seat"]
+            receipt["compaction_policy_satisfied"] = spec["policy"]["allow_compaction"]
+            receipt.setdefault("red_flags", []).append(
+                "Compaction in inherited history: supervisor must review the run design."
+            )
+        if receipt.get("compaction_observed"):
+            receipt["history_images"] = None
+            receipt["additional_tool_images"] = None
+            receipt["image_history_assurance"] = "not certified after compaction"
+        elif (
+            spec["config"]["harness"] in ("codex", "claude")
+            and not spec["policy"]["allow_compaction"]
+        ):
+            expected = Counter(self.expected_images(seat, index))
+            observed = Counter(
+                harness.history_image_hashes(receipt["rollout"], self.private(seat))
+            )
+            if expected - observed or (
+                spec["policy"]["tools"] == "none" and expected != observed
+            ):
+                raise RuntimeError(
+                    "native image history differs from declared delivery"
+                )
+            receipt["history_images"] = sum(expected.values())
+            receipt["additional_tool_images"] = sum((observed - expected).values())
+        answers = record / "answers"
+        answers.mkdir(exist_ok=True)
+        target = answers / "answer.md"
+        body = answer + "\n"
+        if target.exists() and target.read_text() != body:
+            raise RuntimeError("refusing to replace an earlier answer")
+        target.write_text(body)
+        output_transitions = {}
+        for output in turn["outputs"]:
+            src = self.workspace(seat) / relative(output)
+            if src.is_symlink() or not src.is_file() or not src.stat().st_size:
+                raise RuntimeError(f"declared output is missing/empty: {output}")
+            if digest(src) == pending.get("outputs_before", {}).get(
+                output
+            ) and not turn.get("allow_unchanged_outputs", False):
+                raise RuntimeError(
+                    f"declared output was not changed by this turn: {output}"
+                )
+            previous = pending.get("outputs_before", {}).get(output)
+            output_transitions[output] = (
+                "unchanged-permitted"
+                if previous == digest(src)
+                else "created"
+                if previous is None
+                else "modified"
+            )
+            dest = answers / relative(output)
+            dest.parent.mkdir(parents=True, exist_ok=True)
+            if dest.exists() and digest(dest) != digest(src):
+                raise RuntimeError("refusing to replace collected output")
+            shutil.copyfile(src, dest)
+        # Native transcripts can grow on later turns; freeze each turn's copy.
+        shutil.copyfile(receipt["rollout"], record / "native.jsonl")
+        receipt["native_sha256"] = digest(record / "native.jsonl")
+        receipt["outputs"] = output_transitions
+        if (state.get("continuation") or {}).get("turn") == turn["id"]:
+            # Banked, so the turn is no longer mid-continuation. The receipt
+            # keeps the fact that it took one: an answer assembled across two
+            # submissions is still a valid answer, but it is not the same
+            # instrument as one delivered in a single unbroken turn, and the
+            # write-up has to be able to say so.
+            receipt["quota_continuation"] = state["continuation"]["scope"]
+            receipt.setdefault("red_flags", []).append(
+                "Turn continued after a provider quota limit; the answer spans "
+                "two submissions in one session."
+            )
+            state.pop("continuation")
+        write(record / "receipt.json", receipt)
+        if turn["id"] in state["done"]:
+            raise RuntimeError("duplicate banked turn")
+        state["done"][turn["id"]] = dict(
+            receipt=receipt,
+            answer_hashes=hashes(answers),
+            record_hashes=hashes(record),
+            attempt=state.get("attempts", {}).get(turn["id"], 0),
+        )
+        state.update(session_id=sid, served_model=receipt["model"], pending=None)
+        self.save(seat, state)
+        self.check_parent(seat)
+        if pending.get("exit_code") not in (None, 0):
+            raise RuntimeError(
+                "answer banked but process exited nonzero; inspect before continuing"
+            )
+        return receipt
+
+    def recover_quota(self, seat, turn_id, detail):
+        """Undo a refused turn so the session can simply be resumed."""
+        state = self.state(seat)
+        pending = state.get("pending") or {}
+        if pending.get("turn") != turn_id:
+            raise RuntimeError("quota recovery needs the pending turn")
+        rewind_sessions(pending.get("resume_point"))
+        retire_attempt(
+            self,
+            seat,
+            turn_id,
+            "refused for quota before the model ran; session rewound and "
+            f"the turn is resubmittable ({detail.get('scope') or 'quota'})",
+        )
+
+    def continue_after_quota(self, seat, turn_id, detail):
+        """Set an interrupted turn up to be continued in its own session.
+
+        The opposite recovery to the one above, and the difference is what the
+        provider did. Nothing was rewound, because there is real work in that
+        session: the model read, reasoned, called tools and may have written
+        files before the wall arrived. Replaying the turn would throw that
+        away and pay for it twice, so the next submission carries the
+        continuation notice instead of the turn's material and lands in the
+        same session.
+
+        The session id comes out of the event stream rather than a receipt,
+        because a stopped turn never produced one. Without it there is nothing
+        to resume and the operator is told so rather than handed a silent
+        restart.
+        """
+        state = self.state(seat)
+        pending = state.get("pending") or {}
+        if pending.get("turn") != turn_id:
+            raise RuntimeError("quota recovery needs the pending turn")
+        session = detail.get("session_id")
+        if not session:
+            raise RuntimeError(
+                "a quota limit interrupted this turn after the model ran, but "
+                "its event stream names no single session to continue; "
+                "inspect the record rather than restarting the turn"
+            )
+        if state.get("session_id") and state["session_id"] != session:
+            raise RuntimeError("interrupted turn names a different session")
+        # A fork interrupted on its first turn has already branched, so the
+        # recovered session is the branch and the continuation resumes it.
+        # The distinctness check `collect_turn` would have run on that turn
+        # therefore has to run here instead, or forking silently stops being
+        # checked for exactly the turns that needed recovering.
+        parent = self.seats[seat].get("parent")
+        if parent and not state.get("session_id"):
+            if session == self.state(parent["seat"])["session_id"]:
+                raise RuntimeError("fork did not create a distinct session")
+        state["session_id"] = session
+        # Carried so the resumed submission measures its declared outputs
+        # against where the TURN started, not against the half-written file
+        # the interrupted attempt left behind.
+        state["continuation"] = dict(
+            turn=turn_id,
+            session_id=session,
+            scope=detail.get("scope") or "quota",
+            outputs_before=pending.get("outputs_before", {}),
+        )
+        self.save(seat, state)
+        retire_attempt(
+            self,
+            seat,
+            turn_id,
+            "interrupted by a provider quota limit after the model ran; the "
+            f"session holds the partial work and is continued, not restarted "
+            f"({detail.get('scope') or 'quota'})",
+        )
+
+    def turn(self, seat, index, timeout, wait_quota=None):
+        """Perform one turn, absorbing a quota refusal by waiting it out."""
+        deadline = None if wait_quota is None else time.time() + wait_quota
+        while True:
+            try:
+                return self.attempt_turn(seat, index, timeout)
+            except QuotaPaused as paused:
+                turn_id = self.seats[seat]["turns"][index]["id"]
+                if paused.detail.get("phase") == "interrupted":
+                    self.continue_after_quota(seat, turn_id, paused.detail)
+                else:
+                    self.recover_quota(seat, turn_id, paused.detail)
+                delay = quota_delay(paused.detail)
+                # Recovery already left the seat resumable, so giving up here
+                # costs nothing but time: the next `run` continues the session.
+                if deadline is None or time.time() + delay > deadline:
+                    raise
+                time.sleep(delay)
+
+    def attempt_turn(self, seat, index, timeout):
+        self.verify()
+        spec = self.seats[seat]
+        turn = spec["turns"][index]
+        state = self.state(seat)
+        if turn["id"] in state["done"]:
+            return
+        if state["pending"]:
+            if state["pending"]["turn"] != turn["id"]:
+                raise RuntimeError("an unresolved turn blocks further reveals")
+            record = self.record(seat, turn["id"])
+            stop = harness.quota_stop(spec["config"]["harness"], record)
+            if stop:
+                # A record stalled by an earlier limit: recover it and re-offer
+                # the same turn instead of refusing every later reveal forever.
+                # Which recovery depends on whether the model ran, and `turn`
+                # reads the phase to decide.
+                raise QuotaPaused(stop)
+            if state["pending"].get("phase") == "not-submitted" or (
+                state["pending"].get("phase") == "launch-intent"
+                and not (record / "launch.json").exists()
+                and not (record / "events.jsonl").exists()
+            ):
+                retire_attempt(
+                    self, seat, turn["id"], "proved unsubmitted: launch record absent"
+                )
+                state = self.state(seat)
+        if state["pending"]:
+            if state["pending"]["turn"] != turn["id"]:
+                raise RuntimeError("an unresolved turn blocks further reveals")
+            return self.collect_turn(seat, index)
+        # A turn the quota cut in half is continued, never re-delivered. The
+        # material is already in the session and re-attaching it would both
+        # show the reader the same pages twice and break the image-history
+        # receipt, which counts what the session was actually shown.
+        continuation = state.get("continuation") or {}
+        resuming = continuation.get("turn") == turn["id"]
+        if resuming:
+            prompt, images, files = quota.continuation(), [], []
+        else:
+            prompt, images, files = self.stage(seat, index)
+        mode = (
+            "resume"
+            if state["session_id"]
+            else "fork"
+            if spec.get("parent")
+            else "start"
+        )
+        sid = state["session_id"] or (
+            self.state(spec["parent"]["seat"])["session_id"]
+            if mode == "fork"
+            else str(uuid.uuid4())
+        )
+        args, payload, rendered = harness.command(
+            spec["config"], spec["policy"], mode, sid, prompt, images, files
+        )
+        jail, env, _ = harness.launch_context(
+            spec["config"], spec["policy"], self.workspace(seat)
+        )
+        record = self.record(seat, turn["id"])
+        record.mkdir(parents=True, exist_ok=True)
+        if (record / "events.jsonl").exists():
+            raise RuntimeError(
+                "unbanked event file exists; reconcile it before submission"
+            )
+        (record / "prompt.txt").write_text(rendered)
+        request_sha = hashlib.sha256(payload + json.dumps(args).encode()).hexdigest()
+        state["pending"] = dict(
+            turn=turn["id"],
+            mode=mode,
+            parent_id=sid,
+            phase="launch-intent",
+            request_sha256=request_sha,
+            created_at=time.time(),
+            # Where the native session stood before this submission. A refused
+            # turn still appends its user message (and the refusal itself) to
+            # the session, so resuming without rewinding would show the reader
+            # a duplicate reveal and a quota notice in its own voice. Captured
+            # for every turn because the refusal is only visible afterwards.
+            resume_point=session_marks(
+                harness.session_paths(
+                    spec["config"]["harness"], self.private(seat), sid
+                )
+            ),
+            quota_continuation=continuation.get("scope") if resuming else None,
+            outputs_before=continuation["outputs_before"]
+            if resuming
+            else {
+                output: digest(self.workspace(seat) / relative(output))
+                for output in turn["outputs"]
+                if (self.workspace(seat) / relative(output)).is_file()
+            },
+        )
+        self.save(seat, state)
+        write(
+            record / "launch.json",
+            dict(
+                argv=args,
+                delivery=turn["materials"],
+                filesystem=harness.CAPABILITIES[spec["config"]["harness"]][
+                    "filesystem"
+                ],
+                read_roots=spec["policy"]["read_roots"],
+            ),
+        )
+        with (
+            (record / "events.jsonl").open("wb") as out,
+            (record / "stderr.log").open("wb") as err,
+        ):
+            try:
+                proc = subprocess.Popen(
+                    jail + args,
+                    stdin=subprocess.PIPE,
+                    stdout=out,
+                    stderr=err,
+                    env=env,
+                    cwd=self.root,
+                    start_new_session=True,
+                )
+            except OSError:
+                state["pending"]["phase"] = "not-submitted"
+                self.save(seat, state)
+                raise
+            state["pending"].update(
+                phase="process-started",
+                pid=proc.pid,
+                process_identity=process_identity(proc.pid),
+            )
+            self.save(seat, state)
+            try:
+                proc.communicate(payload, timeout=timeout)
+            except subprocess.TimeoutExpired:
+                os.killpg(proc.pid, signal.SIGTERM)
+                try:
+                    proc.wait(timeout=5)
+                except subprocess.TimeoutExpired:
+                    os.killpg(proc.pid, signal.SIGKILL)
+                    proc.wait()
+            state["pending"].update(phase="receipt-pending", exit_code=proc.returncode)
+            self.save(seat, state)
+        stop = harness.quota_stop(spec["config"]["harness"], record)
+        if stop:
+            raise QuotaPaused(stop)
+        # A client can exit before its final receipt flush. Re-read existing
+        # evidence, never issue a second first impression.
+        for attempt in range(10):
+            try:
+                return self.collect_turn(seat, index)
+            except (RuntimeError, json.JSONDecodeError) as exc:
+                current = self.state(seat)
+                if current.get("pending"):
+                    current["pending"]["last_error"] = str(exc)
+                    self.save(seat, current)
+                if attempt == 9 or self.state(seat)["pending"] is None:
+                    raise
+                time.sleep(1)
+
+    def run_seat(self, name, timeout=None, through=None, wait_quota=None):
+        with (
+            lock(self.root / "locks" / f"{name}.lock"),
+            slot(self.seats[name]["config"]["harness"]),
+        ):
+            spec = self.seats[name]
+            if spec["mode"] == "external":
+                return "awaiting-external"
+            if (
+                spec.get("runner_version")
+                and blind.runner_version(spec["config"]["harness"])
+                != spec["runner_version"]
+            ):
+                raise RuntimeError("installed harness changed since preparation")
+            if spec.get("parent"):
+                self.check_parent_ready(name)
+                self.checkpoint(name)
+            for index, turn in enumerate(spec["turns"]):
+                self.turn(name, index, timeout, wait_quota=wait_quota)
+                if through == turn["id"]:
+                    return "paused"
+            state = self.state(name)
+            state["complete"] = True
+            self.save(name, state)
+            if any(done["receipt"].get("red_flags") for done in state["done"].values()):
+                return "completed-with-red-flags"
+            return "completed"
+
+    def check_parent_ready(self, name):
+        parent = self.seats[name]["parent"]["seat"]
+        state = self.state(parent)
+        if not state.get("complete") or state["pending"]:
+            raise RuntimeError("parent has not completed; child was not submitted")
+
+    def run(self, selected=None, jobs=1, timeout=None, through=None, wait_quota=None):
+        if jobs < 1 or (timeout is not None and timeout <= 0):
+            raise ValueError("jobs and timeout must be positive")
+        names = selected or self.plan["order"]
+        if set(names) - set(self.seats):
+            raise ValueError("unknown selected seat")
+        if through and (
+            len(names) != 1
+            or through not in {t["id"] for t in self.seats[names[0]]["turns"]}
+        ):
+            raise ValueError("--through must name a turn of one selected seat")
+        results = {}
+        with lock(self.root / "run.lock"):
+            remaining = list(names)
+            while remaining:
+                ready = [
+                    n
+                    for n in remaining
+                    if not self.seats[n].get("parent")
+                    or self.state(self.seats[n]["parent"]["seat"]).get("complete")
+                ]
+                if not ready:
+                    for n in remaining:
+                        results[n] = "blocked by incomplete parent"
+                    break
+
+                def execute(n):
+                    try:
+                        return self.run_seat(n, timeout, through, wait_quota)
+                    except (
+                        ValueError,
+                        RuntimeError,
+                        OSError,
+                        subprocess.SubprocessError,
+                    ) as exc:
+                        return "stopped: " + str(exc)
+
+                with ThreadPoolExecutor(max_workers=jobs) as pool:
+                    for name, result in zip(ready, pool.map(execute, ready)):
+                        results[name] = result
+                remaining = [n for n in remaining if n not in ready]
+        return results
+
+    def inspect(self, *, prompts=False):
+        return dict(
+            id=self.plan["id"],
+            title=self.plan["title"],
+            seats={
+                name: dict(
+                    mode=s["mode"],
+                    model=s["config"]["model"],
+                    persona=personas.identity(s.get("persona")),
+                    instrument={k: s["instrument"].get(k) for k in ("id", "revision")}
+                    if s.get("instrument")
+                    else None,
+                    scope=s.get("scope"),
+                    exposure=s.get("exposure"),
+                    **(
+                        {
+                            "prompts": [
+                                {"id": t["id"], "prompt": t["prompt"]}
+                                for t in s["turns"]
+                            ]
+                        }
+                        if prompts
+                        else {}
+                    ),
+                    policy=s["policy"],
+                    completed_turns=len(self.state(name)["done"]),
+                    declared_turns=len(s["turns"]),
+                    complete=self.state(name).get("complete", False),
+                    pending=self.state(name)["pending"],
+                    red_flags=[
+                        flag
+                        for done in self.state(name)["done"].values()
+                        for flag in done["receipt"].get("red_flags", [])
+                    ],
+                )
+                for name, s in self.seats.items()
+            },
+        )
+
+    def export(self, destination, partial=False):
+        self.verify()
+        destination = Path(destination)
+        if destination.exists():
+            raise ValueError("export destination exists")
+        for name, spec in self.seats.items():
+            state = self.state(name)
+            # Seats are independent by design, so one seat stalled on a quota
+            # limit must not withhold the evidence of every seat that
+            # finished. `partial` says so explicitly and the receipt records
+            # each seat's completeness, so nothing is passed off as a whole
+            # read that is not one.
+            if not state.get("complete") and not partial:
+                raise RuntimeError(
+                    "cannot export an incomplete run as completed evidence; "
+                    "pass partial to release the seats that did finish"
+                )
+        destination.mkdir(parents=True)
+        public = dict(
+            id=self.plan["id"],
+            title=self.plan["title"],
+            source=self.plan["source"],
+            metadata=self.plan.get("metadata", {}),
+            seats={},
+        )
+        for name in self.seats:
+            spec = self.seats[name]
+            public["seats"][name] = {
+                "_assignment": {
+                    k: spec.get(k)
+                    for k in ("persona", "instrument", "scope", "exposure", "metadata")
+                }
+            }
+            public["seats"][name]["_assignment"]["turns"] = [
+                {
+                    "id": t["id"],
+                    "prompt": t["prompt"],
+                    "prompt_sha256": hashlib.sha256(t["prompt"].encode()).hexdigest(),
+                    "prompt_source": t.get("prompt_source"),
+                    "metadata": t.get("metadata", {}),
+                }
+                for t in spec["turns"]
+            ]
+            state = self.state(name)
+            # State an exported seat's completeness in the receipt itself, so
+            # a partial read can never be read later as a whole one.
+            public["seats"][name]["_completeness"] = dict(
+                declared_turns=len(self.seats[name]["turns"]),
+                answered_turns=len(state["done"]),
+                complete=bool(state.get("complete")),
+                pending=(state.get("pending") or {}).get("turn"),
+            )
+            for label, done in state["done"].items():
+                src = self.record(name, label) / "answers"
+                dest = destination / name / label
+                shutil.copytree(src, dest)
+                receipt = done["receipt"]
+                public["seats"][name][label] = {
+                    k: v for k, v in receipt.items() if k not in ("rollout", "notices")
+                }
+        write(destination / "receipt.json", public)
+        return str(destination)
+
+
+def frozen_dispatch(root, args):
+    # The bootstrap must not interpret mutable run-state semantics. That job
+    # belongs to the preserved executor, including when its schema predates us.
+    root = Path(root).expanduser().resolve()
+    plan = read(root / "plan.json")
+    if digest(root / "plan.json") != read(root / "plan-digest.json")["sha256"]:
+        raise RuntimeError("frozen plan changed")
+    executor = root / "executor"
+    if hashes(executor) != plan["executor_hashes"]:
+        raise RuntimeError("frozen executor changed")
+    if Path(__file__).resolve().is_relative_to(executor):
+        return None
+    env = os.environ.copy()
+    env["PYTHONPATH"] = str(executor / "src")
+    env["PYTHONDONTWRITEBYTECODE"] = "1"
+    if (executor / "src/quirework/runs/__main__.py").is_file():
+        module = "quirework.runs"
+    elif (executor / "src/mindwright/runs/__main__.py").is_file():
+        module = "mindwright.runs"
+        args = [
+            "run" if i == 0 and value == "start" else value
+            for i, value in enumerate(args)
+        ]
+    else:
+        raise RuntimeError("frozen executor has no supported entry point")
+    env.pop("QUIREWORK_PROJECT", None)
+    return subprocess.run(
+        [sys.executable, "-m", module, *args], cwd=executor, env=env
+    ).returncode
+
+
+def retire_attempt(run, seat, turn, reason):
+    state = run.state(seat)
+    record = run.record(seat, turn)
+    record.mkdir(parents=True, exist_ok=True)
+    write(record / "retirement.json", dict(reason=reason, retired_at=time.time()))
+    attempt = state.get("attempts", {}).get(turn, 0)
+    state.setdefault("retired_attempts", {}).setdefault(turn, {})[str(attempt)] = dict(
+        reason=reason, record_hashes=hashes(record)
+    )
+    state.setdefault("attempts", {})[turn] = attempt + 1
+    state["pending"] = None
+    run.save(seat, state)
+
+
+def session_marks(paths):
+    """Record each native session file's length and the digest of that prefix.
+
+    The pair is what makes a later rewind safe: length alone would truncate a
+    file the client had rewritten rather than appended to, and a digest alone
+    could not say where to cut.
+    """
+    marks = []
+    for path in paths:
+        data = path.read_bytes()
+        marks.append(
+            dict(
+                path=str(path),
+                size=len(data),
+                sha256=hashlib.sha256(data).hexdigest(),
+            )
+        )
+    return marks
+
+
+class QuotaPaused(RuntimeError):
+    """A provider account limit stopped a turn, in one of its two shapes.
+
+    Distinct from every other failure on purpose. A transport fault leaves it
+    unknown whether the request was served, so it may never be resubmitted. A
+    quota stop says which happened, and `detail["phase"]` carries it: a
+    *refused* turn produced nothing and can be rewound and sent again, while
+    an *interrupted* one banked real work in its session and is continued
+    there. Either way a long read survives a limit without losing the session,
+    which is the point.
+    """
+
+    def __init__(self, detail):
+        super().__init__(detail.get("detail") or "refused for quota")
+        self.detail = detail
+
+
+def quota_delay(detail, now=None):
+    """Seconds to wait before resubmitting, from the provider's own reset."""
+    now = time.time() if now is None else now
+    resets = detail.get("resets_at")
+    if isinstance(resets, (int, float)) and resets > now:
+        return min(resets - now + 30, 6 * 3600)
+    return 300
+
+
+def rewind_sessions(marks):
+    """Return each recorded session file to the state in `marks`.
+
+    Refuses unless the file still begins with exactly the bytes that were
+    there before, so this can only ever remove the refused turn's own
+    appended rows. A session that shrank, or whose prefix changed, is not
+    rewound: that is no longer a clean resume and the operator decides.
+    """
+    for mark in marks or []:
+        path = Path(mark["path"])
+        if not path.exists():
+            if mark["size"]:
+                raise RuntimeError(f"session file vanished: {path}")
+            continue
+        data = path.read_bytes()
+        if len(data) < mark["size"]:
+            raise RuntimeError(f"session file shrank; not a clean rewind: {path}")
+        prefix = data[: mark["size"]]
+        if hashlib.sha256(prefix).hexdigest() != mark["sha256"]:
+            raise RuntimeError(f"session prefix changed; not a clean rewind: {path}")
+        if len(data) == mark["size"]:
+            continue
+        with path.open("r+b") as handle:
+            handle.truncate(mark["size"])
+
+
+def retry(run, seat, turn):
+    """Retry only a terminal rejection that demonstrably produced no response."""
+    state = run.state(seat)
+    pending = state["pending"]
+    if not pending or pending["turn"] != turn:
+        raise ValueError(
+            "retry needs the pending turn; completed answers are immutable"
+        )
+    if pending.get("pid") and process_identity(pending["pid"]) == pending.get(
+        "process_identity"
+    ):
+        raise RuntimeError("submitted process is alive")
+    record = run.record(seat, turn)
+    if not harness.rejected_without_answer(
+        run.seats[seat]["config"]["harness"], record
+    ):
+        stop = harness.quota_stop(run.seats[seat]["config"]["harness"], record)
+        if stop and stop["phase"] == "interrupted":
+            raise RuntimeError(
+                "a quota limit interrupted this turn AFTER the model ran; it is "
+                "continued in its own session by `run`, not retried -- retrying "
+                "would discard the reading and reasoning the session still holds"
+            )
+        raise RuntimeError(
+            "submission/answer is unresolved or invalid; recover it or prepare a distinct new run"
+        )
+    retire_attempt(run, seat, turn, "terminal rejection without an answer")
+    return dict(
+        seat=seat,
+        turn=turn,
+        next_attempt=run.state(seat)["attempts"][turn],
+        submitted=False,
+    )
+
+
+def import_answer(run, seat, turn, answer_path, provenance):
+    spec = run.seats[seat]
+    if spec["mode"] != "external":
+        raise ValueError("manual imports require mode=external at preparation")
+    if set(provenance) != {"session_id", "model", "source"} or not all(
+        isinstance(v, str) and v.strip() for v in provenance.values()
+    ):
+        raise ValueError("provenance requires session_id, model and source text")
+    state = run.state(seat)
+    next_turn = next((t for t in spec["turns"] if t["id"] not in state["done"]), None)
+    if not next_turn or next_turn["id"] != turn:
+        raise ValueError(
+            "import must be the next undeclared answer; never replace an earlier one"
+        )
+    if state.get("session_id") and state["session_id"] != provenance["session_id"]:
+        raise ValueError("manual continuation changed session identity")
+    record = run.record(seat, turn)
+    answers = record / "answers"
+    answers.mkdir(parents=True)
+    source = Path(answer_path)
+    if source.is_symlink() or not source.is_file() or not source.stat().st_size:
+        raise ValueError("external answer must be a nonempty regular file")
+    shutil.copyfile(source, answers / "answer.md")
+    receipt = dict(
+        **provenance,
+        transport="external import",
+        verification="human attestation; native transport unverified",
+    )
+    write(record / "receipt.json", receipt)
+    state["done"][turn] = dict(
+        receipt=receipt,
+        answer_hashes=hashes(answers),
+        record_hashes=hashes(record),
+        attempt=0,
+    )
+    state.update(
+        session_id=provenance["session_id"],
+        complete=len(state["done"]) == len(spec["turns"]),
+    )
+    run.save(seat, state)
+    return receipt

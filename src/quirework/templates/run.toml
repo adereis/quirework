@@ -1,0 +1,30 @@
+# A deliberately tiny, single-turn model test. Preparation freezes this
+# plan but does not launch it. Starting it invokes the selected provider.
+
+# Human-readable purpose recorded with the run.
+title = "Read a fictional note"
+
+[[seats]]
+# Stable identity of this independent session within the run.
+id = "reader"
+# Native transport. Select a provider installed and configured locally.
+harness = "codex"
+# An explicit example of an inexpensive model, not an inferred default.
+model = "gpt-5.6-luna"
+# Low effort keeps this synthetic test small; real work chooses its own.
+effort = "low"
+
+[seats.policy]
+# No tool use is permitted in this assignment.
+tools = "none"
+# Require OS-enforced file isolation. Agy supports audited instead.
+filesystem = "enforced"
+# Replace the native base prompt to avoid unnecessary test overhead.
+# Supported by Codex and Claude; omit for providers without this feature.
+system_prompt = "Complete the small supplied task. Answer briefly."
+
+[[seats.turns]]
+# Turn order is explicit. A completed turn's answer is immutable.
+id = "one"
+# This is all the test material; no book or source repository is supplied.
+prompt = "A fictional note says the lantern is green. Reply only with the color."
