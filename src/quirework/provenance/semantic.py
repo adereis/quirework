@@ -52,8 +52,6 @@ import numpy as np
 from quirework.project import current_project
 from quirework.project import current_project
 from quirework.project import current_project
-from quirework.project import current_project
-from quirework.project import current_project
 
 
 # A turn is embedded in windows, not truncated. The long tail here is real --
@@ -96,6 +94,12 @@ class _FastEmbed:
     """ONNX runtime, no torch. The default: best quality per megabyte installed."""
 
     MODEL = "BAAI/bge-small-en-v1.5"
+    # fastembed's own default is 256, and the ONNX runtime sizes its arena from
+    # the largest batch it ever sees and then keeps it. A first full build of a
+    # few thousand windows took the process to 8.6 GB resident and was killed by
+    # the kernel on a 16 GB machine. The batch is a memory knob, not a quality
+    # one: the vectors are identical either way.
+    BATCH = int(os.environ.get("QUIREWORK_EMBED_BATCH", "32"))
 
     def __init__(self):
         from fastembed import TextEmbedding
@@ -104,7 +108,9 @@ class _FastEmbed:
         self.id = f"fastembed:{self.MODEL}"
 
     def encode(self, texts):
-        return np.asarray(list(self._m.embed(texts)), dtype=np.float32)
+        return np.asarray(
+            list(self._m.embed(texts, batch_size=self.BATCH)), dtype=np.float32
+        )
 
     def encode_query(self, text):
         # query_embed applies the model's own query prefix; using plain embed()
