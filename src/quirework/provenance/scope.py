@@ -31,8 +31,6 @@ import re
 import sys
 
 from quirework.project import current_project
-from quirework.project import current_project
-from quirework.project import current_project
 
 BOOK = "book"
 MAKING = "making"

@@ -50,8 +50,6 @@ import sys
 import numpy as np
 
 from quirework.project import current_project
-from quirework.project import current_project
-from quirework.project import current_project
 
 
 # A turn is embedded in windows, not truncated. The long tail here is real --

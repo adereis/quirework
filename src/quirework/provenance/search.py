@@ -37,10 +37,6 @@ import re
 import sys
 
 from quirework.project import current_project
-from quirework.project import current_project
-from quirework.project import current_project
-from quirework.project import current_project
-from quirework.project import current_project
 from quirework.provenance import humaninput as HI
 from quirework.provenance import catalog as CAT
 

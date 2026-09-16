@@ -90,7 +90,6 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 from quirework.project import current_project
-from quirework.project import current_project
 
 WORDS = re.compile(r"\S+")
 

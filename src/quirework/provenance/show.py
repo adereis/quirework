@@ -49,9 +49,6 @@ from datetime import datetime
 from pathlib import Path
 
 from quirework.project import current_project
-from quirework.project import current_project
-from quirework.project import current_project
-from quirework.project import current_project
 from quirework.provenance import ccfilter as FLT
 from quirework.provenance import codexfilter as CODEX_FLT
 from quirework.provenance import catalog as CAT

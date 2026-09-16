@@ -39,11 +39,6 @@ import sys
 
 from quirework.project import current_project
 from quirework.provenance.sources import source_reference
-from quirework.project import current_project
-from quirework.project import current_project
-from quirework.project import current_project
-from quirework.project import current_project
-from quirework.project import current_project
 from quirework.provenance import ccfilter as FLT
 from quirework.provenance import codexfilter as CODEX_FLT
 from quirework.provenance import coldread as CR

@@ -69,12 +69,6 @@ from pathlib import Path
 from quirework.project import current_project
 from quirework.provenance.sources import source_reference
 from quirework.provenance.sources import kind_of_path
-from quirework.project import current_project
-from quirework.project import current_project
-from quirework.project import current_project
-from quirework.project import current_project
-from quirework.project import current_project
-from quirework.project import current_project
 from quirework.providers.blind import BLIND_SETTINGS
 from quirework.providers.blind import NO_SETTING_SOURCES
 from quirework.providers.blind import MIN_TOOLS
