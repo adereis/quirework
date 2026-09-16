@@ -34,7 +34,6 @@ from __future__ import annotations
 import json
 import os
 import re
-import subprocess
 import sys
 
 from quirework.project import current_project
@@ -545,8 +544,18 @@ def render_md(index):
         "regenerated from the files on every import.",
         "A session is committed only after the keep/remove read, so tracked == curated-in;",
         "pending captures awaiting triage are absent by construction.",
-        "For the curated *narrative* of the most significant moments see",
-        "[`highlights.md`](./highlights.md) -- the ★ column marks rows that have an entry there.",
+        *(
+            [
+                "For the curated *narrative* of the most significant moments see",
+                "[`highlights.md`](./highlights.md) -- the ★ column marks rows that "
+                "have an entry there.",
+            ]
+            # A project that keeps no narrative beside the index should not be
+            # handed a link to a file it has never had, in a document generated
+            # for it. The star column is still filled in when the file exists.
+            if _settings().HIGHLIGHTS.exists()
+            else []
+        ),
         "",
         f"**{len(cc)}** Claude Code sessions · **{len(agy)}** Antigravity sessions · "
         f"**{len(codex)}** Codex sessions · **{len(web)}** web dialogues · "
