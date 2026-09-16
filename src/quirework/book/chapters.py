@@ -127,19 +127,44 @@ _STEM_LINE = re.compile(r"(?<![\w:-])(0[0-9][a-z]?[0-9]?|1[0-2]):(\d+)(?!\d*:)")
 _DATE_BEFORE = re.compile(r"\d{4}-\d{2}-\d{2}\s*\Z")
 
 
+def _default_layers() -> tuple[str, ...]:
+    """Where a project's metadata sidecars are, derived from its book source.
+
+    The sidecar directory's *name* is Quirework's convention
+    (``notes.MARKS_DIR``); its *position* belongs to the book. A literal
+    ``docs/**`` default therefore held only for a project that happened to name
+    its source directory ``docs``, and for every other project the glob matched
+    nothing at all. That is the worst available failure: a scan over zero files
+    reports no problems, so ``chapters --check`` passed by looking at nothing
+    and the author was told the metadata was consistent.
+
+    A source outside the project root cannot be expressed as a pattern relative
+    to it, so that case searches the project tree for the directory name rather
+    than silently matching nothing. Either way ``chapter_policy`` overrides it.
+    """
+    project = current_project()
+    source = project.path("book.source", "docs")
+    try:
+        relative = source.relative_to(project.root)
+    except ValueError:
+        return (f"**/{_notes.MARKS_DIR}/*.md",)
+    return (f"{relative}/**/{_notes.MARKS_DIR}/*.md",)
+
+
 def _options():
     """Read policy from the selected project for this operation."""
     from types import SimpleNamespace
 
+    default_layers = _default_layers()
     METADATA_LAYERS = tuple(
         current_project()
         .data("book.chapter_policy", {})
-        .get("metadata_layers", ("docs/**/_marks/*.md",))
+        .get("metadata_layers", default_layers)
     )
     IDENTITY_LAYERS = tuple(
         current_project()
         .data("book.chapter_policy", {})
-        .get("identity_layers", ("docs/**/_marks/*.md",))
+        .get("identity_layers", default_layers)
     )
     RETIRED_TOKENS: dict[str, str] = (
         current_project().data("book.chapter_policy", {}).get("retired_tokens", {})
