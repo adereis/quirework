@@ -93,3 +93,40 @@ def test_contains_is_false_for_nothing_at_all(tmp_path):
     roots = worktrees.checkouts(_repo(tmp_path))
     assert not worktrees.contains(roots, None)
     assert not worktrees.contains(roots, "")
+
+
+def test_a_project_at_a_checkout_root_sees_every_checkout(tmp_path):
+    main = _repo(tmp_path)
+    wt = _worktree(main, tmp_path, "wt-a")
+    assert worktrees.project_trees(main) == sorted([main, wt])
+
+
+def test_a_nested_project_sees_only_its_own_directories(tmp_path):
+    """An example book inside its tool's repo must not inherit the tool's sessions.
+
+    Both checkouts hold the book at the same relative position, so both of its
+    directories are in scope and neither checkout root is.
+    """
+    main = _repo(tmp_path)
+    wt = _worktree(main, tmp_path, "wt-a")
+    for checkout in (main, wt):
+        (checkout / "examples" / "demo-book").mkdir(parents=True)
+    book = main / "examples" / "demo-book"
+    trees = worktrees.project_trees(book)
+    assert trees == sorted([book, wt / "examples" / "demo-book"])
+    assert not worktrees.contains(trees, str(main / "src"))
+    assert worktrees.contains(trees, str(book / "manuscript"))
+
+
+def test_a_nested_project_absent_from_a_worktree_is_skipped(tmp_path):
+    main = _repo(tmp_path)
+    _worktree(main, tmp_path, "wt-a")
+    book = main / "examples" / "demo-book"
+    book.mkdir(parents=True)
+    assert worktrees.project_trees(book) == [book]
+
+
+def test_a_plain_directory_is_its_own_project_tree(tmp_path):
+    plain = tmp_path / "not-a-repo"
+    plain.mkdir()
+    assert worktrees.project_trees(plain) == [plain]

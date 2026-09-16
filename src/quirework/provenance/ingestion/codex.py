@@ -149,13 +149,13 @@ def system_subagent(meta: dict) -> str | None:
 
 
 def sweep(repo=None):
-    """Every saved rollout recorded as running in one of this repo's checkouts.
+    """Every saved rollout recorded as running in one of this project's trees.
 
     Returns ``(keep, system)``: the rollouts to capture, and the system-subagent
     rollouts deliberately left behind (returned rather than dropped so the run
     can say how many it skipped).
     """
-    roots = worktrees.checkouts(repo or current_project().root)
+    roots = worktrees.project_trees(repo or current_project().root)
     home = codex_home()
     keep, system = [], []
     for root in (home / "sessions", home / "archived_sessions"):

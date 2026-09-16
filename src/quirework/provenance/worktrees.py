@@ -117,6 +117,32 @@ def checkouts(start):
     return sorted(found) or [root]
 
 
+def project_trees(project_root):
+    """Every checkout's copy of the project directory itself.
+
+    `checkouts` answers "which trees is this repository checked out in", and
+    for a book that *is* its checkout that is also the answer to "which
+    directories are this project's sessions launched from". The two questions
+    come apart as soon as a project occupies a subdirectory of a larger
+    repository: an example book inside its own tool's repo would otherwise
+    inherit every session ever run on the tool, because they all recorded a
+    cwd inside the same checkout. Capture would report success and the corpus
+    would be somebody else's.
+
+    So this preserves the project's position inside its checkout and applies
+    it to all of them: a project at `<checkout>/examples/demo-book` yields
+    that subdirectory in each checkout that has one. A project at a checkout
+    root, which is the ordinary case, yields the checkout list unchanged.
+    """
+    root = Path(project_root).resolve()
+    trees = checkouts(root)
+    holder = next((c for c in trees if c == root or c in root.parents), None)
+    if holder is None or holder == root:
+        return trees
+    relative = root.relative_to(holder)
+    return sorted({c / relative for c in trees if (c / relative).is_dir()}) or [root]
+
+
 def contains(checkout_list, path):
     """Whether `path` is one of the checkouts or sits below one.
 

@@ -78,7 +78,7 @@ def main(argv=None):
         if removed_file.exists()
         else set()
     )
-    roots = worktrees.checkouts(project.root)
+    roots = worktrees.project_trees(project.root)
     counts = dict(
         new=0, replaced=0, unchanged=0, differ=0, curated=0, review=0, evals=0
     )

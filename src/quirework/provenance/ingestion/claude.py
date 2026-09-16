@@ -121,14 +121,18 @@ def encoded_project_dir(project_path: Path) -> Path:
 
 
 def sibling_session_dirs() -> list[Path]:
-    """Every Claude Code project dir Claude Code has ever used for this repo:
-    for each checkout of the repository (main plus every `git worktree`), that
-    checkout's own encoded dir plus one per subdirectory a session was launched
-    from (each gets its own encoded dir; see the module docstring). Matches by
-    prefix on each checkout's encoded name, so a session launched from any
-    depth under any checkout is found without enumerating paths in advance."""
+    """Every Claude Code project dir Claude Code has ever used for this book:
+    for each checkout of the repository (main plus every `git worktree`), the
+    project directory's own encoded dir plus one per subdirectory a session was
+    launched from (each gets its own encoded dir; see the module docstring).
+    Matches by prefix on the encoded name, so a session launched from any depth
+    under the project is found without enumerating paths in advance.
+
+    The roots come from `worktrees.project_trees`, not from the checkout list,
+    so a book occupying a subdirectory of a larger repository collects its own
+    sessions and not the surrounding repository's."""
     dirs = []
-    for checkout in worktrees.checkouts(current_project().root):
+    for checkout in worktrees.project_trees(current_project().root):
         root_dir = encoded_project_dir(checkout)
         parent = root_dir.parent
         if root_dir.is_dir():
@@ -245,7 +249,7 @@ def copy_if_changed(src: Path) -> bool:
 
 
 def belongs(path: Path, roots) -> bool:
-    """Whether a candidate transcript really ran in one of this repo's checkouts.
+    """Whether a candidate transcript really ran in one of this project's trees.
 
     The encoded directory name cannot answer this on its own (see the module
     docstring), so the recorded `cwd` decides. A transcript that records none is
@@ -293,7 +297,7 @@ def main(argv=None):
     # Verify the recorded cwd only for transcripts that would actually be
     # captured: on a settled corpus that is nothing, so the steady state stays
     # a stat and a header read per file rather than a read of all five hundred.
-    roots = worktrees.checkouts(current_project().root)
+    roots = worktrees.project_trees(current_project().root)
     foreign = unchanged = 0
     copied = []
     for p in sources:
