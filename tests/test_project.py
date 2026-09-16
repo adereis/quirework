@@ -1,6 +1,7 @@
 """Different books share an installation without sharing configuration."""
 
 import json
+import tempfile
 from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 
@@ -202,6 +203,30 @@ def test_the_spec_is_named_by_configuration_not_by_convention(tmp_path):
     with project_scope(Project.from_settings(tmp_path, settings)):
         assert notes._spec_name() == "_register.md"
         assert notes.spec_sections()[0][0] == "kettle-signal"
+
+
+def test_a_transient_artifact_does_not_land_in_the_cache(tmp_path, monkeypatch):
+    """Nothing collects ~/.cache, so a dump of private text must not go there."""
+    runtime = tmp_path / "runtime"
+    runtime.mkdir()
+    monkeypatch.setenv("XDG_RUNTIME_DIR", str(runtime))
+    project = Project.from_settings(tmp_path, {})
+    first = project.scratch_dir("human-input")
+    assert first.parent == runtime
+    assert first.stat().st_mode & 0o777 == 0o700
+    # One directory per process, so two commands in a run share it.
+    assert project.scratch_dir("human-input") == first
+    assert project.scratch_dir("other") != first
+    # With no runtime directory the fallback still creates a private one, at
+    # the temporary directory `tempfile` resolves (it caches that per process,
+    # hence the reset; a CLI run resolves it once and is unaffected).
+    monkeypatch.delenv("XDG_RUNTIME_DIR")
+    monkeypatch.setenv("TMPDIR", str(tmp_path / "elsewhere"))
+    (tmp_path / "elsewhere").mkdir()
+    monkeypatch.setattr(tempfile, "tempdir", None)
+    assert Project.from_settings(tmp_path, {}).scratch_dir("human-input").parent == (
+        tmp_path / "elsewhere"
+    )
 
 
 def test_generic_grayscale_has_no_book_palette(tmp_path):

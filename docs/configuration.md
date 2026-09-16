@@ -37,8 +37,8 @@ project's claims or vocabulary.
 `sops.root` names the procedure directory, so a project can call it
 `procedures` or anything else; discovery and reading both follow the
 setting. `sops.operator_guide` names the project's own guide in every
-generated skill, for a project whose guide is not `AGENTS.md`. Setting it
-to an empty string leaves the generated skills pointing only at the
+generated skill, for a project whose guide is not `AGENTS.md`. Setting
+it to an empty string leaves the generated skills pointing only at the
 procedure itself.
 
 ## Configuration layers
@@ -95,6 +95,18 @@ Derived caches default to a project-specific directory under the XDG
 cache directory. Run storage defaults to a project-specific directory
 under the XDG state directory. Configure `runs.store` to retain an
 existing private store and `runs.reviews` for reviewed output.
+
+Nothing on a typical Linux system empties the XDG cache directory on its
+own, so treat anything written there as kept until someone deletes it.
+An artifact that should not outlive the command that made it goes to a
+private per-run directory instead: under `$XDG_RUNTIME_DIR` where the
+session has one, which is per-user, created 0700 and emptied at logout,
+and otherwise a `tempfile` directory honoring `$TMPDIR`. The verbatim
+human-input compilation defaults there because it is private and is
+rebuilt in seconds; `provenance.human_input` keeps it somewhere instead.
+A project that wants its own cache collected can declare a rule in
+`~/.config/user-tmpfiles.d/`, which `systemd-tmpfiles-clean.timer`
+applies in the user session.
 
 ## Project policy and extensions
 

@@ -14,6 +14,7 @@ import hashlib
 import importlib
 import json
 import os
+import tempfile
 import tomllib
 from contextlib import contextmanager
 from dataclasses import dataclass, field
@@ -64,6 +65,7 @@ class Project:
     origins: Mapping[str, str]
     config_file: Path | None = None
     _policy_cache: dict = field(default_factory=dict, compare=False, repr=False)
+    _scratch: dict = field(default_factory=dict, compare=False, repr=False)
     _policy_lock: Any = field(default_factory=RLock, compare=False, repr=False)
 
     @classmethod
@@ -209,6 +211,27 @@ class Project:
         base = Path(os.environ.get("XDG_CACHE_HOME", Path.home() / ".cache"))
         identity = hashlib.sha256(os.fsencode(self.root)).hexdigest()[:20]
         return self.path("project.cache", str(base / "quirework" / identity))
+
+    def scratch_dir(self, name):
+        """A private directory for an artifact that must NOT outlive the run.
+
+        Not the cache: nothing collects `~/.cache` on its own, so a derived
+        dump left there is permanent by default, and this tool's dumps include
+        verbatim human prompts. `$XDG_RUNTIME_DIR` is per-user, already 0700,
+        on tmpfs and emptied at logout, which is what this artifact wants.
+        Where there is none (macOS, a container, a cron context) fall back to
+        `tempfile`, which honors `$TMPDIR` and creates the directory with an
+        unpredictable name. One directory per project instance, so everything
+        inside one `project_scope` shares it and two runs never collide.
+        """
+        cached = self._scratch.get(name)
+        if cached is not None:
+            return cached
+        runtime = os.environ.get("XDG_RUNTIME_DIR")
+        parent = Path(runtime) if runtime and Path(runtime).is_dir() else None
+        made = Path(tempfile.mkdtemp(prefix=f"quirework-{name}-", dir=parent))
+        self._scratch[name] = made
+        return made
 
     def account_state(self, provider):
         account = self.get(f"providers.{provider}.account", "default")

@@ -645,10 +645,18 @@ def build_document(turns, sess):
 # cli
 # --------------------------------------------------------------------------- #
 def _default_out():
-    return current_project().path(
-        "provenance.human_input",
-        str(current_project().cache_root / "human-input/compilation.md"),
-    )
+    """Where the compilation lands when the project does not choose.
+
+    Deliberately not the project cache. The compilation is every verbatim
+    human prompt in the corpus, it is rebuilt from the corpus in seconds, and
+    it is read once and handed on; nothing collects `~/.cache`, so leaving it
+    there keeps a copy indefinitely for no gain. A project that wants it kept
+    sets `provenance.human_input` at a path it controls.
+    """
+    configured = current_project().get("provenance.human_input")
+    if configured is not None:
+        return current_project().path("provenance.human_input")
+    return current_project().scratch_dir("human-input") / "compilation.md"
 
 
 def _filter(turns, typed_only, include_trivial, min_words):
@@ -678,8 +686,8 @@ def main(argv=None):
         p.add_argument(
             "--out",
             type=Path,
-            default=_default_out(),
-            help="write here instead of the project cache human-input/compilation.md",
+            default=None,
+            help="write here instead of a private per-run directory",
         )
         p.add_argument(
             "--typed-only",
@@ -717,7 +725,7 @@ def main(argv=None):
     )
     sess = _sessions(kept)
     doc = build_document(kept, sess)
-    out = getattr(args, "out", _default_out())
+    out = getattr(args, "out", None) or _default_out()
     out.parent.mkdir(parents=True, exist_ok=True)
     out.write_text(doc, encoding="utf-8")
     by_cls, _ = _summary(kept)
