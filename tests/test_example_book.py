@@ -56,6 +56,20 @@ def test_the_procedure_catalog_matches_the_procedures_on_disk(book):
     assert run(book, "sop catalog", "--check") == 0
 
 
+def test_the_provenance_index_matches_the_captured_corpus(book):
+    """The committed index is a golden record of what the scanner sees.
+
+    `--check` rebuilds the index from the corpus and compares it byte for
+    byte, so this gate fails two ways. A capture edited without
+    regenerating leaves a recorded SHA-256 that no longer describes the
+    file it names. A change to how sessions are scanned moves the turn
+    counts and edit tallies underneath an index nobody thought to
+    rebuild, and this is the only captured session in the repository that
+    would notice.
+    """
+    assert run(book, "provenance catalog", "--check") == 0
+
+
 def test_the_personas_and_the_instrument_validate(book):
     assert run(book, "sop personas", "check") == 0
 
