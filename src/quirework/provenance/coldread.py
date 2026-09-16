@@ -74,7 +74,6 @@ from quirework.providers.blind import NO_SETTING_SOURCES
 from quirework.providers.blind import MIN_TOOLS
 from quirework.providers.blind import NO_MCP
 from quirework.providers.blind import confine
-from quirework.providers.blind import ensure_neutral_cwd
 from quirework.providers.blind import seat_dir
 from quirework.provenance import scope as SCOPE
 

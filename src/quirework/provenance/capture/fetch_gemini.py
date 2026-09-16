@@ -13,8 +13,7 @@ Note: the Gemini DOM exposes no per-message timestamps, so the transcript has no
 dates — annotate the index row manually.
 """
 
-import json, sys, time, urllib.request, datetime, re
-from pathlib import Path
+import json, sys, time, urllib.request, datetime
 
 # Outputs use the selected project configuration, independently of where
 # this package is installed.

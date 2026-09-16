@@ -9,7 +9,7 @@ import sys
 from dataclasses import dataclass
 
 from . import __version__
-from .project import ConfigurationError, Project, extension, project_scope
+from .project import ConfigurationError, Project, project_scope
 
 
 @dataclass(frozen=True)

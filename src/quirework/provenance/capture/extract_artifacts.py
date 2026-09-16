@@ -14,7 +14,6 @@ only the final content of each artifact is written as a file.
 """
 
 import json, sys, os
-from pathlib import Path
 
 # Outputs use the selected project configuration, independently of where
 # this package is installed.

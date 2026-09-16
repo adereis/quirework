@@ -9,7 +9,6 @@ ambiguous transport fault, the session is returned exactly to its prior state,
 and a seat stalled this way never withholds the seats that finished.
 """
 
-from conftest import project_at, patch_setting
 from quirework.runs import commands as run_commands
 import json
 

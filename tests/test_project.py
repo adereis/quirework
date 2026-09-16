@@ -3,7 +3,6 @@
 import json
 import tempfile
 from concurrent.futures import ThreadPoolExecutor
-from pathlib import Path
 
 import pytest
 from quirework.project import (

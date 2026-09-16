@@ -11,9 +11,14 @@ from pathlib import Path
 from quirework.providers import blind
 from quirework.providers import quota
 from quirework.providers import models as workshop_drivers
-from quirework.providers.images import history_image_hashes
 from quirework.runs.storage import read
 from quirework.runs.storage import write
+
+# Re-exported on purpose: the run engine and the chapter comparison both reach
+# the image audit through this module, which is the one they already hold.
+# Spelled with the redundant alias so a lint pass reads it as an export rather
+# than as an import nobody uses, which is how it was deleted once.
+from quirework.providers.images import history_image_hashes as history_image_hashes
 
 CAPABILITIES = {
     "codex": dict(

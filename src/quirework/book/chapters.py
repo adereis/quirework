@@ -30,7 +30,6 @@ import argparse
 import re
 import sys
 from dataclasses import dataclass
-from fnmatch import fnmatch
 from pathlib import Path
 
 from quirework.book import bookstage as _bookstage

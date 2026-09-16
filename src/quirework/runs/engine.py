@@ -4,7 +4,6 @@ The operator chooses questions, scope, delivery and acceptance. This controller
 only performs the declared turns, in order, preserving their evidence.
 """
 
-import argparse
 import hashlib
 import json
 import os

@@ -1350,7 +1350,7 @@ def build(chapter: str | None, out_dir: Path, gray: bool = False) -> int:
         shown = dest
     print(f"redpen: review copy -> {shown}")
     print("upload it to Google Docs; use Suggesting mode for edits, then:")
-    print(f"  quirework book redpen read <downloaded>.docx")
+    print("  quirework book redpen read <downloaded>.docx")
     return 0
 
 

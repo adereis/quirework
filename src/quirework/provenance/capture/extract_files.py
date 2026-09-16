@@ -14,7 +14,6 @@ a mismatch in the manifest so fidelity is auditable rather than silently wrong.
 """
 
 import json, sys, os
-from pathlib import Path
 
 # Outputs use the selected project configuration, independently of where
 # this package is installed.

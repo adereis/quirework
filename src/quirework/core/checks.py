@@ -3,7 +3,6 @@
 import argparse
 import ast
 import subprocess
-from pathlib import Path
 from quirework.project import current_project, extension
 
 

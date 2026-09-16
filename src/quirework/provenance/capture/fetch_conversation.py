@@ -22,7 +22,6 @@ Writes private/provenance/conversations/<uuid>.raw.json (verbatim API response).
 import json, sys, urllib.request
 import uuid as uuid_module
 from quirework.project import current_project
-from pathlib import Path
 
 # Outputs use the selected project configuration, independently of where
 # this package is installed.

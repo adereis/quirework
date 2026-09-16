@@ -11,7 +11,6 @@ evidence — regenerate the .md from it rather than hand-editing.
 """
 
 import json, sys, datetime
-from pathlib import Path
 
 # Outputs use the selected project configuration, independently of where
 # this package is installed.

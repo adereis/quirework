@@ -1,6 +1,5 @@
 """Run fidelity: independent delivery, explicit forks, and no duplicate reads."""
 
-from conftest import project_at, patch_setting
 from quirework.runs import commands as run_commands
 import json
 from pathlib import Path
