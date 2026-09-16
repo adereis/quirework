@@ -187,7 +187,14 @@ _IMPERATIVE = re.compile(r"\b(NEVER|DO NOT|DON'T|MUST NOT|MAY NOT|BANNED)\b")
 # paragraph. Neither direction had a gate. `notes --check` never read these
 # directories at all, so a spec rename or chapter edit could strand a citation
 # with every sidecar gate green.
-COMPANION_DIRS = ("exercises", "cases")
+def companion_dirs() -> tuple[str, ...]:
+    """The reader-facing companion collections this book declares, if any.
+
+    `book.companion_dirs` names them. The default is none: a book with no
+    companion collection has nothing here to check, and naming another
+    project's directories would check a tree this one does not have.
+    """
+    return tuple(current_project().get("book.companion_dirs", ()) or ())
 
 # `_template.md` carries placeholder citations (`<chapter files and @bind
 # slugs>`), not real ones; it is skipped so a template edit cannot fail a gate
@@ -665,7 +672,7 @@ def companion_files(root: Path | None = None) -> list[Path]:
     """Every entry in the reader-facing companion collections."""
     base = Path(root) if root is not None else current_project().root
     out: list[Path] = []
-    for d in COMPANION_DIRS:
+    for d in companion_dirs():
         if (base / d).is_dir():
             out += [
                 p
@@ -976,7 +983,7 @@ def check(docs: Path | None = None) -> int:
          (pointers into the spec are bindings or inline #slug refs,
          never @see);
       7. every @bind(slug) cited in the companion collections
-         (`COMPANION_DIRS`) names a spec section — the entries are canon's
+         (`book.companion_dirs`) names a spec section — the entries are canon's
          one licensed outward dependency, and the citation runs back in.
       8. every anchor in an entry's **Anchors:** run names a chapter that
          really binds that slug. Invariant 7 gates the slug; this gates the
@@ -1204,14 +1211,18 @@ def check(docs: Path | None = None) -> int:
     for p in problems:
         print(p, file=sys.stderr)
 
-    from quirework.core.artifact_paths import NONCANONICAL_ROOTS
-
-    advisory = [a for a in annos if any(root in a.body for root in NONCANONICAL_ROOTS)]
+    # Directories whose contents are working material rather than authority. A
+    # mark that rests on one has put a commitment somewhere the book does not
+    # carry. Which directories those are is the book's own placement, so an
+    # undeclared project gets no advisory rather than a report about a tree it
+    # does not have.
+    noncanonical = tuple(current_project().get("book.noncanonical_roots", ()) or ())
+    advisory = [a for a in annos if any(root in a.body for root in noncanonical)]
     if advisory:
         print(
-            f"\nadvisory ({len(advisory)} mark(s) reference analysis/, "
-            f"scratchpad/ or ideas/; AGENTS.md "
-            f"self-containment — advisory, not yet gated):",
+            f"\nadvisory ({len(advisory)} mark(s) reference "
+            f"{', '.join(noncanonical)}; a mark states its own commitment "
+            f"— advisory, not yet gated):",
             file=sys.stderr,
         )
         for a in advisory:

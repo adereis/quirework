@@ -130,7 +130,9 @@ Existing JSON policy files remain readable. They keep project vocabulary
 and visual choices out of Quirework's implementation:
 
 - `book.chapter_policy`: `retired_tokens`, `metadata_layers`, and
-  `identity_layers`.
+  `identity_layers`. The metadata layers default to the sidecar
+  directories under `book.source`, so a project declares this only to
+  scan something else.
 - `book.layout_policy`: `typst_prologues` and `typst_epilogues`.
 - `book.render_policy`: `print_drops` and `epub_style_headers` requiring
   CSS-comment cleanup in staged EPUB headers.
@@ -140,8 +142,21 @@ and visual choices out of Quirework's implementation:
 - `sops.review_policy`: review frames and reviewable source paths.
 - `book.variant_policy`: the selected model and optional assignment.
 - `provenance.metrics_policy` and `provenance.coldread_policy`:
-  historical source classifications and explicitly selected analysis
-  models.
+  historical source classifications, explicitly selected analysis
+  models, and `output_counts`, which names each collection the metrics
+  report counts and the glob that finds it.
+
+Three settings describe a project's own placement, and all three default
+to describing nothing rather than to another project's directory names.
+`book.companion_dirs` names reader-facing collections beside the book,
+whose quotations and spec citations `book notes --check` then gates.
+`book.noncanonical_roots` names directories that hold working material
+rather than authority, so a mark resting on one is reported.
+`runs.evidence_roots` names every directory holding saved run records,
+including locations a project has since moved away from but still reads;
+a project that keeps one needs only `runs.reviews`. Files inside a run
+record are never reflowed by `text wrap` and never read as authority,
+which is the guarantee these three settings buy.
 
 A project can select installed Python extensions. `checks.command` names
 its check-suite function as `module:function`. `text.classifier` selects

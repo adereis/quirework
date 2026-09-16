@@ -98,6 +98,11 @@ def _options():
     """Read policy from the selected project for this operation."""
     from types import SimpleNamespace
 
+    OUTPUT_COUNTS = dict(
+        current_project()
+        .data("provenance.metrics_policy", {})
+        .get("output_counts", {})
+    )
     SOURCE_OF_TRUTH = (
         current_project()
         .data("provenance.metrics_policy", {})
@@ -120,6 +125,7 @@ def _options():
         CANONICAL_DIR=CANONICAL_DIR,
         ESSAY_PATHS=ESSAY_PATHS,
         LEGACY_SPEC=LEGACY_SPEC,
+        OUTPUT_COUNTS=OUTPUT_COUNTS,
         SOURCE_OF_TRUTH=SOURCE_OF_TRUTH,
     )
 
@@ -543,16 +549,18 @@ def output_metrics():
     else:
         sot = current_project().root / _options().SOURCE_OF_TRUTH
         o["essay_words"] = words(sot.read_text()) if sot.exists() else 0
-    o["derived"] = len(glob.glob(str(current_project().root / "derived" / "*.md")))
-    o["ideas"] = len(glob.glob(str(current_project().root / "ideas" / "*.md")))
-    o["analysis_notes"] = sum(
-        1 for _ in (current_project().root / "analysis" / "notes").rglob("*.md")
-    )
-    for kind in ("reads", "rounds"):
-        o[f"analysis_{kind}"] = sum(
-            p.is_dir() for p in (current_project().root / "analysis" / kind).glob("*")
+    # What else a project made alongside the book is the project's own shape:
+    # notes, exercises, reading rounds, a derived edition. The policy names
+    # each count and the glob that finds it, because a fixed list of directory
+    # names counts one book's tree and reports zero for every other, which
+    # reads as "nothing was made" rather than "nothing was asked for". A
+    # pattern ending in a slash counts directories.
+    o["counts"] = {}
+    for label, pattern in _options().OUTPUT_COUNTS.items():
+        found = current_project().root.glob(str(pattern).rstrip("/"))
+        o["counts"][label] = sum(
+            1 for p in found if p.is_dir() or not str(pattern).endswith("/")
         )
-    o["exercises"] = len(glob.glob(str(current_project().root / "exercises" / "*.md")))
     return o
 
 
@@ -1012,14 +1020,8 @@ def report_repo(g, o, total):
     )
     print()
     print(f"Final essay length                 : {o['essay_words']:,} words")
-    print(
-        f"Derived / ideas / exercises files  : "
-        f"{o['derived']} / {o['ideas']} / {o['exercises']}"
-    )
-    print(
-        f"Analysis notes / reads / rounds    : "
-        f"{o['analysis_notes']} / {o['analysis_reads']} / {o['analysis_rounds']}"
-    )
+    for label, count in o["counts"].items():
+        print(f"{label:<35}: {count}")
     aw = total.ai_text_words + total.think_words
     if o["essay_words"]:
         print(

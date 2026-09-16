@@ -1,36 +1,63 @@
 """Placement shared by review-evidence guards and Markdown formatting.
 
-Legacy run roots remain recognized so historical paths keep the same evidence
-semantics. Directory names alone never endorse an analysis's conclusions.
+A saved run record is evidence: its files are kept exactly as the run wrote
+them, so no formatter may reflow them and no advisory may treat them as
+authority. Which directories hold those records is the project's choice and
+was, until this module read configuration, a fixed list of four directory
+names belonging to the one book this tool was extracted from. Every other
+project therefore protected paths it does not have while leaving its own
+unprotected, and nothing reported either.
+
+Directory names alone never endorse an analysis's conclusions.
 """
 
-RUN_ROOTS = ("analysis/reads", "analysis/rounds", "ideas/reads", "ideas/rounds")
-# Where a note's own stamp is the only date it has. `analysis/` is tracked by
-# construction, so Git already records when a record landed and against what;
-# the untracked legacy and disposable roots have no such record.
-DATED_ROOTS = ("ideas/", "scratchpad/")
-# Canon marks must contain their own commitments, even when the supporting
-# report is retained. This advisory is about authority, not Git durability, so
-# it covers retained analysis too and does not track the stamp roots.
-NONCANONICAL_ROOTS = ("analysis/", "ideas/", "scratchpad/")
+from quirework.project import current_project
+
+
+def run_roots() -> tuple[str, ...]:
+    """Project-relative directories holding saved run records.
+
+    `runs.evidence_roots` lists them for a project that keeps several,
+    including the legacy locations of records it still reads. A project that
+    keeps one names it as `runs.reviews` and needs nothing further. A project
+    with neither has no saved records, and nothing is treated as evidence.
+    """
+    project = current_project()
+    declared = project.get("runs.evidence_roots")
+    if declared:
+        return tuple(str(root).strip("/") for root in declared if str(root).strip("/"))
+    reviews = project.get("runs.reviews")
+    return (str(reviews).strip("/"),) if reviews else ()
+
+
+def _within(path: str, root: str) -> tuple[list[str], list[str]] | None:
+    """The split path and root when `path` names a file inside a run record."""
+    parts = path.split("/")
+    segments = root.split("/")
+    return (parts, segments) if parts[: len(segments)] == segments else None
 
 
 def run_operator_note(path: str) -> bool:
-    """Only top-level underscore Markdown notes belong to the operator."""
-    parts = path.split("/")
-    return (
-        len(parts) == 4
-        and "/".join(parts[:2]) in RUN_ROOTS
-        and parts[3].startswith("_")
-        and parts[3].endswith(".md")
-    )
+    """Only a top-level underscore Markdown note belongs to the operator."""
+    for root in run_roots():
+        found = _within(path, root)
+        if found is None:
+            continue
+        parts, segments = found
+        name = parts[-1]
+        if (
+            len(parts) == len(segments) + 2
+            and name.startswith("_")
+            and name.endswith(".md")
+        ):
+            return True
+    return False
 
 
 def run_evidence(path: str) -> bool:
     """Other files inside a recorded run stay verbatim, at any depth."""
-    parts = path.split("/")
-    return (
-        len(parts) > 3
-        and "/".join(parts[:2]) in RUN_ROOTS
-        and not run_operator_note(path)
-    )
+    for root in run_roots():
+        found = _within(path, root)
+        if found is not None and len(found[0]) > len(found[1]) + 1:
+            return not run_operator_note(path)
+    return False
