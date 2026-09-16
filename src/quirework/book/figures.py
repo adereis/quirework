@@ -381,7 +381,8 @@ def _check_gray(names: set[str]) -> list[str]:
         if stray:
             problems.append(
                 f"{name} (gray): transform left color {', '.join(sorted(stray))} "
-                f"(add it to graybuild.EXACT_MAP)"
+                f"(the source may state it in a form the transform does not read; "
+                f"a book with its own color meanings selects book.grayscale_transform)"
             )
     return problems
 
