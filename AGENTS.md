@@ -43,7 +43,11 @@ limitations.
 
 ## Git
 
-Stage only reviewed files. Keep commit subjects within 50 columns and
+Stage only reviewed files. Keep each commit on one side of the
+tool-and-consumer boundary: a change to Quirework under `src/`, `docs/`
+or `tests/` never shares a commit with a change to an example book under
+`examples/`, so the tool's own history can be reviewed without reading
+around a book's content. Keep commit subjects within 50 columns and
 prose body lines within 72 columns. Non-trivial commits explain their
 motivation and important invariants. End commits with a Co-Authored-By
 trailer identifying the model established by the harness. Do not push
