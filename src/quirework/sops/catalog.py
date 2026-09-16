@@ -70,6 +70,14 @@ def reading_order(entries, name):
     return result
 
 
+def _named(path):
+    """A path as the project's own operator would type it."""
+    try:
+        return str(Path(path).relative_to(current_project().root))
+    except ValueError:
+        return str(path)
+
+
 def _sops_root(root):
     """The project's own procedure directory; its name is a project choice."""
     return current_project().path_at(root, "sops.root", "sops")
@@ -236,7 +244,8 @@ def markdown(data, root=None):
     lines = [
         "# SOP discovery catalog",
         "",
-        "Generated from `sops/catalog.json` and the SOP descriptions. These are",
+        f"Generated from `{_named(current_project().path('sops.catalog', 'sops/catalog.json'))}`",
+        "and the SOP descriptions. These are",
         "the task families, specialized procedures and shared protocols. Read the",
         "selected workflow and instrument before use.",
         "",
@@ -345,7 +354,7 @@ def main(argv=None):
             elif args.write:
                 path.parent.mkdir(parents=True, exist_ok=True)
                 path.write_text(content)
-                print("Wrote sops/catalog/README.md")
+                print(f"Wrote {_named(path)}")
             else:
                 print(content, end="")
     except (ValueError, OSError) as exc:

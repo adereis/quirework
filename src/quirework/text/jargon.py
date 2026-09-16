@@ -409,12 +409,11 @@ def main(argv: list[str] | None = None) -> int:
     # string can — and an unknown flag is an error instead of a silent skip.
     ap = argparse.ArgumentParser(
         prog="quirework text check",
-        description="Report bare field terms in reader-facing prose: the "
-        "book's chapters (minus sources.qmd, where field terms "
-        "belong) and the exercises/ and cases/ collections. Every "
-        "term must be avoided, introduced-and-glossed on first "
-        'use, or confined to sources.qmd (AGENTS.md, "Editing '
-        'the essay").',
+        description="Report bare field terms in the reader-facing prose the "
+        "project's terminology policy selects. Every term must be avoided, "
+        "introduced and glossed on first use, or confined to the files the "
+        "policy excludes, which is where a book sends its field vocabulary "
+        "on purpose.",
         epilog="This WARNS and never gates. The author is the instrument for "
         'this test and an agent\'s sense of what is "standard" does '
         "not count, so the check produces candidates to rule on, not "

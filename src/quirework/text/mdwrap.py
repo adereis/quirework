@@ -732,18 +732,20 @@ MODES = """\
 The mode is chosen by path, so just pass files and each gets the right one:
 
   sentence   one sentence per line (semantic line breaks)
-             the canonical book prose: docs/**/*.qmd
+             chapter prose: any .qmd
   column     hard wrap at 72 columns
-             technical docs (AGENTS/CLAUDE, READMEs, docs/canon/_map.md,
-             docs/canon/_framework.md, analysis/, scratchpad/, ideas/,
-             books-and-papers/,
-             exercises/, cases/) and the per-chapter metadata sidecars
-             (_marks/*.md), whose @-mark bodies are reflowed to the
-             width with a hanging indent
+             every other Markdown file, including guides, READMEs, the
+             spec, and the per-chapter metadata sidecars (_marks/*.md),
+             whose @-mark bodies are reflowed to the width with a
+             hanging indent
   trailing   strip trailing whitespace, never reflow
-             docs/canon/_review-notes.md, GEMINI.md, the SOPs
+             GEMINI.md
   skip       never touched
-             the provenance corpus, the panel raw output
+             files inside a saved run record, which stay verbatim
+
+A project chooses differently by selecting text.classifier in its
+configuration: a function that takes a path and returns one of these
+four names. That is where a book puts rules only it has.
 """
 
 
