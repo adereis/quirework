@@ -129,6 +129,16 @@ rendered into the book.
 the marks in reading order. That is the one command to run at the start
 of a writing session.
 
+The spec states; it does not argue, and it does not record how it got
+here. `notes --check` reports three register slips as advisories rather
+than errors, so you find out by running it: an imperative in capitals
+(`NEVER`, `MUST NOT`), a run of three or more capitalized words, and
+decision journaling, which means day-precision dates, review-round
+citations, commit hashes, and any phrasing about what a section used to
+say. The reason is not tidiness. A dated ruling in a spec reads as
+authority to the next session, which then works around the section
+instead of proposing a change to it.
+
 ## 3. Marks
 
 Marks are HTML comments, and they live in a sidecar beside the prose
@@ -137,7 +147,12 @@ reflowed paragraph never disturbs them.
 
 A chapter `sections/opening.qmd` has its sidecar at
 `sections/_marks/opening.md`. The sidecar's headings mirror the
-chapter's, which is how each mark is attributed to a section:
+chapter's, which is how each mark is attributed to a section. Copy each
+heading line from the chapter verbatim, attribute block included:
+attribution matches on the `{#anchor}` when a heading has one and on the
+heading text only when it does not, so a sidecar that says `# Preface`
+against a chapter that says `# Preface {#sec-preface}` is a drifted
+mirror and `notes --check` says so.
 
 ```markdown
 <!--
