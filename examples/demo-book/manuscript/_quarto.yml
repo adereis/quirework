@@ -27,7 +27,9 @@ format:
   # template, which applies them after any `papersize` set here and wins;
   # a book that wants its own geometry supplies book.typst_template, which
   # is also where `quirework book fonts` reads the faces the build needs.
-  typst: default
+  typst:
+    template-partials:
+      - typst-show.typ
   epub:
     toc: true
   docx: default
