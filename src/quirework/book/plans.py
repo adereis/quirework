@@ -21,7 +21,27 @@ def book(
     instrument=None,
 ):
     kit = Path(kit).expanduser().resolve()
+    # The argument is the packet directory, not one of its PDFs, and a packet
+    # built by an older version can be missing fields this compiler reads. Both
+    # mistakes are cheap to make and were reaching the operator as a stray
+    # KeyError or a stat failure, so name the fix instead.
+    if not (kit / "manifest.json").is_file():
+        raise ValueError(
+            f"{kit} is not a prepared packet directory: build one with "
+            "`quirework book packet --out DIR`"
+        )
     manifest = read(kit / "manifest.json")
+    missing = [
+        key
+        for key in ("stem", "file", "kind")
+        if any(key not in row for row in manifest.get("chapters", []))
+    ]
+    if missing:
+        raise ValueError(
+            f"{kit}/manifest.json predates this tool ("
+            + ", ".join(f"no {key}" for key in missing)
+            + "); rebuild the packet with `quirework book packet`"
+        )
     seat = seat or current_project().get("sops.default_reader")
     presets = current_project().get("sops.reader_presets", {})
     preset = presets.get(seat, {})
