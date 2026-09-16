@@ -1,5 +1,8 @@
 # Project configuration
 
+The [authoring guide](authoring.md) walks a new book through these
+settings in the order a project adopts them. This page is the reference.
+
 A project supplies a versioned TOML file. Paths are relative to the file
 that declares them. Explicit absolute paths and home expansion are also
 supported.

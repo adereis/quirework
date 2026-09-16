@@ -51,6 +51,11 @@ quirework sop runs prepare plan.json /path/to/private/run
 quirework sop runs start /path/to/private/run --timeout 60 --wait-quota 0
 ```
 
+Starting a book from nothing? The
+[authoring guide](docs/authoring.md) is the path from an empty directory
+to a manuscript with a spec, marked chapters, figures and its own
+procedures.
+
 The [configuration guide](docs/configuration.md) explains how to connect
 a book. The [workflow guide](docs/workflows.md) covers procedures,
 research, model runs, and saved evidence. The
