@@ -4,6 +4,12 @@ Quirework is a reusable book-writing and research companion. Books are
 consumers of this package and supply their own content, configuration,
 personas, procedures, and editorial rules.
 
+Quirework is the tool, never a book. Do not import a consumer's
+vocabulary, claims, or private material into this repository, and do not
+carry a consumer's guidance into a change here. A session is usually
+driven from a book checkout, so this is the boundary an assistant
+arriving with that project's instructions is most likely to cross.
+
 ## Architecture
 
 Keep one distribution and one Python namespace. Domain modules expose
@@ -19,12 +25,21 @@ extensions.
 
 ## Development
 
-Read CODEX.md before substantive work. Python environments must use
-`python3 -m venv --system-site-packages .venv`. Use temporary files
-under `~/tmp`, never `/tmp`. Keep dependency-heavy imports out of help
-paths. Run relevant tests and update documentation with implementation
-changes. Use only fictitious test inputs. Never copy book content,
-private transcripts, credentials, or runtime homes into this repository.
+Python environments must use
+`python3 -m venv --system-site-packages .venv`. A contributor's own
+scratch files go under `~/tmp`, never `/tmp`; what the tool itself
+writes at run time follows the configuration guide's placement rules.
+Keep dependency-heavy imports out of help paths. Run relevant tests and
+update documentation with implementation changes. Use only fictitious
+test inputs. Never copy book content, private transcripts, credentials,
+or runtime homes into this repository.
+
+Keep the public API and command interface understandable to an author
+using a different book project, and verify independent installation and
+project isolation. Preserve execution evidence through refactors. An
+uncertain provider request must be reconciled before any resubmission. A
+completed answer with a failed run condition remains available with its
+limitations.
 
 ## Git
 
