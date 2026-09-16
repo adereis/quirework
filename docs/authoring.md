@@ -49,12 +49,12 @@ Quarto owns reading order and publication settings, so the book's
 `_quarto.yml` lives inside `book.source` and lists the chapters:
 
 ```yaml
+lang: en-US
 project:
   type: book
 book:
   title: "A Small Notebook"
   author: "A. Fictional Author"
-  language: en-US
   chapters:
     - index.qmd
     - sections/opening.qmd
@@ -64,8 +64,13 @@ format:
     theme: cosmo
 ```
 
-Declare `language`. Without it the build inherits the machine's locale,
-which produces an EPUB with invalid metadata and no error.
+Declare `lang`, at the top level and not inside `book`. Without it the
+build inherits the machine's locale, which produces an EPUB whose stated
+language is whatever the machine happened to be set to, and no error.
+The key is easy to get wrong in a way nothing reports: a `language:`
+under `book:` is accepted by the parser, ignored by the renderer, and
+leaves the locale in the EPUB's `dc:language` exactly as if the line
+were absent.
 
 Each chapter is a `.qmd` opening on a level-1 heading with an anchor:
 
@@ -109,6 +114,11 @@ Point at it and it becomes the binding namespace:
 [book]
 spec = "manuscript/sections/_spec.md"
 ```
+
+The file name is the project's own. Leaving `spec` unset makes Quirework
+look for `_framework.md` beside the chapters, which is one book's habit
+rather than a rule, so a project that calls the file something else
+simply says so here.
 
 The slugs are the whole mechanism. A chapter does not restate a
 commitment; it names the section it expresses, so changing a commitment
