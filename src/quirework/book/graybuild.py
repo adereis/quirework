@@ -4,12 +4,32 @@ import re
 import xml.etree.ElementTree as ET
 from quirework.project import current_project, extension
 
-# Every hex form SVG accepts, not only the six-digit one. A three-digit
-# `#fff` used to pass straight through the transform and straight through the
-# check that exists to catch exactly that, so a color could reach the e-ink
-# edition with nothing to report it. Lengths of five and seven are not colors:
-# they are left alone rather than mangled.
-_HEX = re.compile(r"#([0-9a-fA-F]{3,8})\b")
+# A hex color, in every form SVG accepts, and only where a color can appear.
+# Two rules meet here and each was learned the hard way. Reading only the
+# six-digit form let a three-digit `#fff` pass through the transform and
+# through the check that exists to catch exactly that. Reading every `#` token
+# was worse: an element id is written the same way, and a four-digit id can
+# spell itself in hex digits, so `<use href="#face"/>` came back rewritten as a
+# gray color pointing at nothing. A color-bearing property or attribute on the
+# left is what tells them apart. Lengths of five and seven are not colors and
+# are left alone rather than mangled.
+_COLOR_PROPERTY = (
+    "fill",
+    "stroke",
+    "color",
+    "stop-color",
+    "flood-color",
+    "lighting-color",
+    "solid-color",
+    "background",
+    "background-color",
+    "border-color",
+    "outline-color",
+)
+_HEX = re.compile(
+    r"(?P<lead>\b(?:" + "|".join(_COLOR_PROPERTY) + r")\s*[:=]\s*[\"\']?)"
+    r"#(?P<hex>[0-9a-fA-F]{3,8})\b"
+)
 
 
 def _channels(value):
@@ -22,12 +42,12 @@ def _channels(value):
 
 
 def _neutral(match):
-    parsed = _channels(match.group(1))
+    parsed = _channels(match.group("hex"))
     if parsed is None:
         return match.group(0)
     red, green, blue, alpha = parsed
     gray = round(0.299 * red + 0.587 * green + 0.114 * blue)
-    return f"#{gray:02x}{gray:02x}{gray:02x}{alpha}"
+    return f"{match.group('lead')}#{gray:02x}{gray:02x}{gray:02x}{alpha}"
 
 
 def to_gray_svg(text, name=""):
@@ -40,9 +60,9 @@ def non_gray_hexes(text):
     """Every color in the text whose three channels are not all equal."""
     found = set()
     for match in _HEX.finditer(text):
-        parsed = _channels(match.group(1))
+        parsed = _channels(match.group("hex"))
         if parsed is not None and len(set(parsed[:3])) != 1:
-            found.add("#" + match.group(1).lower())
+            found.add("#" + match.group("hex").lower())
     return found
 
 

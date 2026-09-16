@@ -34,6 +34,21 @@ def test_something_that_is_not_a_color_is_left_alone():
     assert 'href="#abcde"' in gray('<use href="#abcde"/>')
 
 
+def test_an_element_id_that_spells_itself_in_hex_is_not_a_color():
+    """`<use href="#face"/>` names a shape, and four hex digits is a color.
+
+    Rewriting it grayed a reference into a color pointing at nothing, in a
+    figure that still rendered, which is the exact silence this module exists
+    to remove rather than relocate.
+    """
+    text = '<path id="face" fill="#f6f2e8"/><use href="#face"/>'
+    out = gray(text)
+    assert 'href="#face"' in out
+    assert 'id="face"' in out
+    assert 'fill="#f2f2f2"' in out
+    assert graybuild.non_gray_hexes(text) == {"#f6f2e8"}
+
+
 def test_the_check_sees_every_form_the_transform_does():
     assert graybuild.non_gray_hexes('fill="#f00" stroke="#fff"') == {"#f00"}
     assert graybuild.non_gray_hexes('fill="#2a2732" stroke="#292929"') == {"#2a2732"}
