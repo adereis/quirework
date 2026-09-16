@@ -41,6 +41,20 @@ uncertain provider request must be reconciled before any resubmission. A
 completed answer with a failed run condition remains available with its
 limitations.
 
+## The example
+
+`examples/demo-book` is a book that consumes this package: a manuscript
+with a spec and marks, a figure and its style guide, its own procedures,
+an installed extension, a derived edition and a captured corpus. It is
+documentation and a fixture at once, and `tests/test_example_book.py`
+runs an author's gates against it on every test run.
+
+Treat it as a consumer. Its vocabulary, characters and editorial rules
+stay inside that directory and never enter `src/`, and its content is
+fiction written for the purpose. When a change to Quirework breaks it,
+the example is usually right: it is the only project here that was not
+designed around the implementation.
+
 ## Git
 
 Stage only reviewed files. Keep each commit on one side of the

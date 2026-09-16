@@ -151,7 +151,10 @@ quirework sop runs start /path/to/private/run --timeout 60 --wait-quota 0
 
 Starting a book from nothing? The [authoring guide](docs/authoring.md)
 is the path from an empty directory to a manuscript with a spec, marked
-chapters, figures and its own procedures.
+chapters, figures and its own procedures, and
+[examples/demo-book](examples/demo-book) is a small finished book that
+walked it: a spec, marks, a figure, procedures, a derived edition and
+the session it was written in, in about forty files.
 
 The [configuration guide](docs/configuration.md) explains how to connect
 a book. The [workflow guide](docs/workflows.md) covers procedures,

@@ -240,7 +240,8 @@ directories are a filing convention for a reader. What makes a file a
 shared fragment rather than a procedure is its opening `# SOP fragment`
 heading, which is checked against the `kind` its catalog entry declares,
 so a fragment filed anywhere is still a fragment and a procedure filed
-under `protocols/` is still a procedure. A procedure declares its own one-line purpose in a marker:
+under `protocols/` is still a procedure. A procedure declares its own
+one-line purpose in a marker:
 
 ```markdown
 # Tidy the notebook
@@ -329,6 +330,9 @@ columns and keep its chapters one sentence per line.
 
 ## Where to go next
 
+- [examples/demo-book](../examples/demo-book): a finished book that
+  followed this guide, with every layer above adopted and nothing else.
+  Read its `quirework.toml` beside this page.
 - [configuration.md](configuration.md): every setting, the layering
   rules, and the annotated templates
   (`quirework config template project`).
