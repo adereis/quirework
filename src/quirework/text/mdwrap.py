@@ -651,24 +651,31 @@ def _strip_trailing(text: str) -> str:
     return "\n".join(line.rstrip() for line in text.split("\n"))
 
 
-def _repo_rel(path: str) -> str:
-    """Path relative to the repo root (the dir with pyproject.toml), posix.
+def _project_rel(path: str) -> str:
+    """Path relative to the selected project's root, posix.
 
-    Falls back to the path as given if no root is found, so classification still
-    works on a bare filename.
+    Every other path setting is written relative to the directory holding
+    `quirework.toml`, and this one has to agree with them, because what it
+    produces is compared against `runs.evidence_roots`. It used to anchor on
+    the nearest `pyproject.toml` instead, which is the same directory for a
+    book that is its own repository and a different one for a book kept inside
+    a larger project: there, a declared evidence root matched nothing, saved
+    run records were reflowed, and the configuration looked right on the page.
+
+    Falls back to the path as given when it lies outside the project, so
+    classification still works on a bare filename.
     """
+    from quirework.project import current_project
+
     p = Path(path)
     try:
         resolved = p.resolve()
     except OSError:
         resolved = p
-    for anc in resolved.parents:
-        if (anc / "pyproject.toml").exists():
-            try:
-                return resolved.relative_to(anc).as_posix()
-            except ValueError:
-                break
-    return p.as_posix()
+    try:
+        return resolved.relative_to(current_project().root).as_posix()
+    except ValueError:
+        return p.as_posix()
 
 
 def classify(path: str) -> str:
@@ -686,7 +693,7 @@ def classify(path: str) -> str:
     if path.endswith(".qmd"):
         return "sentence"
     if path.endswith(".md"):
-        return "skip" if run_evidence(_repo_rel(path)) else "column"
+        return "skip" if run_evidence(_project_rel(path)) else "column"
     return "skip"
 
 

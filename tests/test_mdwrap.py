@@ -450,3 +450,30 @@ def test_missing_file_is_a_clean_error(tmp_path, capsys):
     rc = mdwrap.main(["--check", str(tmp_path / "ideas" / "nope.md")])
     assert rc == 2
     assert "cannot read" in capsys.readouterr().err
+
+
+def test_evidence_paths_are_read_from_the_project_root(tmp_path):
+    """A declared evidence root is relative to quirework.toml, like every path.
+
+    A book kept inside a larger repository used to have its paths measured
+    from the outer project instead, so a correctly declared root matched
+    nothing and saved run records were reflowed with the prose.
+    """
+    from quirework.project import Project, project_scope
+    from quirework.text import mdwrap
+
+    outer = tmp_path / "tool"
+    book = outer / "examples" / "demo-book"
+    record = book / "variants" / "manager" / "_raw"
+    record.mkdir(parents=True)
+    (outer / "pyproject.toml").write_text("[project]\nname = 'tool'\n")
+    draft = record / "opening.md"
+    draft.write_text("A draft the model wrote, kept exactly as it wrote it.\n")
+
+    settings = {"runs": {"evidence_roots": ["variants/manager"]}}
+    with project_scope(Project.from_settings(book, settings)):
+        assert mdwrap._project_rel(str(draft)) == "variants/manager/_raw/opening.md"
+        assert mdwrap.classify(str(draft)) == "skip"
+        guide = book / "AGENTS.md"
+        guide.write_text("A guide, wrapped like one.\n")
+        assert mdwrap.classify(str(guide)) == "column"
