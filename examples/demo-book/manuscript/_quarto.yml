@@ -1,0 +1,21 @@
+lang: en-US
+project:
+  type: book
+book:
+  title: "Chapter and Verse Control"
+  subtitle: "A short fiction about the engineer who built Quirework"
+  author: "Prue Vennance"
+  cover-image: cover.png
+  cover-image-alt: "A line drawing of a homemade contraption on a
+    desk, built from a bicycle wheel, a colander and a funnel. A
+    tangled rust-colored thread feeds into one side; a neat row of
+    small teal tags hangs from the other. The title, subtitle and
+    author's name sit above it."
+  chapters:
+    - index.qmd
+    - sections/preface.qmd
+    - sections/the-book-that-disagreed-with-itself.qmd
+    - sections/the-sidecar.qmd
+format:
+  html:
+    theme: cosmo

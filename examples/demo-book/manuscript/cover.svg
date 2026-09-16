@@ -1,0 +1,17 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 1192" width="800" height="1192">
+  <image href="cover-art.png" x="0" y="0" width="800" height="1192"/>
+
+  <text x="400" y="100" text-anchor="middle" fill="#1a1a1a"
+        font-family="Liberation Serif" font-size="56">Chapter and</text>
+  <text x="400" y="165" text-anchor="middle" fill="#1a1a1a"
+        font-family="Liberation Serif" font-size="56">Verse Control</text>
+
+  <text x="400" y="215" text-anchor="middle" fill="#1a1a1a"
+        font-family="Liberation Serif" font-size="22">A short fiction about the engineer</text>
+  <text x="400" y="242" text-anchor="middle" fill="#1a1a1a"
+        font-family="Liberation Serif" font-size="22">who built Quirework</text>
+
+  <line x1="320" y1="1138" x2="480" y2="1138" stroke="#1a1a1a" stroke-width="3"/>
+  <text x="400" y="1170" text-anchor="middle" fill="#1a1a1a"
+        font-family="Liberation Serif" font-size="30">Prue Vennance</text>
+</svg>

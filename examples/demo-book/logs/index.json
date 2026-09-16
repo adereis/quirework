@@ -1,0 +1,32 @@
+{
+  "schema": 1,
+  "filter_version": 3,
+  "codex_filter_version": 2,
+  "sources": {
+    "logs/cc-sessions/893d06b2-042a-458f-bc18-4f20e00032e0.jsonl": {
+      "id": "893d06b2-042a-458f-bc18-4f20e00032e0",
+      "era": "c-refinement",
+      "title": "Chapter and Verse Control manuscript layer",
+      "date": "2026-09-16",
+      "date_end": "2026-09-16",
+      "model": "sonnet-5",
+      "human_turns": 8,
+      "assistant_turns": 441,
+      "tokens": 23113,
+      "doc_edits": 0,
+      "meta_edits": 65,
+      "top_edited": [
+        "the-sidecar.qmd×11",
+        "quirework.toml×9",
+        "_quarto.yml×5"
+      ],
+      "sha256": "a1ea2a592b36152567490a299617d2e1cbe544f9824b91d78c767897d3472fb8",
+      "coldread": false,
+      "scope": "book",
+      "highlight": false,
+      "note": "",
+      "tags": []
+    }
+  },
+  "removed": []
+}

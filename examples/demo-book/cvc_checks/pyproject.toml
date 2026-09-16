@@ -1,0 +1,18 @@
+[build-system]
+requires = ["setuptools>=61"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "cvc-checks"
+version = "0.1.0"
+description = "Chapter and Verse Control's own book-specific Quirework checks."
+requires-python = ">=3.11"
+
+# Not declared as a dependency: this package is loaded BY quirework
+# (docs/authoring.md section 6, "Checks of your own"), so an
+# environment that can import it already has quirework installed.
+# Naming it here would ask pip to resolve an unpublished package by a
+# name that may not be this one on the real index.
+
+[tool.setuptools.packages.find]
+where = ["src"]

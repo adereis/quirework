@@ -1,0 +1,37 @@
+schema = 1
+
+[project]
+name = "Chapter and Verse Control"
+
+[book]
+source = "manuscript"
+chapters = "manuscript/sections"
+build = "build"
+spec = "manuscript/sections/_spec.md"
+figures = "manuscript/sections/illustrations"
+figure_checks = ["cvc_checks.figures:check_style"]
+variant_policy = "config/variant-policy.toml"
+
+[sops]
+root = "procedures"
+catalog = "procedures/catalog.json"
+personas = "profiles"
+instruments = "questions"
+skill_prefix = "cvc-"
+
+[checks]
+command = "cvc_checks.prose:main"
+
+[runs]
+# Not saved sessions: the manager edition's blind drafts. Everything
+# nested under a variant's own _raw/ is evidence of what a model
+# actually wrote, and run_evidence() protects it at any depth without
+# also protecting the composed .qmd files one level above it.
+evidence_roots = ["variants/manager"]
+
+[provenance]
+enabled = true
+# Committed, not private: see logs/README.md for why this book breaks
+# with the configuration guide's default here.
+root = "logs"
+curation = "tracked"

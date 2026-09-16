@@ -1,0 +1,15 @@
+lang: en-US
+project:
+  type: book
+book:
+  title: "Chapter and Verse Control"
+  subtitle: "The manager edition"
+  author: "Prue Vennance"
+  chapters:
+    - index.qmd
+    - preface.qmd
+    - the-book-that-disagreed-with-itself.qmd
+    - the-sidecar.qmd
+format:
+  html:
+    theme: cosmo

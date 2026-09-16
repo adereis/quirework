@@ -1,0 +1,45 @@
+# The Sidecar {#sec-the-sidecar}
+
+Mark keeps his notes where he can see them, which means inside the prose itself, in brackets, in a color Quarto strips before anyone else reads it. `[TODO: does she know about the letter yet?]` sits two lines under the paragraph it is about, which works, until the day it does not.
+
+Hal reflows the paragraph for pacing, the way Mark asked, and the note rides along with whatever text happens to be nearest when the dust settles.
+It comes to rest under a paragraph about a different letter, three sections down, and sits there looking exactly as confident as it did in its old home.
+Mark does not notice for a week.
+When he does, the note has quietly told him that a character knows a secret she has not been told yet, and he has already written two scenes on the strength of it.
+
+He brings this to Sid Karr, who fixes motorcycles on weekends and edits nothing.
+
+"Your notes ride in the story," Sid says.
+"Of course they fall off when you hit a bump.
+Put them in a sidecar."
+
+"A sidecar."
+
+"Carries a passenger.
+Doesn't change how the bike leans.
+You can take it off entirely and the bike still runs, it just runs alone."
+
+Mark makes the sidecar literal: one file per chapter, living beside it, never inside it, with headings that mirror the chapter's own so a note always knows which paragraph it is talking about even after the paragraph moves.
+The prose stops carrying anything that is not prose.
+Hal can reflow a paragraph all he likes;
+the note that describes it does not move, because it was never standing on it.
+
+![Vic Tor's diagram of the arrangement: the chapter keeps riding, the sidecar carries the notes.](illustrations/sidecar.svg){#fig-sidecar fig-alt="A line drawing of a motorcycle in profile with a sidecar attached to it by two struts. The motorcycle is labeled the chapter; the sidecar is labeled the marks."}
+
+Prue Vennance turns up two weeks later wanting to know who wrote the sentence in chapter four that everyone keeps quoting back to Mark at parties.
+Mark says he thinks it was his.
+Hal says he thinks it was his.
+Neither says it with the confidence either would like.
+
+"Somebody logged it," Prue says.
+It is not a question.
+
+The logs had.
+Mark's draft, timestamped, followed four minutes later by Hal's revision, which is the actual sentence everyone quotes.
+Prue writes this down looking, for the first time since Mark has known her, satisfied.
+
+The sticky note on Mark's monitor has said "quirk work" since the day he named the file of commitments he refuses to call commitments.
+He types it into a terminal one evening and his editor corrects it before he can stop it, to *quirework*, a word he is fairly sure he has never typed in his life.
+He looks it up.
+He reads the definition twice, then looks over at the folder on his disk, which is not, by any definition he would defend under questioning, a book yet.
+He leaves the correction standing and ships the whole thing under that name.

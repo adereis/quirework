@@ -1,0 +1,4 @@
+# Chapter and Verse Control {#sec-index}
+
+An engineer cannot finish his book, so he builds a tool instead.
+This is that story, told to show what a small Quirework project looks like from the outside.

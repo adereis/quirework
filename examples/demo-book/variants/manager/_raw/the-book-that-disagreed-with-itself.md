@@ -1,0 +1,15 @@
+# The Book That Disagreed With Itself
+
+The tool is worth fifteen minutes if your writer has ever contradicted himself and not noticed until page four hundred. Mark had.
+
+Mark is on chapter nine when Hal writes a sentence about grief being something a person builds, one room at a time, and lives inside. It is a good sentence. It also flatly contradicts what Mark wrote in chapter two, that grief is a thing a person carries, and that the tragedy of Aunt Ruth is that she never sets it down. Both sentences are still in the manuscript, four hundred pages apart, both good, and Mark cannot say which one he actually believes.
+
+He asks Hal to cite chapter two. Hal gives him a page number. Wrong. He asks again. Hal gives a different page number, just as confident, still wrong.
+
+He sends the draft to Em Dash, an editor, who returns it a day and a half later having added forty-one em-dashes and fixed nothing. One comment survives: *your book has two opinions and no spine.*
+
+That comment is the point of this chapter. Mark stops rewriting sentences and starts writing down what the sentences are supposed to be for, in a plain text file Em Dash cannot touch. He names the underlying claim, short: `grief-weight`, the idea that grief is a weight, not an architecture. He does the same for five more ideas the book depends on. He calls them quirks, on purpose smaller than "beliefs" and harder to walk back than "preferences."
+
+Then he goes back to chapter nine and adds one line above the paragraph: *this chapter expresses grief-weight.* Hal reads it and, for the first time in nine chapters, agrees with chapter two.
+
+That is the whole mechanism: not fixing the AI's memory, but writing down, once, what you actually believe, and pointing chapters at it. It doesn't resolve the doubt, it just stops the doubt from silently forking into two unreconciled books.

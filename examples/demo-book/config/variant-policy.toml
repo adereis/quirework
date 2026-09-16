@@ -1,0 +1,14 @@
+# Read by `quirework book variant build`; see docs/authoring.md's
+# figures/procedures sections for the shape. Nothing here is a secret;
+# it is a project choice written down instead of remembered as a flag.
+
+# The model every blind per-chapter drafter runs on, unless --model
+# overrides it for one invocation.
+default_model = "sonnet"
+
+# Extra project-specific @-marks the blindness check must never find in
+# a drafter's bundle, beyond the built-in @bind/@todo/@figure. This
+# book's sidecars also carry @guidance and @genesis; a leak of either
+# would hand a blind drafter the book's own author's notes about
+# itself.
+blind_tells = ["@guidance", "@genesis"]
