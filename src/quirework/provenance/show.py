@@ -9,7 +9,7 @@ JSONL. (Hand-rolling that extraction is exactly what this command exists to
 retire.)
 
     quirework provenance show 31cf63ed                # cc-session, human + assistant prose
-    quirework provenance search Mabel --show          # find the session, then:
+    quirework provenance search kettle --show         # find the session, then:
     quirework provenance show 31cf63ed --thinking     # include the assistant's thinking
     quirework provenance show 31cf63ed --role human   # only the human's turns
     quirework provenance show 31cf63ed --raw          # keep harness wrappers + meta/sidechain

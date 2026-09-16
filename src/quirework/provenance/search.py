@@ -5,10 +5,10 @@ Answers the content question the catalog (metadata only) cannot: *which sessions
 did I, the human, mention X in?* It searches the human's **own** turns -- not the
 assistant's words, not injected document context -- by reusing ``humaninput``'s
 rigorous turn extraction/classification across every source (claude.ai web,
-Claude Code, Gemini, and Codex). Matching that distinction matters: the essay is *about*
-Mabel's kettle, so the assistant and the injected text say "Mabel" constantly; a
-raw grep drowns in those, while the human-turn search returns the handful of
-sessions where the human actually raised it.
+Claude Code, Gemini, and Codex). Matching that distinction matters: a book is
+*about* its own subject, so the assistant's replies and the injected chapter
+text repeat that vocabulary on every page; a raw grep drowns in them, while the
+human-turn search returns the handful of sessions where the author raised it.
 
 Hits are reported *through* the catalog's metadata (date, title, highlight ★),
 so a fistful of opaque session ids reads as named, dated rows.
@@ -18,17 +18,17 @@ filtered stream is instant, and there is no second index to keep in sync -- the
 right call until the corpus is genuinely gigabytes, which it never will be.
 
 ``--semantic`` answers the question keyword mode structurally cannot: *where did
-I first get uneasy about the steepness guard?* has no word to grep for. It ranks
+I first get uneasy about the opening?* has no word to grep for. It ranks
 by meaning against a locally-built embedding index over the same human-turn
 stream (``semantic.py`` owns the index and the local-only rationale). Both modes
 emit the same session rows and pair with ``quirework provenance show``, so the retriever
 changes and nothing downstream does. Keyword mode stays the default because it
 is exact and exhaustive; semantic mode is recall-shaped, not proof.
 
-    quirework provenance search Tea Mabel Teapot      # OR across keywords, whole-word
-    quirework provenance search --substr mabel        # substring match (default is whole-word)
-    quirework provenance search --show "China Brain"  # also print the matching turn snippets
-    quirework provenance search --semantic "unease about the moral floor's line of kind"
+    quirework provenance search kettle whistle        # OR across keywords, whole-word
+    quirework provenance search --substr kettle       # substring match (default is whole-word)
+    quirework provenance search --show "the cooling"  # also print the matching turn snippets
+    quirework provenance search --semantic "where I first doubted the opening"
 """
 
 from __future__ import annotations
@@ -292,10 +292,10 @@ options:
   --show      keyword: print matching snippets; semantic: the whole window
 
 examples:
-  quirework provenance search Tea Mabel Teapot      OR across keywords, whole-word
-  quirework provenance search --substr mabel        substring match
-  quirework provenance search --show "China Brain"  with the matching snippets
-  quirework provenance search --semantic "why I resisted giving the spout a threshold"
+  quirework provenance search kettle whistle        OR across keywords, whole-word
+  quirework provenance search --substr kettle       substring match
+  quirework provenance search --show "the cooling"  with the matching snippets
+  quirework provenance search --semantic "where I first doubted the opening"
 
 The semantic index is built and stored locally under private/; corpus text is
 never sent anywhere. It rebuilds itself when the corpus or the model changes.

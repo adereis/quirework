@@ -35,7 +35,7 @@ rebuilds everything, because vectors from two models are not comparable and
 mixing them would corrupt the ranking silently.
 
 Three backends, in preference order; the first one installed wins, and
-``MINDWRIGHT_EMBED`` (``fastembed``/``sentence-transformers``/``ollama``) forces
+``QUIREWORK_EMBED`` (``fastembed``/``sentence-transformers``/``ollama``) forces
 one. If none is available the command says so and exits -- it never falls back
 to keyword matching, which would answer a different question under the same flag.
 """
@@ -148,7 +148,7 @@ class _SentenceTransformers:
 class _Ollama:
     """A local ollama server. Zero pip dependencies -- just HTTP to localhost."""
 
-    MODEL = os.environ.get("MINDWRIGHT_EMBED_MODEL", "nomic-embed-text")
+    MODEL = os.environ.get("QUIREWORK_EMBED_MODEL", "nomic-embed-text")
     URL = os.environ.get("OLLAMA_HOST", "http://localhost:11434").rstrip("/")
 
     def __init__(self):
@@ -191,13 +191,13 @@ INSTALL_HELP = """no local embedding backend found. Install one (all run offline
   pip install sentence-transformers  ~2.5GB, pulls torch
   ollama serve && ollama pull nomic-embed-text                       (no pip deps)
 
-Force a specific one with MINDWRIGHT_EMBED=fastembed|sentence-transformers|ollama.
+Force a specific one with QUIREWORK_EMBED=fastembed|sentence-transformers|ollama.
 Corpus text is embedded locally and never leaves this machine."""
 
 
 def get_backend(name=None):
     """First available backend in preference order, or the one named."""
-    name = name or os.environ.get("MINDWRIGHT_EMBED")
+    name = name or os.environ.get("QUIREWORK_EMBED")
     if name:
         if name not in BACKENDS:
             raise BackendUnavailable(
