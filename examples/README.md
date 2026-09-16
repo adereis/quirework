@@ -23,8 +23,12 @@ quirework book chapters --check    # the files and the reading order agree
 quirework book notes --check       # the marks still describe the prose
 quirework book figures --check     # every embed resolves and converts to gray
 quirework sop list                 # the procedures this book keeps
-quirework book build --to html     # the book itself
+quirework book build               # all four editions, and they agree
 ```
+
+That last one stages the book three times, renders HTML, a PDF through
+Typst, an EPUB and a DOCX, validates the EPUB with the W3C checker, and
+checks that the one figure carries the same number in all four.
 
 Two of those gates belong to the book rather than to the tool, and they
 need its own package, which nothing else here installs:

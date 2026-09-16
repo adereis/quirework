@@ -11,6 +11,7 @@ spec = "manuscript/sections/_spec.md"
 figures = "manuscript/sections/illustrations"
 figure_checks = ["cvc_checks.figures:check_style"]
 variant_policy = "config/variant-policy.toml"
+render_policy = "config/render-policy.toml"
 
 [sops]
 root = "procedures"
