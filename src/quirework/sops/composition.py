@@ -114,11 +114,26 @@ def check_panels(*, root=None, base=None):
         sha = git(
             "rev-parse", "--verify", "--end-of-options", base + "^{commit}"
         ).strip()
+        directory = personas._project_relative(
+            root, current_project().path_at(root, "sops.panels", "sops/panels")
+        )
         paths = set(
-            git("ls-tree", "-r", "--name-only", sha, "--", "sops/panels").splitlines()
+            git(
+                "ls-tree",
+                "-r",
+                # Repository-relative on both sides: without this the
+                # pathspec and the printed names are relative to the
+                # working directory, and a project below the checkout
+                # root compares two different spellings of one file.
+                "--full-tree",
+                "--name-only",
+                sha,
+                "--",
+                personas.git_path(root, directory),
+            ).splitlines()
         )
         for name, value in values.items():
-            rel = f"sops/panels/{name}.json"
+            rel = personas.git_path(root, f"{directory}/{name}.json")
             if rel not in paths:
                 continue
             old = personas.parse(git("show", f"{sha}:{rel}"))

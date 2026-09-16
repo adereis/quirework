@@ -69,6 +69,27 @@ def _git(root, *args):
     ).stdout.decode("utf-8")
 
 
+def git_path(root, path):
+    """A project-relative path as Git names it, from anywhere in the repository.
+
+    ``git ls-tree`` prints repository-relative paths and ``git show REV:PATH``
+    reads one, while a project names its own files relative to the project
+    root. Those are the same string only when the project is the whole
+    checkout. A book kept in a subdirectory would otherwise look for its
+    ``profiles/reader.json`` among paths that all begin
+    ``examples/demo-book/``, match none of them, and read that as "every
+    profile is new" -- a revision check that silently checks nothing.
+    """
+    prefix = _git(root, "rev-parse", "--show-prefix").strip()
+    return prefix + str(path)
+
+
+def _project_relative(root, path):
+    """A configured directory as the project names it, for Git and for reports."""
+    path = Path(path)
+    return str(path.relative_to(Path(root))) if path.is_relative_to(Path(root)) else str(path)
+
+
 def resolve(reference=None, *, root=None):
     """Resolve a catalog reference or explicit inline profile to frozen bytes.
 
@@ -101,11 +122,7 @@ def resolve(reference=None, *, root=None):
         if not isinstance(name, str) or not NAME.fullmatch(name):
             raise ValueError("invalid persona id")
         directory = current_project().path_at(root, "sops.personas", "sops/personas")
-        rel = (
-            str(directory.relative_to(Path(root)) / f"{name}.json")
-            if directory.is_relative_to(Path(root))
-            else str(directory / f"{name}.json")
-        )
+        rel = str(Path(_project_relative(root, directory)) / f"{name}.json")
         if "at" in ref:
             revision = _git(
                 root,
@@ -114,7 +131,7 @@ def resolve(reference=None, *, root=None):
                 "--end-of-options",
                 str(ref["at"]) + "^{commit}",
             ).strip()
-            raw = _git(root, "show", f"{revision}:{rel}")
+            raw = _git(root, "show", f"{revision}:{git_path(root, rel)}")
             source = {"kind": "git", "path": rel, "commit": revision}
         else:
             path = Path(root) / rel
@@ -211,13 +228,27 @@ def check(*, root=None, base=None):
         sha = _git(
             root, "rev-parse", "--verify", "--end-of-options", base + "^{commit}"
         ).strip()
+        directory = _project_relative(
+            root, current_project().path_at(root, "sops.personas", "sops/personas")
+        )
         paths = set(
             _git(
-                root, "ls-tree", "-r", "--name-only", sha, "--", "sops/personas"
+                root,
+                "ls-tree",
+                "-r",
+                # Repository-relative on both sides: without this the
+                # pathspec and the printed names are relative to the
+                # working directory, and a project below the checkout
+                # root compares two different spellings of one file.
+                "--full-tree",
+                "--name-only",
+                sha,
+                "--",
+                git_path(root, directory),
             ).splitlines()
         )
         for snapshot in profiles:
-            rel = snapshot["source"]["path"]
+            rel = git_path(root, snapshot["source"]["path"])
             if rel not in paths:
                 continue
             old = validate(parse(_git(root, "show", f"{sha}:{rel}")))
