@@ -472,7 +472,7 @@ def test_evidence_paths_are_read_from_the_project_root(tmp_path):
 
     settings = {"runs": {"evidence_roots": ["variants/manager"]}}
     with project_scope(Project.from_settings(book, settings)):
-        assert mdwrap._project_rel(str(draft)) == "variants/manager/_raw/opening.md"
+        assert mdwrap.project_relative(str(draft)) == "variants/manager/_raw/opening.md"
         assert mdwrap.classify(str(draft)) == "skip"
         guide = book / "AGENTS.md"
         guide.write_text("A guide, wrapped like one.\n")

@@ -651,8 +651,12 @@ def _strip_trailing(text: str) -> str:
     return "\n".join(line.rstrip() for line in text.split("\n"))
 
 
-def _project_rel(path: str) -> str:
+def project_relative(path: str) -> str:
     """Path relative to the selected project's root, posix.
+
+    Public because a project's own `text.classifier` needs exactly this to
+    decide anything by location, and the alternative is each consumer
+    re-deriving the project root and disagreeing with the tool about it.
 
     Every other path setting is written relative to the directory holding
     `quirework.toml`, and this one has to agree with them, because what it
@@ -693,7 +697,7 @@ def classify(path: str) -> str:
     if path.endswith(".qmd"):
         return "sentence"
     if path.endswith(".md"):
-        return "skip" if run_evidence(_project_rel(path)) else "column"
+        return "skip" if run_evidence(project_relative(path)) else "column"
     return "skip"
 
 

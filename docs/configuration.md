@@ -161,8 +161,11 @@ which is the guarantee these three settings buy.
 A project can select installed Python extensions. `checks.command` names
 its check-suite function as `module:function`. `text.classifier` selects
 a function returning `sentence`, `column`, `trailing`, or `skip` for a
-source path. `book.grayscale_transform` accepts SVG text and its asset
-name and returns transformed SVG text. `book.figure_checks` is a list of
+source path; it receives an absolute path, and
+`quirework.text.mdwrap.project_relative` turns that into the path as the
+project names it, which is what a rule about location needs.
+`book.grayscale_transform` accepts SVG text and its asset name and
+returns transformed SVG text. `book.figure_checks` is a list of
 functions returning diagnostic strings. Extensions belong to the
 consumer's package and must be installed explicitly.
 
