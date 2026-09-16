@@ -82,7 +82,7 @@ paste cases (`paste --show`), sanity-check the numbers, then write the report in
 prose with the caveats kept. See sops/effort-metrics.md.
 """
 
-import argparse, glob, json, os, re, subprocess
+import argparse, glob, json, re, subprocess
 
 from quirework.provenance import scope as SCOPE
 from quirework.provenance import codexfilter as CODEX_FLT
@@ -92,6 +92,17 @@ from pathlib import Path
 from quirework.project import current_project
 
 WORDS = re.compile(r"\S+")
+
+
+def _configured_relative(key, fallback):
+    """A configured book path as the project names it, or the old default."""
+    from quirework.project import ConfigurationError
+
+    try:
+        configured = current_project().path(key, fallback)
+        return str(configured.relative_to(current_project().root))
+    except (ConfigurationError, ValueError):
+        return fallback
 
 
 def _options():
@@ -108,10 +119,15 @@ def _options():
         .data("provenance.metrics_policy", {})
         .get("source_of_truth", None)
     )
+    # Where the finished prose is, and which paths' git history counts as
+    # writing it. Both defaulted to the literal "docs", so a project whose
+    # book is anywhere else measured an empty directory: zero words of essay,
+    # zero lines of churn, and a crash on the fallback below. The book
+    # configuration already answers both questions.
     CANONICAL_DIR = (
         current_project()
         .data("provenance.metrics_policy", {})
-        .get("canonical_dir", "docs")
+        .get("canonical_dir", _configured_relative("book.chapters", "docs"))
     )
     LEGACY_SPEC = (
         current_project().data("provenance.metrics_policy", {}).get("legacy_spec", None)
@@ -119,7 +135,7 @@ def _options():
     ESSAY_PATHS = (
         current_project()
         .data("provenance.metrics_policy", {})
-        .get("essay_paths", ["docs"])
+        .get("essay_paths", [_configured_relative("book.source", "docs")])
     )
     return SimpleNamespace(
         CANONICAL_DIR=CANONICAL_DIR,
@@ -547,8 +563,12 @@ def output_metrics():
             for c in chapters
         )
     else:
-        sot = current_project().root / _options().SOURCE_OF_TRUTH
-        o["essay_words"] = words(sot.read_text()) if sot.exists() else 0
+        # A book with no chapter files may still be a single document. Without
+        # one declared there is simply nothing to count, which is a report of
+        # zero rather than a reason to stop.
+        named = _options().SOURCE_OF_TRUTH
+        sot = current_project().root / named if named else None
+        o["essay_words"] = words(sot.read_text()) if sot and sot.exists() else 0
     # What else a project made alongside the book is the project's own shape:
     # notes, exercises, reading rounds, a derived edition. The policy names
     # each count and the glob that finds it, because a fixed list of directory
@@ -941,7 +961,7 @@ def report(accs, total, pst=None, scope=None):
     # ---- manual-confirmation proxy (Claude Code only) ----
     code = next((a for a in accs if a.name == "code"), None)
     if code:
-        print(f"\nManual-confirmation proxy (Claude Code tool calls, by mode):")
+        print("\nManual-confirmation proxy (Claude Code tool calls, by mode):")
         print(
             f"  gated  (permissionMode=default, ~upper bound on prompts): "
             f"{code.gated_tools:,}"
@@ -1002,18 +1022,20 @@ def report_repo(g, o, total):
     print("=" * 70)
     print(
         f"Repo history span : {g['repo_first']} -> {g['repo_last']}  "
-        "(the private workspace; created long after the project began)"
+        "(this repository's own history, which may start long after the "
+        "writing did)"
     )
     print(f"Commits, repo total                : {g['commits_total']:,}")
-    print(
-        f"Commits touching the canonical essay (state-of-states.md + "
-        f"docs/canon): {g['commits_sot']:,}"
-    )
-    print(
-        f"Commits touching the legacy spec     ({_options().LEGACY_SPEC}): "
-        f"{g['commits_legacy']:,}"
-    )
-    print(f"Commits touching any canonical doc   : {g['commits_doc_any']:,}")
+    essay = ", ".join(str(path) for path in _options().ESSAY_PATHS)
+    print(f"Commits touching the book ({essay}): {g['commits_sot']:,}")
+    # A book that has never moved its text between files has no earlier
+    # lineage to count, and a line reading "(None): 0" is not a measurement.
+    if _options().LEGACY_SPEC:
+        print(
+            f"Commits touching the legacy spec     ({_options().LEGACY_SPEC}): "
+            f"{g['commits_legacy']:,}"
+        )
+        print(f"Commits touching any canonical doc   : {g['commits_doc_any']:,}")
     print(
         f"Source-of-truth churn              : +{g['sot_added']:,} / "
         f"-{g['sot_removed']:,} lines (semantic-line-wrapped, ~1 sentence/line)"
