@@ -13,7 +13,14 @@ Parsing and presentation stay outside the reusable execution engine.
 | `runs` | Execution state, recovery, checkpoints, evidence |
 | `providers` | Native invocation, model resolution, receipts, isolation |
 | `delivery` | Frozen material transforms and turn delivery |
-| `core` | Artifact classification and project check dispatch |
+| `core` | Artifact classification, project check dispatch, pinned tools |
+
+Some operations need a program too large to vendor: an EPUB validator,
+an e-reader renderer. `core.pinned` fetches one by version, URL and
+SHA-256 into the shared cache, hashing the archive before anything is
+unpacked so a substituted download never lands as an executable. A
+consumer keeps its own pin and calls `pinned.ensure`; a tool Quirework
+does not ship a command for is not Quirework's version to choose.
 
 A book depends on Quirework. Quirework never imports a book's extension
 unless that project explicitly selects it. The execution and provider

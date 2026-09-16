@@ -32,15 +32,13 @@ buries the count that actually tells you what kind of problem it is.
 from __future__ import annotations
 
 import argparse
-import hashlib
-import os
 import re
 import shutil
 import subprocess
 import sys
-import urllib.request
-import zipfile
 from pathlib import Path
+
+from quirework.core import pinned
 
 # Pinned. Bump the three together: a version without its checksum is an
 # unverified download, and a checksum without its version is a lie.
@@ -65,14 +63,16 @@ FAIL = ("FATAL", "ERROR")
 _ELIDE = 140
 
 
+MEMBER = "epubcheck.jar"
+
+
 def cache_dir() -> Path:
     """Where the pinned checker lives. XDG, so it is shared across clones."""
-    base = os.environ.get("XDG_CACHE_HOME") or (Path.home() / ".cache")
-    return Path(base) / "quirework"
+    return pinned.cache_root()
 
 
 def jar_path() -> Path:
-    return cache_dir() / f"epubcheck-{VERSION}" / "epubcheck.jar"
+    return pinned.tool_root("epubcheck", VERSION) / MEMBER
 
 
 def find_jar() -> Path | None:
@@ -81,12 +81,7 @@ def find_jar() -> Path | None:
     `EPUBCHECK_JAR` is honored first so a distro package or a CI image can
     supply its own copy; everything else uses the pinned cache.
     """
-    override = os.environ.get("EPUBCHECK_JAR")
-    if override:
-        p = Path(override).expanduser()
-        return p if p.exists() else None
-    p = jar_path()
-    return p if p.exists() else None
+    return pinned.find("epubcheck", VERSION, MEMBER, env_override="EPUBCHECK_JAR")
 
 
 def have_java() -> bool:
@@ -95,45 +90,9 @@ def have_java() -> bool:
 
 def install(force: bool = False) -> int:
     """Fetch, verify and unpack the pinned EPUBCheck into the cache."""
-    target = jar_path()
-    if target.exists() and not force:
-        print(f"epubcheck {VERSION} already installed: {target}")
-        return 0
-
-    dest = cache_dir()
-    dest.mkdir(parents=True, exist_ok=True)
-    archive = dest / f"epubcheck-{VERSION}.zip"
-
-    if not archive.exists() or force:
-        print(f"fetching EPUBCheck {VERSION} ...")
-        try:
-            with urllib.request.urlopen(URL, timeout=60) as r:  # noqa: S310
-                archive.write_bytes(r.read())
-        except Exception as exc:  # network, TLS, 404
-            archive.unlink(missing_ok=True)
-            print(f"epubcheck: download failed: {exc}", file=sys.stderr)
-            return 1
-
-    # Verified BEFORE it is unpacked, so a corrupted or substituted archive
-    # never reaches the filesystem as executable jars.
-    got = hashlib.sha256(archive.read_bytes()).hexdigest()
-    if got != SHA256:
-        archive.unlink(missing_ok=True)
-        print(
-            f"epubcheck: checksum mismatch for {URL}\n"
-            f"  expected {SHA256}\n  got      {got}\n"
-            f"  the download was discarded.",
-            file=sys.stderr,
-        )
-        return 1
-
-    with zipfile.ZipFile(archive) as z:
-        z.extractall(dest)
-    if not target.exists():
-        print(f"epubcheck: {target} missing after unpack.", file=sys.stderr)
-        return 1
-    print(f"epubcheck {VERSION} installed: {target}")
-    return 0
+    return pinned.install(
+        "epubcheck", VERSION, URL, SHA256, MEMBER, label="EPUBCheck", force=force
+    )
 
 
 def parse(output: str) -> list[tuple[str, str, str, str]]:
