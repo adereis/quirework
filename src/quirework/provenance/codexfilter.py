@@ -51,7 +51,7 @@ FILTER_VERSION = 2
 # bump makes every existing capture pass through the corrected boundary; the
 # intended render is unchanged, so ``FILTER_VERSION`` -- which keys cold-read
 # reports -- does not move with it.
-CAPTURE_SCHEMA = "mindwright-codex-v3"
+CAPTURE_SCHEMA = "quirework-codex-v3"
 _TEXT_TYPES = {"input_text", "output_text", "text"}
 _META_FIELDS = (
     "id",

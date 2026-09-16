@@ -81,7 +81,7 @@ import tempfile
 
 from quirework.provenance.ccfilter import marker_prefix
 
-CAPTURE_SCHEMA = "mindwright-agy-v1"
+CAPTURE_SCHEMA = "quirework-agy-v1"
 CAPTURE_TYPE = "CAPTURE_META"
 
 # Record kinds whose ``content`` is somebody's words rather than tool output,

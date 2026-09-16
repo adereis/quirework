@@ -348,7 +348,7 @@ def _blocks(content):
 # records the source fingerprint (so a sweep can tell a grown live session from
 # a settled one) and a census of what was dropped (so a later reader can see
 # what the file no longer holds instead of inferring it from absence).
-CAPTURE_SCHEMA = "mindwright-cc-v1"
+CAPTURE_SCHEMA = "quirework-cc-v1"
 CAPTURE_TYPE = "capture-meta"
 
 # Record types worth keeping. An allowlist rather than a blocklist: a harness

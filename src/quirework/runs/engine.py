@@ -1206,19 +1206,11 @@ def frozen_dispatch(root, args):
     env = os.environ.copy()
     env["PYTHONPATH"] = str(executor / "src")
     env["PYTHONDONTWRITEBYTECODE"] = "1"
-    if (executor / "src/quirework/runs/__main__.py").is_file():
-        module = "quirework.runs"
-    elif (executor / "src/mindwright/runs/__main__.py").is_file():
-        module = "mindwright.runs"
-        args = [
-            "run" if i == 0 and value == "start" else value
-            for i, value in enumerate(args)
-        ]
-    else:
+    if not (executor / "src/quirework/runs/__main__.py").is_file():
         raise RuntimeError("frozen executor has no supported entry point")
     env.pop("QUIREWORK_PROJECT", None)
     return subprocess.run(
-        [sys.executable, "-m", module, *args], cwd=executor, env=env
+        [sys.executable, "-m", "quirework.runs", *args], cwd=executor, env=env
     ).returncode
 
 

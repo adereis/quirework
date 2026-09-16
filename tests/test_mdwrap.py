@@ -364,9 +364,9 @@ def test_trailing_mode_preserves_directive_lines(tmp_path):
     # them (column reflow would). Only trailing whitespace is touched.
     (tmp_path / "pyproject.toml").write_text("")
     f = tmp_path / "GEMINI.md"
-    f.write_text("@AGENTS.md   \n@docs/AGENTS.md\n@src/mindwright/AGENTS.md\n")
+    f.write_text("@AGENTS.md   \n@docs/AGENTS.md\n@src/quirework/AGENTS.md\n")
     mdwrap.process(str(f), check=False)
-    assert f.read_text() == "@AGENTS.md\n@docs/AGENTS.md\n@src/mindwright/AGENTS.md\n"
+    assert f.read_text() == "@AGENTS.md\n@docs/AGENTS.md\n@src/quirework/AGENTS.md\n"
 
 
 def _repo(tmp_path):

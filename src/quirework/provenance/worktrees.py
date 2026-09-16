@@ -38,7 +38,7 @@ Three consumers, three ways in, one rule:
   - package code imports `from .worktrees import checkouts`;
   - the standalone sync scripts add this directory to `sys.path` and
     `import worktrees` (no package import, so no dependency on an installed
-    `mindwright`);
+    `quirework`);
   - `sync_agy_sessions.sh` runs this file as a script, which prints one
     absolute checkout path per line.
 """
