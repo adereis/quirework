@@ -96,10 +96,22 @@ class _FastEmbed:
     MODEL = "BAAI/bge-small-en-v1.5"
     # fastembed's own default is 256, and the ONNX runtime sizes its arena from
     # the largest batch it ever sees and then keeps it. A first full build of a
-    # few thousand windows took the process to 8.6 GB resident and was killed by
-    # the kernel on a 16 GB machine. The batch is a memory knob, not a quality
-    # one: the vectors are identical either way.
-    BATCH = int(os.environ.get("QUIREWORK_EMBED_BATCH", "32"))
+    # few thousand windows took the process to 8.6 GB resident and was killed
+    # by the kernel on a 16 GB machine.
+    #
+    # The batch is purely a memory knob here; the vectors are identical either
+    # way, and on a CPU it buys no speed at all. Measured on one machine, same
+    # corpus, same windows:
+    #
+    #     batch    8    1.1 windows/s      426 MB peak
+    #     batch   32    1.1 windows/s    1,093 MB peak
+    #     batch  128    0.8 windows/s    3,811 MB peak
+    #
+    # Throughput is flat and then falls while memory grows about linearly, so
+    # the smallest workable batch is simply the best one. Raise it through the
+    # environment on a machine with room and a runtime that rewards batching;
+    # a GPU provider is the case that would.
+    BATCH = int(os.environ.get("QUIREWORK_EMBED_BATCH", "8"))
 
     def __init__(self):
         from fastembed import TextEmbedding
