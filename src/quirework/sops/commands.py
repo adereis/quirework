@@ -9,7 +9,7 @@ only so repository hooks do not need an installed environment.
 Procedures remain the single source of truth. Workflow and mode descriptions
 come from their @skill markers (or Goal lines); protocols identified by a
 `# SOP fragment` heading receive no skill. The generator owns marked SKILL.md
-bodies and the invocation policy field in portable mw-* metadata. SOPs default
+bodies and the invocation policy field in portable route metadata. SOPs default
 to explicit-only; an @skill-invocation marker can opt into implicit use. Other
 metadata and handwritten alias bodies remain independently maintained.
 """
@@ -141,6 +141,19 @@ def _implicit_skills() -> set[str]:
     return implicit
 
 
+# Which of the project's own guides tells an operator how work happens. It is
+# named in every generated skill, so a project whose guide has another name (or
+# none) must be able to say so rather than point agents at a missing file. The
+# default is the layout this tool grew up in, and carries the line break that
+# keeps the generated paragraph wrapped; an empty setting drops the clause.
+_DEFAULT_OPERATOR_GUIDE = 'AGENTS.md\n("How work happens")'
+
+
+def _operator_guide() -> str:
+    guide = current_project().get("sops.operator_guide", _DEFAULT_OPERATOR_GUIDE)
+    return f", per {guide}: " if guide else ": "
+
+
 def _skill_md(
     stem: str, description: str, portable: bool = False, allow_implicit: bool = False
 ) -> str:
@@ -167,8 +180,8 @@ def _skill_md(
         f"\n"
         f"{authorization}"
         "\n"
-        f"Read `{source}` in full and execute it as the operator, per AGENTS.md\n"
-        f'("How work happens"): drive the `quirework` tools, supervise their output,\n'
+        f"Read `{source}` in full and execute it as the operator"
+        f"{_operator_guide()}drive the `quirework` tools, supervise their output,\n"
         f"analyze it, then deliver the artifact -- the supervise -> analyze -> deliver\n"
         f"loop. The human's request names the target (which chapter, artifact, run, or\n"
         f"model); assume and state it when it is clear, ask once only when it is not.\n"
@@ -193,7 +206,7 @@ def _expected(portable=False, implicit=None) -> dict[str, str]:
 
 
 def _existing_managed(skills=None) -> dict[str, Path]:
-    """`mw-*` skill dirs we own -- their SKILL.md carries the generator sentinel."""
+    """Prefixed skill dirs we own -- their SKILL.md carries the generator sentinel."""
     skills = _settings().SKILLS if skills is None else skills
     found = {}
     if not skills.exists():
@@ -370,11 +383,11 @@ agent follows it, drives the tools, then analyzes and delivers.
   quirework sop list --json    machine-readable catalog metadata
   quirework sop explain NAME   required reading and conditional follow-ups
   quirework sop catalog        print the generated Markdown discovery index
-  quirework sop catalog --write regenerate sops/catalog/README.md
+  quirework sop catalog --write regenerate the catalog index
   quirework sop catalog --check validate metadata, reading graph and index
   quirework sop show NAME      print one playbook
   quirework sop skills --target both   generate Claude and portable routes
-  quirework sop skills         regenerate the /mw-<name> skills from the SOPs
+  quirework sop skills         regenerate the prefixed skills from the SOPs
   quirework sop skills --check exit non-zero if any skill is stale; write
                                 nothing (this is what the pre-commit hook runs)
 

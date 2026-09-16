@@ -776,7 +776,9 @@ def prepare(args):
     record.mkdir(parents=True, exist_ok=False)
     artifact = record / "raw" / "artifact"
     artifact.mkdir(parents=True)
-    scratch = Path(tempfile.mkdtemp(prefix="mw-chapter-", dir=Path.home() / "tmp"))
+    scratch = Path(
+        tempfile.mkdtemp(prefix="quirework-chapter-", dir=Path.home() / "tmp")
+    )
     plan = {
         "protocol": PROTOCOL_REVISION,
         "prompt_revision": PROMPT_REVISION,

@@ -70,6 +70,11 @@ def reading_order(entries, name):
     return result
 
 
+def _sops_root(root):
+    """The project's own procedure directory; its name is a project choice."""
+    return current_project().path_at(root, "sops.root", "sops")
+
+
 def load(root=None):
     """Validate metadata, complete SOP coverage and the required-reading DAG."""
     if root is None:
@@ -100,9 +105,9 @@ def load(root=None):
     files = [
         p
         for directory in (
-            current_project().path_at(root, "sops.root", "sops"),
-            current_project().path_at(root, "sops.root", "sops") / "workflows",
-            current_project().path_at(root, "sops.root", "sops") / "protocols",
+            _sops_root(root),
+            _sops_root(root) / "workflows",
+            _sops_root(root) / "protocols",
         )
         for p in directory.glob("*.md")
         if p.name != "README.md"
@@ -160,7 +165,7 @@ def load(root=None):
 
 def path_for(root, name):
     matches = [
-        Path(root) / "sops" / folder / f"{name}.md"
+        _sops_root(root) / folder / f"{name}.md"
         for folder in ("", "workflows", "protocols")
     ]
     found = [p for p in matches if p.is_file()]
@@ -251,7 +256,7 @@ def markdown(data, root=None):
                 continue
             deps = (
                 ", ".join(
-                    f"[{d}](../{path_for(root, d).relative_to(Path(root) / 'sops')})"
+                    f"[{d}](../{path_for(root, d).relative_to(_sops_root(root))})"
                     for d in entry["requires"]
                 )
                 or "None"
@@ -259,7 +264,8 @@ def markdown(data, root=None):
             desc = describe(root, name).replace("|", r"\|")
             suffix = f" ({entry['kind']})" if entry["kind"] != "procedure" else ""
             lines.append(
-                f"| [{name}](../{path_for(root, name).relative_to(Path(root) / 'sops')}){suffix} | {desc} | {deps} |"
+                f"| [{name}](../{path_for(root, name).relative_to(_sops_root(root))}){suffix} "
+                f"| {desc} | {deps} |"
             )
         lines.append("")
     lines += ["## Execution notes", ""]

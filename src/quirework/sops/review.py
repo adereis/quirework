@@ -52,7 +52,7 @@ from quirework.project import current_project
 # namespace-local: nothing is created on the real filesystem and no other
 # process shares the path. That is why the repository's "never /tmp" rule does
 # not reach in here.
-JAILED_REPORT = "/tmp/mw-review"
+JAILED_REPORT = "/tmp/quirework-review"
 
 RUN_NAME = re.compile(r"^\d{4}-\d{2}-\d{2}-review-[a-z0-9][a-z0-9-]*$")
 SCOPE = re.compile(r"^[a-z0-9][a-z0-9-]*$")

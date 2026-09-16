@@ -31,6 +31,13 @@ when the project uses those features. Annotation bindings resolve
 against the configured semantic register; a book need not adopt another
 project's claims or vocabulary.
 
+`sops.root` names the procedure directory, so a project can call it
+`procedures` or anything else; discovery and reading both follow the
+setting. `sops.operator_guide` names the project's own guide in every
+generated skill, for a project whose guide is not `AGENTS.md`. Setting it
+to an empty string leaves the generated skills pointing only at the
+procedure itself.
+
 ## Configuration layers
 
 Quirework loads `quirework.toml`, then the optional

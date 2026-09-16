@@ -13,7 +13,7 @@ from quirework.project import (
     submit,
 )
 from quirework.book import chapters, graybuild
-from quirework.sops import catalog, personas
+from quirework.sops import catalog, commands, personas
 
 
 def book(root, slug):
@@ -142,6 +142,34 @@ def test_procedure_catalog_uses_configured_directory(tmp_path):
     with project_scope(project):
         assert catalog.load()["entries"] == data["entries"]
         assert catalog.reading_order(data["entries"], "read") == ["read"]
+        # Resolution, not just discovery: a renamed directory has to survive
+        # the read path too, or explaining a procedure cannot find its file.
+        explained = catalog.explain(data, "read")
+        assert explained["reading_order"][0]["path"] == "procedures/read.md"
+        assert explained["description"].startswith("Read a supplied note")
+
+
+def test_generated_skills_name_the_project_own_guide(tmp_path):
+    """A generated skill must not send an agent to a file this book lacks."""
+    directory = tmp_path / "procedures"
+    directory.mkdir()
+    (directory / "tidy.md").write_text("# Tidy\n\n<!-- @skill: Tidy it. -->\n")
+    settings = {"sops": {"root": "procedures", "catalog": "procedures/index.json"}}
+    with project_scope(Project.from_settings(tmp_path, settings)):
+        assert 'per AGENTS.md\n("How work happens")' in commands._skill_md(
+            "tidy", "Tidy it."
+        )
+    named = dict(settings)
+    named["sops"] = {**settings["sops"], "operator_guide": "CONTRIBUTING.md"}
+    with project_scope(Project.from_settings(tmp_path, named)):
+        body = commands._skill_md("tidy", "Tidy it.")
+        assert "per CONTRIBUTING.md: drive" in body
+        assert "AGENTS.md" not in body
+    silent = dict(settings)
+    silent["sops"] = {**settings["sops"], "operator_guide": ""}
+    with project_scope(Project.from_settings(tmp_path, silent)):
+        body = commands._skill_md("tidy", "Tidy it.")
+        assert "as the operator: drive" in body
 
 
 def test_generic_grayscale_has_no_book_palette(tmp_path):

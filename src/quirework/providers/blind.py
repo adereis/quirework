@@ -729,7 +729,7 @@ def cmd_check(argv) -> int:
     ).stdout.strip()
     print(f"✓ backend: {ver}")
 
-    root = ensure_neutral_cwd() / ".mw-blind-check"
+    root = ensure_neutral_cwd() / ".quirework-blind-check"
     seat, sibling = root / "seat", root / "other-seat"
     seat.mkdir(parents=True, exist_ok=True)
     sibling.mkdir(parents=True, exist_ok=True)
@@ -969,7 +969,7 @@ def canary_once(
     """
     from quirework.project import current_project
 
-    run_dir = run_dir or (ensure_neutral_cwd() / ".mw-blind-canary")
+    run_dir = run_dir or (ensure_neutral_cwd() / ".quirework-blind-canary")
     run_dir.mkdir(parents=True, exist_ok=True)
     model = model or cheapest_model(name)
     prompt = CANARY_PROMPT.format(target=current_project().root / "AGENTS.md")
