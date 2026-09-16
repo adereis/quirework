@@ -194,7 +194,14 @@ def installed(family: str) -> bool:
 # refusing to render it here answers a question about somebody else's computer.
 # Only the formats rasterized or typeset at build time depend on what is
 # installed now.
-FORMAT_CONSUMERS = {"pdf": ("typst", "rsvg"), "docx": ("rsvg",)}
+# The print interior is declared as `typst`, which is the name that reaches
+# this table; `pdf` is Quarto's LaTeX route to the same paper. Keying this on
+# "pdf" alone silently exempted the one format the whole gate exists for.
+FORMAT_CONSUMERS = {
+    "typst": ("typst", "rsvg"),
+    "pdf": ("rsvg",),
+    "docx": ("rsvg",),
+}
 
 
 def missing(formats=None) -> list[tuple[tuple[str, ...], str]]:

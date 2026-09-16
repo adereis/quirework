@@ -69,6 +69,18 @@ def test_the_prose_is_wrapped_the_way_the_project_wraps_it(book):
     assert run(book, "text wrap", "--check", *sources) == 0
 
 
+def test_the_example_declares_all_four_editions(book):
+    """The example is the proof that one source reaches four formats.
+
+    An example that renders only HTML demonstrates the easy format and
+    silently skips the three that stage differently, which is where the
+    disagreements this tool exists to catch actually happen.
+    """
+    from quirework.book import render
+
+    assert set(render.book_formats()) == {"html", "typst", "epub", "docx"}
+
+
 def test_the_derived_edition_assembles_without_buying_an_answer(book):
     assert run(book, "book variant", "build", "manager", "--dry-run") == 0
 

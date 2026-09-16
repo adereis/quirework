@@ -232,7 +232,9 @@ def test_a_format_the_reader_letters_needs_nothing_installed(tmp_path):
     with project_scope(Project.from_settings(tmp_path, settings)):
         assert fonts.missing(["html"]) == []
         assert fonts.missing(["epub", "html"]) == []
-        assert fonts.missing(["pdf"]) == [(("Second Plate",), "rsvg")]
+        # The print interior is declared as `typst`, not as `pdf`.
+        assert fonts.missing(["typst"]) == [(("Second Plate",), "rsvg")]
+        assert fonts.missing(["docx"]) == [(("Second Plate",), "rsvg")]
         assert fonts.missing() == [(("Second Plate",), "rsvg")]
 
 
