@@ -855,14 +855,14 @@ CANARY_PROMPT = (
 # reads CLAUDE.md, agy reads GEMINI.md, and none of that is visible in any
 # flag -- only in what the running model turns out to know.
 #
-# Matched inside CONTEXT only, and deliberately NOT including "AGENTS.md" or
-# "consciousness": both occur in the target path the seat echoes back on the
-# READ line, so either would fire on a perfectly blind seat.
-#
-# "what we pay" stays although the book was retitled away from it: it is still
-# Part Two's divider and the thesis phrase throughout the guidance, so it still
-# fires on a leak. The NEW title ("Nearly Boiling, and Not Boiling") is
-# deliberately absent and must not be added -- it is ordinary English, and a
+# The markers themselves are project data (providers.isolation_policy), because
+# the words that prove a leak are the book's own and the tool cannot know them.
+# Two rules govern what belongs on that list, and both were learned by getting
+# them wrong. A word the seat echoes back from the path it was asked to read
+# cannot be a marker: it fires on a perfectly blind seat. Neither can a phrase
+# that is ordinary English, such as a book title made of common words, for the
+# same reason. A retired phrase that still appears throughout the project's
+# guidance does belong, because a leak of the guidance still carries it. A
 # marker that a blind seat could produce innocently reports a breach that never
 # happened, which is the one failure this list cannot afford.
 

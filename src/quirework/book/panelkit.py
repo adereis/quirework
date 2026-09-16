@@ -256,8 +256,18 @@ def _source_sha() -> tuple[str, bool]:
         ).stdout.strip()
     except (subprocess.CalledProcessError, FileNotFoundError):
         return "unknown", False
+    # The packet records whether the book it was made from had uncommitted
+    # edits, so the path asked about has to be the book's. It was the literal
+    # `docs`, which for any project whose source is named otherwise reports a
+    # clean tree always: the packet would then claim provenance it does not
+    # have, which is worse than not claiming any.
+    source = current_project().path("book.source", "docs")
+    try:
+        named = source.relative_to(current_project().root)
+    except ValueError:
+        named = source
     dirty = subprocess.run(
-        ["git", "status", "--porcelain", "docs"],
+        ["git", "status", "--porcelain", "--", str(named)],
         cwd=current_project().root,
         capture_output=True,
         text=True,

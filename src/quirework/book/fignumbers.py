@@ -42,6 +42,15 @@ from pathlib import Path
 
 from quirework.book import bookstage as _bookstage
 from quirework.book import figures as _figures
+from quirework.project import current_project
+
+
+def _named(path) -> str:
+    """A path as the project's own operator would type it."""
+    try:
+        return str(Path(path).relative_to(current_project().root))
+    except ValueError:
+        return str(path)
 
 # The rendered caption, reduced to something the four writers cannot disagree
 # about: no markup, no entities, no typographic quotes, no ligatures-turned-
@@ -113,7 +122,7 @@ def expected_count(stage: Path) -> tuple[int, set[str]]:
     (numbering per chapter) restarts at a bare "Figure 1" while DOCX (one run
     over the book) reaches for the position and prints "22.1". That is not a
     bug to fix in the config, it is a number that does not exist, and the book
-    never refers to a figure by one anyway (`docs/AGENTS.md`, "Figures").
+    never refers to a figure by one anyway.
 
     So the unnumbered ones are returned rather than dropped: the caller proves
     they carry no label in ANY edition, which is a stronger claim than the count
@@ -268,10 +277,14 @@ def verify(site: Path, stage: Path, formats: list[str]) -> int:
         print("\nfigure numbering: the editions do not agree.")
         for p in problems:
             print(f"  {p}")
+        config = current_project().path("book.quarto", "docs/_quarto.yml")
+        template = current_project().get("book.typst_template")
+        where = f"`crossref` in {_named(config)}"
+        if template:
+            where += f" and the numbering rule in {template}"
         print(
             "  A figure number must name one figure, and the same one, in every "
-            "edition.\n  See `crossref` in docs/_quarto.yml and the numbering rule "
-            "in docs/typst-show.typ."
+            f"edition.\n  See {where}."
         )
         return 1
 

@@ -325,8 +325,7 @@ def scan(docs: Path | None = None) -> list[Hit]:
 
 def _group(hits: list[Hit], stream, header: str, tail: str) -> None:
     print(
-        f'\nadvisory ({header}; docs/AGENTS.md "In-source annotations" '
-        f"— warning, not gated):",
+        f"\nadvisory ({header} — warning, not gated):",
         file=stream,
     )
     by_file: dict[str, list[Hit]] = {}
