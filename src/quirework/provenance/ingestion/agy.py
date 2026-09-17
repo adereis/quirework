@@ -80,7 +80,14 @@ def main(argv=None):
     )
     roots = worktrees.project_trees(project.root)
     counts = dict(
-        new=0, replaced=0, unchanged=0, differ=0, curated=0, review=0, evals=0
+        new=0,
+        replaced=0,
+        unchanged=0,
+        differ=0,
+        curated=0,
+        review=0,
+        evals=0,
+        unreadable=0,
     )
     for directory in sorted(brain.iterdir()):
         if not directory.is_dir():
@@ -94,7 +101,28 @@ def main(argv=None):
         text = source.read_text()
         if not any(str(root) in text for root in roots):
             continue
-        rows = [json.loads(line) for line in text.splitlines() if line.strip()]
+        try:
+            rows = [json.loads(line) for line in text.splitlines() if line.strip()]
+        except json.JSONDecodeError as exc:
+            # Antigravity writes some records with a literal newline inside a
+            # string value, so one record arrives as several lines and none of
+            # the fragments parse. Nine of 308 transcripts were like this, and
+            # one of them aborted the whole sweep: 299 readable transcripts
+            # went unswept because the loop raised on the first bad one.
+            #
+            # The transcript is skipped whole rather than parsed around. What
+            # these rows decide is whether to EXCLUDE this session -- a review
+            # run, or a seat that was handed a transcript to evaluate -- and
+            # both are positive detections, so a tell lost with an unparsed
+            # fragment is a capture that should never have happened. Reading
+            # part of a transcript to decide whether to keep all of it is the
+            # wrong trade against a private corpus.
+            counts["unreadable"] += 1
+            print(
+                f"  ? {directory.name} transcript does not parse as JSONL "
+                f"({exc}) -- not captured, needs a look"
+            )
+            continue
         context = working_context(rows)
         if context and not worktrees.contains(roots, context):
             counts["review"] += 1
@@ -127,7 +155,7 @@ def main(argv=None):
             counts["differ"] += 1
             print(f"  ! {sid} differs from its source (kept)")
     print(
-        "agy-sessions: {new} new, {replaced} replaced, {unchanged} unchanged, {differ} differ, {curated} curated out, {review} review run(s), {evals} evaluation seat(s) -> ".format(
+        "agy-sessions: {new} new, {replaced} replaced, {unchanged} unchanged, {differ} differ, {curated} curated out, {review} review run(s), {evals} evaluation seat(s), {unreadable} unreadable -> ".format(
             **counts
         )
         + str(dest)
