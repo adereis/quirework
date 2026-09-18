@@ -71,7 +71,9 @@ def test_a_changed_profile_with_a_new_revision_passes(tmp_path, book_at):
         _profile(revision=2, prompt="You are reading for spite.")
     )
     with project_scope(_project(book)):
-        assert [p["profile"]["revision"] for p in personas.check(root=book, base="HEAD")] == [2]
+        assert [
+            p["profile"]["revision"] for p in personas.check(root=book, base="HEAD")
+        ] == [2]
 
 
 @pytest.mark.parametrize("book_at", ["", "examples/demo-book"])

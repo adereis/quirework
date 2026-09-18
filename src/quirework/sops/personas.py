@@ -87,7 +87,11 @@ def git_path(root, path):
 def _project_relative(root, path):
     """A configured directory as the project names it, for Git and for reports."""
     path = Path(path)
-    return str(path.relative_to(Path(root))) if path.is_relative_to(Path(root)) else str(path)
+    return (
+        str(path.relative_to(Path(root)))
+        if path.is_relative_to(Path(root))
+        else str(path)
+    )
 
 
 def resolve(reference=None, *, root=None):

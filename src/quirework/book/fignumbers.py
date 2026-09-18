@@ -52,6 +52,7 @@ def _named(path) -> str:
     except ValueError:
         return str(path)
 
+
 # The rendered caption, reduced to something the four writers cannot disagree
 # about: no markup, no entities, no typographic quotes, no ligatures-turned-
 # whatever. What survives is letters and digits, and that is the join key.

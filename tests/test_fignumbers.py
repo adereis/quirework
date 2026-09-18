@@ -195,7 +195,7 @@ def test_a_caption_wrapped_across_lines_is_still_one_embed():
     wrapped = (
         "![The sidecar carries the marks, and the bike\n"
         "still runs without it.](illustrations/sidecar.svg)"
-        "{#fig-sidecar fig-alt=\"A motorcycle with a sidecar.\"}\n"
+        '{#fig-sidecar fig-alt="A motorcycle with a sidecar."}\n'
     )
     found = list(figures.EMBED.finditer(wrapped))
     assert [m.group("name") for m in found] == ["sidecar"]

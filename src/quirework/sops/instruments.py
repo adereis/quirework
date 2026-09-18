@@ -1,6 +1,5 @@
 """Versioned questions; no harness launch or filesystem exposure policy."""
 
-
 from quirework.project import current_project
 from quirework.sops import personas
 from quirework.runs.storage import identifier

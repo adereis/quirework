@@ -202,7 +202,7 @@ def test_a_fallback_chain_is_read_as_a_chain(tmp_path):
     figures.mkdir()
     (figures / "kettle.svg").write_text(
         '<svg xmlns="http://www.w3.org/2000/svg"><text '
-        "font-family=\"Nothing Installed Here, Liberation Serif, serif\">"
+        'font-family="Nothing Installed Here, Liberation Serif, serif">'
         "steam</text></svg>"
     )
     (figures / "whistle.svg").write_text(

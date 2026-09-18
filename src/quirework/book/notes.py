@@ -179,6 +179,7 @@ def _chapter_shaped(tok: str) -> bool:
 # only: indicative prose legitimately says "never".
 _IMPERATIVE = re.compile(r"\b(NEVER|DO NOT|DON'T|MUST NOT|MAY NOT|BANNED)\b")
 
+
 # The reader-facing companion collections: the worked thought experiments and
 # the real-case evidence. AGENTS.md makes them the deliberate exception to
 # canon self-containment (a mark may point at them, because they are tracked
@@ -195,6 +196,7 @@ def companion_dirs() -> tuple[str, ...]:
     project's directories would check a tree this one does not have.
     """
     return tuple(current_project().get("book.companion_dirs", ()) or ())
+
 
 # `_template.md` carries placeholder citations (`<chapter files and @bind
 # slugs>`), not real ones; it is skipped so a template edit cannot fail a gate

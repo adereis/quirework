@@ -110,9 +110,7 @@ def _options():
     from types import SimpleNamespace
 
     OUTPUT_COUNTS = dict(
-        current_project()
-        .data("provenance.metrics_policy", {})
-        .get("output_counts", {})
+        current_project().data("provenance.metrics_policy", {}).get("output_counts", {})
     )
     SOURCE_OF_TRUTH = (
         current_project()

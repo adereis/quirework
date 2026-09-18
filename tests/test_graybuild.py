@@ -11,7 +11,9 @@ from quirework.book import graybuild
 
 
 def gray(text):
-    return graybuild.to_gray_svg(f'<svg xmlns="http://www.w3.org/2000/svg">{text}</svg>')
+    return graybuild.to_gray_svg(
+        f'<svg xmlns="http://www.w3.org/2000/svg">{text}</svg>'
+    )
 
 
 def test_six_digit_color_becomes_neutral():

@@ -75,10 +75,7 @@ def test_the_personas_and_the_instrument_validate(book):
 
 
 def test_the_prose_is_wrapped_the_way_the_project_wraps_it(book):
-    sources = sorted(
-        str(p)
-        for p in (EXAMPLE / "manuscript").rglob("*.qmd")
-    )
+    sources = sorted(str(p) for p in (EXAMPLE / "manuscript").rglob("*.qmd"))
     assert sources, "the example has chapters"
     assert run(book, "text wrap", "--check", *sources) == 0
 
