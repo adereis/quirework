@@ -135,6 +135,23 @@ promoted to the board like anything else, and the next phase reads it:
 The same mechanism covers a plain discussion (one phase, everyone), a
 panel that hears a witness, and a room that drafts, reviews and revises.
 
+A phase that reads a draft is asked two different questions, and they do
+not belong in the same round. Fault-finding is concrete and absence is
+not, so a turn asking for both is answered on the faults. Put the
+absence question first, while the draft is still new: what does this
+still owe its reader, what was expected and not delivered, and what is
+already working and must survive the next pass. Faults and replies come
+in the round after it.
+
+Order matters as much as wording. A room that hunts faults first has
+framed the draft as wrong and overlong before anyone asks what is
+missing, and the revision inherits that framing. A measured room given
+only "say where you disagree" returned only cuts: every revision in it
+came out shorter than the draft it replaced and the work finished at
+about three quarters of the length its brief asked for, with no seat
+having proposed a single addition. Nothing was wrong with the seats. The
+room was never asked.
+
 A phase may name a `deliverable`, and its seats then write two files: a
 post, which is the note to the room, and the work itself. A drafting
 phase produces both whether or not the plan says so, and without a name
