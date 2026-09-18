@@ -135,6 +135,26 @@ promoted to the board like anything else, and the next phase reads it:
 The same mechanism covers a plain discussion (one phase, everyone), a
 panel that hears a witness, and a room that drafts, reviews and revises.
 
+A phase may name a `deliverable`, and its seats then write two files: a
+post, which is the note to the room, and the work itself. A drafting
+phase produces both whether or not the plan says so, and without a name
+for the second one they arrive welded into a single post that has to be
+cut apart afterwards against whatever separator the room improvised.
+The phase's `words` then describes the work, and `post_words` the note.
+
+```json
+{"name": "draft", "rounds": 1, "seats": ["wren"], "words": 1400,
+ "deliverable": "the-contradiction.md"}
+```
+
+Promotion keeps it at `board/made/SEAT/rNNN/NAME`, hashed and logged
+like a post, and the digest carries it under its author's name so the
+next phase reads the note and the work together. The file itself stays
+a file, so assembling the result is copying rather than parsing. A
+deliverable is a plain file name, checked when the room is prepared. A
+seat that posts without producing the file is recorded as having not
+made it, which is a fact about the round rather than a failed round.
+
 A room that has run out of positions keeps producing paragraphs, so it
 cannot be trusted to notice it has finished. `quirework sop room rounds`
 runs rounds until the room converges or its budget ends. Two signals are

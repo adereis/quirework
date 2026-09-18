@@ -266,7 +266,17 @@ def turn_prompt(root, plan, seat, n):
                 f"{', '.join(str(r) for r in missed)}; those boards are in "
                 "board/ and are worth reading first."
             )
-    if words != plan["post_words"]:
+    made = deliverable(plan, n)
+    if made:
+        # Two files because they are two things, and the word count belongs to
+        # the work rather than to the note about it. Afterwards the work is a
+        # file, not a passage somebody has to find inside a conversation.
+        text += (
+            f" Write the work itself to outbox/{made}, as finished text and"
+            f" nothing else, about {words} words. Your post is your note to the"
+            f" room about it, about {plan['post_words']} words."
+        )
+    elif words != plan["post_words"]:
         text += f" About {words} words this time."
     return f"{text}{(' ' + extra) if extra else ''}\n"
 
@@ -303,6 +313,8 @@ def prepare(plan_path, destination, *, resolve_models=True):
                 raise ValueError(f"phase {phase.get('name')!r} names unknown seats")
             if not phase.get("seats", named):
                 raise ValueError(f"phase {phase.get('name')!r} seats nobody")
+            if "deliverable" in phase:
+                safe_name(phase["deliverable"])
 
     fields = ("harness", "model", "effort")
     config = {k: supplied[k] for k in fields}
@@ -623,6 +635,30 @@ def board_order(seats, n):
     return names[offset:] + names[:offset]
 
 
+def deliverable(plan, n):
+    """The file round ``n``'s phase asks its seats to write, if it asks for one.
+
+    A drafting phase produces two different things that were previously one:
+    a note to the room, and the passage itself. Welded together in a post, the
+    passage has to be cut back out by hand afterwards, against whatever
+    separator the room improvised. Named here, it is a file.
+    """
+    return phase_for(plan, n).get("deliverable")
+
+
+def safe_name(value):
+    """A deliverable name a seat may write and the room may copy.
+
+    The seat chooses the contents and the plan chooses the name, but the name
+    is a path the controller resolves inside a seat's outbox, so it stays a
+    plain filename. Anything else is a way out of the directory.
+    """
+    text = str(value)
+    if not text or "/" in text or text.startswith(".") or text != Path(text).name:
+        raise ValueError(f"deliverable must be a plain file name: {value!r}")
+    return text
+
+
 def compose_digest(root, plan, n):
     """Concatenate round ``n``'s posts, attributed and whole. Never summarize.
 
@@ -638,6 +674,7 @@ def compose_digest(root, plan, n):
     # needs no sentence explaining itself. Describing the order, the promotion
     # or the rotation would only tell a writer about machinery it does not
     # occupy.
+    made = deliverable(plan, n)
     text = f"# The board -- round {n}\n\n"
     included = {}
     for name in board_order(plan["seats"], n):
@@ -648,6 +685,13 @@ def compose_digest(root, plan, n):
         text += f"{rule}\n## {labels[name]}  ({name}){mark}\n{rule}\n\n"
         text += post.read_text().strip() + "\n\n"
         included[name] = digest(post)
+        # A phase's deliverable is the work itself, and the room still has to
+        # read it. It goes on the board under its author's name like anything
+        # else, so a reviewer sees the note and the thing the note is about,
+        # while the file stays separately readable as a file.
+        work = root / "board" / "made" / name / f"r{n:03d}" / made if made else None
+        if work and work.exists():
+            text += f"### {made}\n\n{work.read_text().strip()}\n\n"
     absent = [
         s["id"]
         for s in plan["seats"]
@@ -688,6 +732,29 @@ def promote(root, n):
             event="promoted",
             bytes=post.stat().st_size,
             sha256=digest(post),
+        )
+        made = deliverable(plan, n)
+        if not made:
+            continue
+        written = root / "seats" / seat["id"] / "outbox" / made
+        if not written.exists() or not written.read_bytes().strip():
+            # The seat posted and did not produce the file. That is a fact
+            # about the round, like an absence, and not a reason to fail a
+            # round whose post is already on the board.
+            event(root, round=n, seat=seat["id"], event="unmade", file=made)
+            continue
+        kept = root / "board" / "made" / seat["id"] / f"r{n:03d}" / made
+        kept.parent.mkdir(parents=True, exist_ok=True)
+        shutil.copyfile(written, kept)
+        written.unlink()
+        event(
+            root,
+            round=n,
+            seat=seat["id"],
+            event="made",
+            file=made,
+            bytes=kept.stat().st_size,
+            sha256=digest(kept),
         )
     text, included, absent = compose_digest(root, plan, n)
     out = root / "board" / "rounds" / f"r{n:03d}"

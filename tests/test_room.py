@@ -797,3 +797,68 @@ def test_a_rooms_usage_names_the_seats_it_cannot_price(prepared):
     text = room._render_usage(value)
     assert "no price reported by agy" in text
     assert "the room cost more than this" in text
+
+
+@pytest.fixture
+def making(tmp_path, plan):
+    """A room whose second round asks its drafter for a file, not just a post."""
+    supplied = json.loads(plan.read_text())
+    supplied["phases"] = [
+        {"name": "discuss", "rounds": 1},
+        {
+            "name": "draft",
+            "rounds": 1,
+            "seats": ["ana-pell"],
+            "words": 900,
+            "deliverable": "chapter-one.md",
+        },
+        {"name": "read", "rounds": 1},
+    ]
+    write(plan, supplied)
+    room.prepare(plan, tmp_path / "making", resolve_models=False)
+    return tmp_path / "making"
+
+
+def test_a_drafting_seat_is_asked_for_the_work_as_a_file(making):
+    _, frozen = room.load(making)
+    seat = next(s for s in frozen["seats"] if s["id"] == "ana-pell")
+    text = room.turn_prompt(making, frozen, seat, 2)
+    assert "outbox/chapter-one.md" in text
+    # The length belongs to the work; the post is the note about it.
+    assert "about 900 words" in text and "about 100 words" in text
+
+
+def test_the_work_is_kept_as_a_file_and_still_reaches_the_room(making):
+    post(making, "ana-pell", "Opening position.")
+    post(making, "bo-larke", "A rival position.")
+    room.promote(making, 1)
+    post(making, "ana-pell", "Note to the room: I cut the second scene.")
+    work = making / "seats" / "ana-pell" / "outbox" / "chapter-one.md"
+    work.write_text("# Chapter One\n\nThe lighthouse keeper counted the ships.\n")
+    room.promote(making, 2)
+    kept = making / "board" / "made" / "ana-pell" / "r002" / "chapter-one.md"
+    # Readable as a file, with no room talk to cut out of it.
+    assert kept.read_text().startswith("# Chapter One")
+    assert "Note to the room" not in kept.read_text()
+    assert not work.exists()
+    # And the room still sees it, under its author, beside the note.
+    digest_text = (making / "board" / "rounds" / "r002" / "digest.md").read_text()
+    assert "Note to the room: I cut the second scene." in digest_text
+    assert "The lighthouse keeper counted the ships." in digest_text
+
+
+def test_a_phase_that_asks_for_no_file_is_unchanged(making):
+    post(making, "ana-pell", "Just a post, no file this round.")
+    post(making, "bo-larke", "Likewise.")
+    room.promote(making, 1)
+    assert not (making / "board" / "made").exists()
+
+
+def test_a_deliverable_name_may_not_leave_the_outbox(plan, tmp_path):
+    supplied = json.loads(plan.read_text())
+    supplied["phases"] = [
+        {"name": "draft", "rounds": 3, "deliverable": "../../escaped.md"}
+    ]
+    write(plan, supplied)
+    with pytest.raises(ValueError, match="plain file name"):
+        room.prepare(plan, tmp_path / "escaping", resolve_models=False)
