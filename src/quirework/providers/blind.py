@@ -47,6 +47,7 @@ import shutil
 import subprocess
 import sys
 import re
+import time
 from dataclasses import dataclass
 from pathlib import Path
 from quirework.project import current_project
@@ -334,6 +335,14 @@ def runner_binds(names) -> tuple[list[Path], list[str]]:
     return paths, missing
 
 
+# The one suffix that mints a private runner home. Every workflow that
+# confines a seat -- the run engine, the workshop, a room, a contextual
+# review, a chapter comparison -- gets its home from `state_root`, so this
+# module owns the name and is therefore the only place that can find them all
+# again afterwards.
+STATE_SUFFIX = ".blind-state"
+
+
 def state_root(run_dir: Path) -> Path:
     """Where a run's private runner homes live: beside the run dir, never in it.
 
@@ -342,7 +351,109 @@ def state_root(run_dir: Path) -> Path:
     state dir is bound *over* its real path, so it must not also be visible as
     an ordinary directory in the seat's workspace.
     """
-    return run_dir.parent / f"{run_dir.name}.blind-state"
+    return run_dir.parent / f"{run_dir.name}{STATE_SUFFIX}"
+
+
+def private_homes(root: Path) -> list[Path]:
+    """Every private runner home under ``root``, newest last."""
+    found = [p for p in Path(root).rglob(f"*{STATE_SUFFIX}") if p.is_dir()]
+    return sorted(found, key=lambda p: (_touched(p), str(p)))
+
+
+def _touched(home: Path) -> float:
+    """When anything inside this home last changed."""
+    stamps = [home.stat().st_mtime]
+    stamps += [p.stat().st_mtime for p in home.rglob("*") if not p.is_symlink()]
+    return max(stamps)
+
+
+def _bytes(home: Path) -> int:
+    """Disk actually occupied, counted the way ``du`` counts it.
+
+    Blocks rather than apparent size, and each inode once: a runner install is
+    heavily hardlinked, and summing every path's ``st_size`` reported 1.1 GB
+    for a seat holding 52 MB. A prune that overstates what it frees by twenty
+    times is worse than one that does not report at all.
+    """
+    seen, total = set(), 0
+    for item in home.rglob("*"):
+        if item.is_symlink() or not item.is_file():
+            continue
+        try:
+            info = item.stat()
+        except OSError:
+            continue
+        key = (info.st_dev, info.st_ino)
+        if key in seen:
+            continue
+        seen.add(key)
+        total += info.st_blocks * 512
+    return total
+
+
+def occupied(home: Path) -> int | None:
+    """The pid of a process still working in this home's seat, or None.
+
+    A confined harness keeps its working directory inside the seat workspace
+    while its runner home is bound over the real one, so either path turning up
+    as a live process's cwd means that seat has not finished. Best effort by
+    construction: ``/proc`` refuses processes this user does not own, and a
+    seat merely paused between turns looks idle, which is what the age window
+    in ``prune`` is for.
+    """
+    seat = home.parent / home.name[: -len(STATE_SUFFIX)]
+    procs = Path("/proc")
+    if not procs.is_dir():
+        return None
+    for entry in procs.iterdir():
+        if not entry.name.isdigit():
+            continue
+        try:
+            cwd = (entry / "cwd").readlink()
+        except OSError:
+            continue
+        if cwd in (home, seat) or home in cwd.parents or seat in cwd.parents:
+            return int(entry.name)
+    return None
+
+
+def prune(roots, *, grace: float = 3600, force: bool = False, dry_run: bool = False):
+    """Remove finished seats' private runner homes; keep every record.
+
+    A home is the harness's own installation and scratch state, bound over the
+    real one so a seat cannot reach the operator's credentials or memory. It is
+    large -- one measured codex seat kept 53 MB against 1.6 MB of records for
+    the whole room -- and nothing collects it, because the state directory is
+    deliberately outside what the cache tmpfiles rule touches.
+
+    Nothing here reads a receipt, an answer or a transcript, so pruning cannot
+    remove evidence: the native transcripts inside a home have already been
+    read into the receipts beside it, and `launch.json` records the home's path
+    whether or not the directory still exists.
+    """
+    removed, kept, freed = [], [], 0
+    for root in roots:
+        for home in private_homes(Path(root).expanduser().resolve()):
+            if home.name[-len(STATE_SUFFIX) :] != STATE_SUFFIX or not home.is_dir():
+                continue  # belt and braces: never rmtree something else
+            size, pid = _bytes(home), occupied(home)
+            age = time.time() - _touched(home)
+            # The age window is advice and `force` overrides it. A live seat
+            # is not: removing the home out from under a running harness would
+            # break the run it is in the middle of, and no flag here should be
+            # able to do that.
+            if pid is not None:
+                kept.append((home, size, f"in use by pid {pid}"))
+            elif age < grace and not force:
+                kept.append((home, size, f"touched {int(age)}s ago"))
+            elif dry_run:
+                removed.append((home, size, "would remove"))
+                freed += size
+            else:
+                shutil.rmtree(home)
+                removed.append((home, size, "removed"))
+                freed += size
+    return {"removed": removed, "kept": kept, "freed": freed}
 
 
 def jail_argv(
@@ -589,6 +700,7 @@ usage: quirework sop blind run   [--run-dir DIR] [--runner NAME]... [--allow PAT
                               [--receipt PATH] [--unconfined] [--dry-run] -- CMD...
        quirework sop blind check  [--runner NAME]...
        quirework sop blind canary [--runner NAME]... [--model M] [--record]
+       quirework sop blind prune  [PATH]... [--grace SECONDS] [--force] [--dry-run]
 
 Confine a blind seat to its run directory, so the project is not merely
 out of sight but out of reach. See docs/workflows.md#execution-and-recovery, "The run dir is
@@ -598,10 +710,22 @@ not a wall".
   check   FREE self-test: every flag a blind run depends on is still
           live, each runner starts inside the jail, and the tree, the
           global briefs and a sibling seat's dir are all unreachable
+  prune   remove finished seats' private runner homes, keeping every
+          record. These are the harness installations bound over the
+          real ones; they are large, nothing collects them, and no
+          receipt depends on one surviving. Defaults to this project's
+          run store.
   canary  COSTS TOKENS: one live seat per runner, asserting it really
           cannot read the tree and really has no web or MCP tool.
           --record stamps the validated version; `check` then reports
           drift when a runner is upgraded past it.
+
+options for `prune`:
+  PATH            where to look (default: the project's run store)
+  --grace SECONDS keep a home touched more recently than this
+                  (default: 3600); a paused seat looks idle
+  --force         prune regardless of age; still refuses a live seat
+  --dry-run       report what would go, and how much, without removing
 
 options for `run`:
   --run-dir DIR   the seat's directory, bound writable (default: cwd)
@@ -713,6 +837,7 @@ def cmd_run(argv) -> int:
 
 def cmd_check(argv) -> int:
     import argparse
+
     from quirework.project import current_project
 
     p = argparse.ArgumentParser(prog="quirework sop blind check", add_help=False)
@@ -1040,6 +1165,7 @@ def canary_once(
 def cmd_canary(argv) -> int:
     import argparse
     import datetime
+
     from quirework.project import current_project
 
     p = argparse.ArgumentParser(prog="quirework sop blind canary", add_help=False)
@@ -1103,6 +1229,38 @@ def cmd_canary(argv) -> int:
     return 1 if bad else 0
 
 
+def cmd_prune(argv) -> int:
+    grace, force, dry, roots = 3600.0, False, False, []
+    rest = list(argv)
+    while rest:
+        item = rest.pop(0)
+        if item == "--grace":
+            grace = float(rest.pop(0))
+        elif item == "--force":
+            force = True
+        elif item == "--dry-run":
+            dry = True
+        elif item.startswith("-"):
+            print(f"blind prune: unknown option {item!r}", file=sys.stderr)
+            return 2
+        else:
+            roots.append(item)
+    if not roots:
+        roots = [current_project().state_root]
+    if not Path(roots[0]).exists() and len(roots) == 1:
+        print(f"nothing to prune: {roots[0]} does not exist")
+        return 0
+    report = prune(roots, grace=grace, force=force, dry_run=dry)
+    for home, size, why in report["kept"]:
+        print(f"keep    {size / 1e6:8.1f} MB  {home}  ({why})")
+    for home, size, why in report["removed"]:
+        print(f"{why:<7} {size / 1e6:8.1f} MB  {home}")
+    total = report["freed"] / 1e6
+    verb = "would free" if dry else "freed"
+    print(f"{verb} {total:.1f} MB across {len(report['removed'])} private homes")
+    return 0
+
+
 def main(argv=None) -> int:
     argv = list(sys.argv[1:] if argv is None else argv)
     if not argv or argv[0] in ("-h", "--help", "help"):
@@ -1115,6 +1273,8 @@ def main(argv=None) -> int:
         return cmd_check(rest)
     if sub == "canary":
         return cmd_canary(rest)
+    if sub == "prune":
+        return cmd_prune(rest)
     print(USAGE, file=sys.stderr)
     print(f"blind: unknown subcommand {sub!r}", file=sys.stderr)
     return 2

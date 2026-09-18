@@ -115,6 +115,17 @@ quirework config template tmpfiles \
 systemd-tmpfiles --user --clean   # apply now instead of waiting
 ```
 
+`quirework sop blind prune` collects the other half. Every confined seat
+gets a private runner home beside its workspace, bound over the real one
+so the seat cannot reach the operator's credentials or memory. Those
+homes are large and nothing else removes them: one measured room held 92
+MB of them against 1.6 MB of records. Pruning keeps every record,
+receipt and transcript, because a home's native transcripts have already
+been read into the receipts beside it and `launch.json` records the
+home's path whether or not it still exists. It refuses a home whose seat
+still has a live process, and by default keeps anything touched in the
+last hour, since a seat paused between turns looks idle.
+
 It removes entries under the cache directory that have gone untouched
 for 30 days, leaving anything a current project still reads. It creates
 nothing, so it is inert until Quirework has cached something, and it
