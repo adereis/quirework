@@ -83,6 +83,18 @@ def load(root, *, verify=True):
 
 ROOMS = "rooms"
 
+# A seat's runner home is a live harness home: the adapter binds it over
+# `~/.claude` or `~/.codex` for the duration of a turn, so it accumulates that
+# harness's credentials. `prepare` accepts a path as readily as a name, and a
+# room prepared into a checkout puts `codex/auth.json` one `git add` away from
+# being published. The room writes this itself because the operator who most
+# needs it is the one who has not yet looked inside a room directory.
+IGNORE = """\
+# A seat's private runner home. It is a live harness home and holds that
+# harness's credentials. Never commit it, and never copy one anywhere.
+seats/*.blind-state/
+"""
+
 
 def room_root(value, *, must_exist=True):
     """Resolve a room by name under the project, or by an explicit path.
@@ -319,6 +331,7 @@ def prepare(plan_path, destination, *, resolve_models=True):
         shared[entry["path"]] = staged(entry)
 
     destination.mkdir(parents=True, mode=0o700)
+    (destination / ".gitignore").write_text(IGNORE)
     (destination / "board" / "posts").mkdir(parents=True)
     (destination / "board" / "rounds").mkdir(parents=True)
     frozen = dict(

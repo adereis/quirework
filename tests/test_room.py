@@ -1,5 +1,6 @@
 """The board's mechanics: staging, promotion, rotation and integrity."""
 
+import fnmatch
 import json
 
 import pytest
@@ -66,6 +67,24 @@ def prepared(plan, tmp_path):
 
 def post(root, seat, text):
     (root / "seats" / seat / "outbox" / "post.md").write_text(text)
+
+
+def test_prepare_ignores_the_seats_runner_homes(prepared):
+    """A room may be prepared into a checkout, and a runner home holds keys."""
+    declared = [
+        line
+        for line in (prepared / ".gitignore").read_text().splitlines()
+        if line and not line.startswith("#")
+    ]
+    # The credential itself has to be covered, not merely the directory name:
+    # that file is the reason this ignore exists.
+    home = prepared / "seats" / "bo-larke.blind-state" / "codex"
+    home.mkdir(parents=True)
+    (home / "auth.json").write_text("{}")
+    relative = str((home / "auth.json").relative_to(prepared))
+    assert any(
+        fnmatch.fnmatch(relative, pattern.rstrip("/") + "/*") for pattern in declared
+    )
 
 
 def test_seats_get_different_packets(prepared):
