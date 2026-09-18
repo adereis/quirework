@@ -6,6 +6,7 @@ import json
 import pytest
 
 from quirework.runs.storage import lock, write
+from quirework.providers import models as drivers
 from quirework.sops import room
 
 
@@ -636,3 +637,13 @@ def test_an_unknown_seat_lists_the_numbers_to_use(prepared):
     _, plan = room.load(prepared)
     with pytest.raises(ValueError, match=r"1\. ana-pell, 2\. bo-larke"):
         room.seat_named(plan, "nobody")
+
+
+def test_window_assurance_separates_pinned_from_merely_watched():
+    """An empty flag list must not read the same for both reasons."""
+    assert drivers.window_assurance("claude") == "enforced"
+    assert drivers.window_assurance("codex") == "enforced"
+    # Antigravity's CLI has no context or compaction setting to pass, so a
+    # seat there can only be watched after the fact.
+    assert drivers.window_flags({"harness": "agy"}) == []
+    assert drivers.window_assurance("agy") == "detected"

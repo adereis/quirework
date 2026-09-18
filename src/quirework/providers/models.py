@@ -179,6 +179,22 @@ def window_flags(config):
     ]
 
 
+# Harnesses whose compaction behaviour a run can actually pin. Antigravity is
+# absent because its CLI exposes no context or compaction setting at all: not
+# a ceiling, not a trigger, not an off switch. A seat there takes the session
+# default, and the only guard available is the one that reads the stream
+# afterwards and reports that it happened. Named here rather than left as a
+# silent `return []`, because that same empty list otherwise means both "this
+# harness needs no flags" and "this harness cannot be steered", and an
+# operator reading a mixed room's evidence has to tell those apart.
+PINNED_WINDOW = ("claude", "codex")
+
+
+def window_assurance(harness):
+    """Whether a run can prevent compaction here, or only detect it after."""
+    return "enforced" if harness in PINNED_WINDOW else "detected"
+
+
 def command(config, workspace, prompt, *, manual=False, resume=None):
     """Return argv and stdin bytes; prompts never pass through a shell.
 

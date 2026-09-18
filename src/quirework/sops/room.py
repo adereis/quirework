@@ -783,6 +783,7 @@ def run_seat(root, plan, seat, n, *, timeout=None):
             "resumed": resume,
             "harness_version": blind.runner_version(config["harness"]),
             "private_runtime": str(private),
+            "window_assurance": drivers.window_assurance(config["harness"]),
         },
     )
     with slot(config["harness"]):
