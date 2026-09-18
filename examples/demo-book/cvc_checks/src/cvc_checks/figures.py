@@ -33,9 +33,7 @@ def check_style() -> list[str]:
         for m in _HEX.finditer(text):
             found = m.group(0).lower()
             if found not in PALETTE:
-                problems.append(
-                    f"{rel}: color {found} is not one of STYLE.md's four"
-                )
+                problems.append(f"{rel}: color {found} is not one of STYLE.md's four")
         for m in _STROKE_WIDTH.finditer(text):
             if m.group(1) not in STROKE_WIDTHS:
                 problems.append(

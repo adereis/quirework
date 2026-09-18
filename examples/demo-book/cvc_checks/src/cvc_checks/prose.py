@@ -60,7 +60,9 @@ def main(argv: list[str] | None = None) -> int:
     problems = check_prose()
     for p in problems:
         print(p)
-    print(f"prose checks: {'failed' if problems else 'passed'} ({len(problems)} problem(s))")
+    print(
+        f"prose checks: {'failed' if problems else 'passed'} ({len(problems)} problem(s))"
+    )
     return int(bool(problems))
 
 
