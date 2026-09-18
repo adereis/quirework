@@ -43,6 +43,7 @@ from quirework.runs.storage import (
     lock,
     process_identity,
     read,
+    shown,
     slot,
     write,
 )
@@ -126,8 +127,8 @@ def room_root(value, *, must_exist=True):
         root = (current_project().state_root / ROOMS / identifier(text)).resolve()
     if must_exist and not (root / "plan.json").is_file():
         raise ValueError(
-            f"no room at {root}; name a room under "
-            f"{current_project().state_root / ROOMS} or give a path to one"
+            f"no room at {shown(root)}; name a room under "
+            f"{shown(current_project().state_root / ROOMS)} or give a path to one"
         )
     return root
 
@@ -1010,7 +1011,7 @@ def _render(value):
     published = ", ".join(value["published_rounds"]) or "none"
     lines = [
         value["title"],
-        f"  {value['room']}",
+        f"  {shown(value['room'])}",
         f"  rounds published: {published} of {value['rounds']}",
         "",
     ]
@@ -1028,8 +1029,10 @@ def _render(value):
         lines += [
             "",
             f"  COMPACTED: {where}",
-            "  a compacted round lost context "
-            "it was resumed to keep; review before trusting it",
+            (
+                "  a compacted round lost context it was resumed to keep;"
+                " review before trusting it"
+            ),
         ]
     if value["last_events"]:
         lines += ["", "  recent:"]
@@ -1051,7 +1054,7 @@ def watch(root, *, poll=1.0):
     """Follow the room's trail. Read-only: no lock, no session, no writes."""
     root = room_root(root)
     log, offset = root / "room.log", 0
-    print(f"following {log} -- interrupt to stop", file=sys.stderr)
+    print(f"following {shown(log)} -- interrupt to stop", file=sys.stderr)
     while True:
         if log.exists():
             with log.open("rb") as stream:
@@ -1367,7 +1370,7 @@ def main(argv=None):
     if args.command == "prepare":
         destination = room_root(args.destination, must_exist=False)
         value = prepare(args.plan, destination)
-        print(f"prepared {len(value['seats'])} seats in {destination}")
+        print(f"prepared {len(value['seats'])} seats in {shown(destination)}")
         if not spelled_as_path(args.destination):
             # The destination is printed either way, but a state-root path is
             # long, unfamiliar and easy to read past. An operator who meant a
@@ -1383,8 +1386,8 @@ def main(argv=None):
         for name, outcome in run_round(
             root, args.number, jobs=args.jobs, timeout=args.timeout
         ).items():
-            shown = json.dumps(outcome) if isinstance(outcome, dict) else outcome
-            print(f"{name}: {shown}")
+            detail = json.dumps(outcome) if isinstance(outcome, dict) else outcome
+            print(f"{name}: {detail}")
     elif args.command == "open":
         print(open_round(root, args.number) or "silent round; no board")
     elif args.command == "rounds":

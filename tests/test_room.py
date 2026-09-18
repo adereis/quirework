@@ -6,8 +6,8 @@ from pathlib import Path
 
 import pytest
 
-from quirework.runs.storage import lock, write
 from quirework.providers import models as drivers
+from quirework.runs.storage import lock, shown, write
 from quirework.sops import room
 
 
@@ -252,13 +252,13 @@ def test_a_path_is_taken_as_a_path_not_a_name(project_rooms, tmp_path, monkeypat
     monkeypatch.chdir(tmp_path)
     with pytest.raises(ValueError) as caught:
         room.room_root("./named")
-    assert str(tmp_path / "named") in str(caught.value)
+    assert shown(tmp_path / "named") in str(caught.value)
 
 
 def test_an_unknown_name_says_where_it_looked(project_rooms):
     with pytest.raises(ValueError) as caught:
         room.room_root("absent")
-    assert str(project_rooms) in str(caught.value)
+    assert shown(project_rooms) in str(caught.value)
 
 
 def test_watching_a_room_that_is_not_there_fails_instead_of_following_nothing(
@@ -694,7 +694,7 @@ def test_a_declared_schedule_is_not_cut_short_by_the_stop_rule(phased, monkeypat
     monkeypatch.setattr(room, "run_round", fake_round)
     # Every round reports convergence. A room without phases stops at the
     # first one; this room owes three rounds and a revision.
-    played, why = room.run_until(phased)
+    _, why = room.run_until(phased)
     assert ran == [1, 2, 3]
     assert why == "budget"
 
@@ -709,7 +709,7 @@ def test_a_room_without_phases_still_stops_when_it_converges(prepared, monkeypat
         return {"_board": {"convergence": {"converged": True, "reason": "novelty"}}}
 
     monkeypatch.setattr(room, "run_round", fake_round)
-    played, why = room.run_until(prepared)
+    _, why = room.run_until(prepared)
     assert ran == [1]
     assert why == "converged on novelty"
 
@@ -725,3 +725,13 @@ def test_a_seat_is_told_paths_it_can_use_where_it_stands(staged):
         assert str(Path.home()) not in text
     assert "input/brief.md" in standing and "outbox/post.md" in standing
     assert "board/round-001/digest.md" in moving
+
+
+def test_shown_abbreviates_only_the_home_prefix(tmp_path, monkeypatch):
+    """Output a person reads; a record keeps the literal path."""
+    monkeypatch.setattr(Path, "home", staticmethod(lambda: tmp_path))
+    assert shown(tmp_path / "projects" / "book") == "~/projects/book"
+    assert shown(tmp_path) == "~"
+    # Not a prefix match on the string: a sibling directory keeps its name.
+    assert shown(Path(f"{tmp_path}-other") / "x") == f"{tmp_path}-other/x"
+    assert shown(Path("/etc/hosts")) == "/etc/hosts"

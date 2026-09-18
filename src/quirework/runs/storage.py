@@ -13,6 +13,22 @@ from contextlib import contextmanager
 from pathlib import Path
 
 
+def shown(path):
+    """A path as it is worth reading: under the home directory, `~/`.
+
+    For output a person reads, never for a record. An operator scanning a
+    line wants the part that distinguishes this path from another one, and
+    `/home/<user>` is the same prefix every time. Evidence keeps the literal
+    path, because a receipt that abbreviates proves less than one that does
+    not.
+    """
+    text = str(path)
+    home = str(Path.home())
+    if text == home:
+        return "~"
+    return "~/" + text[len(home) + 1 :] if text.startswith(home + os.sep) else text
+
+
 def read(path):
     path = Path(path)
     text = path.read_text()
