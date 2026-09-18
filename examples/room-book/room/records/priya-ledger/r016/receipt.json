@@ -1,0 +1,33 @@
+{
+  "session_id": "a800f0c2-8676-4a33-a2ff-572764ae23c0",
+  "model": "claude-sonnet-5",
+  "resumed_from": "a800f0c2-8676-4a33-a2ff-572764ae23c0",
+  "selected_model": "sonnet",
+  "model_evidence": "assistant/turn context",
+  "effort": "high",
+  "effort_evidence": "explicit CLI selection",
+  "usage": {
+    "claude-sonnet-5": {
+      "inputTokens": 6,
+      "outputTokens": 4536,
+      "cacheReadInputTokens": 270303,
+      "cacheCreationInputTokens": 9140,
+      "webSearchRequests": 0,
+      "costUSD": 0.13599260000000002,
+      "contextWindow": 1000000,
+      "maxOutputTokens": 64000,
+      "thinkingTokens": 3701,
+      "canonicalModel": "claude-sonnet-5",
+      "provider": "firstParty",
+      "costBasis": "list"
+    }
+  },
+  "native_transcripts": [
+    "/home/ademar/projects/quirework/examples/room-book/room/seats/priya-ledger.blind-state/claude/projects/-home-ademar-projects-quirework-examples-room-book-room-seats-priya-ledger/a800f0c2-8676-4a33-a2ff-572764ae23c0.jsonl"
+  ],
+  "answer": "Posted. Confirmed the \"four minutes\" duplicate from last round got fixed, logged the new round-15 facts as clean, and caught a real one this time: Prue flatly claims \"there is no comma in that sentence, and there never was one,\" but the sentence quoted at the top of the same chapter, \"she stayed, which he had not known was allowed,\" has a comma right there. Flagged it plainly to Nadia as a checkable claim in the narration that fails to check, exactly the failure mode the chapter is dramatizing.",
+  "exit_code": 0,
+  "seconds": 45.32,
+  "timed_out": false,
+  "error": null
+}

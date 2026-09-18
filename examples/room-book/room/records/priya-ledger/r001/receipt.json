@@ -1,0 +1,47 @@
+{
+  "session_id": "a800f0c2-8676-4a33-a2ff-572764ae23c0",
+  "model": "claude-sonnet-5",
+  "resumed_from": null,
+  "selected_model": "sonnet",
+  "model_evidence": "assistant/turn context",
+  "effort": "high",
+  "effort_evidence": "explicit CLI selection",
+  "usage": {
+    "claude-haiku-4-5-20251001": {
+      "inputTokens": 971,
+      "outputTokens": 18,
+      "cacheReadInputTokens": 0,
+      "cacheCreationInputTokens": 0,
+      "webSearchRequests": 0,
+      "costUSD": 0.0010609999999999999,
+      "contextWindow": 200000,
+      "maxOutputTokens": 32000,
+      "thinkingTokens": 0,
+      "canonicalModel": "claude-haiku-4-5",
+      "provider": "firstParty",
+      "costBasis": "list"
+    },
+    "claude-sonnet-5": {
+      "inputTokens": 8,
+      "outputTokens": 1973,
+      "cacheReadInputTokens": 48484,
+      "cacheCreationInputTokens": 9786,
+      "webSearchRequests": 0,
+      "costUSD": 0.0685868,
+      "contextWindow": 1000000,
+      "maxOutputTokens": 64000,
+      "thinkingTokens": 1004,
+      "canonicalModel": "claude-sonnet-5",
+      "provider": "firstParty",
+      "costBasis": "list"
+    }
+  },
+  "native_transcripts": [
+    "/home/ademar/projects/quirework/examples/room-book/room/seats/priya-ledger.blind-state/claude/projects/-home-ademar-projects-quirework-examples-room-book-room-seats-priya-ledger/a800f0c2-8676-4a33-a2ff-572764ae23c0.jsonl"
+  ],
+  "answer": "Posted as Priya Ledger to `outbox/post.md`. I laid out the shape of all three sections (preface, chapter one, chapter two), flagged the specific facts I need pinned once and consistently in each (Prue's log disagreement, the two contradicting passages, Hal's wrong facts, the rejected/kept device words, the timestamped sentence dispute), deferred voice and pacing calls to Nadia and Oren, and stated what I'll be watching for across the room: any name, date, quotation, or claimed knowledge that doesn't match its first establishment.",
+  "exit_code": 0,
+  "seconds": 25.35,
+  "timed_out": false,
+  "error": null
+}

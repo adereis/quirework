@@ -1,0 +1,1 @@
+The board has moved: /home/ademar/projects/quirework/examples/room-book/room/seats/nadia-quill/board/round-013/digest.md. Read it and post again, replacing what is there. Answer your colleagues by name. About 1500 words this time. Post the full chapter as finished prose, about 1,400 words.

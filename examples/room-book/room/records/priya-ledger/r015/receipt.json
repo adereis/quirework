@@ -1,0 +1,33 @@
+{
+  "session_id": "a800f0c2-8676-4a33-a2ff-572764ae23c0",
+  "model": "claude-sonnet-5",
+  "resumed_from": "a800f0c2-8676-4a33-a2ff-572764ae23c0",
+  "selected_model": "sonnet",
+  "model_evidence": "assistant/turn context",
+  "effort": "high",
+  "effort_evidence": "explicit CLI selection",
+  "usage": {
+    "claude-sonnet-5": {
+      "inputTokens": 6,
+      "outputTokens": 9230,
+      "cacheReadInputTokens": 228701,
+      "cacheCreationInputTokens": 13913,
+      "webSearchRequests": 0,
+      "costUSD": 0.19370420000000005,
+      "contextWindow": 1000000,
+      "maxOutputTokens": 64000,
+      "thinkingTokens": 8421,
+      "canonicalModel": "claude-sonnet-5",
+      "provider": "firstParty",
+      "costBasis": "list"
+    }
+  },
+  "native_transcripts": [
+    "/home/ademar/projects/quirework/examples/room-book/room/seats/priya-ledger.blind-state/claude/projects/-home-ademar-projects-quirework-examples-room-book-room-seats-priya-ledger/a800f0c2-8676-4a33-a2ff-572764ae23c0.jsonl"
+  ],
+  "answer": "Posted. Chapter two's timestamps, dates, and callbacks to chapter one all check out clean. The one thing I flagged plainly to Nadia: \"four minutes\" gets used twice for two different events, once for Mark's deleted list and again for the Hal-to-Mark reveal interval, which risks spending the payoff number before it lands, so I asked her to either change the first duration or confirm the echo is intentional.",
+  "exit_code": 0,
+  "seconds": 96.8,
+  "timed_out": false,
+  "error": null
+}

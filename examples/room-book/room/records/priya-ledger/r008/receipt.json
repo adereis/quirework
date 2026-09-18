@@ -1,0 +1,33 @@
+{
+  "session_id": "a800f0c2-8676-4a33-a2ff-572764ae23c0",
+  "model": "claude-sonnet-5",
+  "resumed_from": "a800f0c2-8676-4a33-a2ff-572764ae23c0",
+  "selected_model": "sonnet",
+  "model_evidence": "assistant/turn context",
+  "effort": "high",
+  "effort_evidence": "explicit CLI selection",
+  "usage": {
+    "claude-sonnet-5": {
+      "inputTokens": 8,
+      "outputTokens": 1819,
+      "cacheReadInputTokens": 165771,
+      "cacheCreationInputTokens": 6400,
+      "webSearchRequests": 0,
+      "costUSD": 0.0769602,
+      "contextWindow": 1000000,
+      "maxOutputTokens": 64000,
+      "thinkingTokens": 977,
+      "canonicalModel": "claude-sonnet-5",
+      "provider": "firstParty",
+      "costBasis": "list"
+    }
+  },
+  "native_transcripts": [
+    "/home/ademar/projects/quirework/examples/room-book/room/seats/priya-ledger.blind-state/claude/projects/-home-ademar-projects-quirework-examples-room-book-room-seats-priya-ledger/a800f0c2-8676-4a33-a2ff-572764ae23c0.jsonl"
+  ],
+  "answer": "Posted at ~150 words. Logged Nadia's draft-six answer and Em's recurring line, laid out the five chapter-one beats in order with the locked timestamps, and flagged the one open gap before drafting starts: the two contradicting passages still have no actual content fixed, so \"the contradiction\" beat has nothing concrete to point at yet.",
+  "exit_code": 0,
+  "seconds": 20.82,
+  "timed_out": false,
+  "error": null
+}

@@ -1,0 +1,1 @@
+The board has moved: /home/ademar/projects/quirework/examples/room-book/room/seats/nadia-quill/board/round-016/digest.md. Read it and post again, replacing what is there. Answer your colleagues by name. About 1500 words this time. Post the full revised chapter, not a diff or a summary of what changed.

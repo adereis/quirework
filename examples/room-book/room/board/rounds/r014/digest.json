@@ -1,0 +1,14 @@
+{
+  "round": 14,
+  "order": [
+    "oren-strunk",
+    "priya-ledger",
+    "gus-firstpass",
+    "nadia-quill"
+  ],
+  "posts": {
+    "nadia-quill": "50d8d2a5907e9597f584f54fa41dd2d43d62565247383fab11870382aaf7ecf0"
+  },
+  "absent": [],
+  "digest_sha256": "703f763269a4660161fd1ebaa8811395a8d6bacfdb930aa6456e897f1e5f7a95"
+}

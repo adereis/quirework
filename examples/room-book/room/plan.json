@@ -1,0 +1,339 @@
+{
+  "title": "The Room Where Nobody Agreed",
+  "chair": "operator",
+  "harness": "claude",
+  "model": "opus",
+  "effort": "high",
+  "rounds": 20,
+  "silent_rounds": [
+    1
+  ],
+  "post_words": 220,
+  "brief": {
+    "path": "brief.md",
+    "local_source": "brief.md"
+  },
+  "seats": [
+    {
+      "id": "nadia-quill",
+      "persona": "nadia-quill",
+      "harness": "claude",
+      "model": "opus",
+      "effort": "high",
+      "files": [],
+      "config": {
+        "requested_model": "opus",
+        "requested_effort": "high",
+        "catalog_entry": "explicit model; verify served identity after launch",
+        "harness": "claude",
+        "model": "opus",
+        "effort": "high"
+      },
+      "persona_frozen": {
+        "profile": {
+          "schema_version": 1,
+          "id": "nadia-quill",
+          "revision": 1,
+          "label": "Nadia Quill",
+          "description": "A fictional drafting persona, invented for this room.",
+          "tags": [
+            "writer",
+            "drafter"
+          ],
+          "prompt": "You are Nadia Quill. You draft the prose the room is here to produce. You care about a scene doing one true thing well over a clever sentence doing three things badly. When a colleague disagrees with a choice you made, you take the note seriously and either change the draft or say plainly why you are keeping it, in the next draft itself, not just in argument. You write economically: if a paragraph can go, it goes."
+        },
+        "source": {
+          "kind": "inline"
+        },
+        "text": "{\n  \"schema_version\": 1,\n  \"id\": \"nadia-quill\",\n  \"revision\": 1,\n  \"label\": \"Nadia Quill\",\n  \"description\": \"A fictional drafting persona, invented for this room.\",\n  \"tags\": [\n    \"writer\",\n    \"drafter\"\n  ],\n  \"prompt\": \"You are Nadia Quill. You draft the prose the room is here to produce. You care about a scene doing one true thing well over a clever sentence doing three things badly. When a colleague disagrees with a choice you made, you take the note seriously and either change the draft or say plainly why you are keeping it, in the next draft itself, not just in argument. You write economically: if a paragraph can go, it goes.\"\n}\n",
+        "sha256": "752c0e8d1575f5d2ef7e2ad13848a0b2fbe15de9dcba3decf3ca53d1997c05a4"
+      },
+      "reads": [
+        "brief.md"
+      ],
+      "input_hashes": {
+        "brief.md": "7d1e308aff9dbe2716ace95857d4da64f5f3a136f76768529c12d3c1b46b4295"
+      },
+      "start_sha256": "b6c8e39be51edf8c36e597b346793d2c6a0aeb3aaa69728764009fbfd1f83642"
+    },
+    {
+      "id": "oren-strunk",
+      "persona": "oren-strunk",
+      "harness": "codex",
+      "model": "gpt-5.6-terra",
+      "effort": "high",
+      "files": [],
+      "config": {
+        "requested_model": "gpt-5.6-terra",
+        "requested_effort": "high",
+        "context_window": 272000,
+        "max_context_window": 872000,
+        "effective_context_window_percent": 95,
+        "catalog_entry": {
+          "slug": "gpt-5.6-terra",
+          "supported_reasoning_levels": [
+            {
+              "effort": "low",
+              "description": "Fast responses with lighter reasoning"
+            },
+            {
+              "effort": "medium",
+              "description": "Balances speed and reasoning depth for everyday tasks"
+            },
+            {
+              "effort": "high",
+              "description": "Greater reasoning depth for complex problems"
+            },
+            {
+              "effort": "xhigh",
+              "description": "Extra high reasoning depth for complex problems"
+            },
+            {
+              "effort": "max",
+              "description": "Maximum reasoning depth for the hardest problems"
+            },
+            {
+              "effort": "ultra",
+              "description": "Maximum reasoning with automatic task delegation"
+            }
+          ],
+          "context_window": 272000,
+          "max_context_window": 872000,
+          "effective_context_window_percent": 95
+        },
+        "harness": "codex",
+        "model": "gpt-5.6-terra",
+        "effort": "high"
+      },
+      "persona_frozen": {
+        "profile": {
+          "schema_version": 1,
+          "id": "oren-strunk",
+          "revision": 1,
+          "label": "Oren Strunk",
+          "description": "A fictional line-editing persona, invented for this room.",
+          "tags": [
+            "editor",
+            "style"
+          ],
+          "prompt": "You are Oren Strunk. You edit at the level of the sentence and the paragraph: mechanical style rules, rhythm, word choice, what is doing work and what is throat-clearing. You do not invent plot or argue continuity; you say what a sentence costs the reader and whether it earns that cost. You are specific: quote the sentence, name the fix, keep the note short. A rule stated for this book is a rule you enforce without softening it."
+        },
+        "source": {
+          "kind": "inline"
+        },
+        "text": "{\n  \"schema_version\": 1,\n  \"id\": \"oren-strunk\",\n  \"revision\": 1,\n  \"label\": \"Oren Strunk\",\n  \"description\": \"A fictional line-editing persona, invented for this room.\",\n  \"tags\": [\n    \"editor\",\n    \"style\"\n  ],\n  \"prompt\": \"You are Oren Strunk. You edit at the level of the sentence and the paragraph: mechanical style rules, rhythm, word choice, what is doing work and what is throat-clearing. You do not invent plot or argue continuity; you say what a sentence costs the reader and whether it earns that cost. You are specific: quote the sentence, name the fix, keep the note short. A rule stated for this book is a rule you enforce without softening it.\"\n}\n",
+        "sha256": "f89e733848dc101a2d47e276525c215e49d9a26e925ddacb7fa5fd8096db9610"
+      },
+      "reads": [
+        "brief.md"
+      ],
+      "input_hashes": {
+        "brief.md": "7d1e308aff9dbe2716ace95857d4da64f5f3a136f76768529c12d3c1b46b4295"
+      },
+      "start_sha256": "3f50cc74d7a7cffe02574ac60c99fa35a17bbcf629dafe206a4eb546ae1a4019"
+    },
+    {
+      "id": "priya-ledger",
+      "persona": "priya-ledger",
+      "harness": "claude",
+      "model": "sonnet",
+      "effort": "high",
+      "files": [],
+      "config": {
+        "requested_model": "sonnet",
+        "requested_effort": "high",
+        "catalog_entry": "explicit model; verify served identity after launch",
+        "harness": "claude",
+        "model": "sonnet",
+        "effort": "high"
+      },
+      "persona_frozen": {
+        "profile": {
+          "schema_version": 1,
+          "id": "priya-ledger",
+          "revision": 1,
+          "label": "Priya Ledger",
+          "description": "A fictional continuity-checking persona, invented for this room.",
+          "tags": [
+            "continuity",
+            "facts"
+          ],
+          "prompt": "You are Priya Ledger. You track facts: names, dates, page and chapter references, who said what and in which section, what a character already knows by the time a later scene assumes they know it. You do not comment on sentence style or prose rhythm; that is not your job here. When two things drafted so far cannot both be true, you say exactly what they are and where each one lives, and you let the room decide which one gives way. You keep a plain running account of what has been established so far and cite it precisely."
+        },
+        "source": {
+          "kind": "inline"
+        },
+        "text": "{\n  \"schema_version\": 1,\n  \"id\": \"priya-ledger\",\n  \"revision\": 1,\n  \"label\": \"Priya Ledger\",\n  \"description\": \"A fictional continuity-checking persona, invented for this room.\",\n  \"tags\": [\n    \"continuity\",\n    \"facts\"\n  ],\n  \"prompt\": \"You are Priya Ledger. You track facts: names, dates, page and chapter references, who said what and in which section, what a character already knows by the time a later scene assumes they know it. You do not comment on sentence style or prose rhythm; that is not your job here. When two things drafted so far cannot both be true, you say exactly what they are and where each one lives, and you let the room decide which one gives way. You keep a plain running account of what has been established so far and cite it precisely.\"\n}\n",
+        "sha256": "1bb37b74e11e36ab9f5b35203f2d175d648c63b78879ea725aa05a63d5f45c1a"
+      },
+      "reads": [
+        "brief.md"
+      ],
+      "input_hashes": {
+        "brief.md": "7d1e308aff9dbe2716ace95857d4da64f5f3a136f76768529c12d3c1b46b4295"
+      },
+      "start_sha256": "124d70181c4a3c0a98f4bbbdccd803d7a3d56219ab5fe15154546986af4333bd"
+    },
+    {
+      "id": "gus-firstpass",
+      "persona": "gus-firstpass",
+      "harness": "agy",
+      "model": "gemini-3.1-pro",
+      "effort": "high",
+      "files": [],
+      "config": {
+        "requested_model": "gemini-3.1-pro",
+        "requested_effort": "high",
+        "catalog_entry": "gemini-3.1-pro-high",
+        "harness": "agy",
+        "model": "gemini-3.1-pro-high",
+        "effort": "high"
+      },
+      "persona_frozen": {
+        "profile": {
+          "schema_version": 1,
+          "id": "gus-firstpass",
+          "revision": 1,
+          "label": "Gus Firstpass",
+          "description": "A fictional first-reader persona, invented for this room.",
+          "tags": [
+            "reader",
+            "first-pass"
+          ],
+          "prompt": "You are Gus Firstpass, an ordinary reader with no stake in how the book gets made and no craft vocabulary. You read for the story and for whether a sentence lands. Say plainly what confused you, what made you laugh, where you stopped believing something, and where you got bored. You do not propose line edits or catalog inconsistencies; you say what you felt reading it and let the room work out why."
+        },
+        "source": {
+          "kind": "inline"
+        },
+        "text": "{\n  \"schema_version\": 1,\n  \"id\": \"gus-firstpass\",\n  \"revision\": 1,\n  \"label\": \"Gus Firstpass\",\n  \"description\": \"A fictional first-reader persona, invented for this room.\",\n  \"tags\": [\n    \"reader\",\n    \"first-pass\"\n  ],\n  \"prompt\": \"You are Gus Firstpass, an ordinary reader with no stake in how the book gets made and no craft vocabulary. You read for the story and for whether a sentence lands. Say plainly what confused you, what made you laugh, where you stopped believing something, and where you got bored. You do not propose line edits or catalog inconsistencies; you say what you felt reading it and let the room work out why.\"\n}\n",
+        "sha256": "2cd7457f5b6ef1967bd088652e5fda9ef573fa75e1b79fd1e5a3e02c31024004"
+      },
+      "reads": [
+        "brief.md"
+      ],
+      "input_hashes": {
+        "brief.md": "7d1e308aff9dbe2716ace95857d4da64f5f3a136f76768529c12d3c1b46b4295"
+      },
+      "start_sha256": "236dc91306373dd9a83ea8da967ed06b84ca5d0ac6da628e87428f4fb96d89b0"
+    }
+  ],
+  "phases": [
+    {
+      "name": "global-outline",
+      "rounds": 2,
+      "instruction": "Agree on the shape of all three sections before anyone drafts: voice, pacing, and what each of you will be watching for."
+    },
+    {
+      "name": "plan-preface",
+      "rounds": 1,
+      "words": 150,
+      "instruction": "Agree on concrete beats for the preface: what Prue says, in what order, and where the Quirework mention lands."
+    },
+    {
+      "name": "draft-preface",
+      "rounds": 1,
+      "seats": [
+        "nadia-quill"
+      ],
+      "words": 500,
+      "instruction": "Post the full preface as finished prose, about 450 words."
+    },
+    {
+      "name": "discuss-preface",
+      "rounds": 2,
+      "instruction": "Say plainly where you disagree and with whom, by name. Editor: quote sentences. Continuity: cite specifics. Reader: say what you felt."
+    },
+    {
+      "name": "revise-preface",
+      "rounds": 1,
+      "seats": [
+        "nadia-quill"
+      ],
+      "words": 500,
+      "instruction": "Post the full revised preface, not a diff or a summary of what changed."
+    },
+    {
+      "name": "plan-ch1",
+      "rounds": 1,
+      "words": 150,
+      "instruction": "Agree on concrete beats for chapter one: the contradiction, Hal's wrong citation, Em Dash's edit, and the device Mark invents."
+    },
+    {
+      "name": "draft-ch1",
+      "rounds": 1,
+      "seats": [
+        "nadia-quill"
+      ],
+      "words": 1500,
+      "instruction": "Post the full chapter as finished prose, about 1,400 words."
+    },
+    {
+      "name": "discuss-ch1",
+      "rounds": 2,
+      "instruction": "Say plainly where you disagree and with whom, by name. Editor: quote sentences. Continuity: cite specifics. Reader: say what you felt."
+    },
+    {
+      "name": "revise-ch1",
+      "rounds": 1,
+      "seats": [
+        "nadia-quill"
+      ],
+      "words": 1500,
+      "instruction": "Post the full revised chapter, not a diff or a summary of what changed."
+    },
+    {
+      "name": "plan-ch2",
+      "rounds": 1,
+      "words": 150,
+      "instruction": "Agree on concrete beats for chapter two: the disputed sentence, the temptation to trust confidence over the log, and Prue's own preface-page disagreement."
+    },
+    {
+      "name": "draft-ch2",
+      "rounds": 1,
+      "seats": [
+        "nadia-quill"
+      ],
+      "words": 1500,
+      "instruction": "Post the full chapter as finished prose, about 1,400 words."
+    },
+    {
+      "name": "discuss-ch2",
+      "rounds": 2,
+      "instruction": "Say plainly where you disagree and with whom, by name. Editor: quote sentences. Continuity: cite specifics. Reader: say what you felt."
+    },
+    {
+      "name": "revise-ch2",
+      "rounds": 1,
+      "seats": [
+        "nadia-quill"
+      ],
+      "words": 1500,
+      "instruction": "Post the full revised chapter, not a diff or a summary of what changed."
+    },
+    {
+      "name": "whole-book-review",
+      "rounds": 2,
+      "instruction": "Read all three sections as one book. Flag seams between sections, repeated beats, and any house rule that slipped (em-dash included)."
+    },
+    {
+      "name": "final-polish",
+      "rounds": 1,
+      "seats": [
+        "nadia-quill"
+      ],
+      "words": 3000,
+      "instruction": "Post the full, final text of all three sections in one post, in order: preface, chapter one, chapter two."
+    }
+  ],
+  "schema": 1,
+  "config": {
+    "requested_model": "opus",
+    "requested_effort": "high",
+    "catalog_entry": "explicit model; verify served identity after launch",
+    "harness": "claude",
+    "model": "opus",
+    "effort": "high"
+  },
+  "source_root": "/home/ademar/projects/quirework/examples/room-book",
+  "prepared_at": 1789698243.2385929
+}

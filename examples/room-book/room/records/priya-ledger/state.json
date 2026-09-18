@@ -1,0 +1,76 @@
+{
+  "status": "answered",
+  "session_id": "a800f0c2-8676-4a33-a2ff-572764ae23c0",
+  "rounds": {
+    "1": {
+      "status": "answered",
+      "seconds": 25.35,
+      "error": null
+    },
+    "2": {
+      "status": "answered",
+      "seconds": 20.18,
+      "error": null
+    },
+    "3": {
+      "status": "answered",
+      "seconds": 16.21,
+      "error": null
+    },
+    "5": {
+      "status": "answered",
+      "seconds": 58.25,
+      "error": null
+    },
+    "6": {
+      "status": "answered",
+      "seconds": 43.16,
+      "error": null
+    },
+    "8": {
+      "status": "answered",
+      "seconds": 20.82,
+      "error": null
+    },
+    "10": {
+      "status": "answered",
+      "seconds": 72.47,
+      "error": null
+    },
+    "11": {
+      "status": "answered",
+      "seconds": 47.4,
+      "error": null
+    },
+    "13": {
+      "status": "answered",
+      "seconds": 35.89,
+      "error": null
+    },
+    "15": {
+      "status": "answered",
+      "seconds": 96.8,
+      "error": null
+    },
+    "16": {
+      "status": "answered",
+      "seconds": 45.32,
+      "error": null
+    },
+    "18": {
+      "status": "answered",
+      "seconds": 164.7,
+      "error": null
+    },
+    "19": {
+      "status": "answered",
+      "seconds": 60.63,
+      "error": null
+    }
+  },
+  "persona": {
+    "id": "priya-ledger",
+    "revision": 1,
+    "sha256": "1bb37b74e11e36ab9f5b35203f2d175d648c63b78879ea725aa05a63d5f45c1a"
+  }
+}

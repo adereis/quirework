@@ -1,0 +1,1 @@
+The board has moved: /home/ademar/projects/quirework/examples/room-book/room/seats/nadia-quill/board/round-001/digest.md. Read it and post again, replacing what is there. Answer your colleagues by name. Agree on the shape of all three sections before anyone drafts: voice, pacing, and what each of you will be watching for.

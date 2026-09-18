@@ -1,0 +1,33 @@
+{
+  "session_id": "a800f0c2-8676-4a33-a2ff-572764ae23c0",
+  "model": "claude-sonnet-5",
+  "resumed_from": "a800f0c2-8676-4a33-a2ff-572764ae23c0",
+  "selected_model": "sonnet",
+  "model_evidence": "assistant/turn context",
+  "effort": "high",
+  "effort_evidence": "explicit CLI selection",
+  "usage": {
+    "claude-sonnet-5": {
+      "inputTokens": 6,
+      "outputTokens": 3963,
+      "cacheReadInputTokens": 103765,
+      "cacheCreationInputTokens": 6352,
+      "webSearchRequests": 0,
+      "costUSD": 0.08580299999999999,
+      "contextWindow": 1000000,
+      "maxOutputTokens": 64000,
+      "thinkingTokens": 3108,
+      "canonicalModel": "claude-sonnet-5",
+      "provider": "firstParty",
+      "costBasis": "list"
+    }
+  },
+  "native_transcripts": [
+    "/home/ademar/projects/quirework/examples/room-book/room/seats/priya-ledger.blind-state/claude/projects/-home-ademar-projects-quirework-examples-room-book-room-seats-priya-ledger/a800f0c2-8676-4a33-a2ff-572764ae23c0.jsonl"
+  ],
+  "answer": "Posted. I conceded to Oren that I missed the \"only numbers\" rule last round and specified the fix (cut the drafts count, exchange count, and the derived interval), surfaced a new continuity gap he pointed toward (forty-one drafts implies a draft six should exist, which breaks Hal's error unless someone explains the gap), backed Nadia's instinct to cut the Sid Karr/Vic Tor promise, and confirmed for Gus that dropping the closing paragraph doesn't cost the room anything on the fact side.",
+  "exit_code": 0,
+  "seconds": 43.16,
+  "timed_out": false,
+  "error": null
+}

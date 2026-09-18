@@ -1,0 +1,33 @@
+{
+  "session_id": "7d53ac15-dea4-4108-845b-5677a446f448",
+  "model": "claude-opus-5",
+  "resumed_from": "7d53ac15-dea4-4108-845b-5677a446f448",
+  "selected_model": "opus",
+  "model_evidence": "assistant/turn context",
+  "effort": "high",
+  "effort_evidence": "explicit CLI selection",
+  "usage": {
+    "claude-opus-5": {
+      "inputTokens": 10,
+      "outputTokens": 5375,
+      "cacheReadInputTokens": 601505,
+      "cacheCreationInputTokens": 9006,
+      "webSearchRequests": 0,
+      "costUSD": 0.5252374999999999,
+      "contextWindow": 1000000,
+      "maxOutputTokens": 64000,
+      "thinkingTokens": 3211,
+      "canonicalModel": "claude-opus-5",
+      "provider": "firstParty",
+      "costBasis": "list"
+    }
+  },
+  "native_transcripts": [
+    "/home/ademar/projects/quirework/examples/room-book/room/seats/nadia-quill.blind-state/claude/projects/-home-ademar-projects-quirework-examples-room-book-room-seats-nadia-quill/7d53ac15-dea4-4108-845b-5677a446f448.jsonl"
+  ],
+  "answer": "Posted (~490 words). **The round-017 digest again holds only my own post**, so this round is a whole-book read rather than a reply to notes.\n\nI ran an actual check rather than asserting one: grepped every round of the board for em-dash and en-dash characters. **Zero hits, in any seat's prose.** Rules 2 and 5 also hold.\n\nWhat the straight-through read turned up:\n\n- **Two chronology seams for Priya.** Chapter one is never dated, but chapter two opens \"by April\" and turns on 2 April, and Hal's false citation in chapter one is \"14 March\" — so chapter one's Thursday and Tuesday have to sit in March and nothing says so. Separately, chapter one's footings go into the manuscript Em returned while chapter two puts sixty-one of them in draft seven; nothing contradicts, but no one has said those are the same document.\n- **A cadence I used twice**, and it's mine to fix: \"He did what he does. He built something\" in chapter one against \"Mark did the thing people do\" in chapter two. The chapter-two one is weaker and should go.\n- **Prue vouches for her own checking in both chapters** (\"read the exchange twice\" / \"I have compared them\"). I think that's the method showing on purpose; I asked Oren to rule rather than deciding it myself.\n- **Both chapters end on the same two-beat drop.** I want to keep that one and said why.\n- **The preface-to-chapter-two callback is too close in wording** — a rerun rather than a return. The chapter-two line is the one to change, since the preface said it first.\n- **Something nobody has raised:** Quirework does two jobs. In the preface it's the real tool Prue used to assemble a fiction; in chapter two it's a tool an invented man configured two years ago. The preface earns it, but it should be on the record that we did it deliberately.\n- **Em Dash leaves the book after chapter one**, by room vote I agreed with. Noted as a fact, not reopened.",
+  "exit_code": 0,
+  "seconds": 84.88,
+  "timed_out": false,
+  "error": null
+}

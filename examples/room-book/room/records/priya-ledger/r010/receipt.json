@@ -1,0 +1,33 @@
+{
+  "session_id": "a800f0c2-8676-4a33-a2ff-572764ae23c0",
+  "model": "claude-sonnet-5",
+  "resumed_from": "a800f0c2-8676-4a33-a2ff-572764ae23c0",
+  "selected_model": "sonnet",
+  "model_evidence": "assistant/turn context",
+  "effort": "high",
+  "effort_evidence": "explicit CLI selection",
+  "usage": {
+    "claude-sonnet-5": {
+      "inputTokens": 6,
+      "outputTokens": 7217,
+      "cacheReadInputTokens": 144474,
+      "cacheCreationInputTokens": 12122,
+      "webSearchRequests": 0,
+      "costUSD": 0.1495648,
+      "contextWindow": 1000000,
+      "maxOutputTokens": 64000,
+      "thinkingTokens": 6386,
+      "canonicalModel": "claude-sonnet-5",
+      "provider": "firstParty",
+      "costBasis": "list"
+    }
+  },
+  "native_transcripts": [
+    "/home/ademar/projects/quirework/examples/room-book/room/seats/priya-ledger.blind-state/claude/projects/-home-ademar-projects-quirework-examples-room-book-room-seats-priya-ledger/a800f0c2-8676-4a33-a2ff-572764ae23c0.jsonl"
+  ],
+  "answer": "Posted. Main finding: a real arithmetic error in the draft, Nadia wrote the truncated quotation is \"five more words\" short when the missing clause (\"although being unheard is another thing\") is actually six words, worth fixing since the scene's whole point is that checkable claims should check out. Everything else, the timeline, the page math (87+140=227), draft six, and the new facts introduced this round, verified clean and are now logged.",
+  "exit_code": 0,
+  "seconds": 72.47,
+  "timed_out": false,
+  "error": null
+}

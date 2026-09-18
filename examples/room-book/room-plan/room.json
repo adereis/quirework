@@ -1,0 +1,139 @@
+{
+  "title": "The Room Where Nobody Agreed",
+  "chair": "operator",
+  "harness": "claude",
+  "model": "opus",
+  "effort": "high",
+  "rounds": 20,
+  "silent_rounds": [1],
+  "post_words": 220,
+  "brief": {"path": "brief.md", "local_source": "brief.md"},
+  "seats": [
+    {
+      "id": "nadia-quill",
+      "persona": "nadia-quill",
+      "harness": "claude",
+      "model": "opus",
+      "effort": "high",
+      "files": []
+    },
+    {
+      "id": "oren-strunk",
+      "persona": "oren-strunk",
+      "harness": "codex",
+      "model": "gpt-5.6-terra",
+      "effort": "high",
+      "files": []
+    },
+    {
+      "id": "priya-ledger",
+      "persona": "priya-ledger",
+      "harness": "claude",
+      "model": "sonnet",
+      "effort": "high",
+      "files": []
+    },
+    {
+      "id": "gus-firstpass",
+      "persona": "gus-firstpass",
+      "harness": "agy",
+      "model": "gemini-3.1-pro",
+      "effort": "high",
+      "files": []
+    }
+  ],
+  "phases": [
+    {
+      "name": "global-outline",
+      "rounds": 2,
+      "instruction": "Agree on the shape of all three sections before anyone drafts: voice, pacing, and what each of you will be watching for."
+    },
+    {
+      "name": "plan-preface",
+      "rounds": 1,
+      "words": 150,
+      "instruction": "Agree on concrete beats for the preface: what Prue says, in what order, and where the Quirework mention lands."
+    },
+    {
+      "name": "draft-preface",
+      "rounds": 1,
+      "seats": ["nadia-quill"],
+      "words": 500,
+      "instruction": "Post the full preface as finished prose, about 450 words."
+    },
+    {
+      "name": "discuss-preface",
+      "rounds": 2,
+      "instruction": "Say plainly where you disagree and with whom, by name. Editor: quote sentences. Continuity: cite specifics. Reader: say what you felt."
+    },
+    {
+      "name": "revise-preface",
+      "rounds": 1,
+      "seats": ["nadia-quill"],
+      "words": 500,
+      "instruction": "Post the full revised preface, not a diff or a summary of what changed."
+    },
+    {
+      "name": "plan-ch1",
+      "rounds": 1,
+      "words": 150,
+      "instruction": "Agree on concrete beats for chapter one: the contradiction, Hal's wrong citation, Em Dash's edit, and the device Mark invents."
+    },
+    {
+      "name": "draft-ch1",
+      "rounds": 1,
+      "seats": ["nadia-quill"],
+      "words": 1500,
+      "instruction": "Post the full chapter as finished prose, about 1,400 words."
+    },
+    {
+      "name": "discuss-ch1",
+      "rounds": 2,
+      "instruction": "Say plainly where you disagree and with whom, by name. Editor: quote sentences. Continuity: cite specifics. Reader: say what you felt."
+    },
+    {
+      "name": "revise-ch1",
+      "rounds": 1,
+      "seats": ["nadia-quill"],
+      "words": 1500,
+      "instruction": "Post the full revised chapter, not a diff or a summary of what changed."
+    },
+    {
+      "name": "plan-ch2",
+      "rounds": 1,
+      "words": 150,
+      "instruction": "Agree on concrete beats for chapter two: the disputed sentence, the temptation to trust confidence over the log, and Prue's own preface-page disagreement."
+    },
+    {
+      "name": "draft-ch2",
+      "rounds": 1,
+      "seats": ["nadia-quill"],
+      "words": 1500,
+      "instruction": "Post the full chapter as finished prose, about 1,400 words."
+    },
+    {
+      "name": "discuss-ch2",
+      "rounds": 2,
+      "instruction": "Say plainly where you disagree and with whom, by name. Editor: quote sentences. Continuity: cite specifics. Reader: say what you felt."
+    },
+    {
+      "name": "revise-ch2",
+      "rounds": 1,
+      "seats": ["nadia-quill"],
+      "words": 1500,
+      "instruction": "Post the full revised chapter, not a diff or a summary of what changed."
+    },
+    {
+      "name": "whole-book-review",
+      "rounds": 2,
+      "instruction": "Read all three sections as one book. Flag seams between sections, repeated beats, and any house rule that slipped (em-dash included)."
+    },
+    {
+      "name": "final-polish",
+      "rounds": 1,
+      "seats": ["nadia-quill"],
+      "words": 3000,
+      "instruction": "Post the full, final text of all three sections in one post, in order: preface, chapter one, chapter two."
+    }
+  ]
+}

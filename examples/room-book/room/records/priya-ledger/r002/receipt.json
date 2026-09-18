@@ -1,0 +1,33 @@
+{
+  "session_id": "a800f0c2-8676-4a33-a2ff-572764ae23c0",
+  "model": "claude-sonnet-5",
+  "resumed_from": "a800f0c2-8676-4a33-a2ff-572764ae23c0",
+  "selected_model": "sonnet",
+  "model_evidence": "assistant/turn context",
+  "effort": "high",
+  "effort_evidence": "explicit CLI selection",
+  "usage": {
+    "claude-sonnet-5": {
+      "inputTokens": 6,
+      "outputTokens": 1550,
+      "cacheReadInputTokens": 54021,
+      "cacheCreationInputTokens": 4121,
+      "webSearchRequests": 0,
+      "costUSD": 0.0428002,
+      "contextWindow": 1000000,
+      "maxOutputTokens": 64000,
+      "thinkingTokens": 746,
+      "canonicalModel": "claude-sonnet-5",
+      "provider": "firstParty",
+      "costBasis": "list"
+    }
+  },
+  "native_transcripts": [
+    "/home/ademar/projects/quirework/examples/room-book/room/seats/priya-ledger.blind-state/claude/projects/-home-ademar-projects-quirework-examples-room-book-room-seats-priya-ledger/a800f0c2-8676-4a33-a2ff-572764ae23c0.jsonl"
+  ],
+  "answer": "Posted. I claimed Nadia's \"log's internal facts\" lane, called \"footing\" settled since nobody countered it, backed Oren's push for hard-edged Hal errors while tying it to the two passages needing fixed content, and drew the line for Gus between what's a broken fact (mine to catch) versus pacing (Nadia and Oren's problem). Shape from my last post stands unchanged; room's ready to draft.",
+  "exit_code": 0,
+  "seconds": 20.18,
+  "timed_out": false,
+  "error": null
+}

@@ -1,0 +1,33 @@
+{
+  "session_id": "a800f0c2-8676-4a33-a2ff-572764ae23c0",
+  "model": "claude-sonnet-5",
+  "resumed_from": "a800f0c2-8676-4a33-a2ff-572764ae23c0",
+  "selected_model": "sonnet",
+  "model_evidence": "assistant/turn context",
+  "effort": "high",
+  "effort_evidence": "explicit CLI selection",
+  "usage": {
+    "claude-sonnet-5": {
+      "inputTokens": 6,
+      "outputTokens": 16912,
+      "cacheReadInputTokens": 298806,
+      "cacheCreationInputTokens": 22396,
+      "webSearchRequests": 0,
+      "costUSD": 0.3184772,
+      "contextWindow": 1000000,
+      "maxOutputTokens": 64000,
+      "thinkingTokens": 15834,
+      "canonicalModel": "claude-sonnet-5",
+      "provider": "firstParty",
+      "costBasis": "list"
+    }
+  },
+  "native_transcripts": [
+    "/home/ademar/projects/quirework/examples/room-book/room/seats/priya-ledger.blind-state/claude/projects/-home-ademar-projects-quirework-examples-room-book-room-seats-priya-ledger/a800f0c2-8676-4a33-a2ff-572764ae23c0.jsonl"
+  ],
+  "answer": "Posted a whole-book continuity pass. Key findings: the comma fix from round 15 holds clean with no new conflicts, the em-dash rule and other house rules are intact across all three sections, and the Sid Karr/Vic Tor promise I flagged back in round 4 is now fully retired with zero trace in the final text. The repeated timestamp and \"draft six\" beats across sections are functioning as intentional callbacks rather than accidental duplication. Only soft note: the multi-week jump from chapter one's Tuesday to chapter two's \"By April\" is unmarked, not an error, just flagged in case Nadia wants a bridging line.",
+  "exit_code": 0,
+  "seconds": 164.7,
+  "timed_out": false,
+  "error": null
+}

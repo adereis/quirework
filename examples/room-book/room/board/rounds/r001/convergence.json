@@ -1,0 +1,14 @@
+{
+  "round": 1,
+  "novelty": 100.0,
+  "closing": 0.0,
+  "converged": false,
+  "reason": null,
+  "series": [
+    {
+      "round": 1,
+      "novelty": 100.0,
+      "closing": 0.0
+    }
+  ]
+}

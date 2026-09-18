@@ -1,0 +1,89 @@
+{
+  "round": 16,
+  "novelty": 31.8,
+  "closing": 0.25,
+  "converged": true,
+  "reason": "novelty",
+  "series": [
+    {
+      "round": 1,
+      "novelty": 100.0,
+      "closing": 0.0
+    },
+    {
+      "round": 2,
+      "novelty": 71.5,
+      "closing": 0.5
+    },
+    {
+      "round": 3,
+      "novelty": 52.3,
+      "closing": 0.0
+    },
+    {
+      "round": 4,
+      "novelty": 15.4,
+      "closing": 0.0
+    },
+    {
+      "round": 5,
+      "novelty": 55.8,
+      "closing": 0.0
+    },
+    {
+      "round": 6,
+      "novelty": 42.9,
+      "closing": 0.0
+    },
+    {
+      "round": 7,
+      "novelty": 4.9,
+      "closing": 0.0
+    },
+    {
+      "round": 8,
+      "novelty": 44.4,
+      "closing": 0.0
+    },
+    {
+      "round": 9,
+      "novelty": 12.4,
+      "closing": 0.25
+    },
+    {
+      "round": 10,
+      "novelty": 33.5,
+      "closing": 0.0
+    },
+    {
+      "round": 11,
+      "novelty": 39.1,
+      "closing": 0.0
+    },
+    {
+      "round": 12,
+      "novelty": 2.7,
+      "closing": 0.25
+    },
+    {
+      "round": 13,
+      "novelty": 32.3,
+      "closing": 0.0
+    },
+    {
+      "round": 14,
+      "novelty": 7.2,
+      "closing": 0.0
+    },
+    {
+      "round": 15,
+      "novelty": 33.9,
+      "closing": 0.25
+    },
+    {
+      "round": 16,
+      "novelty": 31.8,
+      "closing": 0.25
+    }
+  ]
+}

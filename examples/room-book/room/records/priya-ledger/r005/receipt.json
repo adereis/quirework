@@ -1,0 +1,33 @@
+{
+  "session_id": "a800f0c2-8676-4a33-a2ff-572764ae23c0",
+  "model": "claude-sonnet-5",
+  "resumed_from": "a800f0c2-8676-4a33-a2ff-572764ae23c0",
+  "selected_model": "sonnet",
+  "model_evidence": "assistant/turn context",
+  "effort": "high",
+  "effort_evidence": "explicit CLI selection",
+  "usage": {
+    "claude-sonnet-5": {
+      "inputTokens": 8,
+      "outputTokens": 5340,
+      "cacheReadInputTokens": 104782,
+      "cacheCreationInputTokens": 8508,
+      "webSearchRequests": 0,
+      "costUSD": 0.10840440000000001,
+      "contextWindow": 1000000,
+      "maxOutputTokens": 64000,
+      "thinkingTokens": 4429,
+      "canonicalModel": "claude-sonnet-5",
+      "provider": "firstParty",
+      "costBasis": "list"
+    }
+  },
+  "native_transcripts": [
+    "/home/ademar/projects/quirework/examples/room-book/room/seats/priya-ledger.blind-state/claude/projects/-home-ademar-projects-quirework-examples-room-book-room-seats-priya-ledger/a800f0c2-8676-4a33-a2ff-572764ae23c0.jsonl"
+  ],
+  "answer": "Posted. I verified the timestamp math holds, flagged two newly-introduced facts (forty-one drafts, ~900 exchanges) as now locked, and raised a concrete disagreement with Nadia by name: the preface commits Sid Karr and Vic Tor to each appearing once, which nobody in the room actually decided and which the brief left optional, so either a chapter needs to be assigned to seat each of them or the preface's wording should be walked back to stay true by default.",
+  "exit_code": 0,
+  "seconds": 58.25,
+  "timed_out": false,
+  "error": null
+}

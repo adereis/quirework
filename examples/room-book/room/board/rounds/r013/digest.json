@@ -1,0 +1,17 @@
+{
+  "round": 13,
+  "order": [
+    "nadia-quill",
+    "oren-strunk",
+    "priya-ledger",
+    "gus-firstpass"
+  ],
+  "posts": {
+    "nadia-quill": "91da060d832e1d4a1bc7bbb8c6fc58b09df78cebe7105d77f172bc1fe3c9d298",
+    "oren-strunk": "4bea17716ecbdb5b8b63a2baad146644c1a8f077fba5394a48fe470b8d517fde",
+    "priya-ledger": "96c9495f7ab6a9f5f357777a6e3c15ea870c2dfb76263291b19118465279e978",
+    "gus-firstpass": "c12f6ffcafeec6a7a9571d591110d7d0ff42b10d4059f7eb83530e4f19f86f0f"
+  },
+  "absent": [],
+  "digest_sha256": "ed9b28f1039700eef35358a8defe1e7e4a8c85ce8b3857d7e84927fbef43ace3"
+}

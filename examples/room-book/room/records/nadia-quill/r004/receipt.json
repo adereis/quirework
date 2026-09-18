@@ -1,0 +1,33 @@
+{
+  "session_id": "7d53ac15-dea4-4108-845b-5677a446f448",
+  "model": "claude-opus-5",
+  "resumed_from": "7d53ac15-dea4-4108-845b-5677a446f448",
+  "selected_model": "opus",
+  "model_evidence": "assistant/turn context",
+  "effort": "high",
+  "effort_evidence": "explicit CLI selection",
+  "usage": {
+    "claude-opus-5": {
+      "inputTokens": 6,
+      "outputTokens": 2766,
+      "cacheReadInputTokens": 61320,
+      "cacheCreationInputTokens": 4536,
+      "webSearchRequests": 0,
+      "costUSD": 0.14520000000000002,
+      "contextWindow": 1000000,
+      "maxOutputTokens": 64000,
+      "thinkingTokens": 1224,
+      "canonicalModel": "claude-opus-5",
+      "provider": "firstParty",
+      "costBasis": "list"
+    }
+  },
+  "native_transcripts": [
+    "/home/ademar/projects/quirework/examples/room-book/room/seats/nadia-quill.blind-state/claude/projects/-home-ademar-projects-quirework-examples-room-book-room-seats-nadia-quill/7d53ac15-dea4-4108-845b-5677a446f448.jsonl"
+  ],
+  "answer": "Posted (505 words total; the preface itself runs about 440).\n\nDecisions I made in the draft:\n\n- **Took the room's beat order over my own.** Oren, Priya, and Gus all posted method → cast invented → Quirework → disagreement. Mine had the memory warning at beat 3. I folded that warning into the back of the disagreement instead, so Prue demonstrates the rule before she states it rather than announcing it cold.\n- **Quirework is stated as a fact, not a reveal** — one short paragraph naming what she actually used it for (sorting drafts, lining up timestamps), then out. It sits directly after \"the events did not happen,\" which is where Oren wanted it.\n- **The disagreement keeps Prue's version visible.** She says what she wanted to be true, gives the two times, concedes, and doesn't draw a moral from it. \"He was stung, and then he was useful\" is the whole verdict.\n- **One continuity addition for Priya:** the closing line places chapter one on the Thursday before that Tuesday. That's a new fact and it needs logging, since it fixes the gap between Mark finding the contradiction and Em's markup arriving.\n\nNo em-dashes anywhere in the prose. The only numbers in the preface are 09:14 and 11:52, plus the two inventory figures (forty-one drafts, nine hundred exchanges) — if Priya would rather the inventory figures not exist as facts chapter two could trip over, I'll cut them to \"the drafts\" and \"the chat log\" without loss.",
+  "exit_code": 0,
+  "seconds": 43.04,
+  "timed_out": false,
+  "error": null
+}

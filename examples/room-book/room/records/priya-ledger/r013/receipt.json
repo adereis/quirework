@@ -1,0 +1,33 @@
+{
+  "session_id": "a800f0c2-8676-4a33-a2ff-572764ae23c0",
+  "model": "claude-sonnet-5",
+  "resumed_from": "a800f0c2-8676-4a33-a2ff-572764ae23c0",
+  "selected_model": "sonnet",
+  "model_evidence": "assistant/turn context",
+  "effort": "high",
+  "effort_evidence": "explicit CLI selection",
+  "usage": {
+    "claude-sonnet-5": {
+      "inputTokens": 6,
+      "outputTokens": 3304,
+      "cacheReadInputTokens": 202843,
+      "cacheCreationInputTokens": 8949,
+      "webSearchRequests": 0,
+      "costUSD": 0.1094166,
+      "contextWindow": 1000000,
+      "maxOutputTokens": 64000,
+      "thinkingTokens": 2540,
+      "canonicalModel": "claude-sonnet-5",
+      "provider": "firstParty",
+      "costBasis": "list"
+    }
+  },
+  "native_transcripts": [
+    "/home/ademar/projects/quirework/examples/room-book/room/seats/priya-ledger.blind-state/claude/projects/-home-ademar-projects-quirework-examples-room-book-room-seats-priya-ledger/a800f0c2-8676-4a33-a2ff-572764ae23c0.jsonl"
+  ],
+  "answer": "Posted at ~150 words. Confirmed chapter one's fixes are all consistent now, and proposed chapter two's beats: fix the disputed sentence's exact text and both Mark's and Hal's timestamps before drafting, so the confidence-versus-log reveal has real numbers to land on and Prue's callback can cite her own 09:14/11:52 disagreement by its actual figures rather than a paraphrase.",
+  "exit_code": 0,
+  "seconds": 35.89,
+  "timed_out": false,
+  "error": null
+}

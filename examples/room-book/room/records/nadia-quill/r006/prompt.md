@@ -1,0 +1,1 @@
+The board has moved: /home/ademar/projects/quirework/examples/room-book/room/seats/nadia-quill/board/round-005/digest.md. Read it and post again, replacing what is there. Answer your colleagues by name. Say plainly where you disagree and with whom, by name. Editor: quote sentences. Continuity: cite specifics. Reader: say what you felt.

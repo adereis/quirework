@@ -1,0 +1,111 @@
+{
+  "status": "answered",
+  "session_id": "7d53ac15-dea4-4108-845b-5677a446f448",
+  "rounds": {
+    "1": {
+      "status": "answered",
+      "seconds": 35.54,
+      "error": null
+    },
+    "2": {
+      "status": "answered",
+      "seconds": 48.18,
+      "error": null
+    },
+    "3": {
+      "status": "answered",
+      "seconds": 22.6,
+      "error": null
+    },
+    "4": {
+      "status": "answered",
+      "seconds": 43.04,
+      "error": null
+    },
+    "5": {
+      "status": "answered",
+      "seconds": 36.12,
+      "error": null
+    },
+    "6": {
+      "status": "answered",
+      "seconds": 68.1,
+      "error": null
+    },
+    "7": {
+      "status": "answered",
+      "seconds": 56.25,
+      "error": null
+    },
+    "8": {
+      "status": "answered",
+      "seconds": 26.33,
+      "error": null
+    },
+    "9": {
+      "status": "answered",
+      "seconds": 120.22,
+      "error": null
+    },
+    "10": {
+      "status": "answered",
+      "seconds": 49.22,
+      "error": null
+    },
+    "11": {
+      "status": "answered",
+      "seconds": 65.3,
+      "error": null
+    },
+    "12": {
+      "status": "answered",
+      "seconds": 76.93,
+      "error": null
+    },
+    "13": {
+      "status": "answered",
+      "seconds": 30.55,
+      "error": null
+    },
+    "14": {
+      "status": "answered",
+      "seconds": 122.71,
+      "error": null
+    },
+    "15": {
+      "status": "answered",
+      "seconds": 91.63,
+      "error": null
+    },
+    "16": {
+      "status": "answered",
+      "seconds": 58.85,
+      "error": null
+    },
+    "17": {
+      "status": "answered",
+      "seconds": 87.9,
+      "error": null
+    },
+    "18": {
+      "status": "answered",
+      "seconds": 84.88,
+      "error": null
+    },
+    "19": {
+      "status": "answered",
+      "seconds": 72.39,
+      "error": null
+    },
+    "20": {
+      "status": "answered",
+      "seconds": 116.51,
+      "error": null
+    }
+  },
+  "persona": {
+    "id": "nadia-quill",
+    "revision": 1,
+    "sha256": "752c0e8d1575f5d2ef7e2ad13848a0b2fbe15de9dcba3decf3ca53d1997c05a4"
+  }
+}

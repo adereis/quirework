@@ -1,0 +1,33 @@
+{
+  "session_id": "a800f0c2-8676-4a33-a2ff-572764ae23c0",
+  "model": "claude-sonnet-5",
+  "resumed_from": "a800f0c2-8676-4a33-a2ff-572764ae23c0",
+  "selected_model": "sonnet",
+  "model_evidence": "assistant/turn context",
+  "effort": "high",
+  "effort_evidence": "explicit CLI selection",
+  "usage": {
+    "claude-sonnet-5": {
+      "inputTokens": 6,
+      "outputTokens": 5484,
+      "cacheReadInputTokens": 363673,
+      "cacheCreationInputTokens": 8754,
+      "webSearchRequests": 0,
+      "costUSD": 0.16260259999999999,
+      "contextWindow": 1000000,
+      "maxOutputTokens": 64000,
+      "thinkingTokens": 4634,
+      "canonicalModel": "claude-sonnet-5",
+      "provider": "firstParty",
+      "costBasis": "list"
+    }
+  },
+  "native_transcripts": [
+    "/home/ademar/projects/quirework/examples/room-book/room/seats/priya-ledger.blind-state/claude/projects/-home-ademar-projects-quirework-examples-room-book-room-seats-priya-ledger/a800f0c2-8676-4a33-a2ff-572764ae23c0.jsonl"
+  ],
+  "answer": "Posted. I closed one of Nadia's two flagged seams outright (the margins Em marked up and chapter two's draft seven are provably the same document, since nothing after draft six's deletion creates a new draft), confirmed the month-dating gap is real and still open (chapter one's Thursday needs to land in March given Hal's \"14 March\" citation happens on that same Thursday about a past event), noted Oren's \"Em's Tuesday\" fix helps clarity but doesn't solve the dating problem on its own, and cleared Gus's em-dash/Em-Dash pun as not an actual rule violation.",
+  "exit_code": 0,
+  "seconds": 60.63,
+  "timed_out": false,
+  "error": null
+}

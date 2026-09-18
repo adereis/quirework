@@ -1,0 +1,396 @@
+{"t": 1789698243.302, "event": "prepared", "seats": ["nadia-quill", "oren-strunk", "priya-ledger", "gus-firstpass"], "rounds": 20}
+{"t": 1789698277.051, "round": 1, "event": "round-opened", "jobs": 4}
+{"t": 1789698277.092, "round": 1, "seat": "nadia-quill", "event": "launching", "resumed": null}
+{"t": 1789698277.093, "round": 1, "seat": "priya-ledger", "event": "launching", "resumed": null}
+{"t": 1789698277.093, "round": 1, "seat": "oren-strunk", "event": "launching", "resumed": null}
+{"t": 1789698277.094, "round": 1, "seat": "nadia-quill", "event": "running", "pid": 3746993, "process_identity": "150109835"}
+{"t": 1789698277.095, "round": 1, "seat": "oren-strunk", "event": "running", "pid": 3747001, "process_identity": "150109835"}
+{"t": 1789698277.096, "round": 1, "seat": "priya-ledger", "event": "running", "pid": 3747000, "process_identity": "150109835"}
+{"t": 1789698277.341, "round": 1, "seat": "gus-firstpass", "event": "launching", "resumed": null}
+{"t": 1789698277.342, "round": 1, "seat": "gus-firstpass", "event": "running", "pid": 3747034, "process_identity": "150109860"}
+{"t": 1789698302.443, "round": 1, "seat": "priya-ledger", "event": "exited", "code": 0, "seconds": 25.35, "timed_out": false}
+{"t": 1789698302.498, "round": 1, "seat": "priya-ledger", "event": "collected", "status": "answered", "error": null}
+{"t": 1789698312.632, "round": 1, "seat": "nadia-quill", "event": "exited", "code": 0, "seconds": 35.54, "timed_out": false}
+{"t": 1789698312.659, "round": 1, "seat": "nadia-quill", "event": "collected", "status": "answered", "error": null}
+{"t": 1789698319.09, "round": 1, "seat": "gus-firstpass", "event": "exited", "code": 0, "seconds": 41.75, "timed_out": false}
+{"t": 1789698319.135, "round": 1, "seat": "gus-firstpass", "event": "collected", "status": "answered", "error": null}
+{"t": 1789698333.813, "round": 1, "seat": "oren-strunk", "event": "exited", "code": 0, "seconds": 56.72, "timed_out": false}
+{"t": 1789698333.843, "round": 1, "seat": "oren-strunk", "event": "collected", "status": "answered", "error": null}
+{"t": 1789698333.849, "round": 1, "seat": "nadia-quill", "event": "promoted", "bytes": 1320, "sha256": "c0d1f84499b9530b8b366689f7fba92c143d4fa0e59f4aede2acb59ffbd7f857"}
+{"t": 1789698333.851, "round": 1, "seat": "oren-strunk", "event": "promoted", "bytes": 1423, "sha256": "c05e230b8f0d732ca4b38b00198dc51c8bbf5db9a3172524b72acb4df869f2ea"}
+{"t": 1789698333.853, "round": 1, "seat": "priya-ledger", "event": "promoted", "bytes": 1586, "sha256": "8133f44f6cc6c3fd7bb6fe82c7bd9f9e48912f782290756f4f4090d95d8441be"}
+{"t": 1789698333.856, "round": 1, "seat": "gus-firstpass", "event": "promoted", "bytes": 1185, "sha256": "654e33d1b41428e7d1b78f4039a84167c831f6cf37a833d61257192f21c5b992"}
+{"t": 1789698333.873, "round": 1, "event": "round-closed", "posted": 4, "absent": 0}
+{"t": 1789698333.874, "round": 1, "event": "convergence", "novelty": 100.0, "closing": 0.0, "converged": false, "reason": null}
+{"t": 1789698368.079, "round": 2, "event": "round-opened", "jobs": 4}
+{"t": 1789698368.081, "round": 2, "event": "board-published", "digest_sha256": "b70fb28c3ab4ca7064442c92b4d562181615a98eb280e352cf543c3c78045f16"}
+{"t": 1789698368.122, "round": 2, "seat": "oren-strunk", "event": "launching", "resumed": "01a0b254-8489-7ef0-bb88-34e6d938f6ae"}
+{"t": 1789698368.125, "round": 2, "seat": "oren-strunk", "event": "running", "pid": 3749791, "process_identity": "150118938"}
+{"t": 1789698368.126, "round": 2, "seat": "nadia-quill", "event": "launching", "resumed": "7d53ac15-dea4-4108-845b-5677a446f448"}
+{"t": 1789698368.128, "round": 2, "seat": "priya-ledger", "event": "launching", "resumed": "a800f0c2-8676-4a33-a2ff-572764ae23c0"}
+{"t": 1789698368.129, "round": 2, "seat": "nadia-quill", "event": "running", "pid": 3749793, "process_identity": "150118938"}
+{"t": 1789698368.131, "round": 2, "seat": "priya-ledger", "event": "running", "pid": 3749794, "process_identity": "150118939"}
+{"t": 1789698368.405, "round": 2, "seat": "gus-firstpass", "event": "launching", "resumed": "ef5193a4-64d0-4ddc-99cb-a075e5abcd26"}
+{"t": 1789698368.416, "round": 2, "seat": "gus-firstpass", "event": "running", "pid": 3749868, "process_identity": "150118966"}
+{"t": 1789698388.309, "round": 2, "seat": "priya-ledger", "event": "exited", "code": 0, "seconds": 20.18, "timed_out": false}
+{"t": 1789698388.372, "round": 2, "seat": "priya-ledger", "event": "collected", "status": "answered", "error": null}
+{"t": 1789698405.753, "round": 2, "seat": "gus-firstpass", "event": "exited", "code": 0, "seconds": 37.35, "timed_out": false}
+{"t": 1789698405.774, "round": 2, "seat": "gus-firstpass", "event": "collected", "status": "answered", "error": null}
+{"t": 1789698416.308, "round": 2, "seat": "nadia-quill", "event": "exited", "code": 0, "seconds": 48.18, "timed_out": false}
+{"t": 1789698416.367, "round": 2, "seat": "nadia-quill", "event": "collected", "status": "answered", "error": null}
+{"t": 1789698423.114, "round": 2, "seat": "oren-strunk", "event": "exited", "code": 0, "seconds": 54.99, "timed_out": false}
+{"t": 1789698423.145, "round": 2, "seat": "oren-strunk", "event": "collected", "status": "answered", "error": null}
+{"t": 1789698423.15, "round": 2, "seat": "nadia-quill", "event": "promoted", "bytes": 1235, "sha256": "fbe8a106b42980457ffc9f54c57cc46d5abca6363544b56c4596b23514c1e279"}
+{"t": 1789698423.153, "round": 2, "seat": "oren-strunk", "event": "promoted", "bytes": 1478, "sha256": "d269e7400f3a66ed3c394473c2588d53268ae1eff1db8454ca8273a42854566c"}
+{"t": 1789698423.154, "round": 2, "seat": "priya-ledger", "event": "promoted", "bytes": 1387, "sha256": "6167515efcf88fdc2ef8fad7c568118cf9ebcc2fe946a5eadd75c3c8747c7295"}
+{"t": 1789698423.156, "round": 2, "seat": "gus-firstpass", "event": "promoted", "bytes": 1193, "sha256": "03c49e83edac6e958a3112d1a572c5a789c2b1abdc3457807016d4a179798638"}
+{"t": 1789698423.181, "round": 2, "event": "round-closed", "posted": 4, "absent": 0}
+{"t": 1789698423.182, "round": 2, "event": "convergence", "novelty": 71.5, "closing": 0.5, "converged": false, "reason": null}
+{"t": 1789698423.556, "round": 3, "event": "round-opened", "jobs": 4}
+{"t": 1789698423.559, "round": 3, "event": "board-published", "digest_sha256": "0804366c1b55f99297305a1a490bf4452b016c25d3e03517735f24b7bc813152"}
+{"t": 1789698423.589, "round": 3, "seat": "oren-strunk", "event": "launching", "resumed": "01a0b254-8489-7ef0-bb88-34e6d938f6ae"}
+{"t": 1789698423.59, "round": 3, "seat": "priya-ledger", "event": "launching", "resumed": "a800f0c2-8676-4a33-a2ff-572764ae23c0"}
+{"t": 1789698423.591, "round": 3, "seat": "nadia-quill", "event": "launching", "resumed": "7d53ac15-dea4-4108-845b-5677a446f448"}
+{"t": 1789698423.591, "round": 3, "seat": "oren-strunk", "event": "running", "pid": 3752329, "process_identity": "150124485"}
+{"t": 1789698423.593, "round": 3, "seat": "priya-ledger", "event": "running", "pid": 3752330, "process_identity": "150124485"}
+{"t": 1789698423.593, "round": 3, "seat": "nadia-quill", "event": "running", "pid": 3752332, "process_identity": "150124485"}
+{"t": 1789698423.9, "round": 3, "seat": "gus-firstpass", "event": "launching", "resumed": "ef5193a4-64d0-4ddc-99cb-a075e5abcd26"}
+{"t": 1789698423.904, "round": 3, "seat": "gus-firstpass", "event": "running", "pid": 3752415, "process_identity": "150124516"}
+{"t": 1789698439.805, "round": 3, "seat": "priya-ledger", "event": "exited", "code": 0, "seconds": 16.21, "timed_out": false}
+{"t": 1789698439.824, "round": 3, "seat": "priya-ledger", "event": "collected", "status": "answered", "error": null}
+{"t": 1789698446.19, "round": 3, "seat": "nadia-quill", "event": "exited", "code": 0, "seconds": 22.6, "timed_out": false}
+{"t": 1789698446.401, "round": 3, "seat": "nadia-quill", "event": "collected", "status": "answered", "error": null}
+{"t": 1789698451.761, "round": 3, "seat": "gus-firstpass", "event": "exited", "code": 0, "seconds": 27.86, "timed_out": false}
+{"t": 1789698451.778, "round": 3, "seat": "gus-firstpass", "event": "collected", "status": "answered", "error": null}
+{"t": 1789698472.876, "round": 3, "seat": "oren-strunk", "event": "exited", "code": 0, "seconds": 49.29, "timed_out": false}
+{"t": 1789698472.906, "round": 3, "seat": "oren-strunk", "event": "collected", "status": "answered", "error": null}
+{"t": 1789698472.911, "round": 3, "seat": "nadia-quill", "event": "promoted", "bytes": 929, "sha256": "c9b8e46b919f64586c54191b5dae70261951bb8778ca2f2dfcb8ce75791b7085"}
+{"t": 1789698472.912, "round": 3, "seat": "oren-strunk", "event": "promoted", "bytes": 929, "sha256": "77c1e7e23f052e11cfcabb7a8f75fc6cfdf826bae2152f060ed374887f83dee2"}
+{"t": 1789698472.914, "round": 3, "seat": "priya-ledger", "event": "promoted", "bytes": 829, "sha256": "e581f76a0ef4326a4846fce60577ab402f81cab622a802baaa38cb3fc6b6d5e6"}
+{"t": 1789698472.915, "round": 3, "seat": "gus-firstpass", "event": "promoted", "bytes": 779, "sha256": "ea192af17f6dc83e0c254123106ebcfae53f98d3123bd9e12cb2968cfd61f409"}
+{"t": 1789698472.938, "round": 3, "event": "round-closed", "posted": 4, "absent": 0}
+{"t": 1789698472.938, "round": 3, "event": "convergence", "novelty": 52.3, "closing": 0.0, "converged": false, "reason": null}
+{"t": 1789698473.227, "round": 4, "event": "round-opened", "jobs": 4}
+{"t": 1789698473.231, "round": 4, "event": "board-published", "digest_sha256": "c4cc54f3719a52b0eb2ebcd6a06cb4dbc1f39d759ad9d8cd1de06c136371f2b4"}
+{"t": 1789698473.232, "round": 4, "seat": "oren-strunk", "event": "resting"}
+{"t": 1789698473.232, "round": 4, "seat": "priya-ledger", "event": "resting"}
+{"t": 1789698473.232, "round": 4, "seat": "gus-firstpass", "event": "resting"}
+{"t": 1789698473.252, "round": 4, "seat": "nadia-quill", "event": "launching", "resumed": "7d53ac15-dea4-4108-845b-5677a446f448"}
+{"t": 1789698473.253, "round": 4, "seat": "nadia-quill", "event": "running", "pid": 3754538, "process_identity": "150129451"}
+{"t": 1789698516.295, "round": 4, "seat": "nadia-quill", "event": "exited", "code": 0, "seconds": 43.04, "timed_out": false}
+{"t": 1789698516.356, "round": 4, "seat": "nadia-quill", "event": "collected", "status": "answered", "error": null}
+{"t": 1789698516.362, "round": 4, "seat": "nadia-quill", "event": "promoted", "bytes": 2500, "sha256": "95f533d5c1bbb6f6ad2f408d3775a083d3dca9db6511d5706ea0f2c5970b3d96"}
+{"t": 1789698516.393, "round": 4, "event": "round-closed", "posted": 1, "absent": 0}
+{"t": 1789698516.393, "round": 4, "event": "convergence", "novelty": 15.4, "closing": 0.0, "converged": true, "reason": "novelty"}
+{"t": 1789698516.73, "round": 5, "event": "round-opened", "jobs": 4}
+{"t": 1789698516.732, "round": 5, "event": "board-published", "digest_sha256": "9c4e62a5c1ad256a8f46cf377f196bb5e02995a13331a33ce52a1e1c380977ff"}
+{"t": 1789698516.761, "round": 5, "seat": "oren-strunk", "event": "launching", "resumed": "01a0b254-8489-7ef0-bb88-34e6d938f6ae"}
+{"t": 1789698516.762, "round": 5, "seat": "oren-strunk", "event": "running", "pid": 3755856, "process_identity": "150133802"}
+{"t": 1789698516.762, "round": 5, "seat": "nadia-quill", "event": "launching", "resumed": "7d53ac15-dea4-4108-845b-5677a446f448"}
+{"t": 1789698516.764, "round": 5, "seat": "nadia-quill", "event": "running", "pid": 3755858, "process_identity": "150133802"}
+{"t": 1789698516.765, "round": 5, "seat": "priya-ledger", "event": "launching", "resumed": "a800f0c2-8676-4a33-a2ff-572764ae23c0"}
+{"t": 1789698516.766, "round": 5, "seat": "priya-ledger", "event": "running", "pid": 3755860, "process_identity": "150133802"}
+{"t": 1789698517.077, "round": 5, "seat": "gus-firstpass", "event": "launching", "resumed": "ef5193a4-64d0-4ddc-99cb-a075e5abcd26"}
+{"t": 1789698517.081, "round": 5, "seat": "gus-firstpass", "event": "running", "pid": 3755939, "process_identity": "150133834"}
+{"t": 1789698552.886, "round": 5, "seat": "nadia-quill", "event": "exited", "code": 0, "seconds": 36.12, "timed_out": false}
+{"t": 1789698552.929, "round": 5, "seat": "nadia-quill", "event": "collected", "status": "answered", "error": null}
+{"t": 1789698572.805, "round": 5, "seat": "gus-firstpass", "event": "exited", "code": 0, "seconds": 55.73, "timed_out": false}
+{"t": 1789698572.836, "round": 5, "seat": "gus-firstpass", "event": "collected", "status": "answered", "error": null}
+{"t": 1789698575.017, "round": 5, "seat": "priya-ledger", "event": "exited", "code": 0, "seconds": 58.25, "timed_out": false}
+{"t": 1789698575.042, "round": 5, "seat": "priya-ledger", "event": "collected", "status": "answered", "error": null}
+{"t": 1789698575.916, "round": 5, "seat": "oren-strunk", "event": "exited", "code": 0, "seconds": 59.16, "timed_out": false}
+{"t": 1789698575.959, "round": 5, "seat": "oren-strunk", "event": "collected", "status": "answered", "error": null}
+{"t": 1789698575.963, "round": 5, "seat": "nadia-quill", "event": "promoted", "bytes": 1493, "sha256": "7a518a749b4e8eb7cc252b42d9c55a2fcc1498dfd3cb5099868884bce973527f"}
+{"t": 1789698575.964, "round": 5, "seat": "oren-strunk", "event": "promoted", "bytes": 1427, "sha256": "dc69c6c40fed3216ee260906e812318e297434b9c9b4cecf977f0edf46b9ab28"}
+{"t": 1789698575.966, "round": 5, "seat": "priya-ledger", "event": "promoted", "bytes": 1090, "sha256": "18c170ef71a2180ecae3fc69bd6f5c57e25efe1f786b371d73d9438716af0e09"}
+{"t": 1789698575.967, "round": 5, "seat": "gus-firstpass", "event": "promoted", "bytes": 1003, "sha256": "035ecc2f92d40989a3b46058a2d44756f83bd8b8188b08082a83ca0ec0049f7a"}
+{"t": 1789698575.998, "round": 5, "event": "round-closed", "posted": 4, "absent": 0}
+{"t": 1789698575.998, "round": 5, "event": "convergence", "novelty": 55.8, "closing": 0.0, "converged": false, "reason": null}
+{"t": 1789698576.209, "round": 6, "event": "round-opened", "jobs": 4}
+{"t": 1789698576.22, "round": 6, "event": "board-published", "digest_sha256": "e024b99e78b5cf4e535f7aebaf9ebe05328065fe81673b34172a5cf2329f38e2"}
+{"t": 1789698576.25, "round": 6, "seat": "oren-strunk", "event": "launching", "resumed": "01a0b254-8489-7ef0-bb88-34e6d938f6ae"}
+{"t": 1789698576.252, "round": 6, "seat": "oren-strunk", "event": "running", "pid": 3757742, "process_identity": "150139751"}
+{"t": 1789698576.259, "round": 6, "seat": "nadia-quill", "event": "launching", "resumed": "7d53ac15-dea4-4108-845b-5677a446f448"}
+{"t": 1789698576.261, "round": 6, "seat": "nadia-quill", "event": "running", "pid": 3757744, "process_identity": "150139752"}
+{"t": 1789698576.261, "round": 6, "seat": "priya-ledger", "event": "launching", "resumed": "a800f0c2-8676-4a33-a2ff-572764ae23c0"}
+{"t": 1789698576.263, "round": 6, "seat": "priya-ledger", "event": "running", "pid": 3757745, "process_identity": "150139752"}
+{"t": 1789698576.55, "round": 6, "seat": "gus-firstpass", "event": "launching", "resumed": "ef5193a4-64d0-4ddc-99cb-a075e5abcd26"}
+{"t": 1789698576.553, "round": 6, "seat": "gus-firstpass", "event": "running", "pid": 3757811, "process_identity": "150139781"}
+{"t": 1789698611.394, "round": 6, "seat": "gus-firstpass", "event": "exited", "code": 0, "seconds": 34.84, "timed_out": false}
+{"t": 1789698611.41, "round": 6, "seat": "gus-firstpass", "event": "collected", "status": "answered", "error": null}
+{"t": 1789698616.724, "round": 6, "seat": "oren-strunk", "event": "exited", "code": 0, "seconds": 40.47, "timed_out": false}
+{"t": 1789698616.77, "round": 6, "seat": "oren-strunk", "event": "collected", "status": "answered", "error": null}
+{"t": 1789698619.426, "round": 6, "seat": "priya-ledger", "event": "exited", "code": 0, "seconds": 43.16, "timed_out": false}
+{"t": 1789698619.458, "round": 6, "seat": "priya-ledger", "event": "collected", "status": "answered", "error": null}
+{"t": 1789698644.361, "round": 6, "seat": "nadia-quill", "event": "exited", "code": 0, "seconds": 68.1, "timed_out": false}
+{"t": 1789698644.379, "round": 6, "seat": "nadia-quill", "event": "collected", "status": "answered", "error": null}
+{"t": 1789698644.381, "round": 6, "seat": "nadia-quill", "event": "promoted", "bytes": 3016, "sha256": "960799d46496d7bf434553f7c20edd0ba3b6b6dd775835a7e3a99f61a405427a"}
+{"t": 1789698644.381, "round": 6, "seat": "oren-strunk", "event": "promoted", "bytes": 1452, "sha256": "e1cf0b768cc296ed085d82cfcf178fe495753c3bb6be0df562be0a33a36b991f"}
+{"t": 1789698644.382, "round": 6, "seat": "priya-ledger", "event": "promoted", "bytes": 1328, "sha256": "682e28ca0508df27faca32d4ea36c69f9361155dd442266770e2ac270aea1417"}
+{"t": 1789698644.382, "round": 6, "seat": "gus-firstpass", "event": "promoted", "bytes": 1081, "sha256": "6b7283cd9873dadd31202cde968267b2d19a01b1666ba0c5f0b6ca5f4e4c8cd1"}
+{"t": 1789698644.394, "round": 6, "event": "round-closed", "posted": 4, "absent": 0}
+{"t": 1789698644.394, "round": 6, "event": "convergence", "novelty": 42.9, "closing": 0.0, "converged": false, "reason": null}
+{"t": 1789698644.536, "round": 7, "event": "round-opened", "jobs": 4}
+{"t": 1789698644.547, "round": 7, "event": "board-published", "digest_sha256": "b65e5b6e661cc04576cc2c33228734ad4d7f44efbb28186cc993bffa50334dd0"}
+{"t": 1789698644.547, "round": 7, "seat": "oren-strunk", "event": "resting"}
+{"t": 1789698644.547, "round": 7, "seat": "priya-ledger", "event": "resting"}
+{"t": 1789698644.547, "round": 7, "seat": "gus-firstpass", "event": "resting"}
+{"t": 1789698644.563, "round": 7, "seat": "nadia-quill", "event": "launching", "resumed": "7d53ac15-dea4-4108-845b-5677a446f448"}
+{"t": 1789698644.564, "round": 7, "seat": "nadia-quill", "event": "running", "pid": 3759692, "process_identity": "150146582"}
+{"t": 1789698700.811, "round": 7, "seat": "nadia-quill", "event": "exited", "code": 0, "seconds": 56.25, "timed_out": false}
+{"t": 1789698700.847, "round": 7, "seat": "nadia-quill", "event": "collected", "status": "answered", "error": null}
+{"t": 1789698700.852, "round": 7, "seat": "nadia-quill", "event": "promoted", "bytes": 2979, "sha256": "7ea90a900c1b807d5f36bcee91c435d9ec0dbbc0f41e20e7d210734e8f0960ef"}
+{"t": 1789698700.884, "round": 7, "event": "round-closed", "posted": 1, "absent": 0}
+{"t": 1789698700.884, "round": 7, "event": "convergence", "novelty": 4.9, "closing": 0.0, "converged": true, "reason": "novelty"}
+{"t": 1789698701.075, "round": 8, "event": "round-opened", "jobs": 4}
+{"t": 1789698701.076, "round": 8, "event": "board-published", "digest_sha256": "df2ef54288ec2d3123781d553d2c239ce79b0e096ec08c47f2e2939bf7124428"}
+{"t": 1789698701.116, "round": 8, "seat": "oren-strunk", "event": "launching", "resumed": "01a0b254-8489-7ef0-bb88-34e6d938f6ae"}
+{"t": 1789698701.116, "round": 8, "seat": "nadia-quill", "event": "launching", "resumed": "7d53ac15-dea4-4108-845b-5677a446f448"}
+{"t": 1789698701.116, "round": 8, "seat": "priya-ledger", "event": "launching", "resumed": "a800f0c2-8676-4a33-a2ff-572764ae23c0"}
+{"t": 1789698701.117, "round": 8, "seat": "oren-strunk", "event": "running", "pid": 3760921, "process_identity": "150152237"}
+{"t": 1789698701.118, "round": 8, "seat": "nadia-quill", "event": "running", "pid": 3760922, "process_identity": "150152237"}
+{"t": 1789698701.119, "round": 8, "seat": "priya-ledger", "event": "running", "pid": 3760924, "process_identity": "150152238"}
+{"t": 1789698701.453, "round": 8, "seat": "gus-firstpass", "event": "launching", "resumed": "ef5193a4-64d0-4ddc-99cb-a075e5abcd26"}
+{"t": 1789698701.456, "round": 8, "seat": "gus-firstpass", "event": "running", "pid": 3760984, "process_identity": "150152271"}
+{"t": 1789698721.935, "round": 8, "seat": "priya-ledger", "event": "exited", "code": 0, "seconds": 20.82, "timed_out": false}
+{"t": 1789698721.978, "round": 8, "seat": "priya-ledger", "event": "collected", "status": "answered", "error": null}
+{"t": 1789698727.442, "round": 8, "seat": "nadia-quill", "event": "exited", "code": 0, "seconds": 26.33, "timed_out": false}
+{"t": 1789698727.486, "round": 8, "seat": "nadia-quill", "event": "collected", "status": "answered", "error": null}
+{"t": 1789698739.699, "round": 8, "seat": "gus-firstpass", "event": "exited", "code": 0, "seconds": 38.25, "timed_out": false}
+{"t": 1789698739.748, "round": 8, "seat": "gus-firstpass", "event": "collected", "status": "answered", "error": null}
+{"t": 1789698776.641, "round": 8, "seat": "oren-strunk", "event": "exited", "code": 0, "seconds": 75.53, "timed_out": false}
+{"t": 1789698776.703, "round": 8, "seat": "oren-strunk", "event": "collected", "status": "answered", "error": null}
+{"t": 1789698776.707, "round": 8, "seat": "nadia-quill", "event": "promoted", "bytes": 1091, "sha256": "9c83a645ce5bda44eec327cfc55fc647508cac95ac2ec09d5dcdcfbb0cd6302c"}
+{"t": 1789698776.709, "round": 8, "seat": "oren-strunk", "event": "promoted", "bytes": 1138, "sha256": "aa739a92e780213423a814f7426d1d5d4823bdf1bb60c4b66529244ad61239bc"}
+{"t": 1789698776.71, "round": 8, "seat": "priya-ledger", "event": "promoted", "bytes": 910, "sha256": "6f20e05954ff75dc1532813b1776dab8a3eb4af509e8b56377f0c9868983e8b4"}
+{"t": 1789698776.712, "round": 8, "seat": "gus-firstpass", "event": "promoted", "bytes": 905, "sha256": "b00367f74fc45b92b8dc32b4abb0968ee1eaa9bf9a21cca9ab636539eb9750e8"}
+{"t": 1789698776.757, "round": 8, "event": "round-closed", "posted": 4, "absent": 0}
+{"t": 1789698776.757, "round": 8, "event": "convergence", "novelty": 44.4, "closing": 0.0, "converged": true, "reason": "novelty"}
+{"t": 1789698776.925, "round": 9, "event": "round-opened", "jobs": 4}
+{"t": 1789698776.935, "round": 9, "event": "board-published", "digest_sha256": "bc868a7329e07430ca4bdd59de99f179a6a42f47546d575ac56b39318a873001"}
+{"t": 1789698776.935, "round": 9, "seat": "oren-strunk", "event": "resting"}
+{"t": 1789698776.935, "round": 9, "seat": "priya-ledger", "event": "resting"}
+{"t": 1789698776.935, "round": 9, "seat": "gus-firstpass", "event": "resting"}
+{"t": 1789698776.952, "round": 9, "seat": "nadia-quill", "event": "launching", "resumed": "7d53ac15-dea4-4108-845b-5677a446f448"}
+{"t": 1789698776.953, "round": 9, "seat": "nadia-quill", "event": "running", "pid": 3763151, "process_identity": "150159821"}
+{"t": 1789698897.172, "round": 9, "seat": "nadia-quill", "event": "exited", "code": 0, "seconds": 120.22, "timed_out": false}
+{"t": 1789698897.224, "round": 9, "seat": "nadia-quill", "event": "collected", "status": "answered", "error": null}
+{"t": 1789698897.228, "round": 9, "seat": "nadia-quill", "event": "promoted", "bytes": 6839, "sha256": "2e29a694dcd45c982e90b2da3277c0c1f043703e5650db1073730848d8fb1d54"}
+{"t": 1789698897.278, "round": 9, "event": "round-closed", "posted": 1, "absent": 0}
+{"t": 1789698897.278, "round": 9, "event": "convergence", "novelty": 12.4, "closing": 0.25, "converged": true, "reason": "novelty"}
+{"t": 1789698897.52, "round": 10, "event": "round-opened", "jobs": 4}
+{"t": 1789698897.531, "round": 10, "event": "board-published", "digest_sha256": "938b9c4f849e5329a0cce5768e901712df83db4aa4767031798def3966df0e8c"}
+{"t": 1789698897.56, "round": 10, "seat": "oren-strunk", "event": "launching", "resumed": "01a0b254-8489-7ef0-bb88-34e6d938f6ae"}
+{"t": 1789698897.562, "round": 10, "seat": "oren-strunk", "event": "running", "pid": 3766033, "process_identity": "150171882"}
+{"t": 1789698897.565, "round": 10, "seat": "priya-ledger", "event": "launching", "resumed": "a800f0c2-8676-4a33-a2ff-572764ae23c0"}
+{"t": 1789698897.565, "round": 10, "seat": "nadia-quill", "event": "launching", "resumed": "7d53ac15-dea4-4108-845b-5677a446f448"}
+{"t": 1789698897.569, "round": 10, "seat": "priya-ledger", "event": "running", "pid": 3766035, "process_identity": "150171882"}
+{"t": 1789698897.569, "round": 10, "seat": "nadia-quill", "event": "running", "pid": 3766036, "process_identity": "150171882"}
+{"t": 1789698897.897, "round": 10, "seat": "gus-firstpass", "event": "launching", "resumed": "ef5193a4-64d0-4ddc-99cb-a075e5abcd26"}
+{"t": 1789698897.923, "round": 10, "seat": "gus-firstpass", "event": "running", "pid": 3766093, "process_identity": "150171916"}
+{"t": 1789698946.787, "round": 10, "seat": "nadia-quill", "event": "exited", "code": 0, "seconds": 49.22, "timed_out": false}
+{"t": 1789698946.829, "round": 10, "seat": "nadia-quill", "event": "collected", "status": "answered", "error": null}
+{"t": 1789698970.03, "round": 10, "seat": "priya-ledger", "event": "exited", "code": 0, "seconds": 72.47, "timed_out": false}
+{"t": 1789698970.066, "round": 10, "seat": "priya-ledger", "event": "collected", "status": "answered", "error": null}
+{"t": 1789698971.62, "round": 10, "seat": "oren-strunk", "event": "exited", "code": 0, "seconds": 74.06, "timed_out": false}
+{"t": 1789698971.696, "round": 10, "seat": "oren-strunk", "event": "collected", "status": "answered", "error": null}
+{"t": 1789698972.722, "round": 10, "seat": "gus-firstpass", "event": "exited", "code": 0, "seconds": 74.83, "timed_out": false}
+{"t": 1789698972.75, "round": 10, "seat": "gus-firstpass", "event": "collected", "status": "answered", "error": null}
+{"t": 1789698972.755, "round": 10, "seat": "nadia-quill", "event": "promoted", "bytes": 1857, "sha256": "d815be9dffe7edd926dd49721908b8a7c475fce94b623e44a7ef86ed1471a9b4"}
+{"t": 1789698972.756, "round": 10, "seat": "oren-strunk", "event": "promoted", "bytes": 1549, "sha256": "84d16665e81425813173b75b5cbc79597f83f061e0c6555a76bfc923200d696f"}
+{"t": 1789698972.757, "round": 10, "seat": "priya-ledger", "event": "promoted", "bytes": 1186, "sha256": "b7bad099f1a7b7b4bd9d19ce5f3b36a2f32a5b697c15b6c4b0cc0c21c92d242c"}
+{"t": 1789698972.759, "round": 10, "seat": "gus-firstpass", "event": "promoted", "bytes": 961, "sha256": "0d707785340347c1be58465ada6bf1b6d8dece589d462a5deeb1b270333d58a1"}
+{"t": 1789698972.81, "round": 10, "event": "round-closed", "posted": 4, "absent": 0}
+{"t": 1789698972.81, "round": 10, "event": "convergence", "novelty": 33.5, "closing": 0.0, "converged": true, "reason": "novelty"}
+{"t": 1789698973.046, "round": 11, "event": "round-opened", "jobs": 4}
+{"t": 1789698973.057, "round": 11, "event": "board-published", "digest_sha256": "54bca83a99d127564108a2a2929219f4cb6d22adf92252137d3e6b141ffb3c20"}
+{"t": 1789698973.091, "round": 11, "seat": "nadia-quill", "event": "launching", "resumed": "7d53ac15-dea4-4108-845b-5677a446f448"}
+{"t": 1789698973.092, "round": 11, "seat": "oren-strunk", "event": "launching", "resumed": "01a0b254-8489-7ef0-bb88-34e6d938f6ae"}
+{"t": 1789698973.094, "round": 11, "seat": "oren-strunk", "event": "running", "pid": 3768118, "process_identity": "150179435"}
+{"t": 1789698973.095, "round": 11, "seat": "nadia-quill", "event": "running", "pid": 3768117, "process_identity": "150179435"}
+{"t": 1789698973.098, "round": 11, "seat": "priya-ledger", "event": "launching", "resumed": "a800f0c2-8676-4a33-a2ff-572764ae23c0"}
+{"t": 1789698973.101, "round": 11, "seat": "priya-ledger", "event": "running", "pid": 3768121, "process_identity": "150179436"}
+{"t": 1789698973.428, "round": 11, "seat": "gus-firstpass", "event": "launching", "resumed": "ef5193a4-64d0-4ddc-99cb-a075e5abcd26"}
+{"t": 1789698973.431, "round": 11, "seat": "gus-firstpass", "event": "running", "pid": 3768177, "process_identity": "150179469"}
+{"t": 1789699007.86, "round": 11, "seat": "gus-firstpass", "event": "exited", "code": 0, "seconds": 34.43, "timed_out": false}
+{"t": 1789699007.892, "round": 11, "seat": "gus-firstpass", "event": "collected", "status": "answered", "error": null}
+{"t": 1789699017.856, "round": 11, "seat": "oren-strunk", "event": "exited", "code": 0, "seconds": 44.76, "timed_out": false}
+{"t": 1789699017.95, "round": 11, "seat": "oren-strunk", "event": "collected", "status": "answered", "error": null}
+{"t": 1789699020.494, "round": 11, "seat": "priya-ledger", "event": "exited", "code": 0, "seconds": 47.4, "timed_out": false}
+{"t": 1789699020.575, "round": 11, "seat": "priya-ledger", "event": "collected", "status": "answered", "error": null}
+{"t": 1789699038.388, "round": 11, "seat": "nadia-quill", "event": "exited", "code": 0, "seconds": 65.3, "timed_out": false}
+{"t": 1789699038.415, "round": 11, "seat": "nadia-quill", "event": "collected", "status": "answered", "error": null}
+{"t": 1789699038.419, "round": 11, "seat": "nadia-quill", "event": "promoted", "bytes": 2326, "sha256": "741b884aabafe77dd38c402789dde6ee208fa04b68cfba96d8b7f231bcf1c54f"}
+{"t": 1789699038.421, "round": 11, "seat": "oren-strunk", "event": "promoted", "bytes": 1561, "sha256": "be89dbdbb95e628d2cfc1107dc2fbf01862f9f98d23ea6cebf492967cc060abf"}
+{"t": 1789699038.422, "round": 11, "seat": "priya-ledger", "event": "promoted", "bytes": 1112, "sha256": "0064257853356d62b0e3fd93451269ac073e943b132111de0db223a05ac61f59"}
+{"t": 1789699038.424, "round": 11, "seat": "gus-firstpass", "event": "promoted", "bytes": 993, "sha256": "d0f90ae79b4b3f4281cbcfe0a5fa34d0cd62405cff38052b44bb1f50ad1e02f5"}
+{"t": 1789699038.48, "round": 11, "event": "round-closed", "posted": 4, "absent": 0}
+{"t": 1789699038.481, "round": 11, "event": "convergence", "novelty": 39.1, "closing": 0.0, "converged": true, "reason": "novelty"}
+{"t": 1789699038.662, "round": 12, "event": "round-opened", "jobs": 4}
+{"t": 1789699038.673, "round": 12, "event": "board-published", "digest_sha256": "d22cdfa12d74da633b29ae5b43b4addefdaa6584a297328cbcd734ef37e82c8f"}
+{"t": 1789699038.673, "round": 12, "seat": "oren-strunk", "event": "resting"}
+{"t": 1789699038.673, "round": 12, "seat": "priya-ledger", "event": "resting"}
+{"t": 1789699038.674, "round": 12, "seat": "gus-firstpass", "event": "resting"}
+{"t": 1789699038.691, "round": 12, "seat": "nadia-quill", "event": "launching", "resumed": "7d53ac15-dea4-4108-845b-5677a446f448"}
+{"t": 1789699038.691, "round": 12, "seat": "nadia-quill", "event": "running", "pid": 3769710, "process_identity": "150185995"}
+{"t": 1789699115.616, "round": 12, "seat": "nadia-quill", "event": "exited", "code": 0, "seconds": 76.93, "timed_out": false}
+{"t": 1789699115.674, "round": 12, "seat": "nadia-quill", "event": "collected", "status": "answered", "error": null}
+{"t": 1789699115.677, "round": 12, "seat": "nadia-quill", "event": "promoted", "bytes": 6984, "sha256": "2411ee3a766de8b9f0e881ce09d5d1cb56cc89ebf4762fd4da78ebdf48b1dfa3"}
+{"t": 1789699115.724, "round": 12, "event": "round-closed", "posted": 1, "absent": 0}
+{"t": 1789699115.724, "round": 12, "event": "convergence", "novelty": 2.7, "closing": 0.25, "converged": true, "reason": "novelty"}
+{"t": 1789699115.969, "round": 13, "event": "round-opened", "jobs": 4}
+{"t": 1789699115.981, "round": 13, "event": "board-published", "digest_sha256": "360943ded019c2a23aa65ea3f022bf5c21572b6c7513a7721932b558aac02b21"}
+{"t": 1789699116.028, "round": 13, "seat": "priya-ledger", "event": "launching", "resumed": "a800f0c2-8676-4a33-a2ff-572764ae23c0"}
+{"t": 1789699116.029, "round": 13, "seat": "oren-strunk", "event": "launching", "resumed": "01a0b254-8489-7ef0-bb88-34e6d938f6ae"}
+{"t": 1789699116.03, "round": 13, "seat": "priya-ledger", "event": "running", "pid": 3771345, "process_identity": "150193729"}
+{"t": 1789699116.03, "round": 13, "seat": "nadia-quill", "event": "launching", "resumed": "7d53ac15-dea4-4108-845b-5677a446f448"}
+{"t": 1789699116.032, "round": 13, "seat": "oren-strunk", "event": "running", "pid": 3771346, "process_identity": "150193729"}
+{"t": 1789699116.034, "round": 13, "seat": "nadia-quill", "event": "running", "pid": 3771348, "process_identity": "150193729"}
+{"t": 1789699116.349, "round": 13, "seat": "gus-firstpass", "event": "launching", "resumed": "ef5193a4-64d0-4ddc-99cb-a075e5abcd26"}
+{"t": 1789699116.353, "round": 13, "seat": "gus-firstpass", "event": "running", "pid": 3771417, "process_identity": "150193761"}
+{"t": 1789699146.58, "round": 13, "seat": "nadia-quill", "event": "exited", "code": 0, "seconds": 30.55, "timed_out": false}
+{"t": 1789699146.649, "round": 13, "seat": "nadia-quill", "event": "collected", "status": "answered", "error": null}
+{"t": 1789699151.919, "round": 13, "seat": "priya-ledger", "event": "exited", "code": 0, "seconds": 35.89, "timed_out": false}
+{"t": 1789699151.943, "round": 13, "seat": "priya-ledger", "event": "collected", "status": "answered", "error": null}
+{"t": 1789699157.39, "round": 13, "seat": "gus-firstpass", "event": "exited", "code": 0, "seconds": 41.04, "timed_out": false}
+{"t": 1789699157.415, "round": 13, "seat": "gus-firstpass", "event": "collected", "status": "answered", "error": null}
+{"t": 1789699173.291, "round": 13, "seat": "oren-strunk", "event": "exited", "code": 0, "seconds": 57.26, "timed_out": false}
+{"t": 1789699173.358, "round": 13, "seat": "oren-strunk", "event": "collected", "status": "answered", "error": null}
+{"t": 1789699173.362, "round": 13, "seat": "nadia-quill", "event": "promoted", "bytes": 1033, "sha256": "91da060d832e1d4a1bc7bbb8c6fc58b09df78cebe7105d77f172bc1fe3c9d298"}
+{"t": 1789699173.364, "round": 13, "seat": "oren-strunk", "event": "promoted", "bytes": 957, "sha256": "4bea17716ecbdb5b8b63a2baad146644c1a8f077fba5394a48fe470b8d517fde"}
+{"t": 1789699173.365, "round": 13, "seat": "priya-ledger", "event": "promoted", "bytes": 941, "sha256": "96c9495f7ab6a9f5f357777a6e3c15ea870c2dfb76263291b19118465279e978"}
+{"t": 1789699173.366, "round": 13, "seat": "gus-firstpass", "event": "promoted", "bytes": 880, "sha256": "c12f6ffcafeec6a7a9571d591110d7d0ff42b10d4059f7eb83530e4f19f86f0f"}
+{"t": 1789699173.436, "round": 13, "event": "round-closed", "posted": 4, "absent": 0}
+{"t": 1789699173.437, "round": 13, "event": "convergence", "novelty": 32.3, "closing": 0.0, "converged": true, "reason": "novelty"}
+{"t": 1789699173.714, "round": 14, "event": "round-opened", "jobs": 4}
+{"t": 1789699173.727, "round": 14, "event": "board-published", "digest_sha256": "ed9b28f1039700eef35358a8defe1e7e4a8c85ce8b3857d7e84927fbef43ace3"}
+{"t": 1789699173.728, "round": 14, "seat": "oren-strunk", "event": "resting"}
+{"t": 1789699173.728, "round": 14, "seat": "priya-ledger", "event": "resting"}
+{"t": 1789699173.728, "round": 14, "seat": "gus-firstpass", "event": "resting"}
+{"t": 1789699173.778, "round": 14, "seat": "nadia-quill", "event": "launching", "resumed": "7d53ac15-dea4-4108-845b-5677a446f448"}
+{"t": 1789699173.781, "round": 14, "seat": "nadia-quill", "event": "running", "pid": 3773806, "process_identity": "150199504"}
+{"t": 1789699296.486, "round": 14, "seat": "nadia-quill", "event": "exited", "code": 0, "seconds": 122.71, "timed_out": false}
+{"t": 1789699296.539, "round": 14, "seat": "nadia-quill", "event": "collected", "status": "answered", "error": null}
+{"t": 1789699296.543, "round": 14, "seat": "nadia-quill", "event": "promoted", "bytes": 6191, "sha256": "50d8d2a5907e9597f584f54fa41dd2d43d62565247383fab11870382aaf7ecf0"}
+{"t": 1789699296.596, "round": 14, "event": "round-closed", "posted": 1, "absent": 0}
+{"t": 1789699296.597, "round": 14, "event": "convergence", "novelty": 7.2, "closing": 0.0, "converged": true, "reason": "novelty"}
+{"t": 1789699296.801, "round": 15, "event": "round-opened", "jobs": 4}
+{"t": 1789699296.812, "round": 15, "event": "board-published", "digest_sha256": "703f763269a4660161fd1ebaa8811395a8d6bacfdb930aa6456e897f1e5f7a95"}
+{"t": 1789699296.842, "round": 15, "seat": "oren-strunk", "event": "launching", "resumed": "01a0b254-8489-7ef0-bb88-34e6d938f6ae"}
+{"t": 1789699296.847, "round": 15, "seat": "oren-strunk", "event": "running", "pid": 3776183, "process_identity": "150211810"}
+{"t": 1789699296.852, "round": 15, "seat": "nadia-quill", "event": "launching", "resumed": "7d53ac15-dea4-4108-845b-5677a446f448"}
+{"t": 1789699296.854, "round": 15, "seat": "priya-ledger", "event": "launching", "resumed": "a800f0c2-8676-4a33-a2ff-572764ae23c0"}
+{"t": 1789699296.859, "round": 15, "seat": "nadia-quill", "event": "running", "pid": 3776185, "process_identity": "150211811"}
+{"t": 1789699296.86, "round": 15, "seat": "priya-ledger", "event": "running", "pid": 3776186, "process_identity": "150211811"}
+{"t": 1789699297.463, "round": 15, "seat": "gus-firstpass", "event": "launching", "resumed": "ef5193a4-64d0-4ddc-99cb-a075e5abcd26"}
+{"t": 1789699297.468, "round": 15, "seat": "gus-firstpass", "event": "running", "pid": 3776274, "process_identity": "150211872"}
+{"t": 1789699330.848, "round": 15, "seat": "gus-firstpass", "event": "exited", "code": 0, "seconds": 33.38, "timed_out": false}
+{"t": 1789699330.879, "round": 15, "seat": "gus-firstpass", "event": "collected", "status": "answered", "error": null}
+{"t": 1789699380.085, "round": 15, "seat": "oren-strunk", "event": "exited", "code": 0, "seconds": 83.24, "timed_out": false}
+{"t": 1789699380.182, "round": 15, "seat": "oren-strunk", "event": "collected", "status": "answered", "error": null}
+{"t": 1789699388.483, "round": 15, "seat": "nadia-quill", "event": "exited", "code": 0, "seconds": 91.63, "timed_out": false}
+{"t": 1789699388.538, "round": 15, "seat": "nadia-quill", "event": "collected", "status": "answered", "error": null}
+{"t": 1789699393.655, "round": 15, "seat": "priya-ledger", "event": "exited", "code": 0, "seconds": 96.8, "timed_out": false}
+{"t": 1789699393.702, "round": 15, "seat": "priya-ledger", "event": "collected", "status": "answered", "error": null}
+{"t": 1789699393.706, "round": 15, "seat": "nadia-quill", "event": "promoted", "bytes": 7106, "sha256": "cc6c9bf3195a7eb247352617c482c4af4a8d20dea9300a4d5fdab6fe93fcb3ed"}
+{"t": 1789699393.708, "round": 15, "seat": "oren-strunk", "event": "promoted", "bytes": 1153, "sha256": "2ae893b7f6e34c6d8281b65161d4668056044d99772fb3f57b7957a7a1805a56"}
+{"t": 1789699393.709, "round": 15, "seat": "priya-ledger", "event": "promoted", "bytes": 1091, "sha256": "2f859e0dafc0853eaf2ecf4311eeb59da1b6b2b78bdad0a9c736e82872d957f5"}
+{"t": 1789699393.711, "round": 15, "seat": "gus-firstpass", "event": "promoted", "bytes": 881, "sha256": "9a7a605ced57b3a795dd50eed92898b03a889940afd9cb4da57e3751f32a6ddb"}
+{"t": 1789699393.776, "round": 15, "event": "round-closed", "posted": 4, "absent": 0}
+{"t": 1789699393.776, "round": 15, "event": "convergence", "novelty": 33.9, "closing": 0.25, "converged": true, "reason": "novelty"}
+{"t": 1789699393.949, "round": 16, "event": "round-opened", "jobs": 4}
+{"t": 1789699393.96, "round": 16, "event": "board-published", "digest_sha256": "4576dd3ed1bfcce9f207848f2e9e2683b4365773357c26ee7b41c19592ec9132"}
+{"t": 1789699393.996, "round": 16, "seat": "nadia-quill", "event": "launching", "resumed": "7d53ac15-dea4-4108-845b-5677a446f448"}
+{"t": 1789699393.998, "round": 16, "seat": "nadia-quill", "event": "running", "pid": 3778787, "process_identity": "150221526"}
+{"t": 1789699393.998, "round": 16, "seat": "priya-ledger", "event": "launching", "resumed": "a800f0c2-8676-4a33-a2ff-572764ae23c0"}
+{"t": 1789699394.0, "round": 16, "seat": "priya-ledger", "event": "running", "pid": 3778788, "process_identity": "150221526"}
+{"t": 1789699394.002, "round": 16, "seat": "oren-strunk", "event": "launching", "resumed": "01a0b254-8489-7ef0-bb88-34e6d938f6ae"}
+{"t": 1789699394.004, "round": 16, "seat": "oren-strunk", "event": "running", "pid": 3778791, "process_identity": "150221526"}
+{"t": 1789699394.368, "round": 16, "seat": "gus-firstpass", "event": "launching", "resumed": "ef5193a4-64d0-4ddc-99cb-a075e5abcd26"}
+{"t": 1789699394.369, "round": 16, "seat": "gus-firstpass", "event": "running", "pid": 3778861, "process_identity": "150221563"}
+{"t": 1789699426.085, "round": 16, "seat": "gus-firstpass", "event": "exited", "code": 0, "seconds": 31.72, "timed_out": false}
+{"t": 1789699426.132, "round": 16, "seat": "gus-firstpass", "event": "collected", "status": "answered", "error": null}
+{"t": 1789699439.319, "round": 16, "seat": "priya-ledger", "event": "exited", "code": 0, "seconds": 45.32, "timed_out": false}
+{"t": 1789699439.377, "round": 16, "seat": "priya-ledger", "event": "collected", "status": "answered", "error": null}
+{"t": 1789699452.85, "round": 16, "seat": "nadia-quill", "event": "exited", "code": 0, "seconds": 58.85, "timed_out": false}
+{"t": 1789699452.925, "round": 16, "seat": "nadia-quill", "event": "collected", "status": "answered", "error": null}
+{"t": 1789699472.826, "round": 16, "seat": "oren-strunk", "event": "exited", "code": 0, "seconds": 78.82, "timed_out": false}
+{"t": 1789699472.908, "round": 16, "seat": "oren-strunk", "event": "collected", "status": "answered", "error": null}
+{"t": 1789699472.913, "round": 16, "seat": "nadia-quill", "event": "promoted", "bytes": 2337, "sha256": "69d4705adf39c0ca26e6eefb4af82e6038dddd80d8af15adb2ed20df601c53a6"}
+{"t": 1789699472.914, "round": 16, "seat": "oren-strunk", "event": "promoted", "bytes": 1172, "sha256": "897ac561c8435959160859b2db57360b8b67ec1596ffe6f598b66f724a2fde1b"}
+{"t": 1789699472.916, "round": 16, "seat": "priya-ledger", "event": "promoted", "bytes": 1348, "sha256": "eb7adc7ccede2f724ab871ccb32d5af49dbbb5a2e9572142bff5ab9759cfc54d"}
+{"t": 1789699472.917, "round": 16, "seat": "gus-firstpass", "event": "promoted", "bytes": 981, "sha256": "e905ae63aee602d08373746bfe4d5c21d8462f11e346764ce79ecf9f896268b2"}
+{"t": 1789699472.99, "round": 16, "event": "round-closed", "posted": 4, "absent": 0}
+{"t": 1789699472.99, "round": 16, "event": "convergence", "novelty": 31.8, "closing": 0.25, "converged": true, "reason": "novelty"}
+{"t": 1789699473.124, "round": 17, "event": "round-opened", "jobs": 4}
+{"t": 1789699473.135, "round": 17, "event": "board-published", "digest_sha256": "c6f5bde4402aa559756f2903efe07baa47e6cec0893219c05aadbee1c401f188"}
+{"t": 1789699473.135, "round": 17, "seat": "oren-strunk", "event": "resting"}
+{"t": 1789699473.135, "round": 17, "seat": "priya-ledger", "event": "resting"}
+{"t": 1789699473.135, "round": 17, "seat": "gus-firstpass", "event": "resting"}
+{"t": 1789699473.151, "round": 17, "seat": "nadia-quill", "event": "launching", "resumed": "7d53ac15-dea4-4108-845b-5677a446f448"}
+{"t": 1789699473.152, "round": 17, "seat": "nadia-quill", "event": "running", "pid": 3781565, "process_identity": "150229441"}
+{"t": 1789699561.049, "round": 17, "seat": "nadia-quill", "event": "exited", "code": 0, "seconds": 87.9, "timed_out": false}
+{"t": 1789699561.117, "round": 17, "seat": "nadia-quill", "event": "collected", "status": "answered", "error": null}
+{"t": 1789699561.122, "round": 17, "seat": "nadia-quill", "event": "promoted", "bytes": 6420, "sha256": "e4b321e610ef451a480fb2966ac5e32f51d1c9fee6247b0796bb0cd389f1d1f3"}
+{"t": 1789699561.205, "round": 17, "event": "round-closed", "posted": 1, "absent": 0}
+{"t": 1789699561.206, "round": 17, "event": "convergence", "novelty": 2.3, "closing": 0.0, "converged": true, "reason": "novelty"}
+{"t": 1789699561.343, "round": 18, "event": "round-opened", "jobs": 4}
+{"t": 1789699561.355, "round": 18, "event": "board-published", "digest_sha256": "13fbafab5000ade424ecf292aa9cf014cad08051663ce4d1f098fe56df32a949"}
+{"t": 1789699561.386, "round": 18, "seat": "nadia-quill", "event": "launching", "resumed": "7d53ac15-dea4-4108-845b-5677a446f448"}
+{"t": 1789699561.386, "round": 18, "seat": "oren-strunk", "event": "launching", "resumed": "01a0b254-8489-7ef0-bb88-34e6d938f6ae"}
+{"t": 1789699561.389, "round": 18, "seat": "priya-ledger", "event": "launching", "resumed": "a800f0c2-8676-4a33-a2ff-572764ae23c0"}
+{"t": 1789699561.39, "round": 18, "seat": "oren-strunk", "event": "running", "pid": 3784196, "process_identity": "150238265"}
+{"t": 1789699561.39, "round": 18, "seat": "nadia-quill", "event": "running", "pid": 3784195, "process_identity": "150238265"}
+{"t": 1789699561.392, "round": 18, "seat": "priya-ledger", "event": "running", "pid": 3784198, "process_identity": "150238265"}
+{"t": 1789699561.902, "round": 18, "seat": "gus-firstpass", "event": "launching", "resumed": "ef5193a4-64d0-4ddc-99cb-a075e5abcd26"}
+{"t": 1789699561.906, "round": 18, "seat": "gus-firstpass", "event": "running", "pid": 3784272, "process_identity": "150238316"}
+{"t": 1789699646.263, "round": 18, "seat": "nadia-quill", "event": "exited", "code": 0, "seconds": 84.88, "timed_out": false}
+{"t": 1789699646.335, "round": 18, "seat": "nadia-quill", "event": "collected", "status": "answered", "error": null}
+{"t": 1789699667.073, "round": 18, "seat": "oren-strunk", "event": "exited", "code": 0, "seconds": 105.69, "timed_out": false}
+{"t": 1789699667.168, "round": 18, "seat": "oren-strunk", "event": "collected", "status": "answered", "error": null}
+{"t": 1789699684.751, "round": 18, "seat": "gus-firstpass", "event": "exited", "code": 0, "seconds": 122.85, "timed_out": false}
+{"t": 1789699684.797, "round": 18, "seat": "gus-firstpass", "event": "collected", "status": "answered", "error": null}
+{"t": 1789699726.087, "round": 18, "seat": "priya-ledger", "event": "exited", "code": 0, "seconds": 164.7, "timed_out": false}
+{"t": 1789699726.165, "round": 18, "seat": "priya-ledger", "event": "collected", "status": "answered", "error": null}
+{"t": 1789699726.169, "round": 18, "seat": "nadia-quill", "event": "promoted", "bytes": 2884, "sha256": "f37bd1f4ceabba0940faac8e9d7681a884e3f07397c170e19bf33571304497a1"}
+{"t": 1789699726.17, "round": 18, "seat": "oren-strunk", "event": "promoted", "bytes": 1198, "sha256": "472bc3b0b97ad9599e336a6fb1d6c235d79f6902190ea650b17426dd3d795467"}
+{"t": 1789699726.171, "round": 18, "seat": "priya-ledger", "event": "promoted", "bytes": 1653, "sha256": "45026f5215a5f25567aacb707efbec4ca8073d8f502690aaa03e67f0572647bf"}
+{"t": 1789699726.173, "round": 18, "seat": "gus-firstpass", "event": "promoted", "bytes": 1155, "sha256": "c9f48b7c569c595c3ceed6caedcb297e68f985437e02752648123b358c9e0d64"}
+{"t": 1789699726.243, "round": 18, "event": "round-closed", "posted": 4, "absent": 0}
+{"t": 1789699726.243, "round": 18, "event": "convergence", "novelty": 34.8, "closing": 0.25, "converged": true, "reason": "novelty"}
+{"t": 1789699726.385, "round": 19, "event": "round-opened", "jobs": 4}
+{"t": 1789699726.396, "round": 19, "event": "board-published", "digest_sha256": "96d92d9e93d481a52757ae890caf0ed592c20cf86743736b70ccb808c1d7d5aa"}
+{"t": 1789699726.423, "round": 19, "seat": "oren-strunk", "event": "launching", "resumed": "01a0b254-8489-7ef0-bb88-34e6d938f6ae"}
+{"t": 1789699726.424, "round": 19, "seat": "nadia-quill", "event": "launching", "resumed": "7d53ac15-dea4-4108-845b-5677a446f448"}
+{"t": 1789699726.425, "round": 19, "seat": "oren-strunk", "event": "running", "pid": 3790454, "process_identity": "150254768"}
+{"t": 1789699726.427, "round": 19, "seat": "nadia-quill", "event": "running", "pid": 3790455, "process_identity": "150254768"}
+{"t": 1789699726.43, "round": 19, "seat": "priya-ledger", "event": "launching", "resumed": "a800f0c2-8676-4a33-a2ff-572764ae23c0"}
+{"t": 1789699726.432, "round": 19, "seat": "priya-ledger", "event": "running", "pid": 3790458, "process_identity": "150254769"}
+{"t": 1789699726.699, "round": 19, "seat": "gus-firstpass", "event": "launching", "resumed": "ef5193a4-64d0-4ddc-99cb-a075e5abcd26"}
+{"t": 1789699726.705, "round": 19, "seat": "gus-firstpass", "event": "running", "pid": 3790525, "process_identity": "150254796"}
+{"t": 1789699768.363, "round": 19, "seat": "gus-firstpass", "event": "exited", "code": 0, "seconds": 41.66, "timed_out": false}
+{"t": 1789699768.412, "round": 19, "seat": "gus-firstpass", "event": "collected", "status": "answered", "error": null}
+{"t": 1789699787.064, "round": 19, "seat": "priya-ledger", "event": "exited", "code": 0, "seconds": 60.63, "timed_out": false}
+{"t": 1789699787.119, "round": 19, "seat": "priya-ledger", "event": "collected", "status": "answered", "error": null}
+{"t": 1789699798.818, "round": 19, "seat": "nadia-quill", "event": "exited", "code": 0, "seconds": 72.39, "timed_out": false}
+{"t": 1789699798.934, "round": 19, "seat": "nadia-quill", "event": "collected", "status": "answered", "error": null}
+{"t": 1789699810.083, "round": 19, "seat": "oren-strunk", "event": "exited", "code": 0, "seconds": 83.66, "timed_out": false}
+{"t": 1789699810.202, "round": 19, "seat": "oren-strunk", "event": "collected", "status": "answered", "error": null}
+{"t": 1789699810.204, "round": 19, "seat": "nadia-quill", "event": "promoted", "bytes": 3020, "sha256": "7c32425052ecdb9622d46f2495e641699b86c7e0ffa684798517d602196e1e62"}
+{"t": 1789699810.204, "round": 19, "seat": "oren-strunk", "event": "promoted", "bytes": 1183, "sha256": "83622119474239b49614330a5e536ac9cdd56ab99b28417ffea0225592aa71c8"}
+{"t": 1789699810.205, "round": 19, "seat": "priya-ledger", "event": "promoted", "bytes": 1308, "sha256": "549b69fdc054b36b3a26f6cb888ff8ba74d8e34ff95734c7b1fd4cfb07105121"}
+{"t": 1789699810.206, "round": 19, "seat": "gus-firstpass", "event": "promoted", "bytes": 1198, "sha256": "f4ad65ad45f7c678fad68571f882a158891322504334839c53dd452bd6498ee1"}
+{"t": 1789699810.244, "round": 19, "event": "round-closed", "posted": 4, "absent": 0}
+{"t": 1789699810.244, "round": 19, "event": "convergence", "novelty": 29.7, "closing": 0.5, "converged": true, "reason": "novelty"}
+{"t": 1789699810.364, "round": 20, "event": "round-opened", "jobs": 4}
+{"t": 1789699810.374, "round": 20, "event": "board-published", "digest_sha256": "a7b6a7709a939391ed5828a4ed4d9874c75f625eca318c837dffda27b34e28bb"}
+{"t": 1789699810.374, "round": 20, "seat": "oren-strunk", "event": "resting"}
+{"t": 1789699810.374, "round": 20, "seat": "priya-ledger", "event": "resting"}
+{"t": 1789699810.375, "round": 20, "seat": "gus-firstpass", "event": "resting"}
+{"t": 1789699810.392, "round": 20, "seat": "nadia-quill", "event": "launching", "resumed": "7d53ac15-dea4-4108-845b-5677a446f448"}
+{"t": 1789699810.392, "round": 20, "seat": "nadia-quill", "event": "running", "pid": 3793259, "process_identity": "150263165"}
+{"t": 1789699926.903, "round": 20, "seat": "nadia-quill", "event": "exited", "code": 0, "seconds": 116.51, "timed_out": false}
+{"t": 1789699926.999, "round": 20, "seat": "nadia-quill", "event": "collected", "status": "answered", "error": null}
+{"t": 1789699927.006, "round": 20, "seat": "nadia-quill", "event": "promoted", "bytes": 13859, "sha256": "e145e02fa3363a05818e8df344ff406078ed71597b100ab9b4502209b415bde4"}
+{"t": 1789699927.111, "round": 20, "event": "round-closed", "posted": 1, "absent": 0}
+{"t": 1789699927.111, "round": 20, "event": "convergence", "novelty": 2.3, "closing": 0.25, "converged": true, "reason": "novelty"}

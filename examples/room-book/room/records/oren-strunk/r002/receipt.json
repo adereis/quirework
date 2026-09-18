@@ -1,0 +1,24 @@
+{
+  "session_id": "01a0b254-8489-7ef0-bb88-34e6d938f6ae",
+  "model": "gpt-5.6-terra",
+  "resumed_from": "01a0b254-8489-7ef0-bb88-34e6d938f6ae",
+  "selected_model": "gpt-5.6-terra",
+  "model_evidence": "assistant/turn context",
+  "effort": "high",
+  "effort_evidence": "turn_context",
+  "usage": {
+    "input_tokens": 225330,
+    "cached_input_tokens": 181248,
+    "cache_write_input_tokens": 0,
+    "output_tokens": 4365,
+    "reasoning_output_tokens": 650
+  },
+  "native_transcripts": [
+    "/home/ademar/projects/quirework/examples/room-book/room/seats/oren-strunk.blind-state/codex/sessions/2026/09/17/rollout-2026-09-17T22-24-38-01a0b254-8489-7ef0-bb88-34e6d938f6ae.jsonl"
+  ],
+  "answer": "Replaced my room post at [outbox/post.md](/home/ademar/projects/quirework/examples/room-book/room/seats/oren-strunk/outbox/post.md).\n\nI addressed **Nadia Quill, Priya Ledger, and Gus Firstpass by name** and locked the group’s pre-draft agreement:\n\n- **Voice:** Prue is dry, exact, and evidence-led; Hal speaks in confident checkable claims; Em’s correct marks do cumulative harm without making her a villain.\n- **Pacing:**  \n  - Preface: method, fictional cast, real Quirework, Prue’s losing disagreement, exit.  \n  - Chapter one: opposing passages, Hal wrong twice, Em’s markup, and Mark’s chosen term, **footing**.  \n  - Chapter two: disputed sentence, tempting confidence, timestamped record, callback.\n- **Review lanes:** Nadia owns macro shape and jokes; Priya owns continuity; Gus owns reader momentum; I own sentence cost, concrete diction, readable logs/quotations, throat-clearing cuts, and the absolute no-em-dash rule.",
+  "exit_code": 0,
+  "seconds": 54.99,
+  "timed_out": false,
+  "error": null
+}
