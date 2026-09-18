@@ -12,6 +12,16 @@ from quirework.runs.storage import identifier
 from quirework.runs.storage import read
 
 
+# Where each harness keeps its own transcript, relative to the seat's private
+# runner home. Shared so a reader of live progress and a reader of finished
+# evidence cannot drift apart about where a session actually is.
+NATIVE_TRANSCRIPTS = {
+    "codex": "sessions/**/*.jsonl",
+    "claude": "projects/**/*.jsonl",
+    "agy": "antigravity-cli/brain/*/.system_generated/logs/transcript_full.jsonl",
+}
+
+
 def native_rows(path):
     """A running writer may have flushed only part of its final JSONL row."""
     with Path(path).open("rb") as stream:
@@ -101,11 +111,7 @@ def observe(root):
         name = identifier(seat["id"])
         harness = seat["config"]["harness"]
         private = root / "work" / name / "seat.blind-state" / harness
-        patterns = {
-            "codex": "sessions/**/*.jsonl",
-            "claude": "projects/**/*.jsonl",
-            "agy": "antigravity-cli/brain/*/.system_generated/logs/transcript_full.jsonl",
-        }
+        patterns = NATIVE_TRANSCRIPTS
         if harness not in patterns:
             seats[name] = {
                 "supported": False,

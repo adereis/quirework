@@ -117,6 +117,7 @@ COMMANDS = {
         "sops.workshop", "Prepare and operate writing experiments"
     ),
     ("sop", "review"): Command("sops.review", "Review a configured source change"),
+    ("sop", "room"): Command("sops.room", "Operate a writers room over a shared board"),
     ("sop", "blind"): Command("providers.blind", "Inspect and enforce run isolation"),
     ("dev", "check"): Command("core.checks", "Run the configured repository checks"),
 }

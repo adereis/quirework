@@ -58,6 +58,100 @@ images, rendered PDF pages, and native files. Delivery and exposure are
 separate choices. A native file receipt does not establish that its
 pages were inspected visually.
 
+## Writers rooms
+
+A room runs several seats against one question and lets them read each
+other between rounds. `quirework sop room prepare` stages one workspace
+per seat from a room plan; `round` opens, runs and closes a numbered
+round; `status`, `board` and `watch` read a room without disturbing it.
+
+Commands name a room, not a path. A bare name is a room in the project's
+rooms directory, which is where `prepare` puts one; anything containing
+a separator is an explicit path. A name that is no room fails at once
+and says both places it looked, `watch` included.
+
+Seats never share a workspace. A seat writes to its own outbox, and
+promotion copies that file onto the board once every seat has stopped.
+Promotion is mechanical: it copies, hashes and attributes, and it does
+not judge a post. A missing or empty outbox records the seat as absent
+for that round rather than failing the round.
+
+A round is a resume of the session a seat already holds, so a seat keeps
+its reading and its reasoning and is handed only what changed. The first
+round has no board. A round listed in `silent_rounds` has one and is
+deliberately not shown it, which keeps opening positions independent.
+
+The digest concatenates a round's posts whole, attributed, in an order
+rotated by round number. It never summarizes. The staged packet and the
+standing assignment are frozen and checked before every turn; the board
+is not, because it is the one thing that is meant to change.
+
+`quirework sop room follow ROOM SEAT` prints one seat's side of the room
+as it happens: the turn it was given, what it decided to do, its
+reasoning and its post. Tool results are dropped, because a single file
+read returns kilobytes of quoted source and buries what the seat
+actually said. `--no-thinking` leaves only actions and posts. One
+terminal per seat reads as four people working. Following is implemented
+for the Antigravity adapter; another harness reports that rather than
+printing nothing.
+
+Seats may name their own harness, model and effort; the room supplies
+the default for any a seat omits. A mixed room costs no special
+handling, because every adapter call already takes a seat's own
+configuration.
+
+A room may run in phases. A phase names how many rounds it lasts, and
+may seat only part of the room, set its own post length, and add one
+line of instruction. Rounds a seat sits out are not absences: it is
+listening, and when it speaks again it is told which boards it has not
+read. Phase rounds must add up to the room's declared rounds.
+
+A drafting round needs no new machinery, because a draft is a post that
+happens to be long. One seat writes while the others rest, the draft is
+promoted to the board like anything else, and the next phase reads it:
+
+```json
+"phases": [
+  {"name": "what-it-must-do", "rounds": 3},
+  {"name": "draft", "rounds": 1, "seats": ["wren"], "words": 900,
+   "instruction": "Write the passage itself, as finished prose."},
+  {"name": "read-the-page", "rounds": 2, "seats": ["mara", "teo"]},
+  {"name": "rewrite", "rounds": 1, "seats": ["wren"], "words": 900}
+]
+```
+
+The same mechanism covers a plain discussion (one phase, everyone), a
+panel that hears a witness, and a room that drafts, reviews and revises.
+
+A room that has run out of positions keeps producing paragraphs, so it
+cannot be trusted to notice it has finished. `quirework sop room rounds`
+runs rounds until the room converges or its budget ends. Two signals are
+computed from the board alone, with no model call: novelty, the share of
+a post's content words that seat has not used before, and closing, the
+share of seats reaching for consensus language. Either must hold for two
+consecutive rounds, because one round of agreement is noise. A plan
+moves the thresholds with `stop_novelty` and `stop_closing`. A single
+`round` still runs on request; the rule decides when to stop asking for
+another, never what a writer may say.
+
+The declared round count is the starting budget, and `extend` raises it.
+The budget lives outside the frozen plan on purpose: the plan holds what
+the writers were promised and must stay byte-identical for its digest to
+mean anything, while how long the room runs is a decision the operator
+keeps making.
+
+Each seat's standing assignment names who else is in the room and what
+each of them was given beyond the common material. Titles only: naming a
+file is not handing it over. Without that roster a seat cannot tell a
+colleague's private source from an invention, and a room asked to cite
+its sources will eventually accuse someone of fabricating one. A
+measured room did exactly that, correctly observing that a cited
+comparable title was absent from the brief, when the colleague did hold
+the file in a packet the objecting seat had never been shown.
+
+Seats may be given different packets on purpose. Asymmetric exposure is
+what makes disagreement between them substantive rather than stylistic.
+
 ## Execution and recovery
 
 Use `sop runs prepare`, `start`, `inspect`, `observe`, `collect`,

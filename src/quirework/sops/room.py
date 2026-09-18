@@ -1,0 +1,1303 @@
+"""A writers room: several seats, one board, one round at a time.
+
+Seats never see each other's workspaces. A seat writes to its own outbox and
+the controller promotes that file onto the board between rounds, which is the
+only moment shared state changes. Promotion is mechanical: it copies, hashes
+and attributes, and it never reads a post to decide whether it deserves to be
+there. The board a round was shown is therefore one object with one digest,
+so "what everyone saw in round three" has an answer.
+
+Rounds exist because a CLI harness answers once and exits. A round is a resume
+of the session a seat already holds, not a fresh run of the same assignment:
+the seat keeps its reading and its reasoning, and is handed only what changed.
+
+The controller appends to ``room.log`` as it goes. An operator can follow a
+running room by reading that file and the per-seat records beside it, without
+taking a lock or touching a session.
+"""
+
+from __future__ import annotations
+
+import argparse
+import json
+import os
+import re
+import shutil
+import signal
+import subprocess
+import sys
+import textwrap
+import time
+from concurrent.futures import ThreadPoolExecutor
+from pathlib import Path
+from threading import Lock
+
+from quirework.project import current_project, submit
+from quirework.providers import blind
+from quirework.providers import models as drivers
+from quirework.runs import observe
+from quirework.runs.storage import (
+    digest,
+    hashes,
+    identifier,
+    lock,
+    process_identity,
+    read,
+    slot,
+    write,
+)
+from quirework.sops import personas
+
+SCHEMA = 1
+_LOG_LOCK = Lock()
+
+
+def event(root, **fields):
+    """Append one complete line to the room's watch trail.
+
+    One write of a whole line under O_APPEND is what stops a reader from ever
+    seeing half a record, which matters because the point of this file is that
+    somebody is tailing it while the room runs.
+    """
+    line = json.dumps({"t": round(time.time(), 3), **fields}, ensure_ascii=False)
+    with _LOG_LOCK:
+        fd = os.open(root / "room.log", os.O_WRONLY | os.O_CREAT | os.O_APPEND, 0o600)
+        try:
+            os.write(fd, (line + "\n").encode())
+        finally:
+            os.close(fd)
+
+
+def load(root, *, verify=True):
+    root = Path(root).expanduser().resolve()
+    plan = read(root / "plan.json")
+    if plan.get("schema") != SCHEMA:
+        raise ValueError("unsupported room schema")
+    if (
+        verify
+        and digest(root / "plan.json") != read(root / "plan-digest.json")["sha256"]
+    ):
+        raise ValueError("frozen room plan changed")
+    return root, plan
+
+
+ROOMS = "rooms"
+
+
+def room_root(value, *, must_exist=True):
+    """Resolve a room by name under the project, or by an explicit path.
+
+    A bare name is a room this project owns and is looked up in the project's
+    rooms directory. Anything containing a separator is a path the operator
+    spelled out. The two never overlap, so `status foo` and `status ./foo`
+    name different things and the error says which one was tried.
+
+    Rooms live outside the checkout, in a directory nobody navigates to by
+    hand, so resolving a bare name is the difference between naming a room and
+    remembering where the state root hashed it to.
+    """
+    text = str(value)
+    if "/" in text or text.startswith("~"):
+        root = Path(text).expanduser().resolve()
+    else:
+        root = (current_project().state_root / ROOMS / identifier(text)).resolve()
+    if must_exist and not (root / "plan.json").is_file():
+        raise ValueError(
+            f"no room at {root}; name a room under "
+            f"{current_project().state_root / ROOMS} or give a path to one"
+        )
+    return root
+
+
+def state_path(root, seat):
+    return root / "records" / seat / "state.json"
+
+
+def label(seat):
+    return seat["persona_frozen"]["profile"]["label"]
+
+
+def phases(plan):
+    """The room's schedule, as a phase per round.
+
+    A room without phases is one long phase in which everyone speaks every
+    round, which is what every room did before phases existed.
+    """
+    declared = plan.get("phases")
+    if not declared:
+        return [{"name": "discussion", "rounds": plan["rounds"]}]
+    return declared
+
+
+def phase_for(plan, n):
+    """Which phase round ``n`` belongs to, and nothing about who acts in it."""
+    first = 1
+    for phase in phases(plan):
+        if first <= n < first + phase["rounds"]:
+            return phase
+        first += phase["rounds"]
+    return phases(plan)[-1]
+
+
+def acting(plan, n):
+    """The seats that speak in round ``n``.
+
+    A phase may seat only some of the room. The rest are not absent and have
+    not failed: they are listening, which is a normal thing to do while one
+    person reads their draft aloud.
+    """
+    named = phase_for(plan, n).get("seats")
+    every = [s["id"] for s in plan["seats"]]
+    if not named:
+        return every
+    unknown = set(named) - set(every)
+    if unknown:
+        raise ValueError(
+            f"phase names seats this room does not have: {sorted(unknown)}"
+        )
+    return [s for s in every if s in named]
+
+
+def start_text(root, plan, seat):
+    """What a writer is told once: who they are, what to read, where to post.
+
+    Deliberately says nothing about rounds, promotion, outboxes as a mechanism
+    or the controller that runs them. A writer in a room knows the room, not
+    the building's plumbing, and a model told it is executing a procedure
+    starts writing like one. `{{persona}}` is a slot personas.compose fills in
+    place, which keeps a machine header off the top of a person's character.
+    """
+    work = root / "seats" / seat["id"]
+    reads = "".join(f"- {work / 'input' / rel}\n" for rel in seat["reads"])
+    text = (
+        "{{persona}}\n\n"
+        "You are in a room of writers working on the same material.\n\n"
+        f"Read:\n\n{reads}\n"
+        f"Post to {work / 'outbox' / 'post.md'}, replacing your last post each\n"
+        f"time. That file is what the room sees. About {plan['post_words']} words.\n"
+    )
+    roster = holdings(plan)
+    if roster:
+        text += "\nIn the room, and what each person brought:\n\n" + roster
+    return personas.compose(text, seat["persona_frozen"])
+
+
+def holdings(plan):
+    """Who is in the room and what each of them was given beyond the common set.
+
+    Seats are handed different material on purpose, and that asymmetry is what
+    makes their disagreement substantive. It also makes a colleague's citation
+    impossible to check: a seat without the file cannot tell a private source
+    from an invention, and a room told to cite its sources will eventually
+    accuse someone of fabricating one. Naming the holdings is the same courtesy
+    as seeing a colleague reach for the book they brought.
+    """
+    common = (
+        set.intersection(*(set(s.get("reads", [])) for s in plan["seats"]))
+        if plan["seats"]
+        else set()
+    )
+    lines = []
+    for seat in plan["seats"]:
+        extra = sorted(set(seat.get("reads", [])) - common)
+        brought = ", ".join(extra) if extra else "nothing the rest of you lack"
+        lines.append(f"- {label(seat)}: {brought}\n")
+    return "".join(lines)
+
+
+def turn_prompt(root, plan, seat, n):
+    """The one line a writer gets when the room moves.
+
+    Everything standing -- the perspective, the reading, the length, where a
+    post goes -- is already in the session from the first turn, so repeating
+    it every round would buy nothing and cost tokens on every seat.
+    """
+    work = root / "seats" / seat["id"]
+    phase = phase_for(plan, n)
+    words = phase.get("words", plan["post_words"])
+    extra = phase.get("instruction", "").strip()
+    if n == 1 or n in plan["silent_rounds"]:
+        text = (
+            f"Read {work / 'START.md'} and post. Nobody has posted yet, so say "
+            "what you think before you hear anyone else."
+        )
+    else:
+        board = work / "board" / f"round-{n - 1:03d}" / "digest.md"
+        text = (
+            f"The board has moved: {board}. Read it and post again, replacing "
+            "what is there. Answer your colleagues by name."
+        )
+        missed = [r for r in range(1, n) if seat["id"] not in acting(plan, r)]
+        if missed:
+            # A seat that sat out a phase comes back to a board it has not
+            # read. Saying only "the board has moved" would have it answer the
+            # last round as though it were the whole conversation.
+            earlier = work / "board"
+            text += (
+                f" You did not post in round{'s' if len(missed) > 1 else ''} "
+                f"{', '.join(str(r) for r in missed)}; those boards are in "
+                f"{earlier} and are worth reading first."
+            )
+    if words != plan["post_words"]:
+        text += f" About {words} words this time."
+    return f"{text}{(' ' + extra) if extra else ''}\n"
+
+
+def prepare(plan_path, destination, *, resolve_models=True):
+    """Stage one workspace per seat and freeze the plan that governs them."""
+    plan_path = Path(plan_path).expanduser().resolve()
+    destination = Path(destination).expanduser().resolve()
+    supplied = read(plan_path)
+    if destination.exists():
+        raise ValueError("room exists; continue or inspect it, do not replace it")
+    source_root = Path(supplied.get("source_root", current_project().root)).resolve()
+    rounds = supplied.get("rounds")
+    if not isinstance(rounds, int) or rounds < 1:
+        raise ValueError("rounds must be a positive integer")
+    silent = supplied.get("silent_rounds", [])
+    if not isinstance(silent, list) or any(
+        r not in range(1, rounds + 1) for r in silent
+    ):
+        raise ValueError("silent_rounds must name declared rounds")
+    if not isinstance(supplied.get("post_words"), int) or supplied["post_words"] < 1:
+        raise ValueError("post_words must be a positive integer")
+    if not supplied.get("seats"):
+        raise ValueError("declare at least one seat")
+    declared = supplied.get("phases") or []
+    if declared:
+        if sum(p["rounds"] for p in declared) != rounds:
+            raise ValueError("phase rounds must add up to the room's rounds")
+        named = {s["id"] for s in supplied["seats"]}
+        for phase in declared:
+            if not isinstance(phase.get("rounds"), int) or phase["rounds"] < 1:
+                raise ValueError("each phase needs a positive round count")
+            if set(phase.get("seats") or named) - named:
+                raise ValueError(f"phase {phase.get('name')!r} names unknown seats")
+            if not phase.get("seats", named):
+                raise ValueError(f"phase {phase.get('name')!r} seats nobody")
+
+    fields = ("harness", "model", "effort")
+    config = {k: supplied[k] for k in fields}
+    if resolve_models:
+        config = drivers.resolve(config["harness"], config["model"], config["effort"])
+
+    profiles = plan_path.parent / supplied.get("profiles_dir", "profiles")
+    seats = []
+    for item in supplied["seats"]:
+        profile = personas.validate(
+            personas.parse((profiles / f"{item['persona']}.json").read_text())
+        )
+        # A seat may name its own model. Everything downstream already takes a
+        # config rather than reading the room's, so a mixed room needs no
+        # special case beyond resolving each seat separately.
+        chosen = {
+            **{k: supplied[k] for k in fields},
+            **{k: item[k] for k in fields if k in item},
+        }
+        if resolve_models:
+            chosen = drivers.resolve(
+                chosen["harness"], chosen["model"], chosen["effort"]
+            )
+        seats.append(
+            dict(
+                item,
+                id=identifier(item["id"]),
+                config=chosen,
+                persona_frozen=personas.resolve({"inline": profile}),
+            )
+        )
+    if len({s["id"] for s in seats}) != len(seats):
+        raise ValueError("duplicate seat id")
+
+    def staged(entry):
+        if "local_source" in entry:
+            return (plan_path.parent / entry["local_source"]).read_bytes()
+        return (source_root / entry["source"]).read_bytes()
+
+    shared = {supplied["brief"]["path"]: staged(supplied["brief"])}
+    for entry in supplied.get("shared_files", []):
+        shared[entry["path"]] = staged(entry)
+
+    destination.mkdir(parents=True, mode=0o700)
+    (destination / "board" / "posts").mkdir(parents=True)
+    (destination / "board" / "rounds").mkdir(parents=True)
+    frozen = dict(
+        supplied,
+        schema=SCHEMA,
+        config=config,
+        seats=seats,
+        source_root=str(source_root),
+        silent_rounds=silent,
+        prepared_at=time.time(),
+    )
+    for seat in seats:
+        work = destination / "seats" / seat["id"]
+        for sub in ("input", "outbox", "board"):
+            (work / sub).mkdir(parents=True)
+        files = dict(shared)
+        for entry in seat.get("files", []):
+            files[entry["path"]] = staged(entry)
+        for rel, content in files.items():
+            target = work / "input" / rel
+            target.parent.mkdir(parents=True, exist_ok=True)
+            target.write_bytes(content)
+        seat["reads"] = sorted(files)
+        seat["input_hashes"] = hashes(work / "input")
+        (destination / "board" / "posts" / seat["id"]).mkdir(parents=True)
+        (destination / "records" / seat["id"]).mkdir(parents=True)
+        write(
+            state_path(destination, seat["id"]),
+            {
+                "status": "prepared",
+                "session_id": None,
+                "rounds": {},
+                "persona": personas.identity(seat["persona_frozen"]),
+            },
+        )
+    # Second pass: the roster in START.md names what every seat holds, which
+    # is only knowable once each of them has been staged.
+    for seat in seats:
+        start = destination / "seats" / seat["id"] / "START.md"
+        start.write_text(start_text(destination, frozen, seat))
+        seat["start_sha256"] = digest(start)
+    write(destination / "plan.json", frozen)
+    write(
+        destination / "plan-digest.json",
+        {"sha256": digest(destination / "plan.json")},
+    )
+    event(destination, event="prepared", seats=[s["id"] for s in seats], rounds=rounds)
+    return frozen
+
+
+# A room that has stopped producing positions keeps producing paragraphs, so
+# it cannot be trusted to notice it is finished. Both signals below read the
+# board and nothing else: no model call is spent asking a room whether it is
+# done. They are heuristics fitted to two ten-round rooms, not laws, which is
+# why a plan can move either of them.
+STOP_NOVELTY = 55.0
+STOP_CLOSING = 0.75
+CLOSING = re.compile(
+    r"\b(unanimous|our work here|the room has|settled|adjourn|send the contract"
+    r"|sign the|close the room|no more objections|verdict)",
+    re.IGNORECASE,
+)
+WORD = re.compile(r"[a-z][a-z'-]+")
+COMMON = frozenset(
+    [
+        "the",
+        "a",
+        "an",
+        "and",
+        "or",
+        "but",
+        "of",
+        "to",
+        "in",
+        "is",
+        "it",
+        "that",
+        "this",
+        "for",
+        "with",
+        "as",
+        "on",
+        "not",
+        "you",
+        "we",
+        "they",
+        "be",
+        "are",
+        "was",
+        "were",
+        "has",
+        "have",
+        "had",
+        "will",
+        "would",
+        "can",
+        "could",
+        "their",
+        "its",
+        "his",
+        "her",
+        "them",
+        "me",
+        "my",
+        "our",
+        "your",
+        "if",
+        "then",
+        "than",
+        "so",
+        "what",
+        "which",
+        "who",
+        "when",
+        "how",
+        "all",
+        "any",
+        "each",
+        "other",
+        "more",
+        "most",
+        "some",
+        "such",
+        "no",
+        "nor",
+        "only",
+        "own",
+        "same",
+        "too",
+        "very",
+        "just",
+        "do",
+        "does",
+        "did",
+        "at",
+        "by",
+        "from",
+        "up",
+        "down",
+        "out",
+        "off",
+        "over",
+        "under",
+        "again",
+        "once",
+        "here",
+        "there",
+        "why",
+        "while",
+        "about",
+        "against",
+        "between",
+        "into",
+        "through",
+        "during",
+        "before",
+        "after",
+        "above",
+        "below",
+    ]
+)
+
+
+def _content_words(text):
+    return {w for w in WORD.findall(text.lower()) if w not in COMMON and len(w) > 3}
+
+
+def convergence(root, plan, n):
+    """How close the room is to having nothing left to say, after round ``n``.
+
+    Novelty is the share of a post's content words that seat has never used
+    before; it falls as writers begin restating themselves. Closing is the
+    share of seats reaching for consensus language. Either signal must hold
+    for two consecutive rounds, because a single round of agreement is noise:
+    one measured room hit three-quarters closing at round four and was back to
+    one-quarter at round five, still arguing.
+    """
+    seats = [s["id"] for s in plan["seats"]]
+    seen = {s: set() for s in seats}
+    series = []
+    for number in range(1, n + 1):
+        novel, closers = [], 0
+        for name in seats:
+            post = root / "board" / "posts" / name / f"r{number:03d}.md"
+            text = post.read_text() if post.exists() else ""
+            words = _content_words(text)
+            novel.append(100 * len(words - seen[name]) / max(1, len(words)))
+            seen[name] |= words
+            closers += bool(CLOSING.search(text))
+        series.append(
+            {
+                "round": number,
+                "novelty": round(sum(novel) / len(seats), 1),
+                "closing": round(closers / len(seats), 2),
+            }
+        )
+    quiet_at = plan.get("stop_novelty", STOP_NOVELTY)
+    closed_at = plan.get("stop_closing", STOP_CLOSING)
+    last = series[-2:]
+    usable = [x for x in last if x["novelty"] is not None]
+    quiet = len(usable) == 2 and all(x["novelty"] <= quiet_at for x in usable)
+    closed = len(usable) == 2 and all(x["closing"] >= closed_at for x in usable)
+    return {
+        "round": n,
+        "novelty": series[-1]["novelty"] if series else None,
+        "closing": series[-1]["closing"] if series else None,
+        "converged": quiet or closed,
+        "reason": "novelty" if quiet else "closing" if closed else None,
+        "series": series,
+    }
+
+
+def seat_config(plan, seat):
+    """This seat's model. Seats may differ; the room supplies the default."""
+    return seat.get("config") or plan["config"]
+
+
+def budget(root, plan):
+    """How many rounds this room may run: what it declared, plus extensions.
+
+    The frozen plan holds the assignment -- personas, packets, the standing
+    brief -- and must stay byte-identical for its digest to mean anything. How
+    long the room runs is not part of the assignment; it is a decision the
+    operator keeps making. Keeping it in its own file lets the budget move
+    without ever touching what the writers were promised.
+    """
+    path = root / "budget.json"
+    return read(path)["rounds"] if path.exists() else plan["rounds"]
+
+
+def extend(root, rounds):
+    """Raise the round budget. One way, because lowering it orphans rounds."""
+    root, plan = load(root)
+    current = budget(root, plan)
+    if not isinstance(rounds, int) or rounds <= current:
+        raise ValueError(f"this room already allows {current} rounds")
+    write(root / "budget.json", {"rounds": rounds, "declared": plan["rounds"]})
+    event(root, event="budget-extended", rounds=rounds, was=current)
+    return rounds
+
+
+def board_order(seats, n):
+    """Seat order for round ``n``'s digest, rotated so no seat always leads.
+
+    Whoever appears first anchors the read. A fixed order hands the same seat
+    that advantage in every round; rotating by the round number spreads it
+    evenly and keeps the digest deterministic.
+    """
+    names = [s["id"] for s in seats]
+    offset = (n - 1) % len(names)
+    return names[offset:] + names[:offset]
+
+
+def compose_digest(root, plan, n):
+    """Concatenate round ``n``'s posts, attributed and whole. Never summarize.
+
+    A digest that compressed four posts into a paragraph would make the
+    controller the room's narrator, and every later round would be a response
+    to its reading rather than to what the seats actually wrote.
+    """
+    rule = "-" * 68
+    labels = {s["id"]: label(s) for s in plan["seats"]}
+    research = {s["id"] for s in plan["seats"] if s.get("tools") == "research"}
+    # Attribution is the whole frame. A name above a post is what makes it a
+    # colleague's opinion rather than loose text next to the brief, and it
+    # needs no sentence explaining itself. Describing the order, the promotion
+    # or the rotation would only tell a writer about machinery it does not
+    # occupy.
+    text = f"# The board -- round {n}\n\n"
+    included = {}
+    for name in board_order(plan["seats"], n):
+        post = root / "board" / "posts" / name / f"r{n:03d}.md"
+        if not post.exists():
+            continue
+        mark = "  [can search the web]" if name in research else ""
+        text += f"{rule}\n## {labels[name]}  ({name}){mark}\n{rule}\n\n"
+        text += post.read_text().strip() + "\n\n"
+        included[name] = digest(post)
+    absent = [
+        s["id"]
+        for s in plan["seats"]
+        if s["id"] in acting(plan, n) and s["id"] not in included
+    ]
+    if absent:
+        names = ", ".join(labels[a] for a in absent)
+        text += f"{rule}\n\nNo post this round from: {names}.\n"
+    return text, included, absent
+
+
+def promote(root, n):
+    """Move every outbox onto the board, then publish the round's digest.
+
+    This is the only writer of shared state and it runs with every seat
+    stopped. It copies, hashes and attributes; it never reads a post to decide
+    whether it belongs. A missing or empty outbox means the seat was absent
+    for the round, which is a fact about the round and not a failure.
+    """
+    root, plan = load(root)
+    speaking = acting(plan, n)
+    for seat in plan["seats"]:
+        if seat["id"] not in speaking:
+            continue
+        outbox = root / "seats" / seat["id"] / "outbox" / "post.md"
+        if not outbox.exists() or not outbox.read_bytes().strip():
+            event(root, round=n, seat=seat["id"], event="absent")
+            continue
+        post = root / "board" / "posts" / seat["id"] / f"r{n:03d}.md"
+        if post.exists():
+            raise RuntimeError(f"round {n} already promoted for {seat['id']}")
+        shutil.copyfile(outbox, post)
+        outbox.unlink()
+        event(
+            root,
+            round=n,
+            seat=seat["id"],
+            event="promoted",
+            bytes=post.stat().st_size,
+            sha256=digest(post),
+        )
+    text, included, absent = compose_digest(root, plan, n)
+    out = root / "board" / "rounds" / f"r{n:03d}"
+    out.mkdir(parents=True, exist_ok=True)
+    (out / "digest.md").write_text(text)
+    write(
+        out / "digest.json",
+        {
+            "round": n,
+            "order": board_order(plan["seats"], n),
+            "posts": included,
+            "absent": absent,
+            "digest_sha256": digest(out / "digest.md"),
+        },
+    )
+    signal = convergence(root, plan, n)
+    write(out / "convergence.json", signal)
+    event(root, round=n, event="round-closed", posted=len(included), absent=len(absent))
+    event(
+        root,
+        round=n,
+        event="convergence",
+        novelty=signal["novelty"],
+        closing=signal["closing"],
+        converged=signal["converged"],
+        reason=signal["reason"],
+    )
+    return {
+        "posted": sorted(included),
+        "absent": absent,
+        "convergence": {
+            k: signal[k] for k in ("novelty", "closing", "converged", "reason")
+        },
+    }
+
+
+def open_round(root, n):
+    """Put the previous round's digest inside every workspace, read-only."""
+    root, plan = load(root)
+    if n == 1 or n in plan["silent_rounds"]:
+        return None
+    source = root / "board" / "rounds" / f"r{n - 1:03d}" / "digest.md"
+    if not source.exists():
+        raise RuntimeError(f"round {n - 1} has not been promoted; nothing to show")
+    for seat in plan["seats"]:
+        target = root / "seats" / seat["id"] / "board" / f"round-{n - 1:03d}"
+        target.mkdir(parents=True, exist_ok=True)
+        shutil.copyfile(source, target / "digest.md")
+    event(root, round=n, event="board-published", digest_sha256=digest(source))
+    return str(source)
+
+
+def _terminate(proc):
+    """Stop a seat and everything it started; it is its own session leader."""
+    for number in (signal.SIGTERM, signal.SIGKILL):
+        try:
+            os.killpg(os.getpgid(proc.pid), number)
+        except (ProcessLookupError, PermissionError):
+            return
+        try:
+            proc.wait(timeout=20)
+            return
+        except subprocess.TimeoutExpired:
+            continue
+
+
+def run_seat(root, plan, seat, n, *, timeout=None):
+    """Run one seat's turn for round ``n``: launch it, or resume its session."""
+    name = seat["id"]
+    work, config = root / "seats" / name, seat_config(plan, seat)
+    record = root / "records" / name / f"r{n:03d}"
+    state = read(state_path(root, name))
+    if str(n) in state["rounds"]:
+        return state["rounds"][str(n)]["status"]
+    # The packet and the standing assignment are frozen and checked every
+    # round. The board is deliberately not: it is the one thing that is
+    # supposed to change, which is why it lives outside `input/`.
+    if hashes(work / "input") != seat["input_hashes"]:
+        raise RuntimeError(f"seat input changed: {name}")
+    if digest(work / "START.md") != seat["start_sha256"]:
+        raise RuntimeError(f"standing assignment changed: {name}")
+    resume = state.get("session_id")
+    if n > 1 and not resume:
+        raise RuntimeError(f"{name} has no session to resume; run its first round")
+    record.mkdir(parents=True)
+    prompt = turn_prompt(root, plan, seat, n)
+    args, payload = drivers.command(config, work, prompt, resume=resume)
+    jail, env, private = drivers.launch_context(config, work)
+    jail += ["--ro-bind", str(work / "board"), str(work / "board")]
+    (record / "prompt.md").write_text(prompt)
+    write(
+        record / "launch.json",
+        {
+            "argv": args,
+            "jail": jail,
+            "resumed": resume,
+            "harness_version": blind.runner_version(config["harness"]),
+            "private_runtime": str(private),
+        },
+    )
+    with slot(config["harness"]):
+        event(root, round=n, seat=name, event="launching", resumed=resume)
+        started = time.time()
+        with (
+            (record / "events.jsonl").open("xb") as out,
+            (record / "stderr.log").open("xb") as err,
+        ):
+            proc = subprocess.Popen(
+                jail + args,
+                stdin=subprocess.PIPE,
+                stdout=out,
+                stderr=err,
+                cwd=current_project().root,
+                env=env,
+                start_new_session=True,
+            )
+            event(
+                root,
+                round=n,
+                seat=name,
+                event="running",
+                pid=proc.pid,
+                process_identity=process_identity(proc.pid),
+            )
+            timed_out = False
+            try:
+                proc.communicate(payload, timeout=timeout)
+            except subprocess.TimeoutExpired:
+                _terminate(proc)
+                proc.communicate()
+                timed_out = True
+        code, seconds = proc.returncode, round(time.time() - started, 2)
+        event(
+            root,
+            round=n,
+            seat=name,
+            event="exited",
+            code=code,
+            seconds=seconds,
+            timed_out=timed_out,
+        )
+    try:
+        got = drivers.receipt(config, record, private, resumed=resume)
+        status, detail = "answered", None
+    except (RuntimeError, ValueError, OSError) as exc:
+        got, status, detail = {}, "failed", str(exc)
+    write(
+        record / "receipt.json",
+        {
+            **got,
+            "exit_code": code,
+            "seconds": seconds,
+            "timed_out": timed_out,
+            "error": detail,
+        },
+    )
+    state = read(state_path(root, name))
+    if got.get("session_id"):
+        state["session_id"] = got["session_id"]
+    state["rounds"][str(n)] = {"status": status, "seconds": seconds, "error": detail}
+    state["status"] = status
+    write(state_path(root, name), state)
+    event(root, round=n, seat=name, event="collected", status=status, error=detail)
+    return status
+
+
+def run_round(root, n, *, jobs=2, timeout=None):
+    """Open the round, run every seat, then close it by promoting the outboxes.
+
+    Seats run concurrently up to ``jobs``, and the account lease caps them
+    again per harness. The round closes once every seat has stopped, so the
+    board changes at exactly one instant and no seat reads a partial one.
+    """
+    root, plan = load(root)
+    with lock(root / "room.lock"):
+        allowed = budget(root, plan)
+        if n < 1 or n > allowed:
+            raise ValueError(f"round must be 1..{allowed}; extend the room first")
+        event(root, round=n, event="round-opened", jobs=jobs)
+        open_round(root, n)
+        results = {}
+
+        speaking = acting(plan, n)
+        for seat in plan["seats"]:
+            if seat["id"] not in speaking:
+                event(root, round=n, seat=seat["id"], event="resting")
+
+        def task(seat):
+            try:
+                return seat["id"], run_seat(root, plan, seat, n, timeout=timeout)
+            except (RuntimeError, ValueError, OSError, subprocess.SubprocessError) as e:
+                event(root, round=n, seat=seat["id"], event="stopped", error=str(e))
+                return seat["id"], f"stopped: {e}"
+
+        # `submit` carries the caller's project context into each thread.
+        # A bare pool.map would let a worker re-resolve the project from disk,
+        # which is exactly the cross-thread leak the project layer prevents.
+        with ThreadPoolExecutor(max_workers=max(1, jobs)) as pool:
+            speakers = [s for s in plan["seats"] if s["id"] in speaking]
+            for future in [submit(pool, task, s) for s in speakers]:
+                name, outcome = future.result()
+                results[name] = outcome
+        results["_board"] = promote(root, n)
+    return results
+
+
+def run_until(root, *, limit=None, jobs=2, timeout=None):
+    """Run rounds until the room converges or the budget runs out.
+
+    The room is asked to stop, never silenced: a single `round` still runs on
+    request, and this only decides when to stop asking for another. Leaving
+    the decision to the room itself is the one thing that does not work, since
+    a room with nothing left to say goes on writing paragraphs.
+    """
+    root = room_root(root)
+    played = []
+    while True:
+        _, plan = load(root)
+        ceiling = (
+            budget(root, plan) if limit is None else min(limit, budget(root, plan))
+        )
+        number = len(list((root / "board" / "rounds").glob("r[0-9][0-9][0-9]"))) + 1
+        if number > ceiling:
+            return played, "budget"
+        outcome = run_round(root, number, jobs=jobs, timeout=timeout)
+        played.append((number, outcome))
+        signal = outcome["_board"]["convergence"]
+        if signal["converged"]:
+            return played, f"converged on {signal['reason']}"
+
+
+def status(root):
+    """A read-only view of a room, safe to call while it runs.
+
+    It takes no lock, opens no session and writes nothing, so watching cannot
+    perturb what it watches. A partly written final log line is ignored rather
+    than treated as corruption, because the writer may be mid-append.
+    """
+    root, plan = load(root, verify=False)
+    rows = []
+    log = root / "room.log"
+    if log.exists():
+        for line in log.read_text().splitlines():
+            try:
+                rows.append(json.loads(line))
+            except json.JSONDecodeError:
+                continue
+    seats = {}
+    for seat in plan["seats"]:
+        state = read(state_path(root, seat["id"]))
+        posts = sorted(
+            p.name for p in (root / "board" / "posts" / seat["id"]).glob("r*.md")
+        )
+        outbox = root / "seats" / seat["id"] / "outbox" / "post.md"
+        seats[seat["id"]] = {
+            "label": label(seat),
+            "status": state.get("status"),
+            "session_id": state.get("session_id"),
+            "rounds": state.get("rounds", {}),
+            "posts": posts,
+            "drafting": outbox.stat().st_size if outbox.exists() else 0,
+        }
+    published = sorted(p.name for p in (root / "board" / "rounds").glob("r*"))
+    return {
+        "room": str(root),
+        "title": plan.get("title"),
+        "rounds": budget(root, plan),
+        "published_rounds": published,
+        "seats": seats,
+        "last_events": rows[-8:],
+    }
+
+
+def _render(value):
+    published = ", ".join(value["published_rounds"]) or "none"
+    lines = [
+        value["title"],
+        f"  {value['room']}",
+        f"  rounds published: {published} of {value['rounds']}",
+        "",
+    ]
+    width = max(len(v["label"]) for v in value["seats"].values())
+    for seat in value["seats"].values():
+        drafting = f"  drafting {seat['drafting']}B" if seat["drafting"] else ""
+        lines.append(
+            f"  {seat['label']:<{width}}  {seat['status'] or 'prepared':<10}"
+            f"  posts: {len(seat['posts'])}{drafting}"
+        )
+    if value["last_events"]:
+        lines += ["", "  recent:"]
+        for row in value["last_events"]:
+            when = time.strftime("%H:%M:%S", time.localtime(row["t"]))
+            parts = [
+                f"{k}={v}"
+                for k, v in row.items()
+                if k not in ("t", "event", "seat") and v not in (None, "")
+            ]
+            who = row.get("seat", "-")
+            lines.append(
+                f"    {when}  {who:<18} {row.get('event', '?'):<16} {' '.join(parts)}"
+            )
+    return "\n".join(lines)
+
+
+def watch(root, *, poll=1.0):
+    """Follow the room's trail. Read-only: no lock, no session, no writes."""
+    root = room_root(root)
+    log, offset = root / "room.log", 0
+    print(f"following {log} -- interrupt to stop", file=sys.stderr)
+    while True:
+        if log.exists():
+            with log.open("rb") as stream:
+                stream.seek(offset)
+                data = stream.read()
+                # Stop at the last complete line; the writer may be mid-append.
+                cut = data.rfind(b"\n") + 1
+                offset += cut
+                for line in data[:cut].decode().splitlines():
+                    try:
+                        row = json.loads(line)
+                    except json.JSONDecodeError:
+                        continue
+                    when = time.strftime("%H:%M:%S", time.localtime(row["t"]))
+                    rest = {k: v for k, v in row.items() if k not in ("t", "event")}
+                    print(
+                        f"{when}  {row.get('event', '?'):<16} "
+                        f"{json.dumps(rest, ensure_ascii=False)}",
+                        flush=True,
+                    )
+        time.sleep(poll)
+
+
+def transcripts(root, plan, seat):
+    """Every native transcript this seat has, oldest first.
+
+    Not one file: codex opens a fresh rollout each time a session is resumed,
+    so a seat ten rounds in has ten of them and the conversation is their
+    concatenation. Claude keeps one per session but also writes subagent
+    files beside it, which are not this seat talking.
+    """
+    record = next(s for s in plan["seats"] if s["id"] == seat)
+    harness = seat_config(plan, record)["harness"]
+    pattern = observe.NATIVE_TRANSCRIPTS.get(harness)
+    if pattern is None:
+        raise ValueError(f"no known transcript location for {harness}")
+    private = blind.state_root(root / "seats" / seat) / harness
+    found = [p for p in private.glob(pattern) if "subagents" not in p.parts]
+    return sorted(found, key=lambda p: (p.stat().st_mtime, p.name))
+
+
+def _agy_lines(row, *, thinking, width):
+    """One agy transcript row as the lines a reader wants, or none at all.
+
+    Tool *results* are dropped. A single file read returns two kilobytes of
+    quoted source, and four of those bury the one thing the reader came for,
+    which is what the seat said and what it decided to do next.
+    """
+    kind, status = row.get("type"), row.get("status")
+    content = (row.get("content") or "").strip()
+    if kind == "USER_INPUT":
+        # The harness appends its own blocks -- a clock reading, a note that
+        # the model was selected -- to every prompt. They are its bookkeeping,
+        # not the turn the room sent, and printing them buries the turn.
+        text = re.sub(
+            r"<(ADDITIONAL_METADATA|USER_SETTINGS_CHANGE)>.*?</\1>",
+            "",
+            content,
+            flags=re.DOTALL,
+        )
+        text = re.sub(r"</?USER_REQUEST>", "", text).strip()
+        wrapped = textwrap.wrap(" ".join(text.split()), width - 4)
+        shown = wrapped[:8] + (["..."] if len(wrapped) > 8 else [])
+        return ["", "=" * width, *(f"  {line}" for line in shown), "=" * width, ""]
+    if status == "ERROR":
+        # The harness prefixes every result with its own timestamps. Printing
+        # those instead of the message is how an error line ends up saying
+        # nothing at all about what went wrong.
+        detail = " ".join(
+            line
+            for line in content.splitlines()
+            if not line.startswith(("Created At:", "Completed At:"))
+        )
+        # Errors wrap rather than truncate: a cut-off error names the tool
+        # that failed and never the reason, which is the half nobody needs.
+        lines = textwrap.wrap(" ".join(detail.split()), width - 5)
+        return [f"  !  {line}" for line in lines]
+    if kind != "PLANNER_RESPONSE":
+        return []
+    out = []
+    if thinking and row.get("thinking"):
+        for line in textwrap.wrap(" ".join(row["thinking"].split()), width - 5):
+            out.append(f"  ·  {line}")
+    for call in row.get("tool_calls") or []:
+        args = call.get("args") or {}
+        what = args.get("toolSummary") or args.get("toolAction") or call.get("name")
+        out.append(f"  \u2192  {what}")
+    if content:
+        out.append("")
+        for paragraph in content.splitlines():
+            out.extend(textwrap.wrap(paragraph, width) or [""])
+        out.append("")
+    return out
+
+
+def _banner(text, width):
+    """A turn the room sent, framed so round boundaries are visible."""
+    wrapped = textwrap.wrap(" ".join(text.split()), width - 4)
+    shown = wrapped[:8] + (["..."] if len(wrapped) > 8 else [])
+    return ["", "=" * width, *(f"  {line}" for line in shown), "=" * width, ""]
+
+
+def _said(text, width):
+    out = [""]
+    for paragraph in text.strip().splitlines():
+        out.extend(textwrap.wrap(paragraph, width) or [""])
+    return out + [""]
+
+
+def _thought(text, width):
+    return [f"  ·  {line}" for line in textwrap.wrap(" ".join(text.split()), width - 5)]
+
+
+def _claude_lines(row, *, thinking, width):
+    """One Claude Code transcript row. Tool results are dropped, as for agy."""
+    kind = row.get("type")
+    if kind not in ("user", "assistant"):
+        return []
+    content = (row.get("message") or {}).get("content")
+    if isinstance(content, str):
+        return _banner(content, width) if kind == "user" else _said(content, width)
+    out = []
+    for block in content or []:
+        shape = block.get("type")
+        if shape == "text":
+            out.extend(
+                _banner(block["text"], width)
+                if kind == "user"
+                else _said(block["text"], width)
+            )
+        elif shape == "thinking" and thinking and block.get("thinking", "").strip():
+            out.extend(_thought(block["thinking"], width))
+        elif shape == "tool_use":
+            target = (block.get("input") or {}).get("file_path", "")
+            name = block.get("name", "tool")
+            out.append(
+                f"  \u2192  {name} {Path(target).name if target else ''}".rstrip()
+            )
+    return out
+
+
+def _codex_cmd(text):
+    """The shell command inside a codex exec call, for a one-line summary."""
+    found = re.search(r'cmd:\s*"((?:[^"\\]|\\.)*)"', text or "")
+    return found.group(1) if found else (text or "")[:60]
+
+
+def _codex_lines(row, *, thinking, width):
+    """One codex rollout row, minus the harness's own developer preamble."""
+    if row.get("type") != "response_item":
+        return []
+    payload = row.get("payload") or {}
+    shape = payload.get("type")
+    if shape == "message":
+        role = payload.get("role")
+        # The CLI injects its own preamble -- skills, plugins, recommendations
+        # -- partly as `developer` and partly as `user`, so the role alone does
+        # not separate it from the turn the room sent. Every such block opens
+        # with a tag and a room prompt never does.
+        if role == "developer":
+            return []
+        text = " ".join(
+            part.get("text", "") for part in payload.get("content") or []
+        ).strip()
+        if not text or text.startswith("<"):
+            return []
+        return _banner(text, width) if role == "user" else _said(text, width)
+    if shape == "reasoning" and thinking:
+        summary = " ".join(
+            part.get("text", "") for part in payload.get("summary") or []
+        ).strip()
+        return _thought(summary, width) if summary else []
+    if shape == "custom_tool_call":
+        return [f"  \u2192  {_codex_cmd(payload.get('input'))[: width - 5]}"]
+    return []
+
+
+_RENDERERS = {"agy": _agy_lines, "claude": _claude_lines, "codex": _codex_lines}
+
+# Whether a transcript row is finished and safe to print. Only one harness
+# revises a row in place: agy writes a step, then marks it DONE. Claude and
+# codex append rows already complete, so waiting for a status they never carry
+# would print nothing at all -- which is exactly what it did.
+_SETTLED = {
+    "agy": lambda row: row.get("status") in ("DONE", "ERROR"),
+    "claude": lambda row: True,
+    "codex": lambda row: True,
+}
+
+
+def follow(root, seat, *, thinking=True, poll=1.0, width=88):
+    """Print one seat's side of the room as it happens.
+
+    Read-only, like `status` and `watch`: no lock, no session, no writes. Rows
+    are consumed by position and only once they carry a terminal status, so a
+    step still being written is waited for rather than printed half-formed,
+    and a harness that rewrites its transcript instead of appending to it
+    cannot produce duplicates.
+    """
+    root = room_root(root)
+    _, plan = load(root, verify=False)
+    names = [s["id"] for s in plan["seats"]]
+    if seat not in names:
+        raise ValueError(f"no seat {seat!r} here; this room seats {', '.join(names)}")
+    record = next(s for s in plan["seats"] if s["id"] == seat)
+    harness = seat_config(plan, record)["harness"]
+    render = _RENDERERS.get(harness)
+    if render is None:
+        raise ValueError(f"following a {harness} seat is not implemented yet")
+    settled = _SETTLED[harness]
+    who = label(record)
+    seen, waiting, opened = 0, False, False
+    while True:
+        paths = transcripts(root, plan, seat)
+        if not paths:
+            if not waiting:
+                print(f"{who}: waiting for a session to open", file=sys.stderr)
+                waiting = True
+            time.sleep(poll)
+            continue
+        if not opened:
+            print(f"--- {who} ({seat}, {harness}) ---", file=sys.stderr)
+            opened = True
+        rows = []
+        for path in paths:
+            for line in path.read_text(errors="replace").splitlines():
+                if not line.strip():
+                    continue
+                try:
+                    rows.append(json.loads(line))
+                except json.JSONDecodeError:
+                    break  # the writer is mid-row; pick it up next poll
+        while seen < len(rows) and settled(rows[seen]):
+            for out in render(rows[seen], thinking=thinking, width=width):
+                print(out, flush=True)
+            seen += 1
+        time.sleep(poll)
+
+
+def main(argv=None):
+    parser = argparse.ArgumentParser(prog="quirework sop room", description=__doc__)
+    sub = parser.add_subparsers(dest="command", required=True)
+
+    made = sub.add_parser("prepare", help="stage a room from a plan")
+    made.add_argument("plan")
+    made.add_argument("destination")
+
+    turn = sub.add_parser("round", help="open, run and close one round")
+    turn.add_argument("root")
+    turn.add_argument("number", type=int)
+    turn.add_argument("--jobs", type=int, default=2)
+    turn.add_argument("--timeout", type=float, default=None)
+
+    for name, help_text in (
+        ("open", "republish a round's board"),
+        ("promote", "close a round from its outboxes"),
+    ):
+        recover = sub.add_parser(name, help=help_text)
+        recover.add_argument("root")
+        recover.add_argument("number", type=int)
+
+    loop = sub.add_parser("rounds", help="run rounds until the room converges")
+    loop.add_argument("root")
+    loop.add_argument("--to", type=int, default=None, help="stop at this round")
+    loop.add_argument("--jobs", type=int, default=2)
+    loop.add_argument("--timeout", type=float, default=None)
+
+    more = sub.add_parser("extend", help="raise the room's round budget")
+    more.add_argument("root")
+    more.add_argument("rounds", type=int)
+
+    view = sub.add_parser("status", help="read a room without disturbing it")
+    view.add_argument("root")
+    view.add_argument("--json", action="store_true")
+
+    board = sub.add_parser("board", help="print a published round's digest")
+    board.add_argument("root")
+    board.add_argument("number", type=int)
+
+    trail = sub.add_parser("watch", help="follow the room's trail live")
+    trail.add_argument("root")
+    trail.add_argument("--poll", type=float, default=1.0)
+
+    voice = sub.add_parser("follow", help="follow one seat's side of the room")
+    voice.add_argument("root")
+    voice.add_argument("seat")
+    voice.add_argument("--poll", type=float, default=1.0)
+    voice.add_argument("--width", type=int, default=88)
+    voice.add_argument(
+        "--no-thinking", action="store_true", help="show only actions and posts"
+    )
+
+    args = parser.parse_args(argv)
+    # Every command resolves its room the same way, at the operation boundary
+    # and before any work starts, so a mistyped name fails identically on all
+    # of them instead of failing late or, in watch's case, not at all.
+    if args.command == "prepare":
+        destination = room_root(args.destination, must_exist=False)
+        value = prepare(args.plan, destination)
+        print(f"prepared {len(value['seats'])} seats in {destination}")
+        return 0
+    root = room_root(args.root)
+    if args.command == "round":
+        for name, outcome in run_round(
+            root, args.number, jobs=args.jobs, timeout=args.timeout
+        ).items():
+            shown = json.dumps(outcome) if isinstance(outcome, dict) else outcome
+            print(f"{name}: {shown}")
+    elif args.command == "open":
+        print(open_round(root, args.number) or "silent round; no board")
+    elif args.command == "rounds":
+        played, why = run_until(
+            root, limit=args.to, jobs=args.jobs, timeout=args.timeout
+        )
+        for number, outcome in played:
+            signal = outcome["_board"]["convergence"]
+            print(
+                f"round {number}: {len(outcome['_board']['posted'])} posted, "
+                f"novelty {signal['novelty']}%, closing {signal['closing']}"
+            )
+        print(f"stopped: {why}")
+    elif args.command == "extend":
+        print(f"this room may now run {extend(root, args.rounds)} rounds")
+    elif args.command == "promote":
+        print(json.dumps(promote(root, args.number), indent=2))
+    elif args.command == "status":
+        value = status(root)
+        print(json.dumps(value, indent=2) if args.json else _render(value))
+    elif args.command == "board":
+        digest_file = root / "board" / "rounds" / f"r{args.number:03d}" / "digest.md"
+        if not digest_file.is_file():
+            raise ValueError(f"round {args.number} has not been published in {root}")
+        print(digest_file.read_text())
+    elif args.command == "watch":
+        try:
+            watch(root, poll=args.poll)
+        except KeyboardInterrupt:
+            return 0
+    elif args.command == "follow":
+        try:
+            follow(
+                root,
+                args.seat,
+                thinking=not args.no_thinking,
+                poll=args.poll,
+                width=args.width,
+            )
+        except KeyboardInterrupt:
+            return 0
+    return 0
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())
