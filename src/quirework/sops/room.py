@@ -919,10 +919,10 @@ def _render(value):
         "",
     ]
     width = max(len(v["label"]) for v in value["seats"].values())
-    for seat in value["seats"].values():
+    for number, seat in enumerate(value["seats"].values(), 1):
         drafting = f"  drafting {seat['drafting']}B" if seat["drafting"] else ""
         lines.append(
-            f"  {seat['label']:<{width}}  {seat['status'] or 'prepared':<10}"
+            f"  {number}. {seat['label']:<{width}}  {seat['status'] or 'prepared':<10}"
             f"  posts: {len(seat['posts'])}{drafting}"
         )
     if value["last_events"]:
@@ -967,6 +967,24 @@ def watch(root, *, poll=1.0):
                         flush=True,
                     )
         time.sleep(poll)
+
+
+def seat_named(plan, value):
+    """A seat by its id, or by its position in the room.
+
+    Position exists because following a room means four terminals and four
+    commands, and `follow room 2` is easier to type and to keep straight than
+    a persona's full slug. An id that happens to be a number wins over the
+    position, because a seat's own name is never a guess.
+    """
+    names = [s["id"] for s in plan["seats"]]
+    text = str(value)
+    if text in names:
+        return text
+    if text.isdigit() and 1 <= int(text) <= len(names):
+        return names[int(text) - 1]
+    listed = ", ".join(f"{i}. {n}" for i, n in enumerate(names, 1))
+    raise ValueError(f"no seat {value!r} here; this room seats {listed}")
 
 
 def transcripts(root, plan, seat):
@@ -1147,9 +1165,7 @@ def follow(root, seat, *, thinking=True, poll=1.0, width=88):
     """
     root = room_root(root)
     _, plan = load(root, verify=False)
-    names = [s["id"] for s in plan["seats"]]
-    if seat not in names:
-        raise ValueError(f"no seat {seat!r} here; this room seats {', '.join(names)}")
+    seat = seat_named(plan, seat)
     record = next(s for s in plan["seats"] if s["id"] == seat)
     harness = seat_config(plan, record)["harness"]
     render = _RENDERERS.get(harness)

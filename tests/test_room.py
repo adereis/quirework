@@ -564,3 +564,27 @@ def test_the_roster_never_leaks_a_packet_into_a_seat_that_lacks_it(prepared):
     text = (prepared / "seats/ana-pell/START.md").read_text()
     assert "Only Bo Larke may read this" not in text
     assert not (prepared / "seats/ana-pell/input/extra.md").exists()
+
+
+def test_a_seat_can_be_named_by_its_position(prepared):
+    _, plan = room.load(prepared)
+    assert room.seat_named(plan, 1) == "ana-pell"
+    assert room.seat_named(plan, "2") == "bo-larke"
+    assert room.seat_named(plan, "bo-larke") == "bo-larke"
+
+
+def test_an_id_that_looks_like_a_number_beats_the_position(plan, tmp_path):
+    """A seat's own name is never a guess, so it wins over an index."""
+    supplied = json.loads(plan.read_text())
+    supplied["seats"][1]["id"] = "1"
+    plan.write_text(json.dumps(supplied))
+    room.prepare(plan, tmp_path / "numbered", resolve_models=False)
+    _, frozen = room.load(tmp_path / "numbered")
+    assert room.seat_named(frozen, "1") == "1"
+    assert room.seat_named(frozen, 2) == "1"
+
+
+def test_an_unknown_seat_lists_the_numbers_to_use(prepared):
+    _, plan = room.load(prepared)
+    with pytest.raises(ValueError, match=r"1\. ana-pell, 2\. bo-larke"):
+        room.seat_named(plan, "nobody")

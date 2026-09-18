@@ -90,10 +90,13 @@ is not, because it is the one thing that is meant to change.
 as it happens: the turn it was given, what it decided to do, its
 reasoning and its post. Tool results are dropped, because a single file
 read returns kilobytes of quoted source and buries what the seat
-actually said. `--no-thinking` leaves only actions and posts. One
-terminal per seat reads as four people working. Following is implemented
-for the Antigravity adapter; another harness reports that rather than
-printing nothing.
+actually said. `--no-thinking` leaves only actions and posts. A seat may
+be named by its position in the room as `status` numbers them, so
+following a room is `follow ROOM 1` through `follow ROOM 4` rather than
+four persona slugs. A seat whose id is itself a number keeps that id.
+One terminal per seat reads as four people working. Following is
+implemented for the Antigravity adapter; another harness reports that
+rather than printing nothing.
 
 Seats may name their own harness, model and effort; the room supplies
 the default for any a seat omits. A mixed room costs no special
