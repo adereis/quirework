@@ -901,3 +901,48 @@ def test_a_board_with_colleagues_on_it_still_reads_as_moved(making):
     text = room.turn_prompt(making, frozen, seat, 2)
     assert "The board has moved: board/round-001/digest.md" in text
     assert "Only your own last post" not in text
+
+
+def test_a_correction_made_after_its_phase_is_still_collected(making):
+    """A file the plan asks for anywhere is taken whenever the seat writes it."""
+    post(making, "ana-pell", "Opening position.")
+    post(making, "bo-larke", "A rival position.")
+    room.promote(making, 1)
+    post(making, "ana-pell", "Note about the draft.")
+    work = making / "seats" / "ana-pell" / "outbox" / "chapter-one.md"
+    work.write_text("# Chapter One\n\nFirst version.\n")
+    room.promote(making, 2)
+    # Round three asks for no file. The seat corrects one anyway, which is
+    # exactly when a drafter notices a section it can no longer reach.
+    post(making, "ana-pell", "I reissued chapter one with the date fixed.")
+    post(making, "bo-larke", "Noted.")
+    work.write_text("# Chapter One\n\nSecond version, date fixed.\n")
+    room.promote(making, 3)
+    kept = making / "board" / "made" / "ana-pell" / "r003" / "chapter-one.md"
+    assert "Second version" in kept.read_text()
+    assert not work.exists()
+    trail = [
+        json.loads(line) for line in (making / "room.log").read_text().splitlines()
+    ]
+    events = {(r.get("round"), r.get("event")) for r in trail if r.get("file")}
+    assert (2, "made") in events
+    # Named apart from the phase's own deliverable, because the round did not
+    # ask for this one.
+    assert (3, "revised") in events
+
+
+def test_an_unasked_file_is_not_forced_onto_the_board(making):
+    """Collecting a correction must not put it into a conversation uninvited."""
+    post(making, "ana-pell", "Opening position.")
+    post(making, "bo-larke", "A rival position.")
+    room.promote(making, 1)
+    post(making, "ana-pell", "Note.")
+    (making / "seats" / "ana-pell" / "outbox" / "chapter-one.md").write_text("Draft.\n")
+    room.promote(making, 2)
+    post(making, "ana-pell", "Reissued.")
+    post(making, "bo-larke", "Fine.")
+    (making / "seats" / "ana-pell" / "outbox" / "chapter-one.md").write_text("Fixed.\n")
+    room.promote(making, 3)
+    digest_text = (making / "board" / "rounds" / "r003" / "digest.md").read_text()
+    assert "Reissued." in digest_text
+    assert "Fixed." not in digest_text

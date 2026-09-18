@@ -681,6 +681,21 @@ def deliverable(plan, n):
     return phase_for(plan, n).get("deliverable")
 
 
+def declared_files(plan):
+    """Every file this plan asks for anywhere, not only in the current round.
+
+    A seat that corrects a section after its phase has passed has nowhere to
+    put the correction: only one file is asked for per round, and a file left
+    in an outbox is invisible until something asks for it again. In the
+    measured run the drafter fixed the preface four rounds after the preface
+    phase, then spent a round arguing that the book would be bound stale,
+    because nothing had acknowledged the file. Taking any file the plan names
+    costs nothing and keeps the latest version of every section collected,
+    hashed and attributed the moment it exists.
+    """
+    return sorted({p["deliverable"] for p in phases(plan) if p.get("deliverable")})
+
+
 def safe_name(value):
     """A deliverable name a seat may write and the room may copy.
 
@@ -769,28 +784,29 @@ def promote(root, n):
             sha256=digest(post),
         )
         made = deliverable(plan, n)
-        if not made:
-            continue
-        written = root / "seats" / seat["id"] / "outbox" / made
-        if not written.exists() or not written.read_bytes().strip():
-            # The seat posted and did not produce the file. That is a fact
-            # about the round, like an absence, and not a reason to fail a
-            # round whose post is already on the board.
-            event(root, round=n, seat=seat["id"], event="unmade", file=made)
-            continue
-        kept = root / "board" / "made" / seat["id"] / f"r{n:03d}" / made
-        kept.parent.mkdir(parents=True, exist_ok=True)
-        shutil.copyfile(written, kept)
-        written.unlink()
-        event(
-            root,
-            round=n,
-            seat=seat["id"],
-            event="made",
-            file=made,
-            bytes=kept.stat().st_size,
-            sha256=digest(kept),
-        )
+        for name in declared_files(plan):
+            written = root / "seats" / seat["id"] / "outbox" / name
+            if not written.exists() or not written.read_bytes().strip():
+                if name == made:
+                    # The seat posted and did not produce the file the phase
+                    # asked for. That is a fact about the round, like an
+                    # absence, and not a reason to fail a round whose post is
+                    # already on the board.
+                    event(root, round=n, seat=seat["id"], event="unmade", file=name)
+                continue
+            kept = root / "board" / "made" / seat["id"] / f"r{n:03d}" / name
+            kept.parent.mkdir(parents=True, exist_ok=True)
+            shutil.copyfile(written, kept)
+            written.unlink()
+            event(
+                root,
+                round=n,
+                seat=seat["id"],
+                event="made" if name == made else "revised",
+                file=name,
+                bytes=kept.stat().st_size,
+                sha256=digest(kept),
+            )
     text, included, absent = compose_digest(root, plan, n)
     out = root / "board" / "rounds" / f"r{n:03d}"
     out.mkdir(parents=True, exist_ok=True)

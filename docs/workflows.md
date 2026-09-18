@@ -172,6 +172,16 @@ deliverable is a plain file name, checked when the room is prepared. A
 seat that posts without producing the file is recorded as having not
 made it, which is a fact about the round rather than a failed round.
 
+Promotion takes any file the plan names in any phase, not only the one
+the current round asked for. A seat correcting an earlier section after
+its phase has passed otherwise has nowhere to put the correction, and a
+file left in an outbox is invisible until something asks for it again. A
+file the round did not ask for is logged as a revision rather than as
+that round's work and stays off the board: collecting it keeps the
+latest version of every section hashed and attributed, while putting it
+in the digest would push work into a conversation that did not ask for
+it.
+
 A room that has run out of positions keeps producing paragraphs, so it
 cannot be trusted to notice it has finished. `quirework sop room rounds`
 runs rounds until the room converges or its budget ends. Two signals are
