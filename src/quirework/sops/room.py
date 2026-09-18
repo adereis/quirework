@@ -1007,6 +1007,78 @@ def status(root):
     }
 
 
+def usage(root):
+    """What each seat spent, per seat and per harness, from its own receipts.
+
+    A mixed room is the case that needs this. Every adapter records what its
+    harness reports and nothing reconciles the three, so an operator asking
+    what a room cost reads whichever seats they happened to parse. Claude is
+    the only harness quoting a price, and a room that omits the other seats
+    rather than saying their cost is unknown reports a cheaper room than it
+    ran.
+    """
+    root, plan = load(root, verify=False)
+    rows = []
+    for seat in plan["seats"]:
+        config = seat_config(plan, seat)
+        totals = {k: 0 for k in ("input", "output", "reasoning", "cache_read")}
+        cost, priced, rounds, inside = 0.0, 0, 0, False
+        for receipt in sorted((root / "records" / seat["id"]).glob("r*/receipt.json")):
+            counted = drivers.usage_totals(
+                config["harness"], read(receipt).get("usage")
+            )
+            if not counted:
+                continue
+            rounds += 1
+            for name in totals:
+                totals[name] += counted[name]
+            inside = inside or counted["cache_inside_input"]
+            if counted["cost_usd"] is not None:
+                cost, priced = cost + counted["cost_usd"], priced + 1
+        rows.append(
+            {
+                "seat": seat["id"],
+                "label": label(seat),
+                "harness": config["harness"],
+                "model": config["model"],
+                "rounds": rounds,
+                **totals,
+                "cache_inside_input": inside,
+                "cost_usd": cost if priced else None,
+            }
+        )
+    return {"room": str(root), "title": plan.get("title"), "seats": rows}
+
+
+def _render_usage(value):
+    lines = [value["title"], f"  {shown(value['room'])}", ""]
+    head = f"  {'seat':<16}{'harness':<9}{'rounds':>7}{'output':>10}{'cache read':>12}"
+    lines += [head + f"{'cost':>10}"]
+    unknown = []
+    for row in value["seats"]:
+        price = f"${row['cost_usd']:.2f}" if row["cost_usd"] is not None else "unknown"
+        if row["cost_usd"] is None:
+            unknown.append(row["harness"])
+        lines.append(
+            f"  {row['label']:<16}{row['harness']:<9}{row['rounds']:>7}"
+            f"{row['output']:>10,}{row['cache_read']:>12,}{price:>10}"
+        )
+    known = sum(r["cost_usd"] or 0 for r in value["seats"])
+    lines += ["", f"  reported cost: ${known:.2f}"]
+    if unknown:
+        # Naming them is the point: a total missing two of four seats looks
+        # exactly like a total of a cheaper room.
+        lines.append(
+            f"  no price reported by {', '.join(sorted(set(unknown)))}; "
+            "the room cost more than this"
+        )
+    if any(r["cache_inside_input"] for r in value["seats"]):
+        lines.append(
+            "  codex counts cached tokens inside input; claude counts them beside it"
+        )
+    return "\n".join(lines)
+
+
 def _render(value):
     published = ", ".join(value["published_rounds"]) or "none"
     lines = [
@@ -1350,6 +1422,10 @@ def main(argv=None):
     board.add_argument("root")
     board.add_argument("number", type=int)
 
+    spend = sub.add_parser("usage", help="what each seat spent, from its receipts")
+    spend.add_argument("root")
+    spend.add_argument("--json", action="store_true")
+
     trail = sub.add_parser("watch", help="follow the room's trail live")
     trail.add_argument("root")
     trail.add_argument("--poll", type=float, default=1.0)
@@ -1408,6 +1484,9 @@ def main(argv=None):
     elif args.command == "status":
         value = status(root)
         print(json.dumps(value, indent=2) if args.json else _render(value))
+    elif args.command == "usage":
+        value = usage(root)
+        print(json.dumps(value, indent=2) if args.json else _render_usage(value))
     elif args.command == "board":
         digest_file = root / "board" / "rounds" / f"r{args.number:03d}" / "digest.md"
         if not digest_file.is_file():

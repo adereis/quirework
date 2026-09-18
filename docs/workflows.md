@@ -86,6 +86,15 @@ rotated by round number. It never summarizes. The staged packet and the
 standing assignment are frozen and checked before every turn; the board
 is not, because it is the one thing that is meant to change.
 
+`quirework sop room usage ROOM` reads the seats' own receipts and says
+what each one spent. Every harness reports usage in its own shape and
+only Claude quotes a price, so the command names the harnesses it cannot
+price rather than leaving them out of a total: a room missing half its
+seats reports a cheaper room than the one that ran. Codex counts cached
+tokens inside its input figure and Claude counts them beside it, which
+the output states rather than reconciling into a number no receipt
+contains.
+
 `quirework sop room follow ROOM SEAT` prints one seat's side of the room
 as it happens: the turn it was given, what it decided to do, its
 reasoning and its post. Tool results are dropped, because a single file

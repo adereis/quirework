@@ -735,3 +735,65 @@ def test_shown_abbreviates_only_the_home_prefix(tmp_path, monkeypatch):
     # Not a prefix match on the string: a sibling directory keeps its name.
     assert shown(Path(f"{tmp_path}-other") / "x") == f"{tmp_path}-other/x"
     assert shown(Path("/etc/hosts")) == "/etc/hosts"
+
+
+def test_usage_normalizes_three_native_shapes():
+    """Each harness names the same quantities differently; one place knows."""
+    codex = drivers.usage_totals(
+        "codex",
+        {
+            "input_tokens": 1000,
+            "cached_input_tokens": 900,
+            "output_tokens": 50,
+            "reasoning_output_tokens": 20,
+        },
+    )
+    agy = drivers.usage_totals(
+        "agy",
+        {
+            "input_tokens": 1000,
+            "output_tokens": 50,
+            "thinking_tokens": 20,
+            "cache_read_tokens": 900,
+        },
+    )
+    claude = drivers.usage_totals(
+        "claude",
+        {
+            "claude-opus-5": {
+                "inputTokens": 100,
+                "outputTokens": 50,
+                "thinkingTokens": 20,
+                "cacheReadInputTokens": 900,
+                "costUSD": 1.5,
+            }
+        },
+    )
+    for counted in (codex, agy, claude):
+        assert (counted["output"], counted["reasoning"]) == (50, 20)
+        assert counted["cache_read"] == 900
+    # Only Claude quotes a price, and the others must say so rather than zero:
+    # a room whose cost is partly unknown is not a cheaper room.
+    assert claude["cost_usd"] == 1.5
+    assert codex["cost_usd"] is None and agy["cost_usd"] is None
+    # Codex counts cached tokens inside its input figure; Claude does not.
+    assert codex["cache_inside_input"] and not claude["cache_inside_input"]
+    assert drivers.usage_totals("claude", {}) is None
+
+
+def test_a_rooms_usage_names_the_seats_it_cannot_price(prepared):
+    """The failure this exists to prevent is a total that omits seats."""
+    for seat, payload in (
+        ("ana-pell", {"input_tokens": 10, "output_tokens": 5}),
+        ("bo-larke", {"input_tokens": 10, "output_tokens": 7}),
+    ):
+        record = prepared / "records" / seat / "r001"
+        record.mkdir(parents=True)
+        write(record / "receipt.json", {"usage": payload})
+    value = room.usage(prepared)
+    assert [r["output"] for r in value["seats"]] == [5, 7]
+    # Both seats are agy in this fixture, so nothing is priced at all.
+    assert all(r["cost_usd"] is None for r in value["seats"])
+    text = room._render_usage(value)
+    assert "no price reported by agy" in text
+    assert "the room cost more than this" in text

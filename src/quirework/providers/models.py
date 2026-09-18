@@ -699,3 +699,68 @@ def receipt(config, record, private, *, manual=False, resumed=None):
         "native_transcripts": [str(p) for p in native],
         "answer": answer,
     }
+
+
+# What each harness calls the same quantity, and the one place that knows it.
+# Three adapters report usage in three native shapes, so a caller adding up a
+# mixed room either restates this mapping or silently reads only the seats it
+# happens to understand. A first attempt at totalling a four-seat room summed
+# two of them and printed a figure that looked complete.
+#
+# `input` and `cache_read` are reported as the harness counts them, and the
+# harnesses do not agree: Codex counts cached tokens inside `input_tokens`,
+# Claude counts them beside it. Reconciling that here would mean inventing a
+# number no receipt contains, so the difference is surfaced instead.
+USAGE_FIELDS = {
+    "codex": {
+        "input": "input_tokens",
+        "output": "output_tokens",
+        "reasoning": "reasoning_output_tokens",
+        "cache_read": "cached_input_tokens",
+    },
+    "agy": {
+        "input": "input_tokens",
+        "output": "output_tokens",
+        "reasoning": "thinking_tokens",
+        "cache_read": "cache_read_tokens",
+    },
+    "claude": {
+        "input": "inputTokens",
+        "output": "outputTokens",
+        "reasoning": "thinkingTokens",
+        "cache_read": "cacheReadInputTokens",
+        "cost_usd": "costUSD",
+    },
+}
+CACHE_INSIDE_INPUT = ("codex",)
+
+
+def usage_totals(harness, usage):
+    """One receipt's usage in common terms, or nothing if it reported none.
+
+    Claude nests usage under the model that served the turn and is the only
+    harness reporting a price, so `cost_usd` is None elsewhere rather than
+    zero: a room whose cost is partly unknown must not read as a cheaper room.
+    """
+    fields = USAGE_FIELDS.get(harness)
+    if not fields or not isinstance(usage, dict) or not usage:
+        return None
+    rows = (
+        [v for v in usage.values() if isinstance(v, dict)]
+        if harness == "claude"
+        else [usage]
+    )
+    if not rows:
+        return None
+    totals = {name: 0 for name in ("input", "output", "reasoning", "cache_read")}
+    cost = 0.0 if "cost_usd" in fields else None
+    for row in rows:
+        for name in totals:
+            totals[name] += row.get(fields[name]) or 0
+        if cost is not None:
+            cost += row.get(fields["cost_usd"]) or 0.0
+    return {
+        **totals,
+        "cost_usd": cost,
+        "cache_inside_input": harness in CACHE_INSIDE_INPUT,
+    }
