@@ -156,3 +156,27 @@ def test_every_launcher_takes_the_whole_window_and_refuses_compaction():
         assert "--autocompact" in args
 
     assert d.window_flags({"harness": "agy"}) == []
+
+
+def test_codex_resume_drops_flags_its_subcommand_rejects(tmp_path):
+    """`codex exec resume` accepts neither `-s` nor `-C` and refuses the turn.
+
+    The refusal is an argument error on stderr and an empty event stream, so
+    it surfaces much later as "no unique completed turn" and looks like a
+    model failure rather than a malformed command. The sandbox still travels
+    as config; the working directory needs no flag because the jail has
+    already put the process inside the workspace.
+    """
+    config = {
+        "harness": "codex",
+        "model": "gpt-5.5",
+        "effort": "high",
+        "max_context_window": 400000,
+        "effective_context_window_percent": 100,
+    }
+    fresh, _ = d.command(config, tmp_path, "write something")
+    resumed, _ = d.command(config, tmp_path, "carry on", resume="a-session-id")
+    assert "-s" in fresh and "-C" in fresh
+    assert "-s" not in resumed and "-C" not in resumed
+    assert 'sandbox_mode="workspace-write"' in resumed
+    assert resumed[:4] == ["codex", "exec", "resume", "a-session-id"]

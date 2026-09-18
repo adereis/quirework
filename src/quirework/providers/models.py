@@ -13,10 +13,9 @@ import shutil
 import subprocess
 import time
 from pathlib import Path
-from quirework.project import current_project
 
-from quirework.providers import blind
-from quirework.providers import quota
+from quirework.project import current_project
+from quirework.providers import blind, quota
 
 HARNESSES = ("codex", "claude", "agy")
 
@@ -221,11 +220,17 @@ def command(config, workspace, prompt, *, manual=False, resume=None):
             "project_doc_max_bytes=0",
             "-c",
             "features.multi_agent=false",
-            "-s",
-            "workspace-write",
-            "-C",
-            str(workspace),
         ]
+        # `codex exec resume` accepts neither `-s` nor `-C`: it refuses the
+        # argument outright and the turn produces no events at all, which
+        # surfaces later as "no unique completed turn" rather than as the
+        # argument error it is. The sandbox still travels as config, and the
+        # working directory needs no flag because the jail has already chdir'd
+        # the process into the workspace.
+        if resume and not manual:
+            args += ["-c", 'sandbox_mode="workspace-write"']
+        else:
+            args += ["-s", "workspace-write", "-C", str(workspace)]
         if manual:
             return args + [prompt], None
         return args + ["--skip-git-repo-check", "--json", "-"], prompt.encode()
