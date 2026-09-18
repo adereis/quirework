@@ -190,13 +190,15 @@ def start_text(root, plan, seat):
     starts writing like one. `{{persona}}` is a slot personas.compose fills in
     place, which keeps a machine header off the top of a person's character.
     """
-    work = root / "seats" / seat["id"]
-    reads = "".join(f"- {work / 'input' / rel}\n" for rel in seat["reads"])
+    # Relative to the seat's own workspace, which the jail makes its working
+    # directory. An absolute path here is the operator's home layout, restated
+    # in a writer's context on every turn, naming a machine they cannot see.
+    reads = "".join(f"- input/{rel}\n" for rel in seat["reads"])
     text = (
         "{{persona}}\n\n"
         "You are in a room of writers working on the same material.\n\n"
         f"Read:\n\n{reads}\n"
-        f"Post to {work / 'outbox' / 'post.md'}, replacing your last post each\n"
+        "Post to outbox/post.md, replacing your last post each\n"
         f"time. That file is what the room sees. About {plan['post_words']} words.\n"
     )
     roster = holdings(plan)
@@ -235,31 +237,33 @@ def turn_prompt(root, plan, seat, n):
     post goes -- is already in the session from the first turn, so repeating
     it every round would buy nothing and cost tokens on every seat.
     """
-    work = root / "seats" / seat["id"]
     phase = phase_for(plan, n)
     words = phase.get("words", plan["post_words"])
     extra = phase.get("instruction", "").strip()
+    # Relative to the seat's workspace, as in the standing assignment: this
+    # line is sent on every round, so an absolute path is the operator's home
+    # directory spelled out again in a writer's context every time the room
+    # moves, for a file they are already standing next to.
     if n == 1 or n in plan["silent_rounds"]:
         text = (
-            f"Read {work / 'START.md'} and post. Nobody has posted yet, so say "
+            "Read START.md and post. Nobody has posted yet, so say "
             "what you think before you hear anyone else."
         )
     else:
-        board = work / "board" / f"round-{n - 1:03d}" / "digest.md"
         text = (
-            f"The board has moved: {board}. Read it and post again, replacing "
-            "what is there. Answer your colleagues by name."
+            f"The board has moved: board/round-{n - 1:03d}/digest.md. Read it "
+            "and post again, replacing what is there. Answer your colleagues "
+            "by name."
         )
         missed = [r for r in range(1, n) if seat["id"] not in acting(plan, r)]
         if missed:
             # A seat that sat out a phase comes back to a board it has not
             # read. Saying only "the board has moved" would have it answer the
             # last round as though it were the whole conversation.
-            earlier = work / "board"
             text += (
                 f" You did not post in round{'s' if len(missed) > 1 else ''} "
                 f"{', '.join(str(r) for r in missed)}; those boards are in "
-                f"{earlier} and are worth reading first."
+                "board/ and are worth reading first."
             )
     if words != plan["post_words"]:
         text += f" About {words} words this time."

@@ -2,6 +2,7 @@
 
 import fnmatch
 import json
+from pathlib import Path
 
 import pytest
 
@@ -711,3 +712,16 @@ def test_a_room_without_phases_still_stops_when_it_converges(prepared, monkeypat
     played, why = room.run_until(prepared)
     assert ran == [1]
     assert why == "converged on novelty"
+
+
+def test_a_seat_is_told_paths_it_can_use_where_it_stands(staged):
+    """The jail chdirs into the workspace, so the operator's home is noise."""
+    _, frozen = room.load(staged)
+    seat = next(s for s in frozen["seats"] if s["id"] == "bo-larke")
+    standing = (staged / "seats" / "bo-larke" / "START.md").read_text()
+    moving = room.turn_prompt(staged, frozen, seat, 2)
+    for text in (standing, moving):
+        assert str(staged) not in text
+        assert str(Path.home()) not in text
+    assert "input/brief.md" in standing and "outbox/post.md" in standing
+    assert "board/round-001/digest.md" in moving
