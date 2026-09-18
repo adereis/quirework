@@ -510,6 +510,20 @@ def _content_words(text):
     return {w for w in WORD.findall(text.lower()) if w not in COMMON and len(w) > 3}
 
 
+def spoke(root, plan, n):
+    """The seats that both acted in round ``n`` and left a post to read.
+
+    A seat that was not seated by the phase never had a turn, and a seat whose
+    turn produced nothing is recorded absent. Neither has said anything the
+    stop rule may read as the room running out of things to say.
+    """
+    return [
+        name
+        for name in acting(plan, n)
+        if (root / "board" / "posts" / name / f"r{n:03d}.md").exists()
+    ]
+
+
 def convergence(root, plan, n):
     """How close the room is to having nothing left to say, after round ``n``.
 
@@ -525,9 +539,14 @@ def convergence(root, plan, n):
     series = []
     for number in range(1, n + 1):
         novel, closers = [], 0
-        for name in seats:
-            post = root / "board" / "posts" / name / f"r{number:03d}.md"
-            text = post.read_text() if post.exists() else ""
+        # Only the seats that spoke. A resting seat scored zero novelty and was
+        # averaged in with the rest, so a phase that seats one writer read as a
+        # room three-quarters out of things to say: the drafting round of the
+        # first real room reported convergence at 15 percent while the drafter
+        # was putting the first new page of the book on the board. Silence
+        # under a phase is not a seat repeating itself. It is not a turn.
+        for name in spoke(root, plan, number):
+            text = (root / "board" / "posts" / name / f"r{number:03d}.md").read_text()
             words = _content_words(text)
             novel.append(100 * len(words - seen[name]) / max(1, len(words)))
             seen[name] |= words
@@ -535,14 +554,17 @@ def convergence(root, plan, n):
         series.append(
             {
                 "round": number,
-                "novelty": round(sum(novel) / len(seats), 1),
-                "closing": round(closers / len(seats), 2),
+                "novelty": round(sum(novel) / len(novel), 1) if novel else None,
+                "closing": round(closers / len(novel), 2) if novel else None,
             }
         )
     quiet_at = plan.get("stop_novelty", STOP_NOVELTY)
     closed_at = plan.get("stop_closing", STOP_CLOSING)
     last = series[-2:]
-    usable = [x for x in last if x["novelty"] is not None]
+    # A round nobody spoke in measures nothing, so it cannot be one of the two
+    # consecutive rounds that stop a room. Dropping it instead would let two
+    # rounds either side of it read as consecutive when they are not.
+    usable = last if all(x["novelty"] is not None for x in last) else []
     quiet = len(usable) == 2 and all(x["novelty"] <= quiet_at for x in usable)
     closed = len(usable) == 2 and all(x["closing"] >= closed_at for x in usable)
     return {
@@ -903,6 +925,15 @@ def run_until(root, *, limit=None, jobs=2, timeout=None):
     request, and this only decides when to stop asking for another. Leaving
     the decision to the room itself is the one thing that does not work, since
     a room with nothing left to say goes on writing paragraphs.
+
+    A room that declared phases is not asked. Its schedule already says how
+    long it runs and in what order, and the stop rule reads a board, not a
+    plan: the signal cannot tell "these writers have exhausted the question"
+    from "this phase is two rounds of notes on a draft, and the revision that
+    answers them comes next." Stopping such a room mid-schedule ships the
+    draft nobody rewrote. The signal is still measured and still recorded on
+    every round, because an operator watching a phased room still wants to
+    know when a discussion has gone quiet.
     """
     root = room_root(root)
     played = []
@@ -917,7 +948,7 @@ def run_until(root, *, limit=None, jobs=2, timeout=None):
         outcome = run_round(root, number, jobs=jobs, timeout=timeout)
         played.append((number, outcome))
         signal = outcome["_board"]["convergence"]
-        if signal["converged"]:
+        if signal["converged"] and not plan.get("phases"):
             return played, f"converged on {signal['reason']}"
 
 

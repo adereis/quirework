@@ -647,3 +647,67 @@ def test_window_assurance_separates_pinned_from_merely_watched():
     # seat there can only be watched after the fact.
     assert drivers.window_flags({"harness": "agy"}) == []
     assert drivers.window_assurance("agy") == "detected"
+
+
+@pytest.fixture
+def phased(tmp_path, plan):
+    """A room whose middle round seats one writer, as a drafting phase does."""
+    supplied = json.loads(plan.read_text())
+    supplied["phases"] = [
+        {"name": "discuss", "rounds": 1},
+        {"name": "draft", "rounds": 1, "seats": ["ana-pell"]},
+        {"name": "read", "rounds": 1},
+    ]
+    write(plan, supplied)
+    room.prepare(plan, tmp_path / "phased", resolve_models=False)
+    return tmp_path / "phased"
+
+
+def test_a_resting_seat_is_not_a_seat_with_nothing_to_say(phased):
+    """A drafting phase must not read as a room three-quarters finished."""
+    post(phased, "ana-pell", "Opening position about lighthouses and keepers.")
+    post(phased, "bo-larke", "Rival position about harbours and charts.")
+    room.promote(phased, 1)
+    # Round two seats only the drafter. The other seat is listening.
+    post(phased, "ana-pell", "Wholly fresh vocabulary: gulls, fog, rope, brass.")
+    room.promote(phased, 2)
+    _, value = room.load(phased)
+    signal = room.convergence(phased, value, 2)
+    assert room.spoke(phased, value, 2) == ["ana-pell"]
+    # Measured on the seat that spoke, this is a high-novelty round. Averaged
+    # over the whole room it used to land near a quarter of that.
+    assert signal["novelty"] > 50
+    assert not signal["converged"]
+
+
+def test_a_declared_schedule_is_not_cut_short_by_the_stop_rule(phased, monkeypatch):
+    """A phased room's schedule says how long it runs; the board does not."""
+    ran = []
+
+    def fake_round(root, n, **kw):
+        ran.append(n)
+        # Publishing the round is what advances the loop's own counter.
+        (root / "board" / "rounds" / f"r{n:03d}").mkdir(parents=True)
+        return {"_board": {"convergence": {"converged": True, "reason": "novelty"}}}
+
+    monkeypatch.setattr(room, "run_round", fake_round)
+    # Every round reports convergence. A room without phases stops at the
+    # first one; this room owes three rounds and a revision.
+    played, why = room.run_until(phased)
+    assert ran == [1, 2, 3]
+    assert why == "budget"
+
+
+def test_a_room_without_phases_still_stops_when_it_converges(prepared, monkeypatch):
+    """The stop rule keeps the case it was built for: one open discussion."""
+    ran = []
+
+    def fake_round(root, n, **kw):
+        ran.append(n)
+        (root / "board" / "rounds" / f"r{n:03d}").mkdir(parents=True)
+        return {"_board": {"convergence": {"converged": True, "reason": "novelty"}}}
+
+    monkeypatch.setattr(room, "run_round", fake_round)
+    played, why = room.run_until(prepared)
+    assert ran == [1]
+    assert why == "converged on novelty"

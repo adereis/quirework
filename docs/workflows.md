@@ -137,6 +137,20 @@ moves the thresholds with `stop_novelty` and `stop_closing`. A single
 `round` still runs on request; the rule decides when to stop asking for
 another, never what a writer may say.
 
+Both signals are measured over the seats that spoke, not the whole room.
+A seat resting under a phase has not repeated itself and has not fallen
+quiet: it had no turn. Averaging its silence in made a drafting round
+read as a room with nothing left to say, which is the opposite of what a
+drafting round is.
+
+A room that declared phases is not asked to stop at all. Its schedule
+already states how long it runs and in what order, and the signal reads
+a board rather than a plan: it cannot tell a question that is exhausted
+from two rounds of notes whose answering revision comes next. Stopping
+there ships the draft nobody rewrote. The signal is still measured and
+recorded every round, so an operator can see a discussion go quiet, and
+`extend` still raises the budget when a schedule turns out to be short.
+
 The declared round count is the starting budget, and `extend` raises it.
 The budget lives outside the frozen plan on purpose: the plan holds what
 the writers were promised and must stay byte-identical for its digest to
