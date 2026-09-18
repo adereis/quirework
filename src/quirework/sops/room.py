@@ -727,6 +727,30 @@ def _terminate(proc):
             continue
 
 
+def compaction(stream):
+    """Compaction markers in one turn's event stream, if the harness said so.
+
+    A room's whole economy rests on a round being a resume: the seat keeps its
+    reading and its reasoning and is handed only what changed. Compaction is
+    that continuity being silently rewritten mid-conversation, which is why
+    `docs/workflows.md` makes it a red flag for every procedure that invokes a
+    harness. The room had no way to raise it, so a compacted room and a clean
+    one produced identical records.
+
+    Detected, never enforced: the answer is already bought and stays
+    available, and a supervisor decides what a compacted round is worth.
+    """
+    if not stream.exists():
+        return []
+    try:
+        return observe.compaction_markers(observe.native_rows(stream))
+    except (ValueError, OSError):
+        # A malformed or truncated stream is the failure the receipt already
+        # reports. It must not also turn into a missing compaction check that
+        # reads as a clean one.
+        return [{"timestamp": None, "tags": ["unreadable-stream"]}]
+
+
 def run_seat(root, plan, seat, n, *, timeout=None):
     """Run one seat's turn for round ``n``: launch it, or resume its session."""
     name = seat["id"]
@@ -807,6 +831,7 @@ def run_seat(root, plan, seat, n, *, timeout=None):
         status, detail = "answered", None
     except (RuntimeError, ValueError, OSError) as exc:
         got, status, detail = {}, "failed", str(exc)
+    compacted = compaction(record / "events.jsonl")
     write(
         record / "receipt.json",
         {
@@ -815,8 +840,11 @@ def run_seat(root, plan, seat, n, *, timeout=None):
             "seconds": seconds,
             "timed_out": timed_out,
             "error": detail,
+            "compaction_markers": compacted,
         },
     )
+    if compacted:
+        event(root, round=n, seat=name, event="compacted", markers=len(compacted))
     state = read(state_path(root, name))
     if got.get("session_id"):
         state["session_id"] = got["session_id"]
@@ -930,6 +958,14 @@ def status(root):
         "rounds": budget(root, plan),
         "published_rounds": published,
         "seats": seats,
+        # Read from the trail rather than from every receipt: the trail is
+        # already open, and a red flag an operator has to go looking for is
+        # one they will find after deciding the room went fine.
+        "compacted": [
+            {"seat": r.get("seat"), "round": r.get("round")}
+            for r in rows
+            if r.get("event") == "compacted"
+        ],
         "last_events": rows[-8:],
     }
 
@@ -949,6 +985,16 @@ def _render(value):
             f"  {number}. {seat['label']:<{width}}  {seat['status'] or 'prepared':<10}"
             f"  posts: {len(seat['posts'])}{drafting}"
         )
+    if value.get("compacted"):
+        where = ", ".join(
+            f"{r['seat']} in round {r['round']}" for r in value["compacted"]
+        )
+        lines += [
+            "",
+            f"  COMPACTED: {where}",
+            "  a compacted round lost context "
+            "it was resumed to keep; review before trusting it",
+        ]
     if value["last_events"]:
         lines += ["", "  recent:"]
         for row in value["last_events"]:

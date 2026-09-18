@@ -87,6 +87,35 @@ def test_prepare_ignores_the_seats_runner_homes(prepared):
     )
 
 
+def test_compaction_is_detected_and_raised(prepared, tmp_path):
+    """A compacted round must not be indistinguishable from a clean one."""
+    stream = tmp_path / "events.jsonl"
+    stream.write_text(
+        '{"type": "assistant", "timestamp": "t0"}\n'
+        '{"type": "system", "subtype": "compact_boundary", "timestamp": "t1"}\n'
+    )
+    assert room.compaction(stream) == [
+        {"timestamp": "t1", "tags": ["compact_boundary"]}
+    ]
+    assert room.compaction(tmp_path / "absent.jsonl") == []
+
+
+def test_an_unreadable_stream_never_reads_as_clean(prepared, tmp_path):
+    """Silence about compaction is a claim, so a broken stream may not make it."""
+    stream = tmp_path / "events.jsonl"
+    stream.write_text("this is not json\n")
+    assert room.compaction(stream) == [
+        {"timestamp": None, "tags": ["unreadable-stream"]}
+    ]
+
+
+def test_status_surfaces_a_compacted_round(prepared):
+    room.event(prepared, round=2, seat="ana-pell", event="compacted", markers=1)
+    value = room.status(prepared)
+    assert value["compacted"] == [{"seat": "ana-pell", "round": 2}]
+    assert "COMPACTED" in room._render(value)
+
+
 def test_seats_get_different_packets(prepared):
     """Asymmetric exposure is the point; a shared packet would be a bug."""
     ana = {
