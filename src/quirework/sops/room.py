@@ -96,6 +96,17 @@ seats/*.blind-state/
 """
 
 
+def spelled_as_path(value):
+    """Whether the operator spelled a path rather than naming a room.
+
+    The rule lives here rather than inside `room_root` so a caller can say
+    which of the two resolutions it used without restating the rule and
+    drifting from it.
+    """
+    text = str(value)
+    return "/" in text or text.startswith("~")
+
+
 def room_root(value, *, must_exist=True):
     """Resolve a room by name under the project, or by an explicit path.
 
@@ -109,7 +120,7 @@ def room_root(value, *, must_exist=True):
     remembering where the state root hashed it to.
     """
     text = str(value)
-    if "/" in text or text.startswith("~"):
+    if spelled_as_path(text):
         root = Path(text).expanduser().resolve()
     else:
         root = (current_project().state_root / ROOMS / identifier(text)).resolve()
@@ -1275,6 +1286,15 @@ def main(argv=None):
         destination = room_root(args.destination, must_exist=False)
         value = prepare(args.plan, destination)
         print(f"prepared {len(value['seats'])} seats in {destination}")
+        if not spelled_as_path(args.destination):
+            # The destination is printed either way, but a state-root path is
+            # long, unfamiliar and easy to read past. An operator who meant a
+            # directory here finds out now rather than at the next command.
+            print(
+                f"{args.destination!r} names a room in this project's store; "
+                f"write ./{args.destination} for a room in the current "
+                "directory"
+            )
         return 0
     root = room_root(args.root)
     if args.command == "round":
