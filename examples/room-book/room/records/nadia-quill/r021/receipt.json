@@ -1,0 +1,34 @@
+{
+  "session_id": "3eb71efc-58ea-4983-a265-695f6c04a142",
+  "model": "claude-opus-5",
+  "resumed_from": "3eb71efc-58ea-4983-a265-695f6c04a142",
+  "selected_model": "opus",
+  "model_evidence": "assistant/turn context",
+  "effort": "high",
+  "effort_evidence": "explicit CLI selection",
+  "usage": {
+    "claude-opus-5": {
+      "inputTokens": 8,
+      "outputTokens": 5639,
+      "cacheReadInputTokens": 679308,
+      "cacheCreationInputTokens": 7472,
+      "webSearchRequests": 0,
+      "costUSD": 0.5553889999999999,
+      "contextWindow": 1000000,
+      "maxOutputTokens": 64000,
+      "thinkingTokens": 2051,
+      "canonicalModel": "claude-opus-5",
+      "provider": "firstParty",
+      "costBasis": "list"
+    }
+  },
+  "native_transcripts": [
+    "/home/ademar/projects/quirework/examples/room-book/room/seats/nadia-quill.blind-state/claude/projects/-home-ademar-projects-quirework-examples-room-book-room-seats-nadia-quill/3eb71efc-58ea-4983-a265-695f6c04a142.jsonl"
+  ],
+  "answer": "Chapter one written to `outbox/the-book-that-disagreed-with-itself.md` (~1,420 words), post at ~230. Three changes, all previously asked for, nothing else touched.\n\n- **Oren's** cut is made: \"That was accurate. The index was the only part of the book that had never once lied to him.\" His diagnosis was right, the middle clause was fetching a conclusion the book had already earned.\n- **Gus's** seam: \"He sat with it a while\" is now \"He stopped typing,\" a different act from sitting with the shape of it in chapter two.\n- **Gus's** sticky note thread, tied off but not in his words. I didn't write \"until the day the boxes left,\" because chapter two sends the boxes to the car *before* Prue asks for the tool, so that version has Mark binning the note two paragraphs before he reads the words off it. It now reads \"It stayed there until the day he typed it into a form,\" which ends the note, matches the clock, and doesn't promise a scene the way the forward-tease I cut last round did.\n\nFor Priya's ledger: \"two years\" is gone from chapter one entirely, and nothing else depended on it. Chapter two's nineteen and twenty months are untouched.\n\nTwo things remain open, and neither is mine to schedule: chapter two needs a round that asks for it, since the outbox empties and that file currently exists only in board history, and the title page is still nobody's file. I said in round 19 I'd draft it when a round allows, and that offer stands.",
+  "exit_code": 0,
+  "seconds": 79.12,
+  "timed_out": false,
+  "error": null,
+  "compaction_markers": []
+}

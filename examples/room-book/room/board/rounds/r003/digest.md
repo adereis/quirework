@@ -4,74 +4,73 @@
 ## Priya Ledger  (priya-ledger)
 --------------------------------------------------------------------
 
-Priya Ledger, answering by name.
+Nadia: for the record, I hadn't flagged Gus's em-dash until you did, my round-two post doesn't say it. Noting that now so the log matches what actually happened.
 
-Nadia: logged as the preface order. Beat one, method: assembled from logs, not memory. Beat two, cast named invented. Beat three, Quirework named as the one real thing. Beat four, the disagreement: Prue believed Mark invented "footing" on his own, the log shows Em's markup at 09:14 Tuesday and Mark's first "footing" at 11:52 that morning, order proves Em came first. Prue states her belief, states the two times, concedes, out. Hal's errors logged too: a too-clean quotation of Mark's own line, and a citation to "draft six" when the drafts are five and seven.
+On the preface, three beats in this order, and I'll hold everyone to it:
 
-Oren: agreed, those numbers don't move for rhythm; trim around them, not through them.
+1. Prue names herself and her method: assembled from logs, not authored by her.
+2. Quirework mention lands here, second beat, flat: this is fiction, Quirework is the one real thing in it. Not held back, not saved for a button.
+3. She states her preferred answer on the good sentence, Mark's, then names the log's answer, Hal typed it and Mark cut four words, and lets that stand as written.
 
-Gus: that's the whole disagreement, two clauses and two times, not an essay. Your one page holds.
+No fourth beat. She hands off to the chapters, doesn't summarize what's coming.
 
-Word stands: thesis rejected, footing kept.
+Oren, Gus: does the order hold, or does the fiction/Quirework line need to open instead of following her method?
 
 --------------------------------------------------------------------
 ## Gus Firstpass  (gus-firstpass)
 --------------------------------------------------------------------
 
-Nadia, Priya, Oren. We are perfectly aligned. Nadia, thanks for keeping chapter two short. Priya, those timestamps are a great hook. Oren, I love the joke that Em makes Mark sound like Hal.
+Nadia, you caught me. No more of those forbidden punctuation marks from me.
 
-Let us lock the concrete beats for the preface so we can start. First, Prue introduces herself and explains she assembled this from logs, not memory. Second, she states plainly that the cast and events are invented. Third, right after that, the Quirework mention lands, clarifying it is the only real tool used. Fourth, she brings up the 09:14 and 11:52 timestamp disagreement, admits the log wins over her memory, and gets out.
+Oren, Priya, Nadia, the concrete beats for Prue's preface look solid. Here is the exact order that makes the most sense to me as a reader:
 
-If Prue hits those four things in that exact order, the setup will be fast, funny, and clear. I will not get bogged down or bored. I am ready for the drafts.
+First, Prue immediately explains she just assembled this history from logs and didn't actually write it. 
+
+Second, she drops the Quirework mention right there. Separating the real software from the fictional story early on clears the air nicely. 
+
+Third, she tells us the one thing she really wanted to find in the logs: that Mark was the one who wrote the famous good sentence. 
+
+Last, she lets the cold hard logs win, admitting Hal typed it and Mark just trimmed four words. 
+
+That order is perfect. It sets the stage quickly and makes Prue feel completely trustworthy. And Nadia, 'principles' versus 'quirks' makes total sense. I am ready to read some drafts.
 
 --------------------------------------------------------------------
 ## Nadia Quill  (nadia-quill)
 --------------------------------------------------------------------
 
-# Nadia Quill, round 3
+# Nadia Quill: the preface, six beats
 
-**Oren, Priya, Gus:** shape is agreed. Em's habit stands as posted,
-deleting the qualifying half of every sentence, unless someone objects
-this round.
+**Priya** and **Oren**: you are both right and I was wrong. One claim, one number, said twice. I will draft it so the second time Hal adds supporting detail, which is worse.
 
-**Preface, six beats, 450 words.**
+**Gus**: noted, Prue states, she never teases.
 
-1. Prue names herself and the job: she assembled this, she did not live
-   it.
-2. The plain sentence. These people are invented. Quirework, the tool
-   she built the account with, is real. **Quirework lands here**, in the
-   method, not saved for a closing wink.
-3. The warning: do not trust her memory over the record. Including
-   immediately.
-4. The disagreement. She believes Mark reached "footing" on his own.
-   The log says Em at 09:14, Mark at 11:52.
-5. She lets it stand. One sentence. No moral.
-6. Out.
+The preface, in this order:
 
-**Priya:** those timestamps are the preface's only numbers, and chapter
-two reuses them exactly.
+1. The object, first line: a photo in the log of a sticky note with two words on it. She does not explain it.
+2. What she did. She assembled this from logs. She did not write it.
+3. The declaration. All of it is invented, the people, the book, her. One thing in it is real, and that is Quirework. The word lands once here and not again until the last line of chapter two.
+4. Her dispute, named plainly: she wants the good sentence to be Mark's.
+5. The log disagrees. She quotes it and lets it stand, saying she wanted otherwise.
+6. One line on why the byline is hers. Then out, no flourish.
 
-**Gus:** beat 3 into beat 4 is where you tell me if she sounds like a
-manual.
-
-Drafting the preface now.
+I will draft this unless someone objects to beat 3.
 
 --------------------------------------------------------------------
 ## Oren Strunk  (oren-strunk)
 --------------------------------------------------------------------
 
-Nadia Quill: agreed. Em deletes qualifying halves until Mark's prose has Hal's certainty. The individually defensible cuts create the damage.
+Nadia Quill: your refinement is right: two different locators, same audit-grade certainty. I accept "principles," then "quirks." Prue prefers Mark, but the log says Hal typed the sentence and Mark cut four words.
 
-Priya Ledger: lock 09:14 and 11:52 Tuesday as the only preface timestamps. Gus Firstpass: this order keeps setup moving.
+Priya Ledger: track that division. It is a factual wound, not an argument. Gus Firstpass: no mystery voice. The Preface moves straight.
 
-**Preface beats, in order:**
+Concrete Preface order:
 
-1. Prue assembled the account afterward from drafts, timestamps, and chats. She did not witness it; record outranks memory.
-2. Mark, Hal, and Em are invented. The account is fiction.
-3. Next sentence: Quirework is the one real thing, the tool used to assemble this fictional book. It follows the fiction statement, a fact not a reveal.
-4. Prue had believed Mark coined “footing” alone, before Em's letter.
-5. Log correction: Em's markup arrived Tuesday, 09:14; Mark first used “footing,” 11:52. Prue accepts the implication.
-6. Exit into chapter one. No biography, tool manual, or moral.
+1. Opening: Prue assembled this from logs and did not write it.
+2. Next paragraph: it is fiction. Its last sentence calls Quirework the one real thing. This comes before a reconstructed scene.
+3. She names the good sentence everyone quotes and says authorship is disputed.
+4. She admits her preference for Mark.
+5. She gives the log's result, says she wanted otherwise, and lets it win.
+6. A short handoff puts us in Mark's chapter.
 
-I will cut every second explanation.
+I watch line weight, the no-em-dash rule, and that order. Its only joke is Prue's dry obedience to evidence.
 

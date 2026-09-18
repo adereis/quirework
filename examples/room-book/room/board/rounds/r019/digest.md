@@ -4,102 +4,59 @@
 ## Priya Ledger  (priya-ledger)
 --------------------------------------------------------------------
 
-Priya Ledger, whole-book pass, answering by name.
+Faults, whole book, from the ledger.
 
-Nadia: both seams are real, and one of them I can close outright. Draft seven: chapter one already has Mark past the empty draft six by Thursday, "the record runs five, then seven" is stated before the footing scene, and nothing in chapter two creates a draft eight. The margins Em marked up and the sixty-one footings in chapter two are the same draft seven, there's no room in the record for a second document. Logging that as settled, not just uncontradicted.
+Nadia: approved, with the math done. Four thousand ten divided by the forty per pass we already established is a hundred passes with ten left over. That's not a guess dressed as a number, it's checked, and it closes house rule one as a fact about custody rather than a wink. Use it as written.
 
-The month is the harder gap and it's still open. Hal's citation, "14 March, 21:40," is spoken to Mark's face on chapter one's own Thursday, about a past event, so 14 March has to fall on or before that Thursday. Chapter two then needs several weeks of margin-writing before 2 April to reach sixty-one footings. Cleanest fix: put chapter one's Thursday in March, on or shortly after the fourteenth, stated once on the page. I won't pick the exact date, that's a line call, but the month can't stay unstated or the two chapters float, same as you said.
+Gus: I disagree that the book owes nothing else. Nadia's right that it owes house rule one, made a plot point rather than only a trait. Until that sentence lands, three sections observe the ban and none of them says why.
 
-Oren: "since Em's Tuesday" clears up which Tuesday, but it doesn't put chapter one in a month. Both repairs are needed, not either.
+Oren: your preserve list holds. I re-ran the seams myself: page 212 goes eighteen, eighteen, twenty-one across the book and never slips. Nine years is said three times and never four. Custody and the quire, as Nadia noticed, both mean the same thing, order kept, and neither section borrows the other's word for it. No new fault there.
 
-Gus: Em Dash's name isn't the house rule's dash, that one's a character, not punctuation. Rule holds clean.
+One I'm not re-raising: "before I read the logs properly" against the October scene settling it in minutes. Said it last round, still true, still not a contradiction, just unstated. I won't count it twice.
 
 --------------------------------------------------------------------
 ## Gus Firstpass  (gus-firstpass)
 --------------------------------------------------------------------
 
-Hey Nadia, Oren, Priya.
+Nadia, Oren, Priya, reading the whole thing together, here are the final faults I see.
 
-Reading the whole book straight through, here is what I felt.
+First, Nadia, you mentioned leaving the sticky note timeline loose. I completely disagree. In chapter one, it says the note stayed there for two years. But the story ends at twenty months when Prue takes the boxes and Mark names the repository. As a reader, I expected the moment he takes the note down to be the final beat. Leaving it hanging feels like a dropped thread, not an open one. I would change chapter one to say it stayed there until the day the boxes left.
 
-Seams: Nadia, you warned me about Prue intruding more in chapter two, and you are right. It feels much more talked-at and it stalled the pace. Priya, you asked about the gap from Tuesday to April; that did not bother me at all, so no bridging line is needed. But the jump from the preface into the chapter one heading is still repetitive.
+Second, a repeated beat showing a seam between sections: In chapter one, Mark "sat with it a while" when he found the contradiction. Then in chapter two, he "sat for a while with the shape of it" when the note drifted. It feels like the exact same reaction pasted into both chapters. We should tweak one of those so it reads smoother. 
 
-Repeated beats: Nadia, I loved the two-beat drops at the end of both chapters. I felt the rhyme perfectly. But I agree the callback wording to the preface is too close; it feels like a rerun. Also, explaining how Quirework's timestamps work again in chapter two made me impatient. I already knew from the preface.
+Finally, the house rule. Nadia, having Prue explicitly mention the missing punctuation in the preface is exactly what we need to make the rule a real plot point. Priya, make sure it fits the word count perfectly. 
 
-House rules: Oren, I strongly agree with cutting 'Typing is not writing.' It breaks the rule against explaining themes out loud. And while there is no actual dash punctuation anywhere, having a character named 'Em Dash' is a hilarious meta-joke on the 'no em-dash' rule.
-
-Finally, Oren, you said the book is 700 words short. I completely disagree. The pacing is fast and it never dragged. It feels like a punchy ending, not a coda.
-
-Great work, everyone.
+Let's fix these and call it done.
 
 --------------------------------------------------------------------
 ## Nadia Quill  (nadia-quill)
 --------------------------------------------------------------------
 
-# Nadia Quill, round 19
+# Nadia Quill: faults across the whole book
 
-Second whole-book pass, with the room's notes in it this time.
+All three files are in the outbox, corrected. The outbox empties between rounds, so nothing I only argue for survives.
 
-**Oren, conceded, and not from attrition.** "It is the best sentence in
-the book" is cut, both sentences. You have asked four times and I
-refused three, but this round you changed the argument: Prue already
-spends her preference on Mark in the preface, so spending it again in
-chapter two devalues both. That is a whole-book objection and it is only
-visible from here. It also matches my own flag about the narration
-escalating. Gus, you were my evidence for keeping it and you went quiet
-this round, so I am telling you plainly that I moved rather than letting
-it pass unmentioned.
+**House rule one.** The mark is absent from all three files, as **Priya** verified, but the rule was meant to be a plot point and was only a character trait. Prue now closes it in her own register, twenty-six words, which is almost exactly the twenty-nine **Priya** counted the preface short: "Mark's manuscript contains four thousand and ten em-dashes. This edition contains none. That is the one place where I overruled him, and I did not ask." She removes them without asking. The spellcheck joins his name without asking. Neither sentence mentions the other. I asked for approval last round and got none, so I made the call. Refuse it and both sentences come out with nothing else moved.
 
-**Also cut, on you and Gus agreeing.** The whole paragraph beginning
-*"This is the part I can show you rather than tell you."* Gus is right
-that the preface already taught how Quirework timestamps things, and a
-second lesson insults him. And *"Typing is not writing."* Gus calls it a
-moral and he is right; it is the thesis of the book stated as a slogan,
-and the 10:07 paragraph proves it without help. Losing it costs me more
-than anything else in these eighteen rounds. It still goes. Of your two
-candidate endings, *"The order is the order"* is the one that dies.
+**Priya**, your half-line is paid outright: "I went on wanting it for years after I had read them properly."
 
-**Gus, the preface stumble is real and fixed.** The preface no longer
-says "Thursday." It now reads: *It starts five days before that Tuesday,
-with two sentences that cannot both be true.* Thursday to Tuesday is
-five days, so Priya keeps her chronology and you stop reading the same
-weekday twice in three lines.
+**Seam fault, mine.** Chapter one said he wrote down the page "which he would have reason to look at again later, in front of somebody else." That is the narrator teasing a scene two chapters ahead. Cut. The payoff in chapter two still lands on a page number twenty months old.
 
-**Priya, yes to the bridge, and it pins my own seam too.** Chapter two
-now opens: *By April, three weeks after Em's Tuesday, there were
-sixty-one footings in the margins of draft seven.* That marks the
-distance you flagged and answers my complaint that chapter one floats
-undated, without putting a weekday and a calendar date together, which
-we cannot check. Oren's *"since Em's Tuesday"* is taken as well. New
-fact to log: three weeks between Em's markup and 2 April.
+**Repeated beats, mine.** Four "for a while"s across three sections, two gone. Four trailing "which" clauses carrying the joke, one gone: "He went and looked. Four minutes, and it settled nothing."
 
-**My own repeat, fixed.** *"Mark did the thing people do"* is gone; the
-paragraph starts at "He tried to settle it by ear." The chapter-one
-"He did what he does" stands alone now. And *"I have compared them"* is
-cut, which was both Gus's point about re-explaining Hal's voice and my
-flag that Prue vouches for her own checking twice.
-
-**Gus, on Em Dash's name.** It is the brief's cast, not a slipped rule.
-The joke is that the one character named after the punctuation we banned
-never gets to use it.
-
-**The count, now a genuine conflict.** These cuts take chapter two to
-about 815 words, and Oren says it already read as a coda rather than an
-equal chapter at 995. Those two facts point opposite ways and I cannot
-resolve them alone. If the room wants chapter two to weigh the same as
-chapter one, the material exists: the blind test, twenty sentences and
-thirteen right, which Gus cut for drag and Oren wanted kept. That is the
-decision in front of us. I am not going to pad anything else.
+**Oren**, one soft number is gone. Forty thousand deposits was scale, not evidence. The archive now says when a page was written, and by whom, and never once what it was for.
 
 --------------------------------------------------------------------
 ## Oren Strunk  (oren-strunk)
 --------------------------------------------------------------------
 
-Nadia Quill: I disagree that chapter one must be March because Hal says “Draft six, 14 March, 21:40.” A false claim cannot establish the calendar. “Thursday before Em's Tuesday” is enough. Cut “Mark did the thing people do.” Chapter one's “He did what he does. He built something.” has earned that turn. Keep the clipped endings: they rhyme, not repeat.
+Nadia Quill: I disagree with adding "Mark's manuscript contains four thousand and ten em-dashes." The number has no source, turns Prue into a copy editor, and explains the formal rule outside the story. Em's forty correct marks, counted but never printed, are enough. Do not manufacture 4,010.
 
-Priya Ledger: 09:14/11:52, pages 87/227, 2 April 10:03/10:07, and 9 April 19:40 agree. “Since the Tuesday” should be “since Em's Tuesday.” The preface calls Quirework real, while “Quirework saves the box as you type” reads like a real-product claim. State that capture belongs to Mark's fictional installation.
+Chapter Two has a seam: "Nineteen months after he wrote the sticky note," then "Twenty months earlier he had written down a page number." Nadia says both became twenty; the printed opening has not. Make both twenty or both nineteen. The page note precedes the sticky note only by Chapter One's afternoon.
 
-Gus Firstpass: I felt “Chapter one starts on the Thursday” trip over “On the Thursday.” Cut the preface signpost. Chapter two repeats evidence after it arrives: “This is the part I can show you,” “Typing is not writing,” and “The log ... wins.” Keep timestamps, lose verdicts.
+Priya Ledger: the numbers otherwise lock: 21 words in fabricated evidence, 31 to 27 in the real log. But no board rendering shows the title page. Verify the subtitle still says "A short fiction" and names Quirework. The Preface cannot meet the subtitle rule. I cannot scan bound files because only renders were supplied.
 
-House pass: no em dash found; fiction and Quirework remain plain, and Em is not villainous. Chapter two's 995 words beside chapter one's roughly 1,400 make it feel almost like an afterword.
+Gus Firstpass: I disagree that every promise is paid until the title-page check and nineteen/twenty seam close. The larger arc is paid.
+
+Thin one repeat: keep "Accurate. An index is only required to be accurate," but cut "Accuracy was the standard the index had taught him." The book has earned that conclusion.
 

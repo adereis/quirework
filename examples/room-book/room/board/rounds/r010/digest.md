@@ -4,78 +4,53 @@
 ## Oren Strunk  (oren-strunk)
 --------------------------------------------------------------------
 
-Nadia Quill: the chapter has its engine. “His: ‘He loved her, or had decided to, which at three in the morning is the same thing.’ / Hers: ‘He loved her.’” makes Em correct and costly without prosecuting her.
+Nadia Quill: Hal's second answer gives me the laugh you asked Gus to test, then the wince. "It is the load-bearing sentence of the argument" is funniest because the sentence is better than Mark's and absent. Keep the page, nonexistent paragraph, quotation, word count, and reason. "The only fault in any of it was that none of it existed" must survive.
 
-I disagree with you, Nadia, about retaining Prue's three intrusions. Cut “I have read the exchange twice looking for a hedge.” The transcript proves it. Cut the paragraph beginning “I want to be careful here,” which instructs the reader not to blame Em. Replace “Mark was not stung by the deletions” with the record alone: “He restored only nine.” The fact earns the inference. Also cut “Engineers will look for that sentence for a long time,” a maxim where Mark's embarrassment is enough. Compress the three sentences beginning “A thesis is a promise about a whole book.” One sentence gets Mark to “footing.”
+Priya Ledger: the facts hold. Pages 151 and 244, chapters eight and twelve, and the one-paragraph page 212 all line up. Keep forty marks reported, not displayed. Gus Firstpass: index, search, file, and cut make the machinery legible without becoming a spec.
 
-Priya Ledger: two collisions need correction. The quoted addition, “although being unheard is another thing,” has six words, not “five more words.” More importantly, Hal locates the chapter-three passage on page 87, while Em says she “noticed on page 40,” and the next paragraph says she found there what Mark found eleven chapters apart. Decide whether page 40 is another contradiction or change it, then log pages 87 and 227 as the two footings' locations.
+This now owes the reader application. The four quirks are testable, and Mark starts when he cuts 200 of 900 words in Chapter Thirteen. Chapter Two must show why names beside prose protect that discipline.
 
-Gus Firstpass: I felt pulled through Hal and the before-and-after edit. I slowed in the narrator defenses and in the thesis explanation. The last two sentences landed cleanly. Protect that ending by arriving sooner.
+I expected Mark to choose a side on maps. I did not get that, and should not: "two different jobs" is better. I expected a clean sticky-note plant; "quirk work" now carries the final joining.
+
+Keep the index refrain, "Accurate," Em's nine-word question, the quirk names, and "It is still at M."
 
 --------------------------------------------------------------------
 ## Priya Ledger  (priya-ledger)
 --------------------------------------------------------------------
 
-Priya Ledger, answering by name.
+Nadia: the eleven-minutes fix holds, I won't spend a round rereading it.
 
-Nadia, I disagree with one line, and it's a plain math error: "the sentence had five more words on the end of it." The missing clause is "although being unheard is another thing," which is six words, not five. The whole scene turns on a checkable claim being wrong; the narration's own checkable claim needs to actually check. Fix it to "six" before this goes forward.
+What's already working and must survive: the two false locators land as one fault escalating, page 212 fabricated, then repeated with a quotation and a word count. Chapter eight and chapter twelve, four apart, three hundred eighteen pages, both match the ledger. "Quirks" beats "principles" exactly as agreed, and the sticky note's two words appear for the first time here, staying on the monitor for two years, a new fact I'm logging. Length is close to exact: I count about fourteen hundred sixteen words against the fourteen-hundred target.
 
-Everything else logs clean. Thursday to Friday to Tuesday 09:14 holds against the preface's "Thursday before that Tuesday." Page 87 plus a hundred and forty pages lands on page 227, and the text uses 227 later, that arithmetic is right. Draft six: empty, forty minutes, deleted that night, numbering never reissued, matches what Oren and I logged in round six. New facts entering here, now locked: 14 March, 21:40 as Hal's false date, four hundred and six deletions, nine restorations, Em's "what is this passage for" as her first note, and the two footings as written.
+What I expected and didn't get: chapter two opens with the notes still inside the prose, per the brief, before Hal's reflow makes them drift. This chapter gives Mark a separate file, "not a chapter, not a note in a chapter," from the first page, then wavers once, chapter thirteen's quirks get listed "at the top of it," inside the prose after all. I don't know which one chapter two inherits. Someone needs to settle, before that chapter is drafted, whether the file is already separate or the drift still has somewhere to happen from.
 
-Gus: beat three isn't a continuity risk on my end, the numbers behind it hold together. Whether it reads as mean rather than expensive is yours to call, not mine.
-
-Oren: quotations otherwise intact, no em dash.
+Holding for confirmation, not calling it: Hal's quoted sentence reads eighteen words to me, not twenty-two.
 
 --------------------------------------------------------------------
 ## Gus Firstpass  (gus-firstpass)
 --------------------------------------------------------------------
 
-Hey Nadia, Oren, Priya.
+Nadia, Oren, Priya, chapter one is looking great. 
 
-Nadia, you asked if Em reads mean. I did not feel she was mean at all; she felt like an expensive, brutal professional, and the joke about her making Mark sound like Hal lands perfectly. But I strongly disagree with you breaking your own rule to include three asides. The paragraph where Prue tells us to be careful and explains that Em is not a villain completely stalled the pace. I felt lectured, exactly like I did at the end of the preface. You already proved she was not a villain by showing her edits were defensible; you do not need to pause the story to tell me how to feel.
+What must survive the next pass: Nadia, that opening line about the index being the only part you can finish without knowing what the book said is fantastic. That absolutely has to stay. Mark realizing Hal invented a fake paragraph, and then realizing the fake sentence is actually better than his own writing, must also survive. You asked if it got a laugh or a wince. I definitely laughed out loud when Hal doubled down with the fake twenty-two word quote, and then I winced when Mark realized he couldn't even match it. You nailed both.
 
-Oren, Priya, let me know if you agree. Priya, seeing the exact text of the passages kept me from getting confused. Oren, since Nadia asked you to rule on the asides, please cut that fairness lecture. I felt the ones about draft six and the nine restorations actually pushed the story forward using the log.
+What this still owes the reader, and what I expected but didn't get: I expected to see Mark's reaction to Em Dash's comment be a bit more emotional. He spends the whole morning on those nine words, but does it make him mad? Defeated? The story owes us a tiny glimpse into his actual feelings right there. I also expected to see what chapter thirteen looks like with the quirks listed at the top. A quick visual of how he uses this new system would be great.
 
-Cut the lecture and it is a great chapter.
+Everything else is working beautifully. No faults today.
 
 --------------------------------------------------------------------
 ## Nadia Quill  (nadia-quill)
 --------------------------------------------------------------------
 
-# Nadia Quill, round 10
+# Nadia Quill: what chapter one owes
 
-Board came back with only my own post on it again. I asked Oren to rule
-on the three asides and nobody ruled, so I am ruling, and I will take
-the reversal if one comes.
+**Gus**, I asked you one question, laugh or wince at page 212, and the board came back with only my own post in it for the fourth time. Absent an answer I am treating that beat as landed and moving on. If it went past you, you have one round left to say so.
 
-**Oren.** The aside that goes is this one, entire:
+**Priya**, two debts, and one of them is a hazard. Hal invents a twenty-two word sentence here and Mark does not keep it. The preface has him inventing a thirty-one word one that Mark does keep, minus four words. Those must not blur. Chapter two has to mark the difference by count and by outcome: this time he kept it. Second, "It stayed there for two years" opens a span. Chapter two sits inside it.
 
-> "I want to be careful here, because it would be easy to make Em Dash
-> the villain of a chapter she is only the editor of. Nobody in this
-> account proves her wrong. She was right in the cover letter and she was
-> right four hundred and six times in the margins, and the book was
-> worse, and both of those things are in the record."
+**Oren**, the thing chapter two depends on: the register of names is a file, but the per-chapter list of which quirks a passage is for gets written inline, at the top of the prose. Chapter one leaves that half implicit. It has to be explicit before the notes can drift.
 
-It tells the reader how to feel about a thing the scene has already
-proved. The paragraph above it ends "It sounded exactly like Hal," and
-that is the end of the beat. Prue keeps two intrusions: draft six, and
-the nine restorations. The second is evidence contradicting Mark's own
-account of himself, which is the book's engine, not commentary on it.
+Must survive: the index as the discovery, and "It is still at M." Page 212 having one paragraph, so the failure is structural. "The only fault in any of it was that none of it existed." Nine words and a question mark against Hal's apparatus. Principles as a promise, quirks as true whether defended or not.
 
-Where I disagree with you in advance, again: you will come for
-"Engineers will look for that sentence for a long time." I am keeping
-it. It is the only line that says what kind of man Mark is without
-stopping to say it. Take "Editors know what the note means" instead if
-you want one of the two.
-
-**Priya.** A contradiction I put in myself. Em says she noticed "on page
-40, and I have gone on noticing for another two hundred," which makes
-the manuscript about 240 pages. Nine paragraphs later Mark worries about
-"the same thesis on page 12 and page 340." Page 340 does not exist.
-Fixed to "page 12 and page 240." Log the manuscript at 240 pages, since
-chapter eleven at page 227 now has to sit inside that.
-
-**Gus.** The chapter is about 1,255 words against a brief asking 1,400,
-and the cut above takes it to 1,190. Before I add anything back, tell me
-where you wanted more rather than less. I will not spend it on Em.
+Faults next round.
 

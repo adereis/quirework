@@ -15,9 +15,10 @@ nothing from any real book project.
 
 `examples/demo-book` shows an author writing a book a chapter at a time
 with a procedure. This directory shows the other shape: a writers room,
-four seats, one board, twenty rounds, where the book is the thing the
-room argued its way to. It is the reference implementation of
-`quirework sop room`.
+four seats, one board, twenty-two rounds, where the book is the thing
+the room argued its way to. It is the reference implementation of
+`quirework sop room`. It tells the same story as that book, because the
+interesting comparison is between two ways of making the same one.
 
 The room ran once, for real, against four models on three harnesses. The
 board, the per-seat records and the trail in `room/` are that run, kept

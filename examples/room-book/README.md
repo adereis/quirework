@@ -1,24 +1,27 @@
-# The Room Where Nobody Agreed
+# Chapter and Verse Control
 
-A short, fictional book about an engineer whose manuscript argues with
-itself, written by four models in a writers room. Every character is
-invented. Quirework is real, and this directory is a working example of
-a book written with `quirework sop room`.
+A short, funny, entirely fictional story about a software engineer who
+could not finish his book and built a tool instead. It ends with the
+tool getting its name. Every character is invented and every name is a
+pun. Quirework is real, and this directory is a working example of a
+book written with `quirework sop room`.
 
 `examples/demo-book` shows an author writing a chapter at a time with a
-procedure. This shows the other shape: four seats, one board, twenty
-rounds, and a book that is the thing the room argued its way to.
+procedure. This shows the other shape: four seats, one board, twenty-two
+rounds, and a book that is the thing the room argued its way to. It
+tells the same story, because the interesting comparison is between two
+ways of making the same book.
 
 ## What's here
 
-- `manuscript/sections/`: the book. A preface and two chapters, exactly
-  as the room left them.
+- `manuscript/sections/`: the book. A preface and two chapters, copied
+  out of the room without editing.
 - `room-plan/`: what the room was given. The brief, the four personas,
-  and `room.json`, which declares the seats, their models and the phase
-  schedule.
+  and `room.json`, which declares the seats, their models and the
+  twenty-one phases.
 - `room/`: the run itself, kept rather than regenerated. The board every
-  round was shown, every post, the per-seat records, and the trail in
-  `room.log`.
+  round was shown, every post, the files the room produced, the per-seat
+  records and the trail in `room.log`.
 
 ## The room
 
@@ -28,14 +31,15 @@ three read it from different angles and are never handed the same job.
 | Seat | Role | Harness | Model |
 | --- | --- | --- | --- |
 | Nadia Quill | drafts the prose | claude | Opus 5 |
-| Oren Strunk | line editing and house style | codex | gpt-5.6-terra |
-| Priya Ledger | facts, dates and continuity | claude | Sonnet |
+| Oren Strunk | line, house style, comic timing | codex | gpt-5.6-terra |
+| Priya Ledger | facts, continuity, the pun scheme | claude | Sonnet |
 | Gus Firstpass | an ordinary first read | agy | gemini-3.1-pro |
 
-Twenty rounds in fifteen phases: the room plans a section, one seat
-drafts it, the room reads it for two rounds, that seat revises. Preface,
-then chapter one, then chapter two, then two rounds on the whole book
-and a final assembly.
+Each section is planned, drafted, then read twice: once for what it
+still owes its reader, and once for what is wrong with it. That order is
+deliberate and `docs/workflows.md` explains why. The drafting and
+revising phases name a `deliverable`, so the book arrives as files and
+the manuscript here was assembled by copying them.
 
 ## Reading the run
 
@@ -44,14 +48,20 @@ From this directory. Name the room by a path, never by the bare word
 
 ```
 quirework sop room status ./room          # who is in it and how far it got
-quirework sop room board ./room 6         # what everyone saw in round six
+quirework sop room usage ./room           # what each seat spent
+quirework sop room board ./room 11        # what everyone saw in round eleven
 quirework sop room follow ./room 4        # one seat's side of it
 ```
 
-Round 6 is a good place to start. The continuity seat notices that the
-preface's "forty-one drafts" would make a joke two chapters later
-accidentally true, and the reader seat and the editor seat disagree with
-each other in front of the drafter.
+Round 10 is a good place to start. The continuity seat counts the words
+in a sentence the model in the story invented, finds eighteen where the
+prose claims twenty-two, and says so without being asked. The joke of
+the chapter depends on the fabrication being flawless in every
+checkable way, so that count was load-bearing.
+
+Round 16 is the other one worth reading. Three seats talk the drafter
+out of a scene, and she refuses a seventy-word expansion on the grounds
+that a sidecar which changes how the bike rides is not a sidecar.
 
 `room/seats/*.blind-state/` is each seat's private runner home. It holds
 live harness credentials, it is ignored by `room/.gitignore`, and it is
@@ -59,9 +69,7 @@ not part of the example.
 
 ## What it cost
 
-Twenty rounds took twenty-eight minutes. The two Claude seats report
-$3.44; the other two harnesses record tokens but not cost, so the true
-figure is higher. The book is about 2,370 words, which is short of the
-3,250 the brief asked for: every revision in the run came out shorter
-than the draft it replaced, and nobody in the room was responsible for
-the word count.
+Twenty-two rounds took forty minutes. The two Claude seats report
+$11.62; the other two harnesses record tokens but not cost, so the true
+figure is higher. No round compacted. The book is about 3,224 words
+against a brief asking for 3,250.

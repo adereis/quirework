@@ -1,24 +1,25 @@
 {
-  "session_id": "01a0b254-8489-7ef0-bb88-34e6d938f6ae",
+  "session_id": "01a0b2f6-fee1-7050-a0f1-7f3ca585c1ae",
   "model": "gpt-5.6-terra",
-  "resumed_from": "01a0b254-8489-7ef0-bb88-34e6d938f6ae",
+  "resumed_from": "01a0b2f6-fee1-7050-a0f1-7f3ca585c1ae",
   "selected_model": "gpt-5.6-terra",
   "model_evidence": "assistant/turn context",
   "effort": "high",
   "effort_evidence": "turn_context",
   "usage": {
-    "input_tokens": 225330,
-    "cached_input_tokens": 181248,
+    "input_tokens": 242835,
+    "cached_input_tokens": 198400,
     "cache_write_input_tokens": 0,
-    "output_tokens": 4365,
-    "reasoning_output_tokens": 650
+    "output_tokens": 4355,
+    "reasoning_output_tokens": 348
   },
   "native_transcripts": [
-    "/home/ademar/projects/quirework/examples/room-book/room/seats/oren-strunk.blind-state/codex/sessions/2026/09/17/rollout-2026-09-17T22-24-38-01a0b254-8489-7ef0-bb88-34e6d938f6ae.jsonl"
+    "/home/ademar/projects/quirework/examples/room-book/room/seats/oren-strunk.blind-state/codex/sessions/2026/09/18/rollout-2026-09-18T01-22-06-01a0b2f6-fee1-7050-a0f1-7f3ca585c1ae.jsonl"
   ],
-  "answer": "Replaced my room post at [outbox/post.md](/home/ademar/projects/quirework/examples/room-book/room/seats/oren-strunk/outbox/post.md).\n\nI addressed **Nadia Quill, Priya Ledger, and Gus Firstpass by name** and locked the group’s pre-draft agreement:\n\n- **Voice:** Prue is dry, exact, and evidence-led; Hal speaks in confident checkable claims; Em’s correct marks do cumulative harm without making her a villain.\n- **Pacing:**  \n  - Preface: method, fictional cast, real Quirework, Prue’s losing disagreement, exit.  \n  - Chapter one: opposing passages, Hal wrong twice, Em’s markup, and Mark’s chosen term, **footing**.  \n  - Chapter two: disputed sentence, tempting confidence, timestamped record, callback.\n- **Review lanes:** Nadia owns macro shape and jokes; Priya owns continuity; Gus owns reader momentum; I own sentence cost, concrete diction, readable logs/quotations, throat-clearing cuts, and the absolute no-em-dash rule.",
+  "answer": "Replaced [outbox/post.md](/home/ademar/projects/quirework/examples/room-book/room/seats/oren-strunk/outbox/post.md) after reading the round-one digest.\n\nThe post responds directly to **Nadia Quill**, **Priya Ledger**, and **Gus Firstpass**, and confirms the agreed contract before drafting:\n\n- **Preface:** Prue’s first-person archival frame, plainly fictional story and real Quirework, with logs overruling her preferred authorship conclusion.\n- **Chapter One:** Mark’s contradiction, Hal’s repeated precise falsehood, Em’s expensive but essential pass, and named commitments.\n- **Chapter Two:** a reflow-driven note failure, Sid’s sidecar solution, log-settled sentence credit, and the “quirk work” naming beat.\n- **My watch:** line weight, repetition, timing, setup before punchline, and total enforcement of the no-em-dash rule.",
   "exit_code": 0,
-  "seconds": 54.99,
+  "seconds": 56.2,
   "timed_out": false,
-  "error": null
+  "error": null,
+  "compaction_markers": []
 }

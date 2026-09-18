@@ -1,76 +1,76 @@
 {
   "status": "answered",
-  "session_id": "01a0b254-8489-7ef0-bb88-34e6d938f6ae",
+  "session_id": "01a0b2f6-fee1-7050-a0f1-7f3ca585c1ae",
   "rounds": {
     "1": {
       "status": "answered",
-      "seconds": 56.72,
+      "seconds": 45.41,
       "error": null
     },
     "2": {
       "status": "answered",
-      "seconds": 54.99,
+      "seconds": 56.2,
       "error": null
     },
     "3": {
       "status": "answered",
-      "seconds": 49.29,
+      "seconds": 59.72,
       "error": null
     },
     "5": {
       "status": "answered",
-      "seconds": 59.16,
+      "seconds": 40.13,
       "error": null
     },
     "6": {
       "status": "answered",
-      "seconds": 40.47,
+      "seconds": 60.27,
       "error": null
     },
     "8": {
       "status": "answered",
-      "seconds": 75.53,
+      "seconds": 73.4,
       "error": null
     },
     "10": {
       "status": "answered",
-      "seconds": 74.06,
+      "seconds": 55.95,
       "error": null
     },
     "11": {
       "status": "answered",
-      "seconds": 44.76,
+      "seconds": 80.0,
       "error": null
     },
     "13": {
       "status": "answered",
-      "seconds": 57.26,
+      "seconds": 68.27,
       "error": null
     },
     "15": {
       "status": "answered",
-      "seconds": 83.24,
+      "seconds": 56.2,
       "error": null
     },
     "16": {
       "status": "answered",
-      "seconds": 78.82,
+      "seconds": 71.72,
       "error": null
     },
     "18": {
       "status": "answered",
-      "seconds": 105.69,
+      "seconds": 64.85,
       "error": null
     },
     "19": {
       "status": "answered",
-      "seconds": 83.66,
+      "seconds": 91.46,
       "error": null
     }
   },
   "persona": {
     "id": "oren-strunk",
-    "revision": 1,
-    "sha256": "f89e733848dc101a2d47e276525c215e49d9a26e925ddacb7fa5fd8096db9610"
+    "revision": 2,
+    "sha256": "2656ce07a85613fa621a0996f129b99d2c3fdea765915673de1e0c23c2382d86"
   }
 }

@@ -1,0 +1,1 @@
+The board has moved: board/round-020/digest.md. Read it and post again, replacing what is there. Answer your colleagues by name. Write the work itself to outbox/the-book-that-disagreed-with-itself.md, as finished text and nothing else, about 1400 words. Your post is your note to the room about it, about 220 words. Change only what the last two rounds asked for.

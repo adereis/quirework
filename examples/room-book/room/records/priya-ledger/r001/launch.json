@@ -77,5 +77,6 @@
   ],
   "resumed": null,
   "harness_version": "2.1.276",
-  "private_runtime": "/home/ademar/projects/quirework/examples/room-book/room/seats/priya-ledger.blind-state/claude"
+  "private_runtime": "/home/ademar/projects/quirework/examples/room-book/room/seats/priya-ledger.blind-state/claude",
+  "window_assurance": "enforced"
 }

@@ -7,11 +7,11 @@
     "gus-firstpass"
   ],
   "posts": {
-    "nadia-quill": "91da060d832e1d4a1bc7bbb8c6fc58b09df78cebe7105d77f172bc1fe3c9d298",
-    "oren-strunk": "4bea17716ecbdb5b8b63a2baad146644c1a8f077fba5394a48fe470b8d517fde",
-    "priya-ledger": "96c9495f7ab6a9f5f357777a6e3c15ea870c2dfb76263291b19118465279e978",
-    "gus-firstpass": "c12f6ffcafeec6a7a9571d591110d7d0ff42b10d4059f7eb83530e4f19f86f0f"
+    "nadia-quill": "2f1ecbf8f5a7b2f9c1ed268b48aafee2dd6c760d75b374784cd306a386cba093",
+    "oren-strunk": "d4a8fb2c047a24a13b3afdc691ee2239062c1a299b12bf95f1009e4500251ed6",
+    "priya-ledger": "92c81478fa77ce31d7b016beb28da3e165284080a1b00114b189a74b378c95ce",
+    "gus-firstpass": "e8ddd2e6cbbd6ad1bebbe89c5bd1ad6957755ebd6caa11f9208b3c11592bde5e"
   },
   "absent": [],
-  "digest_sha256": "ed9b28f1039700eef35358a8defe1e7e4a8c85ce8b3857d7e84927fbef43ace3"
+  "digest_sha256": "e30ba66d6ef8bc98c039b4a3bcaec55e48537e0af364a0fb191f6aaabb08e439"
 }

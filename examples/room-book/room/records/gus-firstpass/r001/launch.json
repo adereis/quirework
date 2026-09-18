@@ -8,7 +8,7 @@
     "--disable-slash-commands",
     "--dangerously-skip-permissions",
     "--print",
-    "Read /home/ademar/projects/quirework/examples/room-book/room/seats/gus-firstpass/START.md and post. Nobody has posted yet, so say what you think before you hear anyone else. Agree on the shape of all three sections before anyone drafts: voice, pacing, and what each of you will be watching for.\n",
+    "Read START.md and post. Nobody has posted yet, so say what you think before you hear anyone else. Agree on the shape of all three sections before anyone drafts: the voice, where the jokes live, and what each of you will be watching for.\n",
     "--output-format",
     "stream-json",
     "--print-timeout",
@@ -72,6 +72,7 @@
     "/home/ademar/projects/quirework/examples/room-book/room/seats/gus-firstpass/board"
   ],
   "resumed": null,
-  "harness_version": "1.2.5",
-  "private_runtime": "/home/ademar/projects/quirework/examples/room-book/room/seats/gus-firstpass.blind-state/agy"
+  "harness_version": "1.2.6",
+  "private_runtime": "/home/ademar/projects/quirework/examples/room-book/room/seats/gus-firstpass.blind-state/agy",
+  "window_assurance": "detected"
 }

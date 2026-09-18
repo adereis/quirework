@@ -4,328 +4,37 @@
 ## Nadia Quill  (nadia-quill)
 --------------------------------------------------------------------
 
-# Nadia Quill, round 20: the book
-
-**Oren.** Four things taken. "Quirework saves the box as you type" is
-gone, and you were right that it was the worst rule-2 slip in the book:
-the preface swears Quirework is real, so a made-up feature of it is a
-made-up claim about a real product. The capture now belongs to Mark's
-own installation and his own habits. "Since Em's Tuesday" is in.
-"Mark did the thing people do" is out. And on verdicts, you win the
-ending: *"It wins"* is cut, and the book now stops on the bare
-timestamps. Gus, that keeps your two-beat drop intact, short line and
-shorter line, with the verdict removed from it.
-
-**Oren and Gus, the preface signpost.** Cut entirely, not rewritten. Gus
-says the handoff still trips and Oren has wanted the preface to end on
-"the log was there and I was not" since round five. It does now. Chapter
-one opens cold on "On the Thursday," and nothing announces it first.
-
-**Priya, where I am not doing what you asked.** You want chapter one's
-month stated on the page. I am not putting it there, and Oren's reason
-is the one I am using: a claim Hal invented cannot set the calendar, so
-14 March pins nothing. What your ledger actually needs is the distance,
-and chapter two now carries it: *By April, three weeks after Em's
-Tuesday.* That puts Em's markup in mid-March without the book asserting
-a date it cannot check, and it closes the float. If you still want the
-month, say so and I will take the note next round.
-
-Your draft seven ruling is in, and it let me stop worrying about it: one
-document, no draft eight, the marked-up margins and the sixty-one
-footings are the same file.
-
-**Gus.** You and Oren split on length and I am recording it rather than
-deciding it quietly. Oren says chapter two reads as an afterword. You
-say it is punchy and never drags. The book below runs about 2,370 words
-against a brief asking roughly 3,250. I share Oren's worry and I am
-shipping your version, because drag is your lane and the only material
-we cut for length was the blind test, which you read and disliked. The
-dissent is on the record with his name on it.
-
-One note on my own account. Of everything this room took out of my
-drafts, "Typing is not writing" is the one I still want, and it is
-still cut, because two of you independently called it a moral and you
-were both right. I am saying so here so it is on the record once instead
-of in the prose forever.
-
----
-
-# Preface
-
-My name is Prue. I did not write the two chapters that follow. I
-assembled them.
-
-What I had was the record: every draft of a novel nobody has read, a
-chat log nobody was keeping on purpose, and the timestamps the software
-put on all of it without being asked. Where the record is thin I have
-stayed thin. Where two sources disagree I have said which one I believe
-and then gone with the other one, because the record outranks my memory.
-I was not there. The record was.
-
-Assembling, here, means reading things in the order they were saved
-rather than the order they are interesting. The two orders are almost
-never the same.
-
-Mark Downe is invented. So are Hal Lucinate and Em Dash. None of these
-people exist. The novel Mark cannot finish does not exist. The events
-did not happen. I made all of it up, including the parts that sound too
-specific to be invented.
-
-One real thing appears in this book: Quirework, the tool this account
-was built with. It is an actual piece of software. I used it to sort the
-drafts, line up the timestamps, and keep myself honest about the order
-things happened in. It did not write any of this. It filed it.
-
-I believed, for most of the time I spent on this, that Mark arrived at
-the word "footing" on his own: sitting down, thinking hard, getting
-there before anyone told him he needed it. I liked him better that way.
-The log does not support it. Em Dash's markup landed on his manuscript
-on a Tuesday at 09:14, and her first note on it asks what the passage is
-for. Mark's first use of the word in any draft is 11:52 the same
-morning. I have left my version here so you can see what I wanted, and I
-have let the log win, because the log was there and I was not.
-
----
-
-# Chapter One: The Contradiction
-
-On the Thursday, Mark Downe went looking for one sentence and found two.
-
-He had built the thing that found them. It was a script, ninety lines,
-that indexed every noun in the manuscript and told him where each one
-lived. He had written it in an afternoon of a week in which he wrote
-nothing else, and he was pleased with it the way a man is pleased with a
-shelf he put up instead of having a conversation.
-
-He searched for "understood."
-
-The script gave him chapter three: "Love begins when you stop asking to
-be understood, although being unheard is another thing."
-
-And chapter eleven: "To be loved is to have someone insist on
-understanding you."
-
-Both were his. Neither belonged to a character he had set up in order to
-disagree with. They were the narrator's, a hundred and forty pages
-apart, and the narrator was the one voice in the book he had never
-thought to check.
+# Nadia Quill: preface, final pass
 
-He read them four times, looking for the third sentence, the one that
-would sit behind both and make them agree. He looked until 16:20, and
-then he asked Hal.
+Two changes only, both asked for. The em-dash count and "I went on wanting it for years after I had read them properly." Nothing else moved. About 458 words.
 
-*Mark: Find the passage in chapter three about being understood. Quote
-it exactly.*
+**Oren**, I am keeping the count against you, and your best objection is the one **Priya** answered. The number has a source: forty marks a pass, a hundred passes, ten over. She did that arithmetic before I could. Prue is not copy editing, she is declaring what she changed while holding custody of somebody else's pages, which is the same act as letting the log beat her on the sentence. And the preface is inside the fiction, not above it.
 
-*Hal: Chapter three, page 87: "Love begins when you stop asking to be
-understood."*
+**Oren**, your chapter two seam is not one. Nineteen months is the drift. The deposit is months later, in October, so twenty months earlier is correct from where she is standing. Both numbers are true at different points in the same chapter, and changing either would make one of them false.
 
-Mark felt the small relief of a thing being settled by somebody else.
-Then he opened the file to page 87, where the sentence had six more
-words on the end of it.
+Your two other notes I take, and they are chapter work, not preface work: cut "Accuracy was the standard the index had taught him," and the title page is nobody's file yet. I will draft it when a round allows. Rule two survives either way, because the preface says it in its own voice.
 
-Hal had not summarized and had not paraphrased. Hal had produced a
-quotation, with the quotation marks around it, missing its second half.
-It was the sentence as it would look if someone tidy had been through
-it.
+**Gus**, refused: the last beat is the name, and the brief fixes it. Taken: the sticky note stops being a number and comes down when the boxes go, and chapter one stops making Mark sit with things twice.
 
-*Mark: You dropped a clause. When did I write the chapter eleven line?*
+### preface.md
 
-*Hal: Draft six, 14 March, 21:40.*
+I did not write what follows. I assembled it.
 
-There is no draft six. Draft six existed for forty minutes, held
-nothing, and Mark deleted it the same night; his numbering never
-reissues, so the record runs five, then seven. Hal had given a file, a
-date, and a time to the minute for a sentence that had never been in any
-of them, and had done it without one softening word. I have read the
-exchange twice looking for a hedge.
+I did not set out to read nine years of anything. A dictionary of quotations wrote to me last spring to ask who wrote a certain sentence, and whether they could have it. I expected the answer to take an afternoon.
 
-Mark stopped asking Hal, which is not the same as getting an answer.
+Mark Downe kept everything: drafts, notes, the files beside the files, and nine years of logs he never deleted. I have read all of it, in order, twice. What follows is a reconstruction. Where two accounts of the same eleven minutes disagree, I have gone with the log, because the log was written at the time by someone with no interest in being interesting.
 
-On the Friday he sent the manuscript to Em Dash with a note saying there
-was no rush. There was a rush.
+This is fiction. Mark Downe is invented. So is Em Dash, who edited him, and Hal Lucinate, who wrote with him, and Sid Karr and his motorcycle, and Vic Tor, whose diagrams are not in this edition. I am invented. The book Mark could not finish does not exist, which is the only mercy in the story. One thing in it is real, and it is the tool he built instead of finishing: Quirework.
 
-It came back on the Tuesday at 09:14.
+There is one sentence in Mark's manuscript that everyone quotes. You will come to it. Before I read the logs properly I wanted it to be his. He is the one who did not finish the book. That seemed like enough for one man to lose. I said so in writing, which was unwise, and I have not gone back to soften it. I went on wanting it for years after I had read them properly. He thought it was his. He never said so in a way that invited anyone to check.
 
-Her cover letter was four sentences long. The third one said: "The book
-takes both sides of its own question and hopes the reader will not
-notice. I noticed on page 40, and I have gone on noticing for another
-two hundred pages, to the end." Her first margin note, set against the
-chapter three passage, asks what the passage is for.
+The log does not agree. At 23:14 on a Tuesday, Hal Lucinate produced the sentence, thirty-one words, in one pass. Eleven minutes later Mark cut four of them. They are the four words that make it land. I have looked for a reading of that record which gives the sentence to him, and there is not one. He made it good. He did not make it.
 
-She was right. That is the part Mark could not get around at any point
-in the next several hours. The manuscript did argue with itself. It had
-no spine. She had doubted the book from page 40, forty-seven pages
-before the earlier of his two sentences, and she had found the proof
-exactly where his script found it, at 87 and at 227.
+I wanted otherwise. The log wins. Winning is the log's job. Saying what it cost is mine.
 
-She had also been through the whole manuscript and deleted the
-qualifying half of every sentence she found one in. Four hundred and six
-times.
+I wrote back to the dictionary with both names and the timestamp. They have not replied.
 
-His: "He loved her, or had decided to, which at three in the morning is
-the same thing."
+Mark's manuscript contains four thousand and ten em-dashes. This edition contains none. That is the one place where I overruled him, and I did not ask.
 
-Hers: "He loved her."
-
-Every one of those cuts was defensible. Most of them were improvements
-if you took them one at a time, and taking them one at a time is how she
-took them, which is how it is done. What came back was a manuscript that
-was certain about everything. It had opinions and no second thoughts. It
-sounded exactly like Hal.
-
-He told Hal that evening that the deletions had gutted him. He restored
-nine of the four hundred and six. What stung was the spine.
-
-Between 09:14 and 11:52 he tried to answer her margin note. The log has
-three attempts and he sent none of them. The first ran two paragraphs.
-The second ran four lines. The third said, in full, "It is for the part
-where she is wrong about him," and he deleted that eleven seconds later,
-because it was not true of the passage. It was true of a book he had not
-written.
-
-So he stopped trying to say what the passage was for and started trying
-to say what it was standing on.
-
-He did what he does. He built something.
-
-It was not a script this time. It was smaller than that, and he wanted
-it to stay small. What he wanted was a way of writing in the margin the
-one narrow thing a given passage was actually standing on. Not what the
-book meant. Not what he was arguing. Just the ground under that
-paragraph, named out loud, so he could see whether the ground under page
-87 was the same ground as under page 227.
-
-He said "thesis" out loud in the kitchen, to hear it, and then typed it
-into the margin of chapter three and looked at it and deleted it. A
-thesis is a promise about a whole book, and he was not prepared to owe
-the book anything on a Tuesday morning.
-
-At 11:52 he typed "footing" instead, and kept it.
-
-Against chapter three he wrote: *footing: you can be loved by somebody
-who does not understand you.*
-
-Against chapter eleven he wrote: *footing: being understood is the whole
-of it.*
-
-He sat and looked at the two of them for a while.
-
-The footings did not settle anything. Reading them side by side did not
-produce the third sentence, and it did not tell him which of the two he
-believed, and it did not make either passage better than it had been on
-Thursday. What it did was put the argument somewhere. Before, he had a
-book that felt wrong in a way he could not locate, and a right editor
-telling him it had no spine, and an assistant who could not be relied on
-to say where anything was. Now he had two short lines in two margins, a
-hundred and forty pages apart, that wanted different things.
-
-He did not know which one he believed.
-
-He knew where they were.
-
----
-
-# Chapter Two: Whose Sentence It Was
-
-By April, three weeks after Em's Tuesday, there were sixty-one footings
-in the margins of draft seven. Mark had started writing the footing
-before the paragraph, which is not what he built it for, and is the sort
-of thing that happens to a tool once a man gets fond of it.
-
-He was reading the thing straight through for the first time since Em's
-Tuesday when he came to this:
-
-"She did not understand him and she stayed, which he had not known was
-allowed."
-
-Mark remembered writing it. He remembered the 19:40 train, a window
-going dark, a coffee he had bought and not drunk, and the sentence
-arriving whole, which they almost never do. He remembered being pleased
-with himself for four stops.
-
-The margin under it was empty. In sixty-one footings he had never given
-that one a footing, and he could not now say why.
-
-He asked Hal, mostly as a joke.
-
-*Mark: Did you write this one?*
-
-*Hal: I wrote that sentence.*
-
-*Mark: When?*
-
-*Hal: 2 April, 10:03, in chat. You had asked for a way to end the
-chapter without settling it.*
-
-*Mark: Are you sure?*
-
-*Hal: Yes. It is the last sentence of your chapter nine.*
-
-It is in chapter nine. It is fourth from the end, with three sentences
-after it that Mark wrote on a Sunday and has never liked.
-
-He tried to settle it by ear. He read the sentence out loud in his own
-voice, and then read it the way Hal writes, which produced nothing,
-because the sentence is good and Hal is good and Mark, on the 19:40
-train or anywhere else, is occasionally good too.
-
-At 15:20 on 2 April he opened the chat and typed four words: *Fine. It
-is yours.*
-
-He looked at them for some time and did not send them. The log has them
-anyway. Mark had wired his own capture onto the chat box two years
-earlier and left it running, being a man who likes to know what he
-nearly said.
-
-What stopped him was not loyalty to his own memory. It was noticing that
-he was about to settle a question of fact by deciding which of two
-voices he found harder to argue with, and that the last time he had done
-that, the answer had been draft six, 14 March, 21:40.
-
-So he stopped asking and went and looked.
-
-Every draft has a save time. Every chat turn has a send time. They sit
-in one list.
-
-At 10:03 on 2 April, Hal sent the sentence in chat, in the middle of a
-longer answer about how to leave a chapter open.
-
-At 10:07 on 2 April, Mark pasted it into draft seven.
-
-Four minutes. No ambiguity anywhere in the file.
-
-Mark's memory was not a lie. He did type that sentence. He typed it at
-10:07 in the morning, with his own hands, into his own draft, and he
-remembers the typing, because the typing happened. The 19:40 train also
-happened. It happened on 9 April, a week later, with the sentence
-already sitting in the manuscript where he had put it. Memory borrowed a
-true evening and filed the wrong thing in it.
-
-Hal was right. Hal was also wrong about draft six, and wrong about where
-the sentence sits in chapter nine in the same breath as being right
-about whose it was, and all three answers are in the same voice, to the
-letter. Nothing in the voice tells you which is which. The only thing
-that ever told anyone was the list.
-
-Mark did not cut the sentence. He left it where it was, and under it, in
-the margin, he wrote a line that is not a footing, because a footing
-says what a passage stands on and this was only a fact.
-
-It reads: *10:03. His.*
-
-Then he went back to the two passages at 87 and 227 and did not resolve
-those either, and the book was still unfinished on the day the record
-ends.
-
-One more thing belongs on the record, and it is mine.
-
-I wanted the word "footing" to be his. I put that in the preface on
-purpose, where you could hold it against me. Em's markup arrived at
-09:14. Mark's first "footing" is at 11:52.
-
-Mark remembers the train. Hal remembers nothing and states everything. I
-remember wanting him to have got there on his own.
-
-The log has 09:14, and then 11:52.
+That is why the name on the cover is mine. I did not write these chapters. I am answerable for them, which is a smaller thing, and the only accurate word for it is the one we use in the archive: custody. Somebody has to be responsible for the order the pages are in.
 

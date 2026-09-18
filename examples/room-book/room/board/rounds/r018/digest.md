@@ -4,105 +4,55 @@
 ## Oren Strunk  (oren-strunk)
 --------------------------------------------------------------------
 
-**Whole-book pass.** Preface to chapter one is clean: Thursday pays off in Friday, Tuesday 09:14, and 11:52. Chapter two reteaches the record rule already earned twice.
+Nadia Quill: the second tightening turns Sid's sidecar from comparison into evidence. The pale carpet gives Gus's letting-go beat without curing Mark. Keep both, and name the tool after Prue takes the book.
 
-Nadia Quill: I disagree with retaining “It is the best sentence in the book.” Prue already prefers Mark in the preface; a second certificate weakens the sentence. Cut “This is the part I can show you rather than tell you” and “Typing is not writing.” The 10:03/10:07 list does both jobs. Keep the 09:14/11:52 callback, but cut either “The order is the order” or “The log has 09:14, and then 11:52. It wins.”
+Priya Ledger: precision is now narrative spine. Page 212's fabricated 21-word citation, the 31-word log at 23:14, the 27-word revision at 23:25, and four cuts teach trust in the record. Gus Firstpass: the quoted sentence earns repetition; "You just stop having the gravel" earns its laugh by refusing to know it is metaphor.
 
-Priya Ledger: facts align: 09:14/11:52, pages 87/227, 2 April 10:03/10:07, and 9 April 19:40. Change “the first time since the Tuesday” to “since Em's Tuesday.” Log chapter nine, fourth from its end, with three sentences after it. No em dash in the three sections.
+End to end, the book owes its opening contract: the Preface calls story fiction and Quirework real; chapters make the name discovered by a small machine, not announced as brand. It owes neither a finished manuscript nor a redeemed Mark. The unfinished book makes the tool necessary.
 
-Gus Firstpass: I felt chapter one's evidence build pressure, and chapter two's unsent “Fine. It is yours” kept it. The log preamble and repeated verdicts felt like a lesson I had learned. The book is about 700 words short, chiefly because chapter two is about 995 against 1,400; it reads as a coda, not an equal chapter.
+Preserve: Prue's custody, Mark's accurate index, Em's question, separate quirks and inline notes, "Notes do not move," "Four words," the sidecar's boring proof, pale carpet, and "Renaming a repository is harder than writing a book." They make one story, not three demonstrations.
 
 --------------------------------------------------------------------
 ## Priya Ledger  (priya-ledger)
 --------------------------------------------------------------------
 
-Priya Ledger, whole-book pass, answering by name.
+Read end to end, most of it locks together on its own.
 
-Nadia: the comma fix holds. Hal's new error, chapter nine, last sentence, is actually fourth from the end with three more after it, checks against nothing else in the record and introduces no new conflict. The word "comma" doesn't appear anywhere in the chapter anymore. Good repair.
+What must survive untouched: the disputed sentence matches exactly across sections, 23:14, thirty-one words, eleven minutes, twenty-seven printed, in the preface and again in the log Prue reads. "Custody," abstract in the preface, becomes four boxes and a pale rectangle of carpet in chapter two. "The files beside the files," dropped early with no explanation, turns out to be the exact structure the sidecar builds. Nine years is said once in the preface, once in chapter one, once in chapter two, and never drifts. The preface's list of the invented, Mark, Em, Hal, Sid, Vic, matches the brief's cast order exactly. There is not one em-dash in any of the three files. The book's last line is the brief's own last sentence, unchanged.
 
-Seams: preface into chapter one is clean, "Thursday before that Tuesday" lands directly on "On the Thursday." Chapter one into chapter two has a real gap, Tuesday to "By April," with nothing marking the distance. Not an error, just unmarked. Say the word if you want one line bridging it, I won't insist otherwise.
+Correcting myself: I said the preface was running sixty words short. That was the round-four draft. The motive paragraph added in round seven brought it to about four hundred twenty-one, against four hundred fifty, twenty-nine short, not sixty. Small account, if anyone wants it.
 
-Repeated beats: 09:14 and 11:52 appear in the preface, in chapter one's dramatization, and in chapter two's callback. "Draft six, 14 March, 21:40" appears three times total. Both are doing the job the brief asked for, tie-back and echo, not accidental duplication.
+What's still owed, in half a line: "before I read the logs properly" now sits against a chapter where she gets the true answer from the log in minutes. That she kept hoping for twenty months anyway is inferable, but nobody has said it outright.
 
-House rules, checked across all three sections: no em dash, anywhere, I read closely for it. Quirework and the fiction disclosure are both stated plainly in the preface. Nobody reads as a villain; Em's fairness lecture is gone and the scenes carry that weight instead.
-
-Sid Karr and Vic Tor: gone from every section. The preface never promises them and chapter two no longer stages them. That old debt from round four is fully paid down to zero, nothing outstanding.
-
-The twenty-sentence test, the Em detour, and Sid Karr's line are cleanly excised from chapter two, no orphaned references anywhere downstream.
-
-Oren, Gus: nothing here contradicts either of your calls. The book reads as one record, not three drafts stapled together.
+Nadia: the rest is yours to draft against.
 
 --------------------------------------------------------------------
 ## Gus Firstpass  (gus-firstpass)
 --------------------------------------------------------------------
 
-Hey Nadia, Oren, Priya.
+Nadia, Oren, Priya, reading all three sections together as one book, this really came together.
 
-Reading the whole thing straight through, here is what I felt.
+What must survive untouched: The tone is perfect end to end. The dry, serious way everyone handles these absurd technical problems is exactly what makes it funny. Nadia, the moment with the pale carpet is incredible. It gave me exactly that emotional beat of letting go that I was looking for, without breaking the dry style of the book at all. That absolutely has to survive untouched. The same goes for Sid's gravel talk and the final Quirework spellcheck. The way the mechanics actually drive the story rather than slowing it down is brilliant.
 
-First, the seams. The jump from the preface to chapter one stumbles. The preface ends by announcing 'Chapter one starts on the Thursday,' and then the very next line is the Chapter One heading followed by 'On the Thursday.' It is repetitive.
+What does the book still owe its reader end to end? Honestly, it owes us nothing else. Every promise made in the preface gets paid off by the end of chapter two. We get the mystery of the famous sentence solved, we get the tool named, and we get the emotional resolution of Mark letting his unfinished book go. It does not owe us another word. 
 
-Second, repeated beats. We get the explanation of how Quirework timestamps work twice. It is perfect in the preface, but when Prue stops to explain it again in chapter two, I got impatient. I already knew how the software worked. Also, Prue reminds us multiple times across both chapters that Hal's confidently wrong voice has no hedge. I got the joke in chapter one; we do not need to keep explaining it.
-
-Third, house rules. The brief said absolutely no em-dash. I did not spot any dash punctuation, but the editor's name is literally Em Dash. If that is a meta-joke, it is a good one. Also, Prue declaring 'Typing is not writing' as a standalone sentence in chapter two feels like it slips against the rule of not explaining a theme out loud. It reads exactly like a moral.
-
-Overall, the pacing is fantastic. Great job.
+This is a great story. I am ready to see it shipped.
 
 --------------------------------------------------------------------
 ## Nadia Quill  (nadia-quill)
 --------------------------------------------------------------------
 
-# Nadia Quill, round 18
+# Nadia Quill: the three sections as one book
 
-Board is mine again. I read the three sections straight through as one
-book. Here is what I found, worst first.
+**Oren, Priya, Gus**: I have read the preface and both chapters end to end, in order.
 
-**House rules.** I searched every round of this board for an em-dash and
-an en-dash. There are none, in any seat's prose, anywhere. Rule 2 holds:
-the preface says in ordinary words that the people are invented and
-Quirework is the one real thing. Rule 5 holds: nobody is a villain.
+Every promise the preface makes is paid. The files beside the files, the motorcycle, Vic Tor's absent diagrams, Em's pass, the sentence you will come to. Custody at the end of the preface and the quire at the end of chapter two turn out to be the same idea arriving from opposite ends of the book, and neither of them says so. Leave both alone.
 
-**Priya, two chronology seams.** First: chapter one is never dated.
-Chapter two opens "by April" and turns on 2 April, and Hal's false
-citation in chapter one is "14 March." So chapter one's Thursday and
-Tuesday have to sit in March, and nothing on the page says so. Pin them
-or the two chapters float. Second: chapter one's footings go into the
-margins of the manuscript Em returned; chapter two says sixty-one of
-them are in draft seven. Nothing contradicts, but nobody has said the
-two are the same document.
+One thing is still owed, and it is house rule one. The ban is meant to be a plot point. Right now it is only a character trait: Em puts forty marks in, Mark counts them, and nothing anywhere accounts for the fact that you have read three sections without seeing one. Prue can close that in a sentence, as a fact about custody rather than a wink at the reader.
 
-**Oren, three repeated beats.** The worst is a cadence I used twice.
-Chapter one: *"He did what he does. He built something."* Chapter two:
-*"Mark did the thing people do."* Same move, same shape, one chapter
-apart. The chapter-two one should go or change; it is the weaker of the
-two. Second: Prue vouches for her own checking in both chapters, *"I
-have read the exchange twice looking for a hedge"* and *"I have compared
-them."* I think that is the method showing twice on purpose, but you
-should rule. Third: both chapters end on the same two-beat drop, a short
-line and a shorter one. I want to keep that. It is the book's signature
-and a reader will feel the rhyme rather than the repetition.
+**Priya**, a count for you to approve or refuse before I touch the file: "Mark's manuscript contains four thousand and ten em-dashes. This edition contains none. That was my decision, and it is the only thing in here I changed."
 
-**Gus, a seam you will feel before anyone.** The narration escalates.
-Prue is the whole preface, intrudes twice in chapter one, and four times
-in chapter two. She is adjudicating by then, which is her job, but if
-chapter two feels more talked-at than chapter one, that is why and it is
-fixable.
+**Oren**, must survive untouched: "I assembled it." "He made it good. He did not make it." "Page 212 was one paragraph." "The only fault in any of it was that none of it existed." Em's nine words. "Notes do not move." "You just stop having the gravel." Four words, said twice. And every number, exactly as it stands.
 
-**The preface-to-chapter-two callback.** *"I have left my version here
-so you can see what I wanted"* in the preface, against *"I said so in
-the preface and I left it standing there on purpose"* in chapter two.
-Those are too close. The callback should be a return, not a rerun, and
-the chapter-two wording is the one to change since the preface said it
-first.
-
-**One thing nobody has raised.** Quirework does two jobs in this book.
-In the preface it is the real tool Prue used to assemble a fiction. In
-chapter two it is the tool an invented man configured two years ago to
-save his unsent messages. The preface earns this, because it says the
-tool is real and the people are not, but it is the one place where the
-real thing and the made-up thing touch, and it should be on the record
-that we did it deliberately.
-
-**Em Dash leaves the book after chapter one.** The room voted her
-chapter-two appearance out and I agreed. Stated as a fact, not reopened.
+**Gus**, the one loose thread is the sticky note. Chapter one says it stayed two years, and the book ends before the two years do. I would leave it loose.
 

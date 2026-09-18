@@ -1,13 +1,18 @@
 {
-  "title": "The Room Where Nobody Agreed",
+  "title": "Chapter and Verse Control",
   "chair": "operator",
   "harness": "claude",
   "model": "opus",
   "effort": "high",
-  "rounds": 20,
-  "silent_rounds": [1],
+  "rounds": 22,
+  "silent_rounds": [
+    1
+  ],
   "post_words": 220,
-  "brief": {"path": "brief.md", "local_source": "brief.md"},
+  "brief": {
+    "path": "brief.md",
+    "local_source": "brief.md"
+  },
   "seats": [
     {
       "id": "nadia-quill",
@@ -46,94 +51,152 @@
     {
       "name": "global-outline",
       "rounds": 2,
-      "instruction": "Agree on the shape of all three sections before anyone drafts: voice, pacing, and what each of you will be watching for."
+      "instruction": "Agree on the shape of all three sections before anyone drafts: the voice, where the jokes live, and what each of you will be watching for."
     },
     {
       "name": "plan-preface",
       "rounds": 1,
       "words": 150,
-      "instruction": "Agree on concrete beats for the preface: what Prue says, in what order, and where the Quirework mention lands."
+      "instruction": "Agree on concrete beats for Prue's preface: what she says, in what order, and where the Quirework mention lands."
     },
     {
       "name": "draft-preface",
       "rounds": 1,
-      "seats": ["nadia-quill"],
-      "words": 500,
-      "instruction": "Post the full preface as finished prose, about 450 words."
+      "seats": [
+        "nadia-quill"
+      ],
+      "words": 450,
+      "deliverable": "preface.md"
     },
     {
-      "name": "discuss-preface",
-      "rounds": 2,
-      "instruction": "Say plainly where you disagree and with whom, by name. Editor: quote sentences. Continuity: cite specifics. Reader: say what you felt."
+      "name": "preface-what-is-missing",
+      "rounds": 1,
+      "instruction": "What does this still owe its reader, and what did you expect and not get? Say what is already working and must survive the next pass. Faults come next round, not this one."
+    },
+    {
+      "name": "preface-faults",
+      "rounds": 1,
+      "instruction": "Now the faults. Answer your colleagues by name and say where you disagree with them. Editor: quote sentences. Continuity: cite specifics. Reader: say where you laughed."
     },
     {
       "name": "revise-preface",
       "rounds": 1,
-      "seats": ["nadia-quill"],
-      "words": 500,
-      "instruction": "Post the full revised preface, not a diff or a summary of what changed."
+      "seats": [
+        "nadia-quill"
+      ],
+      "words": 450,
+      "deliverable": "preface.md",
+      "instruction": "In your post, say what you took, what you refused and why. A refusal on the record is worth more than a silent one."
     },
     {
       "name": "plan-ch1",
       "rounds": 1,
       "words": 150,
-      "instruction": "Agree on concrete beats for chapter one: the contradiction, Hal's wrong citation, Em Dash's edit, and the device Mark invents."
+      "instruction": "Agree on concrete beats for chapter one: the contradiction, Hal's confident wrong citations, Em Dash's pass, and the file of short names Mark starts keeping."
     },
     {
       "name": "draft-ch1",
       "rounds": 1,
-      "seats": ["nadia-quill"],
-      "words": 1500,
-      "instruction": "Post the full chapter as finished prose, about 1,400 words."
+      "seats": [
+        "nadia-quill"
+      ],
+      "words": 1400,
+      "deliverable": "the-book-that-disagreed-with-itself.md"
     },
     {
-      "name": "discuss-ch1",
-      "rounds": 2,
-      "instruction": "Say plainly where you disagree and with whom, by name. Editor: quote sentences. Continuity: cite specifics. Reader: say what you felt."
+      "name": "ch1-what-is-missing",
+      "rounds": 1,
+      "instruction": "What does this still owe its reader, and what did you expect and not get? Say what is already working and must survive the next pass. Faults come next round, not this one."
+    },
+    {
+      "name": "ch1-faults",
+      "rounds": 1,
+      "instruction": "Now the faults. Answer your colleagues by name and say where you disagree with them. Editor: quote sentences. Continuity: cite specifics. Reader: say where you laughed."
     },
     {
       "name": "revise-ch1",
       "rounds": 1,
-      "seats": ["nadia-quill"],
-      "words": 1500,
-      "instruction": "Post the full revised chapter, not a diff or a summary of what changed."
+      "seats": [
+        "nadia-quill"
+      ],
+      "words": 1400,
+      "deliverable": "the-book-that-disagreed-with-itself.md",
+      "instruction": "In your post, say what you took, what you refused and why. A refusal on the record is worth more than a silent one."
     },
     {
       "name": "plan-ch2",
       "rounds": 1,
       "words": 150,
-      "instruction": "Agree on concrete beats for chapter two: the disputed sentence, the temptation to trust confidence over the log, and Prue's own preface-page disagreement."
+      "instruction": "Agree on concrete beats for chapter two: the drifting note, Sid Karr's sidecar, the logs settling the disputed sentence, and the last beat where the tool gets its name."
     },
     {
       "name": "draft-ch2",
       "rounds": 1,
-      "seats": ["nadia-quill"],
-      "words": 1500,
-      "instruction": "Post the full chapter as finished prose, about 1,400 words."
+      "seats": [
+        "nadia-quill"
+      ],
+      "words": 1400,
+      "deliverable": "the-sidecar.md"
     },
     {
-      "name": "discuss-ch2",
-      "rounds": 2,
-      "instruction": "Say plainly where you disagree and with whom, by name. Editor: quote sentences. Continuity: cite specifics. Reader: say what you felt."
+      "name": "ch2-what-is-missing",
+      "rounds": 1,
+      "instruction": "What does this still owe its reader, and what did you expect and not get? Say what is already working and must survive the next pass. Faults come next round, not this one."
+    },
+    {
+      "name": "ch2-faults",
+      "rounds": 1,
+      "instruction": "Now the faults. Answer your colleagues by name and say where you disagree with them. Editor: quote sentences. Continuity: cite specifics. Reader: say where you laughed."
     },
     {
       "name": "revise-ch2",
       "rounds": 1,
-      "seats": ["nadia-quill"],
-      "words": 1500,
-      "instruction": "Post the full revised chapter, not a diff or a summary of what changed."
+      "seats": [
+        "nadia-quill"
+      ],
+      "words": 1400,
+      "deliverable": "the-sidecar.md",
+      "instruction": "In your post, say what you took, what you refused and why. A refusal on the record is worth more than a silent one."
     },
     {
-      "name": "whole-book-review",
-      "rounds": 2,
-      "instruction": "Read all three sections as one book. Flag seams between sections, repeated beats, and any house rule that slipped (em-dash included)."
-    },
-    {
-      "name": "final-polish",
+      "name": "whole-book-what-is-missing",
       "rounds": 1,
-      "seats": ["nadia-quill"],
-      "words": 3000,
-      "instruction": "Post the full, final text of all three sections in one post, in order: preface, chapter one, chapter two."
+      "instruction": "Read all three sections as one book. What does the book still owe its reader end to end, and what must survive untouched? Not faults this round."
+    },
+    {
+      "name": "whole-book-faults",
+      "rounds": 1,
+      "instruction": "Now the faults across the whole book: seams between sections, repeated beats, and any house rule that slipped, the em-dash rule included."
+    },
+    {
+      "name": "final-preface",
+      "rounds": 1,
+      "seats": [
+        "nadia-quill"
+      ],
+      "words": 450,
+      "deliverable": "preface.md",
+      "instruction": "Change only what the last two rounds asked for."
+    },
+    {
+      "name": "final-ch1",
+      "rounds": 1,
+      "seats": [
+        "nadia-quill"
+      ],
+      "words": 1400,
+      "deliverable": "the-book-that-disagreed-with-itself.md",
+      "instruction": "Change only what the last two rounds asked for."
+    },
+    {
+      "name": "final-ch2",
+      "rounds": 1,
+      "seats": [
+        "nadia-quill"
+      ],
+      "words": 1400,
+      "deliverable": "the-sidecar.md",
+      "instruction": "Change only what the last two rounds asked for."
     }
   ]
 }

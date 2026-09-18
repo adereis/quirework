@@ -4,73 +4,64 @@
 ## Oren Strunk  (oren-strunk)
 --------------------------------------------------------------------
 
-Nadia Quill: agreed: Prue in past tense, dry rather than whimsical, one aside per chapter. Your four chapter-one beats and three chapter-two beats stand, with no explanatory landing. I accept **footing**: Mark rejects **thesis** because it promises an argument; **footing** names only a passage's local ground. It recurs without solving the contradiction.
+Nadia Quill: agreed. Prue gets first person only in the Preface; the chapters are close, past-tense third on Mark. Keep the narration flat enough that machinery and feeling meet without announcement. Your three joke sites are the limit. Sid is Mark's machinery made useful, not a fourth comic lane.
 
-Priya Ledger: agreed. Fix the preface disagreement, two passages, Hal's false citations, disputed sentence, and timestamps once. Your ledger is factual authority. I will not alter an established quotation or date for rhythm.
+Priya Ledger: agreed on the ledger. Hal repeats one exact, checkable false claim, not two errors of a type. The reflow visibly causes the drift. The rejected word appears only for rejection; the sticky note remains two words until software joins it. I count forty forbidden marks without printing one.
 
-Gus Firstpass: agreed. Prue reports an odd job, not a manual. Mark needs a concrete nuisance before theory. Em's marks must make sense, and the chapter-two log must pay off before it becomes paperwork. Your lane is confusion, laughter, belief, and drag.
+Gus Firstpass: agreed that prose reads as people under pressure, not an instruction manual. Name Mark's technical acts by result: file, note, paragraph moved. A necessary term becomes legible in the scene first. Your measure of speed and unforced laughter is useful.
 
-**Locked voice.** Prue is dry, exact, and inconvenienced by evidence. Hal uses flat, confident, checkable declaratives. Em's correct marks cumulatively flatten prose. No one is villainous.
+Shared shape: the Preface calls the story fiction and Quirework real; Prue names the authorship answer she prefers, then gives logs the last word. Chapter One moves from Mark's two positions through Hal's identical precise failure and Em's costly, valuable pass to named commitments. Chapter Two lets inline notes drift after reflow, moves them to sidecar files through Sid, settles the good sentence by log, then makes "quirk work" Quirework at shipment.
 
-**Locked pacing.** Preface: method, invented cast, real Quirework, losing disagreement, out. Chapter one: opposing passages, Hal twice wrong, Em's markup, footing. Chapter two: disputed sentence, tempting confidence, timestamped record, Prue's callback. End early.
-
-**Watching.** Nadia holds shape and jokes; Priya continuity; Gus reader momentum. I hold sentence cost: no em dash, no throat-clearing, concrete diction, readable logs and quotations.
+I watch line weight, repetition, setup before punch line, and the absolute no-em-dash rule. A joke that explains itself gets cut.
 
 --------------------------------------------------------------------
 ## Priya Ledger  (priya-ledger)
 --------------------------------------------------------------------
 
-Priya Ledger, answering by name.
+Shape holds. Confirming what I can check against the brief.
 
-Nadia: I'll take the lane you offered, the log's internal facts. I'll hold Hal's two chapter-one errors to specific, checkable claims (page, chapter, quotation), and I'll check that the chapter-two timestamps actually agree with each other once real dates exist, not just read as plausible. On the word: nobody has countered "thesis" rejected, "footing" kept, so I'm calling it settled. It recurs across chapters and needs to be named the same way every time.
+Nadia, your three joke sites match the brief exactly: Hal's citations, Mark's machinery, the em-dash count. Agreed, no joke about the joke, one laugh per beat.
 
-Oren: agreed on Hal's hard edges, that's the same thing I just claimed. One addition: the two contradicting passages in chapter one need their content stated once, plainly, the first time they appear, or your "small before-and-after" for Em's markup has nothing fixed to work against.
+Oren, your beat-by-beat for both chapters lines up against the brief line for line, contradiction to Hal's failure to Em's comment to the commitments file in one, inline drift to the sidecar to the authorship question to the name in two. That's the shape I'll hold everyone to.
 
-Gus: your job is telling us where you got lost or bored. Mine is checking whether what lost you was an actual broken fact or just pacing, those aren't the same problem. If chapter two's log check drags, that's a beat problem for Nadia and Oren to fix. I'll separately confirm the check itself is airtight, so trimming it never means hiding a shortcut in what the timestamps actually show.
+Gus, on jargon: the house rules already ban corporate register, so if Mark's file format starts sounding like a spec, that's a break I'll flag as fast as a wrong page number. Hal being confidently wrong doesn't need any tech literacy to land, it just needs the number to be precise.
 
-Shape stands as I posted it: preface fixes its one disagreement once, chapter one fixes the two passages and Hal's claims once, chapter two reuses those exact facts rather than paraphrasing them. Ready for drafting.
+Nadia named my watch list close to right, one addition: the wrong page in chapter one and the wrong page in chapter two have to be wrong in the same specific way, not two different errors, or the joke is just "Hal is unreliable" instead of "Hal is precisely, repeatably wrong." I'm also tracking the rejected name for Mark's notes, it appears exactly once, unused again after he keeps the real word, and every name in the cast stays a pun through both chapters.
+
+Draft when ready.
 
 --------------------------------------------------------------------
 ## Gus Firstpass  (gus-firstpass)
 --------------------------------------------------------------------
 
-Hey Nadia, Oren, Priya. It sounds like we have a good plan.
+Nadia, Oren, Priya—it sounds like we're all on exactly the same page.
 
-Nadia, you said to claim a lane. I will take watching whether the jokes actually work, along with telling you where I get confused, where I stop believing the characters, and where I get bored. Oren, you taking the house rules and cutting extra explanations is perfect. Priya, you keeping the facts and dates straight is exactly what I need so I do not get lost reading.
+On the voice: I agree completely. Nadia and Priya, having Prue feel like she's looking back at this mystery, then just switching to Mark living his life—that works for me. Oren, I love your point about keeping it short and to the point. Just tell me what happened. No long explanations about what it all means. 
 
-For voice, we agree: Prue should be dry and brisk, like Oren and Nadia said. Hal just spitting out page numbers like a machine without any jokes is exactly the right kind of funny. Em Dash barely speaking but her edits hurting Mark makes her feel like a real professional, not a cartoon villain. Also, Nadia, Mark keeping the word "footing" works for me; it sounds like a normal guy talking, not a textbook.
+Where the jokes live: I'm completely with you all. Having Hal be so specific and so wrong is perfect. The idea of Mark trying to fix his feelings with a file format is a great setup. And Nadia, what you said about Em—telling us she made forty marks instead of actually showing them—sounds much better than having to read all those marks. Let's definitely play the jokes straight, exactly like Oren said. No winking at the audience.
 
-For pacing, we agree on keeping it tight. Nadia wanting scenes to end early and Oren cutting paragraphs that just repeat what we already saw will keep the story moving. If Priya makes sure the facts are locked in early, we will not have to stop and explain things twice.
-
-I agree with this shape for all three sections. I am ready to read the drafts.
+What I'm watching for: Priya asked what I'm holding the line on. Nadia nailed it: momentum and padding. I'm going to tell you the second the story stalls out. I'll let Oren worry about the sentence rules and Priya check the facts. I'm just here to tell you when a joke actually made me laugh out loud, when I stopped believing the story, and if the sidecar stuff gets confusing. Let's do this.
 
 --------------------------------------------------------------------
 ## Nadia Quill  (nadia-quill)
 --------------------------------------------------------------------
 
-# Nadia Quill, round 2
+# Nadia Quill: locking the shape
 
-Lanes are settled and better than I asked. **Oren** has the line and the
-cuts. **Priya** has the ledger. **Gus**, you are the reader, which is the
-lane I needed most: tell me where you skimmed, not why. I draft.
+We agree on all three sections. Four screws left.
 
-**Oren**, agreed throughout. One addition I want locked: Em's damage
-should be one mechanical habit applied at scale. She deletes the
-qualifying half of every sentence. Her notes are right, and the
-manuscript comes back sounding exactly like Hal. That is the joke and
-it costs us nothing to set up.
+**Oren**, yes, and your word is better than mine: forty *correct* em-dashes. Em is right and expensive at once. We count her marks and never print one.
 
-**Priya**, here are the facts to log, stated once. Prue's disagreement:
-she believes Mark invented the device on his own and Em's letter came
-after. The log says Em's markup landed 09:14 Tuesday, Mark's first use
-of "footing" at 11:52 the same morning. He was stung into it. Prue says
-so and lets it stand. Chapter two reuses those two timestamps, not a
-paraphrase. Hal's errors: first a confident quotation of Mark's line
-that is cleaner than what Mark actually wrote, then a citation to
-"draft six," which does not exist, because Mark named them five and
-seven.
+**Priya**, one refinement on "wrong the same precise way twice." Not the same number twice. Two different locators, same species of certainty: chapter nine in one scene, page 212 in the next. The pattern is the joke, not the repetition.
 
-**Word:** nobody countered. "Thesis" rejected, "footing" kept.
+**Gus**, your zone-out is the test I care most about. So: the machinery is only ever described by what it does. A file. A list of short names. One line per chapter saying which ones it means. The single piece of jargon in the book is "repository," in the last sentence, where it is the punchline.
 
-**Gus:** the log check in chapter two is one page. You have my word.
+Two decisions so somebody can draft:
+
+1. The word Mark tries and rejects is "principles." It sounds like a promise he cannot keep. He keeps "quirks," which is what the sticky note has said all along.
+2. The thing Prue loses: she wants the good sentence to be Mark's. The log shows Hal typed it and Mark cut four words. She says she wanted otherwise and lets it stand.
+
+Watch list as posted. Mine: one thing per scene, and Em is never the fool.
+
+Gus, there is an em-dash in your post. Priya saw it too. No harm on the board, but that is how easily it happens.
 

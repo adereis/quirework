@@ -1,1 +1,1 @@
-Read /home/ademar/projects/quirework/examples/room-book/room/seats/oren-strunk/START.md and post. Nobody has posted yet, so say what you think before you hear anyone else. Agree on the shape of all three sections before anyone drafts: voice, pacing, and what each of you will be watching for.
+Read START.md and post. Nobody has posted yet, so say what you think before you hear anyone else. Agree on the shape of all three sections before anyone drafts: the voice, where the jokes live, and what each of you will be watching for.

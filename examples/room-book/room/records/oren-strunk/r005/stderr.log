@@ -1,1 +1,0 @@
-2026-09-18T02:29:12.643672Z ERROR codex_core::tools::router: error=apply_patch verification failed: Failed to read /home/ademar/projects/quirework/examples/room-book/room/seats/oren-strunk/outbox/post.md: No such file or directory (os error 2)

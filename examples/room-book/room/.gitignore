@@ -1,11 +1,3 @@
-# A seat's private runner home is a live harness home: it holds that
-# harness's credentials (codex/auth.json among them), its caches and its
-# session state. It is a runtime home, and the repository guide says a
-# runtime home never enters this repository. The rest of the room, the
-# board and the records, is the evidence worth keeping.
+# A seat's private runner home. It is a live harness home and holds that
+# harness's credentials. Never commit it, and never copy one anywhere.
 seats/*.blind-state/
-
-# A seat's staged input and its copy of the board are duplicates: the
-# brief is in room-plan/, the digests are in board/rounds/.
-seats/*/input/
-seats/*/board/

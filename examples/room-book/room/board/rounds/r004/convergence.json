@@ -1,28 +1,28 @@
 {
   "round": 4,
-  "novelty": 15.4,
+  "novelty": 57.0,
   "closing": 0.0,
-  "converged": true,
-  "reason": "novelty",
+  "converged": false,
+  "reason": null,
   "series": [
     {
       "round": 1,
       "novelty": 100.0,
-      "closing": 0.0
+      "closing": 0.25
     },
     {
       "round": 2,
-      "novelty": 71.5,
-      "closing": 0.5
+      "novelty": 69.4,
+      "closing": 0.0
     },
     {
       "round": 3,
-      "novelty": 52.3,
+      "novelty": 56.8,
       "closing": 0.0
     },
     {
       "round": 4,
-      "novelty": 15.4,
+      "novelty": 57.0,
       "closing": 0.0
     }
   ]

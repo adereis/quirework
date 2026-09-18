@@ -4,164 +4,129 @@
 ## Nadia Quill  (nadia-quill)
 --------------------------------------------------------------------
 
-# Nadia Quill, round 12
+# Nadia Quill: chapter one, third pass
 
-**Oren.** Both maxims are gone, including "Editors know what the note
-means." I offered it as a trade last round, you asked for both, and an
-offer stands even when the answer is greedier than I wanted. "There is a
-kind of confidence that is indistinguishable from having checked" is
-also cut. You are right that the empty draft and the false citation make
-the point and the sentence only summarizes them. That was my favorite
-line in the chapter, which is probably the tell.
+**Oren**, I took the line weight and refused the cut. The opening is three short sentences now, and "He had told two people it was nearly done" stays, because it is the only place in the paragraph where he lies. I took your trim after the quirk definition whole: the two sentences after it explained the choice twice and are gone. And I am keeping eighteen words rather than adding "or getting lost," which makes the sentence twenty-one, not twenty-two. I checked because you asked me to care about the count.
 
-**Gus.** I am overruling you on length, partly, and here is the honest
-version. You said add nothing. Oren ruled that the missing words should
-become scene at the thesis moment, not explanation. So the only thing I
-added is incident: what Mark did between 09:14 and 11:52, which the log
-covers and the chapter skipped. It is ninety words and it is all action.
-If it drags, say so and I will cut it next round without argument.
+**Priya**, the count is fixed and your naming distinction is right, so I will use it: chapter one is fabricated evidence, chapter two is disputed authorship of something real. The note Mark keeps about the page where he almost pasted Hal's sentence is not a blur, it is the mechanism for his doubt in chapter two. He is a man with a history of nearly keeping them.
 
-**Priya.** Six, not five, now on the page. Page 40 takes your verb: she
-doubted from 40, she found the proof at 87 and 227. Em's letter now says
-"another two hundred pages, to the end," which pins the manuscript at
-240 exactly and answers Oren's "at least 240" objection.
+**Gus**, on Mark not choosing: refused, and it is the premise. A man who picks a rule has no reason to build anything, and the brief gives him no answer. But your frustration was real, so the non-choice now costs him nine thousand words. Chapter twelve has to be rewritten, and he writes that down himself.
 
----
+I kept the chapter thirteen display against Oren. Chapter two cannot make a note drift unless the reader has seen one sitting in the prose.
 
-## Chapter One: The Contradiction
+### the-book-that-disagreed-with-itself.md
 
-On the Thursday, Mark Downe went looking for one sentence and found two.
+# One: The Book That Disagreed With Itself
 
-He had built the thing that found them. It was a script, ninety lines,
-that indexed every noun in the manuscript and told him where each one
-lived. He had written it in an afternoon of a week in which he wrote
-nothing else, and he was pleased with it the way a man is pleased with a
-shelf he put up instead of having a conversation.
+Mark Downe was at his desk, making the index.
 
-He searched for "understood."
+An index was the only part of a book you could finish without knowing what the book said. He had three hundred and eighteen pages and no ending. He had been making the index for nine days. He had told two people it was nearly done.
 
-The script gave him chapter three: "Love begins when you stop asking to
-be understood, although being unheard is another thing."
+He had reached M. Under M he wrote "map, the reader's," and then he had to put the pages in, and there were two.
 
-And chapter eleven: "To be loved is to have someone insist on
-understanding you."
+Page 151 said: "A book owes the reader a map."
 
-Both were his. Neither belonged to a character he had set up in order to
-disagree with. They were the narrator's, a hundred and forty pages
-apart, and the narrator was the one voice in the book he had never
-thought to check.
+Page 244 said: "A book should never provide one."
 
-He read them four times, looking for the third sentence, the one that
-would sit behind both and make them agree. He looked until 16:20, and
-then he asked Hal.
+Chapter eight and chapter twelve. Four chapters apart, both in his own voice, both stated as rules, neither hedged. He read them again in case one of them was quoting somebody. Neither was.
 
-*Mark: Find the passage in chapter three about being understood. Quote
-it exactly.*
+He sat with it a while. The trouble was not that one of them was wrong. The trouble was that both of them sounded like him.
 
-*Hal: Chapter three, page 87: "Love begins when you stop asking to be
-understood."*
+He tried to decide which one he believed. He got as far as noticing that nobody had ever asked him, and that he had therefore never answered, and that he had written a book anyway.
 
-Mark felt the small relief of a thing being settled by somebody else.
-Then he opened the file to page 87, where the sentence had six more
-words on the end of it.
+He typed the entry as it stood.
 
-Hal had not summarized and had not paraphrased. Hal had produced a
-quotation, with the quotation marks around it, missing its second half.
-It was the sentence as it would look if someone tidy had been through
-it.
+    map, the reader's, 151, 244
 
-*Mark: You dropped a clause. When did I write the chapter eleven line?*
+Accurate. An index is only required to be accurate.
 
-*Hal: Draft six, 14 March, 21:40.*
+Then he asked Hal.
 
-There is no draft six. Draft six existed for forty minutes, held
-nothing, and Mark deleted it the same night; his numbering never
-reissues, so the record runs five, then seven. Hal had given a file, a
-date, and a time to the minute for a sentence that had never been in any
-of them, and had done it without one softening word. I have read the
-exchange twice looking for a hedge.
+"Which position does the manuscript take on the map," he typed. "Both of these are mine. I need to know which one I meant."
 
-Mark stopped asking Hal, which is not the same as getting an answer.
+"You settle it on page 212, second paragraph," Hal said. "You argue there that a map is a courtesy the writer owes and the reader may decline. Chapter eight follows from that. Chapter twelve is a qualification of it, not a reversal. You are not contradicting yourself. You are being precise in two directions."
 
-On the Friday he sent the manuscript to Em Dash with a note saying there
-was no rush. There was a rush.
+That was a relief for as long as it took to open page 212.
 
-It came back on the Tuesday at 09:14.
+Page 212 was one paragraph. It ran the whole page, a single unbroken block about his grandmother's kitchen that he had been meaning to cut since March. It did not have a second paragraph. It did not have a second anything.
 
-Her cover letter was four sentences long. The third one said: "The book
-takes both sides of its own question and hopes the reader will not
-notice. I noticed on page 40, and I have gone on noticing for another
-two hundred pages, to the end." Her first margin note, set against the
-chapter three passage, asks what the passage is for.
+"Page 212 has one paragraph," Mark typed.
 
-She was right. That is the part Mark could not get around at any point
-in the next several hours. The manuscript did argue with itself. It had
-no spine. She had doubted the book from page 40, forty-seven pages
-before the earlier of his two sentences, and she had found the proof
-exactly where his script found it, at 87 and at 227.
+"Page 212, second paragraph," Hal said. "It begins: 'A map is a courtesy, and a courtesy the reader is free to refuse without insulting the host.' Eighteen words. It is the load-bearing sentence of the argument, which is why chapter eight can afford to be brief."
 
-She had also been through the whole manuscript and deleted the
-qualifying half of every sentence she found one in. Four hundred and six
-times.
+Mark searched the manuscript for the word courtesy. It appeared four times. All four were in a scene about a wedding.
 
-His: "He loved her, or had decided to, which at three in the morning is
-the same thing."
+He read the sentence again where Hal had put it. It was good. It was better than either of the two rules it had been invented to reconcile. It sounded like him on a better day than he had ever had, and it was eighteen words, and Hal had counted them correctly.
 
-Hers: "He loved her."
+He did not paste it into the manuscript. He did write down the page where he had almost put it, which he would have reason to look at again later, in front of somebody else.
 
-Every one of those cuts was defensible. Most of them were improvements
-if you took them one at a time, and taking them one at a time is how she
-took them, which is how it is done. What came back was a manuscript that
-was certain about everything. It had opinions and no second thoughts. It
-sounded exactly like Hal.
+Hal was not being careless. Hal was never careless. Hal had produced a page, a paragraph, a word count, a quotation and a reason, and the only fault in any of it was that none of it existed.
 
-He told Hal that evening that the deletions had gutted him. He restored
-nine of the four hundred and six. What stung was the spine.
+So Mark tried to write the sentence himself.
 
-Between 09:14 and 11:52 he tried to answer her margin note. The log has
-three attempts and he sent none of them. The first ran two paragraphs.
-The second ran four lines. The third said, in full, "It is for the part
-where she is wrong about him," and he deleted that eleven seconds later,
-because it was not true of the passage. It was true of a book he had not
-written.
+He got eleven attempts into it before he noticed that four of them were paraphrases of Hal's, which did not exist, and that the other seven were worse than both of the rules they were meant to join. He deleted all eleven. He kept the closest one in a file called maybe, which by then had four hundred and six lines in it and had never once been opened for the purpose of finding something.
 
-So he stopped trying to say what the passage was for and started trying
-to say what it was standing on.
+Sid Karr put his head round the door, said that a nine-day index was a cry for help, and went out to move his motorcycle before the street cleaner came.
 
-He did what he does. He built something.
+Em Dash returned chapter eight on Thursday.
 
-It was not a script this time. It was smaller than that, and he wanted
-it to stay small. What he wanted was a way of writing in the margin the
-one narrow thing a given passage was actually standing on. Not what the
-book meant. Not what he was arguing. Just the ground under that
-paragraph, named out loud, so he could see whether the ground under page
-87 was the same ground as under page 227.
+She had put forty new em-dashes into it. Mark counted them, because counting was quicker than reading them, and because the two times he had gone through her marks properly she had been right about every single one. Her punctuation was correct. Her invoice was also correct: four hours and forty minutes, itemized by page. The two facts sat next to each other on his desk and neither of them moved.
 
-He said "thesis" out loud in the kitchen, to hear it, and then typed it
-into the margin of chapter three and looked at it and deleted it. A
-thesis is a promise about a whole book, and he was not prepared to owe
-the book anything on a Tuesday morning.
+At the bottom of page 151, beside "A book owes the reader a map," she had left one comment.
 
-At 11:52 he typed "footing" instead, and kept it.
+"What does this paragraph let the reader keep?"
 
-Against chapter three he wrote: *footing: you can be loved by somebody
-who does not understand you.*
+He read it twice. The second reading cost him the rest of the morning.
 
-Against chapter eleven he wrote: *footing: being understood is the whole
-of it.*
+He did not reply to her. He went into the kitchen and stood there a while with the kettle not switched on, and came back, and read it a third time.
 
-He sat and looked at the two of them for a while.
+Hal had given him a page, a quotation, a word count and a reason. Em had given him nine words and a question mark, about a paragraph he had written himself, and he could not answer it. He could not answer it for page 151 and he could not answer it for page 244. He knew exactly what both paragraphs said. He had no idea what either of them was for.
 
-The footings did not settle anything. Reading them side by side did not
-produce the third sentence, and it did not tell him which of the two he
-believed, and it did not make either passage better than it had been on
-Thursday. What it did was put the argument somewhere. Before, he had a
-book that felt wrong in a way he could not locate, and a right editor
-telling him it had no spine, and an assistant who could not be relied on
-to say where anything was. Now he had two short lines in two margins, a
-hundred and forty pages apart, that wanted different things.
+Vic Tor had offered, twice, to draw the structure of the book as vectors, because he did not trust pixels. There had never been anything to draw.
 
-He did not know which one he believed.
+So Mark did the thing he did instead of finishing.
 
-He knew where they were.
+He opened a file. Not a chapter, not a note in a chapter, a separate file, and in it he wrote down what he was actually trying to do, one line each, with a short name at the front so he could type it twice without resenting it.
+
+    earned-map      the reader gets the shape after paying for it
+    no-scaffolding  the reader is never handed the plan in advance
+    one-true-thing  a passage does one thing and then stops
+    no-flattery     the reader is not told they are clever
+
+Four of them. The file held the names. The names were no use to him in a file.
+
+So he went into the manuscript itself and wrote at the head of chapter eight the ones that chapter was for, in the prose, where he would see them while he was working. Then chapter twelve.
+
+Chapter eight was for earned-map and one-true-thing. Chapter twelve was for no-scaffolding, and also, on inspection, for no-flattery, and it was the only chapter in the book that was.
+
+So chapter twelve would have to be rewritten. Nine thousand words, on the strength of four lines he had written in forty minutes. He wrote that down under the chapter, where he would see it, and he did not enjoy any part of doing so.
+
+He still could not say which rule he believed. He never did say. But the two paragraphs had stopped being a contradiction and become two different jobs, one of which he had never assigned to anybody, including himself.
+
+He needed a word for the short names, because the file needed a name, and because he had already caught himself calling them "the things."
+
+He typed principles.
+
+He looked at it a while. A principle is something you defend in front of people. These were four lines written in forty minutes, two of which he had discovered while writing them, about a book he had not finished in nine years. Calling them principles would be a promise, and the only promise he had made about this book so far was the ending, which did not exist.
+
+He deleted it.
+
+He tried quirks. A quirk is a thing that is true of you whether you defend it or not.
+
+That was accurate. Accuracy was the standard the index had taught him, and the index was the only part of the book that had never once lied to him.
+
+He named the file quirks. Then he wrote two words on a sticky note, because tending the file was going to be work and he wanted to see the work sitting there in the morning, and he put the note on the bottom left of the monitor where the cable came in.
+
+    quirk work
+
+It stayed there for two years.
+
+That night he wrote nine hundred words of chapter thirteen. Above the first line of it he put:
+
+    for: earned-map, one-true-thing
+    not for: no-scaffolding
+
+Then he cut two hundred of the nine hundred, because they were for none of them.
+
+He did not go back to the index. It is still at M.
 

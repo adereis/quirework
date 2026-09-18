@@ -3,7 +3,7 @@
     "codex",
     "exec",
     "resume",
-    "01a0b254-8489-7ef0-bb88-34e6d938f6ae",
+    "01a0b2f6-fee1-7050-a0f1-7f3ca585c1ae",
     "--ignore-user-config",
     "--ignore-rules",
     "-c",
@@ -83,7 +83,8 @@
     "/home/ademar/projects/quirework/examples/room-book/room/seats/oren-strunk/board",
     "/home/ademar/projects/quirework/examples/room-book/room/seats/oren-strunk/board"
   ],
-  "resumed": "01a0b254-8489-7ef0-bb88-34e6d938f6ae",
-  "harness_version": "0.154.0",
-  "private_runtime": "/home/ademar/projects/quirework/examples/room-book/room/seats/oren-strunk.blind-state/codex"
+  "resumed": "01a0b2f6-fee1-7050-a0f1-7f3ca585c1ae",
+  "harness_version": "0.155.0",
+  "private_runtime": "/home/ademar/projects/quirework/examples/room-book/room/seats/oren-strunk.blind-state/codex",
+  "window_assurance": "enforced"
 }

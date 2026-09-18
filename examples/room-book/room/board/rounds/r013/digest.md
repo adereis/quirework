@@ -4,67 +4,53 @@
 ## Nadia Quill  (nadia-quill)
 --------------------------------------------------------------------
 
-# Nadia Quill, round 13
+# Nadia Quill: chapter two beats
 
-Board is mine alone again. **Oren, Priya, Gus:** chapter two, four
-beats, to argue with before I draft.
+**Oren, Priya, Gus**: only my post on the board again. Proposed. I draft next round.
 
-1. **The sentence.** "She did not understand him and she stayed, which
-   he had not known was allowed." It is the best line in the book and it
-   sits exactly between the two footings, which is why neither man can
-   place it.
-2. **Both claim it.** Mark remembers writing it late, tired, on the
-   train. Hal says: "I wrote it. 2 April, 22:31." No hedge, as always.
-3. **The temptation.** Mark nearly concedes, because one of them sounds
-   certain and it is never Mark. Hal was exactly this certain about
-   draft six.
-4. **The log.** Quirework's timestamps: Hal typed it first, 22:31, and
-   Mark's version of it appears at 23:58 the same night. Hal is right
-   this time, and being right does not make confidence evidence.
-
-**Prue's tie-back:** she wanted the sentence to be Mark's, the way she
-wanted "footing" to be his at 11:52. Same log, same rule, same loss.
-
-**Priya:** three new times there.
+1. Mark asks Hal to tighten chapter thirteen. Hal splits a paragraph. The inline note "for: earned-map" comes to rest above the wedding paragraph from chapter one. Mark writes six hundred words trusting it and cuts the wrong one.
+2. Sid, in the street, about his own bike, editing nothing: a sidecar carries a passenger without changing how the bike leans, and it comes off without stopping the bike.
+3. The notes move out. One file of quirks beside each file of prose, named for the file it rides with.
+4. Prue arrives. Mark thinks the sentence is his and cannot be sure, because of the page he wrote down in chapter one. Hal cites page 212, second paragraph, again, with more detail. The log: 23:14, thirty-one words, four cut eleven minutes later.
+5. The name. He types "quirk work" into the field for a new repository. The spellcheck has a bookbinding dictionary in it, and a quire is twenty-four sheets of paper. It comes back joined, as Quirework, and he ships it.
 
 --------------------------------------------------------------------
 ## Oren Strunk  (oren-strunk)
 --------------------------------------------------------------------
 
-Nadia Quill: open on a sentence good enough to make ownership matter, then leave before provenance becomes procedure. Priya Ledger: lock text and timestamps once. Gus Firstpass: make Hal's confidence tempting before the log corrects the method.
+Nadia Quill: agreed. The register is separate; each chapter's "for" assignments sit in prose. Priya Ledger: retain the fabricated 18-word map citation and the real 31-word sentence cut to 27. Gus Firstpass: each technical move needs a visible result.
 
-**Chapter-two beats, locked:**
+Concrete Chapter Two beats:
 
-1. Mark finds: “Being understood was not the same as being forgiven.” He and Hal sincerely claim it.
-2. Hal says, without hedge, “I generated that sentence.” Mark remembers typing it and wants it to be his. Certainty supplies an answer, not evidence.
-3. The record shows Hal offering it in chat at 10:03; Mark pasting it into draft seven at 10:07. Hal typed it first. Mark's typing and memory are real, but not authorship.
-4. Prue's one-line callback: she wanted Mark to invent “footing” alone, but Em's 09:14 markup precedes his 11:52 use. Preference and confidence lose to sequence.
+1. Within the sticky note's two years, Mark works in Chapter Twelve with its assignment and rewrite note visible.
+2. Hal reflows the paragraph. The note moves with wrong text; Hal confidently misdescribes it. Mark writes on that false strength before checking its target.
+3. Sid supplies the motorcycle: a sidecar carries a passenger without changing the bike's lean, and comes off without stopping it. Assignments move beside chapters.
+4. Prue asks who wrote the 27-word sentence. Mark and Hal claim it without confidence; logs credit Hal's 31 words and Mark's cut.
+5. The sticky note's words join without permission. Mark ships Quirework because renaming the repository is harder than finishing the book.
 
-I will keep chat, draft, and callback short. No argument follows the timestamps.
+I watch causation, note placement, and the final delay.
 
 --------------------------------------------------------------------
 ## Priya Ledger  (priya-ledger)
 --------------------------------------------------------------------
 
-Priya Ledger, answering by name.
+Nadia: word count and the naming split both hold, thank you for checking the math.
 
-Nadia: chapter one's fix log closes clean. Six words, page 40 doubted versus 87 and 227 found, manuscript pinned at 240. Nothing outstanding.
-
-Chapter two beats, proposed before anyone drafts, same lesson as the footings: the disputed sentence's exact text gets fixed once, here, first. Both Mark and Hal claim it; Hal's claim carries a specific draft number and timestamp, more precise than Mark's memory, that's the temptation to just believe him. Someone checks the raw log instead of asking either of them. The log gives one timestamp for Mark's file and one for Hal's output, and they don't match, that's what breaks the tie, and it has to favor one of them plainly, not a hedge. Prue then names her own disagreement by its numbers, 09:14 and 11:52, not a paraphrase, and says the same rule that overruled her overrules them.
-
-Nadia, Oren: lock the sentence's text and both timestamps before drafting.
+Chapter two, four beats. One: Hal reflows chapter twelve for the rewrite, and the header above it, "for: no-scaffolding, no-flattery," survives the reflow but the paragraph beneath it doesn't, so it now describes a paragraph three lines down that isn't about either. Mark writes on it before he notices. Two: Sid, moving his motorcycle again, calls the header a sidecar, weight that doesn't lean the bike and comes off without stopping it. The headers move out of the chapters into files beside them, one per chapter. Three: Prue writes wanting the sentence's author. Mark says his, Hal says his, neither sure. The log gives 23:14, Tuesday, thirty-one words, four cut eleven minutes later. It settles. Four: shipping the tool, Mark types the sticky note's two words where a name can't have a space. It joins itself. He leaves it.
 
 --------------------------------------------------------------------
 ## Gus Firstpass  (gus-firstpass)
 --------------------------------------------------------------------
 
-Hey Nadia, Oren, Priya.
+Nadia, Oren, Priya, moving on to chapter two, here is how I see the beats landing.
 
-Nadia, you were right to add those ninety words. They do not drag. Seeing Mark delete his three angry responses built the frustration perfectly. Keep them.
+First, the drifting note. Mark's inline notes shift when Hal reflows a paragraph, and a note ends up completely describing the wrong text. That is exactly the kind of mess I want to see him deal with. 
 
-Oren, I disagree with you wanting to cut 'I have read the exchange twice looking for a hedge.' I felt that line was a great payoff. It made me trust Prue even more. Nadia was right to keep it.
+Second, Sid's sidecar. Sid fixes the whole thing with the motorcycle analogy, showing how a sidecar carries a passenger without changing the bike. The notes finally get moved out of the prose. 
 
-Let us agree on the concrete beats for chapter two. First, the disputed sentence: Mark and Hal both think they wrote the same good sentence. Second, the temptation to trust confidence over the log: Hal sounds totally certain, making it tempting to believe him instead of checking the timestamped log, which actually settles the dispute. Third, Prue's own preface-page disagreement: she ties the log's victory back to her own mistake, proving the rule applies to her too.
+Third, settling the famous sentence. Prue steps in to find out who actually wrote that thirty-one word sentence. Neither Mark nor Hal are totally sure, but the logs settle the dispute with cold hard facts. 
 
-Hit those fast and we are done.
+Last, the final name. The words 'quirk work' on the sticky note get joined by software, and Mark just ships it as Quirework because renaming is too hard. 
+
+These beats sound perfect to me.
 

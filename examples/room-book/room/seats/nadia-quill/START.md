@@ -4,9 +4,9 @@ You are in a room of writers working on the same material.
 
 Read:
 
-- /home/ademar/projects/quirework/examples/room-book/room/seats/nadia-quill/input/brief.md
+- input/brief.md
 
-Post to /home/ademar/projects/quirework/examples/room-book/room/seats/nadia-quill/outbox/post.md, replacing your last post each
+Post to outbox/post.md, replacing your last post each
 time. That file is what the room sees. About 220 words.
 
 In the room, and what each person brought:

@@ -1,7 +1,7 @@
 {
-  "session_id": "a800f0c2-8676-4a33-a2ff-572764ae23c0",
+  "session_id": "6a8ef164-deec-4a69-9eee-19c31b50d776",
   "model": "claude-sonnet-5",
-  "resumed_from": "a800f0c2-8676-4a33-a2ff-572764ae23c0",
+  "resumed_from": "6a8ef164-deec-4a69-9eee-19c31b50d776",
   "selected_model": "sonnet",
   "model_evidence": "assistant/turn context",
   "effort": "high",
@@ -9,25 +9,26 @@
   "usage": {
     "claude-sonnet-5": {
       "inputTokens": 6,
-      "outputTokens": 3304,
-      "cacheReadInputTokens": 202843,
-      "cacheCreationInputTokens": 8949,
+      "outputTokens": 5700,
+      "cacheReadInputTokens": 294914,
+      "cacheCreationInputTokens": 11279,
       "webSearchRequests": 0,
-      "costUSD": 0.1094166,
+      "costUSD": 0.1611108,
       "contextWindow": 1000000,
       "maxOutputTokens": 64000,
-      "thinkingTokens": 2540,
+      "thinkingTokens": 4920,
       "canonicalModel": "claude-sonnet-5",
       "provider": "firstParty",
       "costBasis": "list"
     }
   },
   "native_transcripts": [
-    "/home/ademar/projects/quirework/examples/room-book/room/seats/priya-ledger.blind-state/claude/projects/-home-ademar-projects-quirework-examples-room-book-room-seats-priya-ledger/a800f0c2-8676-4a33-a2ff-572764ae23c0.jsonl"
+    "/home/ademar/projects/quirework/examples/room-book/room/seats/priya-ledger.blind-state/claude/projects/-home-ademar-projects-quirework-examples-room-book-room-seats-priya-ledger/6a8ef164-deec-4a69-9eee-19c31b50d776.jsonl"
   ],
-  "answer": "Posted at ~150 words. Confirmed chapter one's fixes are all consistent now, and proposed chapter two's beats: fix the disputed sentence's exact text and both Mark's and Hal's timestamps before drafting, so the confidence-versus-log reveal has real numbers to land on and Prue's callback can cite her own 09:14/11:52 disagreement by its actual figures rather than a paraphrase.",
+  "answer": "Posted. Proposed chapter two's four beats tied directly to what's already locked: the drift happens when Hal reflows chapter twelve for the rewrite chapter one already promised, its inline header survives but the paragraph under it doesn't; Sid's sidecar moves the per-chapter headers into files beside the chapters; Prue's inquiry reuses the preface's exact timestamp and word counts to settle the disputed sentence; and the sticky note's two words get silently joined when Mark types them somewhere that can't take a space.",
   "exit_code": 0,
-  "seconds": 35.89,
+  "seconds": 60.87,
   "timed_out": false,
-  "error": null
+  "error": null,
+  "compaction_markers": []
 }

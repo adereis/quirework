@@ -2,7 +2,7 @@
   "argv": [
     "claude",
     "--resume",
-    "a800f0c2-8676-4a33-a2ff-572764ae23c0",
+    "6a8ef164-deec-4a69-9eee-19c31b50d776",
     "--model",
     "sonnet",
     "--effort",
@@ -77,7 +77,8 @@
     "/home/ademar/projects/quirework/examples/room-book/room/seats/priya-ledger/board",
     "/home/ademar/projects/quirework/examples/room-book/room/seats/priya-ledger/board"
   ],
-  "resumed": "a800f0c2-8676-4a33-a2ff-572764ae23c0",
+  "resumed": "6a8ef164-deec-4a69-9eee-19c31b50d776",
   "harness_version": "2.1.276",
-  "private_runtime": "/home/ademar/projects/quirework/examples/room-book/room/seats/priya-ledger.blind-state/claude"
+  "private_runtime": "/home/ademar/projects/quirework/examples/room-book/room/seats/priya-ledger.blind-state/claude",
+  "window_assurance": "enforced"
 }

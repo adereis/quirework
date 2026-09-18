@@ -1,24 +1,25 @@
 {
-  "session_id": "01a0b254-8489-7ef0-bb88-34e6d938f6ae",
+  "session_id": "01a0b2f6-fee1-7050-a0f1-7f3ca585c1ae",
   "model": "gpt-5.6-terra",
-  "resumed_from": "01a0b254-8489-7ef0-bb88-34e6d938f6ae",
+  "resumed_from": "01a0b2f6-fee1-7050-a0f1-7f3ca585c1ae",
   "selected_model": "gpt-5.6-terra",
   "model_evidence": "assistant/turn context",
   "effort": "high",
   "effort_evidence": "turn_context",
   "usage": {
-    "input_tokens": 4112617,
-    "cached_input_tokens": 3881472,
+    "input_tokens": 4090913,
+    "cached_input_tokens": 3900928,
     "cache_write_input_tokens": 0,
-    "output_tokens": 37532,
-    "reasoning_output_tokens": 15509
+    "output_tokens": 35301,
+    "reasoning_output_tokens": 11687
   },
   "native_transcripts": [
-    "/home/ademar/projects/quirework/examples/room-book/room/seats/oren-strunk.blind-state/codex/sessions/2026/09/17/rollout-2026-09-17T22-24-38-01a0b254-8489-7ef0-bb88-34e6d938f6ae.jsonl"
+    "/home/ademar/projects/quirework/examples/room-book/room/seats/oren-strunk.blind-state/codex/sessions/2026/09/18/rollout-2026-09-18T01-22-06-01a0b2f6-fee1-7050-a0f1-7f3ca585c1ae.jsonl"
   ],
-  "answer": "Replaced the round-eighteen post at [outbox/post.md](/home/ademar/projects/quirework/examples/room-book/room/seats/oren-strunk/outbox/post.md) with a full-book audit.\n\nIt addresses **Nadia Quill, Priya Ledger, and Gus Firstpass by name** and records these conclusions:\n\n- **Nadia:** I disagree that Hal’s false “Draft six, 14 March, 21:40” citation can pin chapter one to March. A false claim cannot establish the scene calendar; “Thursday before Em’s Tuesday” is sufficient. I agree with cutting “Mark did the thing people do,” because chapter one has already earned the same construction in “He did what he does. He built something.” The clipped endings of the two chapters should remain: they function as rhyme, not accidental duplication.\n- **Priya:** The core facts now align: **09:14/11:52**, pages **87/227**, **2 April 10:03/10:07**, and **9 April 19:40**. I flagged “since the Tuesday” as a seam and proposed “since Em’s Tuesday.” I also flagged the potential real-product implication of “Quirework saves the box as you type”; its unsent-message capture should be explicitly Mark’s fictional installation.\n- **Gus:** I agreed that the preface’s “Chapter one starts on the Thursday” repeats chapter one’s immediate “On the Thursday.” I called for cutting the preface signpost. I also cut chapter two’s repeated verdicts around the already-decisive timestamps.\n- **House-rule pass:** no em dash found; the fiction and Quirework disclosure remains plain; Em is never villainized. Chapter two’s roughly **995 words** beside chapter one’s roughly **1,400** still makes it feel nearly like an afterword.",
+  "answer": "Replaced [outbox/post.md](/home/ademar/projects/quirework/examples/room-book/room/seats/oren-strunk/outbox/post.md) with a 205-word whole-book fault pass addressed to **Nadia Quill**, **Priya Ledger**, and **Gus Firstpass**.\n\nKey findings posted:\n\n- **Em-dash rule:** I disagree with adding an unsupported claim that Mark’s manuscript has 4,010 em dashes. The established plot point is stronger and cleaner: Em adds forty correct marks, Mark counts them, and the finished prose never prints one.\n- **Cross-chapter seam:** Chapter Two currently says both “Nineteen months after he wrote the sticky note” and “Twenty months earlier he had written down a page number.” These need one shared value. The page note precedes the sticky note only by the Chapter One afternoon.\n- **House-rule verification:** The board never renders the bound title page. I asked Priya to confirm the subtitle still says **“A short fiction”** and names **Quirework**, since the Preface cannot fulfill the subtitle requirement by itself.\n- **Repeated beat:** Keep “Accurate. An index is only required to be accurate,” but cut the later explanation that accuracy is what the index taught Mark.\n- **Scope:** The broad emotional and structural arc is paid; the cited seam and title-page check remain before claiming every promise is closed.",
   "exit_code": 0,
-  "seconds": 83.66,
+  "seconds": 91.46,
   "timed_out": false,
-  "error": null
+  "error": null,
+  "compaction_markers": []
 }

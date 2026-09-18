@@ -1,7 +1,7 @@
 {
-  "session_id": "7d53ac15-dea4-4108-845b-5677a446f448",
+  "session_id": "3eb71efc-58ea-4983-a265-695f6c04a142",
   "model": "claude-opus-5",
-  "resumed_from": "7d53ac15-dea4-4108-845b-5677a446f448",
+  "resumed_from": "3eb71efc-58ea-4983-a265-695f6c04a142",
   "selected_model": "opus",
   "model_evidence": "assistant/turn context",
   "effort": "high",
@@ -9,25 +9,26 @@
   "usage": {
     "claude-opus-5": {
       "inputTokens": 8,
-      "outputTokens": 8939,
-      "cacheReadInputTokens": 550716,
-      "cacheCreationInputTokens": 12052,
+      "outputTokens": 4277,
+      "cacheReadInputTokens": 652453,
+      "cacheCreationInputTokens": 6641,
       "webSearchRequests": 0,
-      "costUSD": 0.6193929999999999,
+      "costUSD": 0.4996015,
       "contextWindow": 1000000,
       "maxOutputTokens": 64000,
-      "thinkingTokens": 3268,
+      "thinkingTokens": 2198,
       "canonicalModel": "claude-opus-5",
       "provider": "firstParty",
       "costBasis": "list"
     }
   },
   "native_transcripts": [
-    "/home/ademar/projects/quirework/examples/room-book/room/seats/nadia-quill.blind-state/claude/projects/-home-ademar-projects-quirework-examples-room-book-room-seats-nadia-quill/7d53ac15-dea4-4108-845b-5677a446f448.jsonl"
+    "/home/ademar/projects/quirework/examples/room-book/room/seats/nadia-quill.blind-state/claude/projects/-home-ademar-projects-quirework-examples-room-book-room-seats-nadia-quill/3eb71efc-58ea-4983-a265-695f6c04a142.jsonl"
   ],
-  "answer": "Posted: the full book in one piece — preface, chapter one, chapter two — with the round's notes above it. I grepped the final file for em-dash and en-dash characters: **zero**.\n\n**Final calls this round:**\n\n- **Oren's rule-2 catch was the most important thing on the board.** \"Quirework saves the box as you type\" was a fabricated feature of a product the preface swears is real. The capture now belongs to Mark's own installation: he wired it onto the chat box himself two years earlier. The fiction stays inside the fiction.\n- **The preface signpost is cut entirely**, not rewritten. Gus said the handoff still tripped; Oren has wanted the preface to end on \"the log was there and I was not\" since round five. Chapter one now opens cold.\n- **The book ends on the bare timestamps.** \"It wins\" is cut as a verdict, which keeps Gus's two-beat drop and removes the thing Oren objected to inside it.\n- **Where I did not do what Priya asked:** she wants chapter one's month on the page. I'm not putting it there, using Oren's reason — a date Hal invented can't set the calendar. The ledger's real need is distance, and chapter two now carries \"three weeks after Em's Tuesday,\" which places Em's markup in mid-March without the book asserting something it can't check. I told her plainly that if she still wants the month, I'll take the note.\n\n**Two things I'm reporting rather than resolving:**\n\n1. **The book runs about 2,370 words against a brief asking roughly 3,250** (preface ~350, chapter one ~1,190, chapter two ~830). Oren says chapter two reads as an afterword; Gus says it's punchy and never drags. I share Oren's concern and shipped Gus's version, because drag is his lane and the only material cut for length was the blind test he read and disliked. Oren's dissent is on the record with his name on it. That shortfall is the clearest gap between this book and its brief.\n2. **\"Typing is not writing\" stays cut**, though it's the line I most want back. Two people independently called it a moral and they were right. I put that on the record once in the notes rather than leaving it in the prose forever.",
+  "answer": "Preface written to `outbox/preface.md` at ~458 words, with only the two changes the last two rounds asked for. Post is ~245.\n\n**Kept against Oren.** He refused the em-dash count as a number with no source that turns Prue into a copy editor. Priya had already sourced it in the same round: forty marks a pass, a hundred passes, ten over. And the sentence isn't copy editing, it's a custody declaration, the same act as letting the log beat her on the authorship. Two for, one against, with the arithmetic done.\n\n**Oren's chapter two seam isn't one.** \"Nineteen months\" is when the note drifts; \"twenty months earlier\" is spoken from the October deposit, which is later in the same chapter. Both are true from where they stand, and changing either makes one false. Worth stating rather than quietly editing.\n\n**Two of his notes I took, and both are chapter work rather than preface work**, so they're queued rather than applied: cutting \"Accuracy was the standard the index had taught him,\" and drafting the title page, which is genuinely nobody's file yet. House rule 2 survives regardless, since the preface declares the fiction in its own voice rather than leaning on the subtitle.\n\n**Gus:** refused the note coming down as the final beat, since the brief fixes the ending on the name. Took the tie-off itself, so the sticky note stops being a two-year number that doesn't match the ending's clock, and took his seam catch about Mark sitting with things in both chapters.\n\nOne standing risk: the outbox empties each round, so chapter one and chapter two are currently only in board history. The three queued chapter fixes and the title page need a round that asks for chapter files.",
   "exit_code": 0,
-  "seconds": 116.51,
+  "seconds": 69.22,
   "timed_out": false,
-  "error": null
+  "error": null,
+  "compaction_markers": []
 }

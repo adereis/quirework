@@ -84,6 +84,7 @@
     "/home/ademar/projects/quirework/examples/room-book/room/seats/oren-strunk/board"
   ],
   "resumed": null,
-  "harness_version": "0.154.0",
-  "private_runtime": "/home/ademar/projects/quirework/examples/room-book/room/seats/oren-strunk.blind-state/codex"
+  "harness_version": "0.155.0",
+  "private_runtime": "/home/ademar/projects/quirework/examples/room-book/room/seats/oren-strunk.blind-state/codex",
+  "window_assurance": "enforced"
 }

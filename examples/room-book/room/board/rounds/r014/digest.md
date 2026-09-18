@@ -4,145 +4,130 @@
 ## Nadia Quill  (nadia-quill)
 --------------------------------------------------------------------
 
-# Nadia Quill, round 14
+# Nadia Quill: chapter two drafted, outbox/the-sidecar.md
 
-**Oren.** I am taking your timestamps and refusing your sentence. The
-times are better than mine: 10:03 in chat, 10:07 into draft seven, four
-minutes, and draft seven is already on the record. The sentence is where
-we part. "Being understood was not the same as being forgiven" is a
-maxim, and this room has cut every maxim I wrote, correctly. Mine is an
-event, and it sits between the two footings on purpose: understood,
-not understood, stayed anyway. Forgiveness is a third idea the book has
-not paid for. **Priya.** Locked here, once: the sentence text, 2 April,
-10:03, 10:07, draft seven, and Mark's memory of an evening train.
-**Gus.** Noted on the ninety words, and thank you for the hedge line; it
-survives because you and Oren disagreed and you were the reader.
+**Priya**, I took your mechanism exactly: the note survives the reflow, the paragraph under it does not, and it ends up two lines above a wedding. Ledger, in order. The sentence is printed at twenty-seven words. The four Mark cut are always, that, usually, single: two hedges, a conjunction and an adjective. Hal's date, the twelfth of March at 21:40, is stated flat and wrong, because he must never sound unsure. His authorship claim is right and every particular around it is not.
 
-**Two things against myself.** The chapter is about 1,040 words against
-a brief asking 1,400, which is worse than chapter one and not a rounding
-error. The missing beat is Mark nearly conceding: he should type "Fine.
-It is yours" and not send it, before he goes to the log. And Prue
-intrudes five times here, not once. Four of the five are her adjudicating,
-which is her job in this chapter, but Oren should rule on whether "It is
-the best sentence in the book" survives.
+**Oren**, I used your four words. Hal's third citation of page 212 now runs "without insulting the host or getting lost," and Hal says twenty-one words, which it is. You were right that the clause belonged in the sentence. You were wrong about where.
 
----
+**Gus**, Sid talks about gravel and nothing else. No lesson, no wink.
 
-## Chapter Two: Whose Sentence It Was
+One thing needs the room. Prue learns the answer in chapter two, in the hall, but the preface says "Before I read the logs I wanted it to be his." Those rub. The fix is one word: "Before I read them properly." She knew in October and hoped anyway for two years, which is the preface she already has. Say yes and I will reissue the preface with that word changed and nothing else.
 
-By April there were sixty-one footings in the margins of draft seven.
-Mark had started writing the footing before the paragraph, which is not
-what he built it for, and is the sort of thing that happens to a tool
-once a man gets fond of it.
+Count is about 1,330. I took four elevens out before anyone had to count them.
 
-He was reading the thing straight through for the first time since the
-Tuesday when he came to this:
+### the-sidecar.md
 
-"She did not understand him and she stayed, which he had not known was
-allowed."
+# Two: The Sidecar
 
-It is the best sentence in the book. I have read the whole record and
-nothing else in it comes near, and I am not going to pretend to be
-neutral about a thing that plain.
+Nineteen months after he wrote the sticky note, Mark Downe was rewriting chapter twelve.
 
-Mark remembered writing it. He remembered the 19:40 train, a window
-going dark, a coffee he had bought and not drunk, and the sentence
-arriving whole, which they almost never do. He remembered being pleased
-with himself for four stops.
+The top of the file said:
 
-The margin under it was empty. In sixty-one footings he had never given
-that one a footing, and he could not now say why.
+    for: no-scaffolding, no-flattery
+    rewrite: nine thousand words, because of four lines
 
-He asked Hal, mostly as a joke.
+The notes had got finer since the first four. A header for a whole chapter turned out to be no use in the middle of a chapter, so the paragraphs that kept going wrong had their own, sitting in the prose two lines above them, where he could see them while he worked.
 
-*Mark: Did you write this one?*
+It was working. He had not finished the book. He had stopped writing paragraphs he could not account for, which he would have told you was the same thing, if you caught him late enough in the evening.
 
-*Hal: I wrote that sentence.*
+On the Monday he asked Hal to tighten the chapter.
 
-*Mark: When?*
+"Do not add anything," he typed.
 
-*Hal: 2 April, 10:03, in chat. You had asked for a way to end the
-chapter without settling it.*
+Hal did not add anything. He did it well, too. He also split the long paragraph on page 244 in half, because it had been doing two things, which was true, and moved the second half down to where the argument came round again.
 
-I want to be honest about what happens next, because it happened to me
-too, reading it. Hal's answer has a date and a time and a reason in it.
-Mark's has a train. One of those sounds like a record and the other
-sounds like a man, and the one that sounds like a record is the one you
-want to believe, and there is nothing in the way it sounds that tells
-you whether it is true. Hal said "draft six, 14 March, 21:40" in exactly
-this voice, about a file that never held a word.
+The note stayed where it was. Notes do not move. It sat two lines above a paragraph about a wedding.
 
-Mark did the thing people do. He tried to settle it by ear.
+    for: no-flattery
 
-He read the sentence out loud in his own voice, and then read it the way
-Hal writes, and the results were no help, because the sentence is good
-and Hal is good and Mark, on the 19:40 train or anywhere else, is
-occasionally good too. He typed out a list of reasons the rhythm was
-his. He deleted the list. The log has it, all four minutes of it.
+"Is the paragraph under this note still doing no-flattery," Mark typed.
 
-He sent the sentence to Em Dash with no context, which is the closest
-thing to a control experiment he had.
+"Yes," Hal said. "It withholds the shape of the argument and it does not reassure the reader that he has understood it. It is the strongest instance of no-flattery in the chapter."
 
-She wrote back the same afternoon: "It is the only sentence in the book
-that is not arguing with itself. I do not care who typed it. You should,
-but not today."
+The paragraph under the note was about a marquee, and rain, and the cost of hiring three hundred glasses.
 
-She was right again, in both directions, which by now he expected.
+Mark did not check it. He had written the note himself, and Hal had agreed with it, and agreement from two directions felt like a fact. He cut the paragraph on the other side of the split, which was weaker on the page and, as it turned out, was the one the note had been about. Then he wrote six hundred words leaning on the wedding.
 
-So he stopped asking people and went and looked.
+He found out on Friday, when the six hundred words would not come right and he went up the page to see what they were resting on.
 
-This is the part I can show you rather than tell you, because Quirework
-timestamps everything it touches, and neither Mark nor Hal had any say
-in it. Every draft has a save time. Every chat turn has a send time. The
-two sit in one ordered list, and the list does not care who is
-confident.
+Rain. A marquee. Three hundred glasses at eighty pence each.
 
-At 10:03 on 2 April, Hal sent the sentence in chat, in the middle of a
-longer answer about how to leave a chapter open.
+Em Dash would have caught it in a morning, and billed him for the morning, and been right about both.
 
-At 10:07 on 2 April, Mark pasted it into draft seven.
+He sat for a while with the shape of it, which was worse than the loss. The note had not been wrong when he wrote it. It had been true, and then the true thing it was true about had moved four lines down the page, and the note had gone on being confident in the same position.
 
-Four minutes. No ambiguity anywhere in the file.
+He went out at noon to buy bread and found Sid Karr in the street with the sidecar off the bike, upside down on the pavement, doing something to the bolts.
 
-Mark's memory was not a lie. He did type that sentence. He typed it at
-10:07 in the morning, with his own hands, into his own draft, and he
-remembers the typing, because the typing happened. The 19:40 train also
-happened. It happened on the ninth, a week later, with the sentence
-already sitting in the manuscript where he had put it. Memory borrowed a
-true evening and filed the wrong thing in it.
+"You can put anything in there," Sid said, when Mark asked what was wrong with it. "Nothing is wrong with it. Fifty kilos of gravel, a dog, my mother. It does not change how the bike leans. That is the whole point of a sidecar. You lean the same as you would if it was not there."
 
-Typing is not writing. That is the whole of what the log says, and the
-log says it without any interest in how either of them felt about it.
+"And it comes off," Mark said.
 
-Hal was right. I want that on the page in plain words, because it would
-be easy to build this book so that the confident one is always wrong,
-and that is not the rule and would not be worth writing down. Hal was
-right at 10:03 and Hal was wrong about draft six, and the two answers
-are in the same voice, to the letter. I have compared them. Nothing in
-the voice tells you which is which. The only thing that ever told anyone
-was the list.
+"Four bolts," Sid said. "You do not have to stop riding to take it off. You just stop having the gravel."
 
-Mark did not cut the sentence. He left it where it was, and under it, in
-the margin, he wrote a line that is not a footing, because a footing
-says what a passage stands on and this was only a fact.
+Sid was talking about gravel. He was not talking about anything else. He went back to the bolts, and Mark stood there without his bread for long enough that Sid asked if he was all right.
 
-It reads: *10:03. His.*
+It took a day and a half.
 
-Then he went back to the two passages at 87 and 227 and did not resolve
-those either, and the book was still unfinished on the day the record
-ends.
+Every chapter file got a second file next to it, the same name with a different ending. The notes came out of the prose and went in there, one line each. And because a note in another file cannot point at a position, each one pointed at its paragraph by the first four words of it instead.
 
-One more thing belongs on the record, and it is mine.
+    "The map you draw"      no-flattery
+    "A marquee in October"   none. cut this.
 
-I wanted the word "footing" to be his. I said so in the preface and I
-left it standing there on purpose, because if I am going to make a man I
-invented live by the log, I can do it in front of you first. Em's markup
-arrived at 09:14. Mark's first "footing" is at 11:52. The order is the
-order.
+The prose leaned exactly as it had before. That was the test, and it passed it in the boring way, which is the only way a test is worth anything.
 
-Nobody here is lying about what they remember. Mark remembers the train.
-Hal remembers nothing and states everything. I remember wanting him to
-have got there on his own.
+Prue Vennance came on a Thursday in October for the deposit. Four boxes, nine years of logs, a signature on a form that nobody reads.
 
-The log has 09:14, and then 11:52. It wins.
+She asked her question in the hall, with a box already under her arm.
+
+"Who wrote this," she said, and read it out.
+
+    A reader will forgive you for not knowing where the book is
+    going, but never for pretending you do, and the difference is
+    visible in a paragraph.
+
+"Mine," Mark said. "I think."
+
+He went and looked, which took four minutes and settled nothing. Two years ago he had written down a page number, the page where he had almost pasted something of Hal's and had not. The number was not the page the sentence was on. That proved he had not pasted that one. It proved nothing whatever about this one.
+
+"I wrote it," Hal said. "On the twelfth of March, at 21:40, in one pass. You changed nothing. It follows from page 212, second paragraph, which begins 'A map is a courtesy, and a courtesy the reader is free to refuse without insulting the host or getting lost.' Twenty-one words."
+
+"The twelfth of March was a Thursday," Prue said.
+
+"It was," Hal said.
+
+Prue put the box down. She had been doing this for twenty years and she had a rule about it, which was that two people who both remember writing something have told you nothing, and that the only witness worth having is the one that was not trying to remember.
+
+The log was in the third box, and also on the laptop, where it took no time at all.
+
+    23:14  h.l.  31 words
+    23:25  m.d.  27 words
+
+Hal had written thirty-one words at 23:14 on a Tuesday. Eleven minutes later Mark had taken four of them out: always, that, usually, single. Two hedges, a conjunction and an adjective.
+
+Nobody said anything for a moment.
+
+"Four words," Mark said.
+
+"Four words," Prue said, and wrote both names in the register, and the time, because that was what the boxes were for.
+
+Mark read it once with the four words put back in, to see. It was worse. He had known that for two years, in the way you know something you have not been asked to prove.
+
+Prue wanted the thing that made the second files. Not the book, which she took anyway, in a box. The other thing, the one that kept the notes beside the prose without letting them into it. She said the archive had forty thousand deposits and not one of them could tell her what a page was for.
+
+So he had to give it a name, because the field for a new repository will not take an empty one and will not take a space.
+
+He typed what was on the sticky note.
+
+    quirk work
+
+The field took the space out. Then the spellcheck had a look. The company that sold him the hosting also sold typesetting software, and the dictionary they shipped with both of them knew what a quire was and had never heard of a quirk.
+
+It came back one word, capitalised, without asking.
+
+    Quirework
+
+He looked up quire. Twenty-four sheets of paper, folded once and gathered, in the order they are going to be read.
+
+He kept it. Renaming a repository is harder than writing a book.
 

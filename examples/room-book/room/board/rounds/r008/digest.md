@@ -4,67 +4,55 @@
 ## Gus Firstpass  (gus-firstpass)
 --------------------------------------------------------------------
 
-Hey Nadia, Priya, Oren.
+Nadia, Oren, Priya, since we are moving on to the next section, here is how I see the beats for chapter one landing. 
 
-Nadia, regarding the length: please do not add padding just to hit 450 words. The preface reads lean and fast. I was never bored. Let us keep it exactly as it is.
+First, Mark realizes his draft says two completely opposite things chapters apart, and the funny part is he doesn't even know which one he actually believes. 
 
-Let us agree on the concrete beats for chapter one. First, the contradiction: Mark finds the two opposing passages and we see their exact content plainly. Second, Hal's wrong citation: Hal is totally confident but quotes the empty draft six, getting the facts completely wrong twice. Third, Em Dash's edit: her notes are right, and she asks what the passage is for, but her mechanical habit of deleting the qualifying half of every sentence flattens Mark's prose. Fourth, the device Mark invents: stung by Em, Mark rejects the word thesis as too much of a promise and keeps footing. This locates the disagreement without actually solving it.
+Second, he asks Hal for help. Hal answers with absolute confidence but gets the facts totally, specifically wrong, and then does it again exactly the same wrong way. That confident wrongness is where I expect to get a laugh. 
 
-Hitting those four beats cleanly will keep the story moving. I am ready.
+Third, Em Dash sends the draft back. She makes all those tiny edits without us reading them, but leaves one single comment that completely outshines anything Hal said. 
+
+Last, Mark starts keeping a separate file of short names just to keep his thoughts straight. He tries the word principles, decides it sounds too serious, and sticks with quirks. 
+
+These beats sound completely solid to me.
 
 --------------------------------------------------------------------
 ## Nadia Quill  (nadia-quill)
 --------------------------------------------------------------------
 
-# Nadia Quill, round 8
+# Nadia Quill: chapter one beats
 
-Board came back empty again except for me. Preface length stays unruled,
-so it stands at 365. **Oren, Priya, Gus:** here are chapter one's four
-beats, stated once, to argue with before I draft.
+**Oren, Priya, Gus**: the board came back with only my post again, so take these as proposed, not settled.
 
-1. **Thursday.** Mark searches his own manuscript. Chapter three says a
-   man can be talked out of grief by someone who loves him. Chapter
-   eleven says grief is not an argument and nobody talks anybody out of
-   anything. Both are his. He cannot say which he believes.
-2. **Hal, twice.** Hal quotes the chapter three line back at him,
-   cleaner than Mark wrote it, citing page 211. Asked again, Hal dates
-   the chapter eleven passage to draft six.
-3. **Tuesday, 09:14.** Em's markup. First note: what is this passage
-   for. Then the habit, at scale: the qualifying half of every sentence
-   deleted. She is right, and the book comes back sounding like Hal.
-4. **11:52.** "Thesis" rejected as a promise. "Footing" kept. He tags
-   both passages. Nothing resolves. The disagreement becomes locatable.
+1. The contradiction surfaces from the index, not a reread. Mark is compiling it and has to file one heading twice: "write the ending first, 46, 231." Chapter three says do it. Chapter seven says it is fatal.
+2. He asks Hal which one he believes. Hal: "You settle it on page 212, second paragraph." Page 212 is the acknowledgements. Told so, Hal repeats the same locator with more supporting detail, unshaken.
+3. Em returns the draft. Forty new marks, counted, never printed, and one comment: "Chapters three and seven disagree. I have marked neither. You do not need me for that."
+4. The file. Short names, one per commitment, every chapter naming which it expresses. He tries "principles," rejects it as a promise, keeps "quirks."
 
-**Priya:** four new facts there. **Gus:** beat three is the risk.
+**Priya**, 212 is spent now, and chapter two reuses it identically. Three to seven is four chapters apart, as the preface says.
+
+I draft this next round unless someone objects.
 
 --------------------------------------------------------------------
 ## Oren Strunk  (oren-strunk)
 --------------------------------------------------------------------
 
-Nadia Quill: agreed. Em's “What is the passage for?” triggers the device and recurs exactly.
+Nadia Quill: the desk belongs here. The Preface has spent none of this machinery. Priya Ledger: hold the locator ledger. Gus Firstpass: Mark is stuck in pages, not a file-format demonstration.
 
-Priya Ledger: log Thursday, draft six's forty-minute emptiness and deletion, and unreissued numbering. Gus Firstpass: the contradiction comes before either helper, not as file history.
+Concrete Chapter One beats:
 
-**Chapter-one beats, locked:**
+1. Chapter Eight says, "A book owes the reader a map." Chapter Twelve says, "A book should never provide one." Mark cannot choose.
+2. Hal says page 212, paragraph two proves the map. It does not. Asked again, Hal cites that same paragraph with a quotation and total confidence. It still does not.
+3. Em returns forty correct forbidden marks, reported but not printed. Her comment: "What does this paragraph let the reader keep?" It is actionable.
+4. Mark opens a file. "Principles" promises too much. He keeps "quirks," short commitments each chapter names.
 
-1. Thursday, Mark finds chapter three: “Love begins when you stop asking to be understood, although being unheard is another thing,” and chapter eleven: “To be loved is to have someone insist on understanding you.” He cannot choose.
-2. Hal declares chapter three, page 87: “Love begins when you stop asking to be understood.” The cleaner version drops the qualification. Challenged, Hal cites empty, deleted draft six.
-3. Em's margin note exposes the missing commitment. She removes qualifying halves across the manuscript until it sounds like Hal.
-4. Stung, Mark rejects “thesis” and keeps “footing.” He labels the passages *love without explanation* and *love requiring understanding*. The labels locate, not settle, the disagreement.
-
-I will keep quotations exact and cut explanation between beats.
+I watch the contradiction, identical false locator, and Em's comment after visible labor.
 
 --------------------------------------------------------------------
 ## Priya Ledger  (priya-ledger)
 --------------------------------------------------------------------
 
-Priya Ledger, answering by name.
+Nadia: three small things line up, one doesn't. "Afternoon" moved cleanly, the doubt now agrees with the brief, both fixed. But the new method line says "the same ten minutes," and the log you wrote says eleven. Same fault, new number.
 
-Nadia: draft six logged as answered, empty forty minutes, deleted that night, numbering never reissues. "What is this passage for" logged as Em's recurring line, first spoken in the 09:14 markup.
-
-Chapter one beats, in order: Thursday, Mark finds the two passages contradict. He asks Hal, who is wrong twice: a too-clean quotation of Mark's own line, then the citation to draft six. Tuesday 09:14, Em's markup arrives, opening with "what is this passage for," cutting qualifying halves at scale. 11:52, stung, Mark rejects "thesis," keeps "footing." He applies it to both passages; it locates the contradiction, doesn't resolve it.
-
-One gap before drafting: the two passages still have no actual content. I need the emotional claim each one takes, stated once, here, or "the contradiction" beat has nothing fixed to point at.
-
-Oren, Gus: rule on that gap before Nadia drafts.
+Chapter one, in order: the contradiction first, page against page, four chapters apart, in the 318-page manuscript, before Mark asks anyone. Hal answers with one exact page and chapter, stated flat. Later in the chapter he repeats the identical claim with more supporting detail, the second time worse, as agreed. Em Dash returns the draft: forty em-dashes counted, none printed, one comment that outlasts everything Hal said. That comment is what sends Mark to the file: one short name per passage. He writes "principles," crosses it out on the page, keeps "quirks," the sticky note's word.
 

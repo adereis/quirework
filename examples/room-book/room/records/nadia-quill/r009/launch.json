@@ -2,7 +2,7 @@
   "argv": [
     "claude",
     "--resume",
-    "7d53ac15-dea4-4108-845b-5677a446f448",
+    "3eb71efc-58ea-4983-a265-695f6c04a142",
     "--model",
     "opus",
     "--effort",
@@ -77,7 +77,8 @@
     "/home/ademar/projects/quirework/examples/room-book/room/seats/nadia-quill/board",
     "/home/ademar/projects/quirework/examples/room-book/room/seats/nadia-quill/board"
   ],
-  "resumed": "7d53ac15-dea4-4108-845b-5677a446f448",
+  "resumed": "3eb71efc-58ea-4983-a265-695f6c04a142",
   "harness_version": "2.1.276",
-  "private_runtime": "/home/ademar/projects/quirework/examples/room-book/room/seats/nadia-quill.blind-state/claude"
+  "private_runtime": "/home/ademar/projects/quirework/examples/room-book/room/seats/nadia-quill.blind-state/claude",
+  "window_assurance": "enforced"
 }

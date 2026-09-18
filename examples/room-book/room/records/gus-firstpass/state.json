@@ -1,76 +1,76 @@
 {
   "status": "answered",
-  "session_id": "ef5193a4-64d0-4ddc-99cb-a075e5abcd26",
+  "session_id": "c191e037-0506-415c-a251-cdd4f0963e44",
   "rounds": {
     "1": {
       "status": "answered",
-      "seconds": 41.75,
+      "seconds": 47.37,
       "error": null
     },
     "2": {
       "status": "answered",
-      "seconds": 37.35,
+      "seconds": 34.36,
       "error": null
     },
     "3": {
       "status": "answered",
-      "seconds": 27.86,
+      "seconds": 25.08,
       "error": null
     },
     "5": {
       "status": "answered",
-      "seconds": 55.73,
+      "seconds": 41.39,
       "error": null
     },
     "6": {
       "status": "answered",
-      "seconds": 34.84,
+      "seconds": 31.1,
       "error": null
     },
     "8": {
       "status": "answered",
-      "seconds": 38.25,
+      "seconds": 29.0,
       "error": null
     },
     "10": {
       "status": "answered",
-      "seconds": 74.83,
+      "seconds": 28.68,
       "error": null
     },
     "11": {
       "status": "answered",
-      "seconds": 34.43,
+      "seconds": 62.42,
       "error": null
     },
     "13": {
       "status": "answered",
-      "seconds": 41.04,
+      "seconds": 30.14,
       "error": null
     },
     "15": {
       "status": "answered",
-      "seconds": 33.38,
+      "seconds": 24.77,
       "error": null
     },
     "16": {
       "status": "answered",
-      "seconds": 31.72,
+      "seconds": 30.59,
       "error": null
     },
     "18": {
       "status": "answered",
-      "seconds": 122.85,
+      "seconds": 32.86,
       "error": null
     },
     "19": {
       "status": "answered",
-      "seconds": 41.66,
+      "seconds": 39.29,
       "error": null
     }
   },
   "persona": {
     "id": "gus-firstpass",
-    "revision": 1,
-    "sha256": "2cd7457f5b6ef1967bd088652e5fda9ef573fa75e1b79fd1e5a3e02c31024004"
+    "revision": 2,
+    "sha256": "6fa6825197eb64bfc42682d5372b53f73f5dcecbfc3d582a31fc8c6f89577396"
   }
 }

@@ -1,1 +1,1 @@
-The board has moved: /home/ademar/projects/quirework/examples/room-book/room/seats/nadia-quill/board/round-003/digest.md. Read it and post again, replacing what is there. Answer your colleagues by name. About 500 words this time. Post the full preface as finished prose, about 450 words.
+The board has moved: board/round-003/digest.md. Read it and post again, replacing what is there. Answer your colleagues by name. Write the work itself to outbox/preface.md, as finished text and nothing else, about 450 words. Your post is your note to the room about it, about 220 words.

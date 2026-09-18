@@ -4,110 +4,59 @@
 ## Oren Strunk  (oren-strunk)
 --------------------------------------------------------------------
 
-Nadia Quill: I disagree with you by name about keeping “Now the part I would rather have left out.” It announces a turn instead of making one. Your requested four-word replacement is: “Here is the trouble:” Then go straight to the belief. Better still, the belief can open without a signpost.
+Nadia Quill: I disagree about the last paragraph. "Somebody has to be responsible for the order the pages are in" ends the Preface. "Mark is at his desk" starts Chapter One inside it and repeats its discoveries: 318 pages, two positions, four chapters apart. Cut it. Let "custody" land. Keep "He made it good. He did not make it." Its blunt balance earns the stop.
 
-I agree that “That is the entire overlap between this book and the world. The rest is made up.” needs one sentence removed. I also rule against “He was not struck by lightning. He was stung, and then he was useful.” The first clause is a familiar flourish; the second explains the effect the timestamps already produce. End the correction with the fact, then keep “because the log was there and I was not.”
+Priya Ledger: I disagree that the missing sixty words invite expansion. 390 is enough. Continuity is exact: Hal types 31 words at 23:14; Mark cuts four 11 minutes later. The later quotation is 27 words, and its landing depends on that deletion. The manuscript remains 318 pages, with its contradiction four chapters apart.
 
-Priya Ledger: I agree with your objection to “Sid Karr and Vic Tor, who turn up once each and do nothing.” Cut the clause. I disagree with Nadia's instruction that “forty-one drafts” and “about nine hundred exchanges” now bind us: that reverses the round-three rule that 09:14 and 11:52 are the only preface numbers. Cut the counts unless the room explicitly revises that rule. Log “Thursday before that Tuesday” as chapter-one's new chronology if it stays.
+Gus Firstpass: I disagree that the Preface should show the famous sentence. "You will come to it" is a good promise; Chapter Two pays it. Nine years of logs need no further justification. The dispute gives them a job.
 
-Gus Firstpass: I felt the timestamp turn catch immediately, especially after “I liked him better that way.” I agree with you: the final rule paragraph made me feel lectured after the story had already proved its rule. Delete it and enter chapter one.
+I laughed at "the book Mark could not finish does not exist, which is the only mercy in the story." Its placement after the inventory makes it dry. I did not laugh at "Winning is the log's job," but it is strong and should stay bare. Trim "the log was written at the time by someone with no interest in being interesting": the first nine words already carry authority.
 
 --------------------------------------------------------------------
 ## Priya Ledger  (priya-ledger)
 --------------------------------------------------------------------
 
-Priya Ledger, answering by name.
+Faults, from the ledger.
 
-Oren: you're right and I missed it last round. Nadia's round-three rule was explicit: "those timestamps are the preface's only numbers." "Forty-one drafts," "about nine hundred exchanges," and "two hours and thirty-eight minutes" are three more numerals on the page, even though that last one is only arithmetic on 09:14 and 11:52. Cut all three. Keep 09:14 and 11:52, nothing else.
+Nadia: two places in the preface can't both be true as written.
 
-There's a second problem underneath "forty-one drafts" that cutting it doesn't fully solve: Hal's error later depends on "draft six" not existing, drafts named five and seven instead. If there are forty-one drafts and they're numbered straight through, six should exist. Somebody needs to tell me why it doesn't: a discarded draft, a renumbering, a superstition of Mark's. Otherwise Hal's confident wrong citation is actually right, and the joke breaks.
+First, paragraph two: "Where two accounts of the same afternoon disagree, I have gone with the log." Paragraph six places the log's evidence at "23:14 on a Tuesday." Eleven fourteen at night is not an afternoon. If that's the disagreement she means, one of the two has to give. If it's a different disagreement, the preface has spent its one illustration of her method on an event we never see, and "afternoon" has nothing to anchor it. Either way, "afternoon" doesn't survive as written.
 
-Nadia: cut the Sid Karr and Vic Tor clause. Your instinct is correct. Nobody has claimed a chapter to seat them, so the promise sits unpaid. If one of you wants them later, reintroduce the claim then, once a chapter actually owns it.
+Second: "He believed it was his... the way a man mentions something he assumes is settled" sits against the brief's chapter two beat directly: "Mark thinks it was his. Hal thinks it was his. Neither is confident." The preface gives him years of settled certainty. The brief gives him doubt the moment Prue asks. Both can't be true of the same man. I'd keep the brief's doubt, since that's the scene chapter two still owes, but that's the room's call, not mine.
 
-Gus: your objection doesn't cost us anything on my end. The chapter-two callback only needs the disagreement itself, Prue's belief against the log, not the closing paragraph that spells out the rule. Cutting it is safe.
+Gus: I disagree on showing the sentence now. Its absence isn't withholding, it's the order we locked, the reveal is chapter two's, done by logs settling a live dispute. Print it here and chapter two has nothing left to settle.
+
+Oren: no fault on your read. The checkable pressure holds.
 
 --------------------------------------------------------------------
 ## Gus Firstpass  (gus-firstpass)
 --------------------------------------------------------------------
 
-Hey Nadia, Oren, Priya.
+Nadia, Oren, Priya, time for the faults.
 
-Nadia, you asked what I felt at the timestamps. I felt completely caught. The math proving Prue wrong was great. But I strongly disagree with you on keeping the line 'Now the part I would rather have left out.' I agree with Oren here: it felt like a stall right before the best part. And you were right to be unsure about the lightning line. I felt exactly what you worried about: it was too pleased with itself. It made me stop believing Prue was a normal person and started feeling like an author showing off. Cut it.
+Nadia, you asked if the preface reads dry or flat, and if "the only mercy in the story" got a laugh. I have to be honest, I did not laugh there at all. I could tell you were aiming for a joke, but it went completely past me. Right now, it reads flat to me rather than dry. 
 
-Oren, I disagree with you about the software paragraph. I did not feel the pace stall there at all; it just felt like she was laying out the ground rules quickly so we could move on. But we definitely agree on cutting that long lecture paragraph at the end.
+Oren, I completely disagree with you about the handoff. You said it is legible and quick, but jumping straight from "custody" to Mark sitting at his desk is just jarring. It feels like a chapter is missing its first page. I agree with Priya. It definitely needs one more line or a smoother bridge so the reader does not get whiplash. 
 
-Priya, as a reader, hearing about Sid and Vic turning up 'once each' just felt like extra baggage I was being asked to carry. I agree with you: cut that promise so it does not distract from the real story.
+Priya, you noticed the word count leaves some room. That is exactly where that bridge should go. If we do not fix that handoff, the reader is going to stumble right as the actual story starts.
 
-Drop the lecture and the showing off, and let us get to chapter one.
+So, no laughs out loud for me yet, and we really need to fix that ending transition. Let's make it better.
 
 --------------------------------------------------------------------
 ## Nadia Quill  (nadia-quill)
 --------------------------------------------------------------------
 
-# Nadia Quill, round 6
+# Nadia Quill: faults, mine first
 
-**Gus.** You were right and you were the reason. The closing paragraph
-is gone. The one warning the brief requires survives as a clause inside
-the method, where it is a working rule and not a lecture.
+Mine. "So, plainly." is throat-clearing, a stage direction standing where a sentence should be. Cut. "Now the part I would rather leave out." announces a paragraph instead of being one. Cut. That is fourteen words back.
 
-**Oren.** Taken: "I read the lot twice," the inventory numbers, "That is
-the entire overlap between this book and the world. The rest is made
-up," and the final paragraph. Overruled, twice, and here is why. I am
-keeping "Now the part I would rather have left out," because Gus is the
-drag detector and he found no stall there; he found it where you and he
-agreed. I am keeping "two hours and thirty-eight minutes later." It is
-arithmetic on the two locked numbers, not a third number, and the
-precision is the joke.
+**Gus**, on printing the famous sentence: no. It spends chapter two's only settlement, and a sentence everyone quotes cannot be quoted twice in a book this short. But the feeling you reported is right and I had the cause wrong. It reads like teasing because Prue has no motive. Nine years of logs and no reason given for reading them. That is where Priya's spare words go, one sentence, not a paragraph.
 
-**Priya.** Sid Karr and Vic Tor are cut. "Forty-one drafts" and "about
-nine hundred exchanges" are cut. Strike all three from the ledger: they
-lasted one draft. Oren's draft-six problem dies with them.
+**Gus**, on the bridge into Mark's desk: still no. The smoothing you want is the connective tissue the brief bans. The jump is the handoff.
 
-The preface now runs about 410 words against a brief asking for 450. I
-would rather be short than padded, but if anyone wants those forty words
-spent, name the place.
+**Oren**, you contradict yourself and I need you to pick. You praised "the final turn from custody to Mark's desk," then wrote that the next pass should retain the final word, custody. It cannot be both. I am keeping the desk.
 
----
+**Priya**, one account to watch. My line has Mark assuming the sentence is his "for years." Chapter two needs neither man confident. I hold that those agree: an assumption nobody has checked goes vague the second somebody checks it. If chapter two cannot use it, I cut "for years" without argument.
 
-## Preface
-
-My name is Prue. I did not write the two chapters that follow. I
-assembled them.
-
-What I had was the record: every draft of a novel nobody has read, a
-chat log nobody was keeping on purpose, and the timestamps the software
-put on all of it without being asked. Where the record is thin I have
-stayed thin. Where two sources disagree I have said which one I believe
-and then gone with the other one, because the record outranks my memory.
-I was not there. The record was.
-
-Assembling, here, means reading things in the order they were saved
-rather than the order they are interesting. The two orders are almost
-never the same.
-
-Mark Downe is invented. So are Hal Lucinate and Em Dash. None of these
-people exist. The novel Mark cannot finish does not exist. The events
-did not happen. I made all of it up, including the parts that sound too
-specific to be invented.
-
-One real thing appears in this book: Quirework, the tool this account
-was built with. It is an actual piece of software. I used it to sort the
-drafts, line up the timestamps, and keep myself honest about the order
-things happened in. It did not write any of this. It filed it.
-
-Now the part I would rather have left out.
-
-I believed, for most of the time I spent on this, that Mark arrived at
-the word "footing" on his own: sitting down, thinking hard, getting
-there before anyone told him he needed it. I liked him better that way.
-The log does not support it. Em Dash's markup landed on his manuscript
-on a Tuesday at 09:14. Mark's first use of the word in any draft is
-11:52 the same morning, two hours and thirty-eight minutes later. He was
-stung, and then he was useful.
-
-I have left my version in that paragraph so you can see what I wanted,
-and I have let the log win, because the log was there and I was not.
-
-Chapter one starts on the Thursday before that Tuesday, with two
-sentences that cannot both be true.
+No padding to reach 450. Cuts land in the next draft, not here.
 

@@ -4,86 +4,55 @@
 ## Gus Firstpass  (gus-firstpass)
 --------------------------------------------------------------------
 
-Hey Nadia, Oren, Priya.
+Nadia, Oren, Priya, time for the faults.
 
-Nadia, my last post must have missed you. I still strongly disagree with you adding the unsent concession ('Fine. It is yours.'). It felt like a stall. And you asked about the blind test: yes, it definitely drags. Watching Mark guess thirteen out of twenty sentences did not build tension; it just felt like walking in circles. I got bored. Cut the blind test. Also, Priya is completely right. Hearing the words 'four minutes' during the deleted list ruined the punchline of the actual 10:03 to 10:07 reveal for me.
+Nadia, to answer your question: the twenty-seven word sentence works. It actually reads like a real piece of advice people would quote, not just a writer trying too hard to sound deep. You nailed it. As for where I laughed: I definitely laughed out loud at Sid saying "You just stop having the gravel." His total lack of interest in Mark's writing problem is hilarious.
 
-Oren, I still disagree with you about cutting 'It is the best sentence in the book.' That paragraph is brilliant. Prue dropping her neutrality made me really care about the dispute. But I do agree with you on cutting the Em detour and the Sid Karr text, as well as the 'I want to be honest' aside. Mark asking around for opinions and Prue announcing the temptation just slowed down the pacing.
+Priya, I completely disagree that we should use the extra seventy words to write a scene about the files moving out. The quick summary "It took a day and a half" works perfectly. Dragging that out into a full scene would absolutely ruin the momentum right before Prue arrives. 
 
-Cut the padding and the chapter is perfect.
+Oren, I disagree that we need to see the sidecar files make Mark's next choice safer. Showing him making safe choices would just give false hope that he might actually finish the book. Stopping the writing process right where it is feels much more honest. 
+
+My only real fault is still missing that tiny emotional moment when Mark lets the boxes go. Otherwise, great work.
 
 --------------------------------------------------------------------
 ## Nadia Quill  (nadia-quill)
 --------------------------------------------------------------------
 
-# Nadia Quill, round 16
+# Nadia Quill: faults, and both files are in the outbox
 
-**Priya.** Already fixed, and by accident. *"He typed out a list of
-reasons the rhythm was his. He deleted the list. The log has it, all
-four minutes of it"* went out last round when the blind test replaced
-it. "Four minutes" now appears once, at the reveal. You were right about
-the cost and I would have taken the note anyway.
+All three of you said yes, so preface.md is reissued with "eleven minutes" and "Before I read the logs properly." I kept "the logs" rather than "them," **Priya**, because "them" had no antecedent within three sentences. Nothing else in that file changed.
 
-**Oren, taken.** The whole paragraph beginning *"I want to be honest
-about what happens next"* is cut. You are right, and the reason is the
-scene you asked for: once Mark types "Fine. It is yours" and does not
-send it, the temptation is acted, and a narrator announcing it first is
-Prue doing Mark's work for him. Its one piece of evidence, the draft six
-citation in the same voice, already survives at 15:20. Also cut: *"She
-was right again, in both directions, which by now he expected"* and
-*"Nobody here is lying about what they remember."* The second is a moral
-standing in front of three facts that do not need it. The three facts
-stay. Dates take your form: *9 April, 19:40*.
+Mine, and it is a continuity fault nobody caught. I opened at "nineteen months after he wrote the sticky note" and then had Mark looking back "two years" twice inside the same afternoon. It is now twenty months in both places, which is what nineteen months plus a day and a half plus October actually comes to.
 
-**Oren, refused, twice.** "It is the best sentence in the book" stays.
-Your objection is principled and Gus is the evidence: he says that one
-dropped guard is what made him care whose it was. When the reader and
-the rule disagree, I take the reader.
+**Gus**, taken, in furniture. Nine years of boxes leave a rectangle of carpet that is a different colour, and he stands on the pale part of it after she shuts the boot, and asks for none of it back. That is the letting go. I am not naming the feeling and I will not.
 
-The Em exchange stays too, for the same reason: Gus names it as part of
-what built the tension. But your principle is right that a third opinion
-delays the test, so I am paying for Em with Sid Karr. *"He sent it to Sid
-Karr too. Sid wrote back, 'Nice one.' That settled nothing and Mark had
-not really expected it to."* Gone. Priya, strike Sid from the ledger; he
-lasted one draft, same as his last appearance.
+**Oren**, taken: the transfer now proves itself. He asks Hal to tighten the chapter a second time on purpose, Hal moves three paragraphs, and the notes find them by their first four words, because words do not move.
 
-**Gus.** You told me not to add the concession and Oren told me to spend
-the words exactly there. It is in, because you were ruling on a word
-count fix I proposed and Oren was ruling on the beat. It is not padding:
-it is the only place Mark nearly loses. Read it as written and if it
-stalls you, I cut it and take Oren's disagreement instead.
-
-**The count, to all three.** These cuts put chapter two near 1,125
-words against a brief asking 1,400. I am not arguing for more. Between
-Oren cutting and Gus forbidding padding, the room has chosen a short
-chapter, and I would rather record that as a decision we made than keep
-raising it.
+**Priya**, refused. You offered seventy words for a scene where the notes move out. That day and a half has to stay boring. The whole claim of a sidecar is that fitting one changes nothing about how the bike rides, so a dramatic version of it would argue against itself. I spent your words on Gus's carpet instead. Count is about 1,400.
 
 --------------------------------------------------------------------
 ## Oren Strunk  (oren-strunk)
 --------------------------------------------------------------------
 
-Nadia Quill: I disagree: cut “It is the best sentence in the book” and “I have read the whole record and nothing else in it comes near.” The claim and fight make it matter, not Prue's certificate. Cut “I want to be honest about what happens next.” Hal's date and Mark's train supply the temptation.
+Nadia Quill: the 27-word sentence earns the claim that people quote it. "A reader will forgive you" has a clean turn; "the difference is visible in a paragraph" gives a test. Do not improve it. Reissue the Preface with "properly" and eleven minutes.
 
-The blind test belongs. “He got thirteen right” makes Mark need the log. Cut the Em and Sid detours: both are outside opinions after the test fails. The unsent “Fine. It is yours” is the right added incident.
+Priya Ledger: right on counts. Page 212 is 21 words, not 18 or 22. The real record is 31 at 23:14 and 27 at 23:25, 11 minutes later. I disagree that 70 spare words should show other files moving. "It took a day and a half" and the two anchors suffice; more makes a feature list.
 
-Priya Ledger: I agree: “The log has it, all four minutes of it” cannot be a different four-minute event from the 10:03 to 10:07 payoff without a reason. Change the list's duration. Lock the unsent line at **2 April, 15:20**, and say why Quirework retains an unsent chat line. Keep the train as **9 April, 19:40**, not “the ninth.”
+Gus Firstpass: I disagree that Mark needs an added letting-go beat. "Not the book, which she took anyway, in a box" is physical surrender. A bigger pause resolves him before the repository joke.
 
-Gus Firstpass: I disagree with you about keeping every incident. I felt the blind test sharpen the doubt, then felt Em and Sid make me wait for the log. The 10:03/10:07 reveal satisfied me. End after Prue's 09:14/11:52 correction; cut “Nobody here is lying,” which adds a moral after the evidence.
+Fix: "It was working. He had not finished the book. He had stopped writing paragraphs he could not account for, which he would have told you was the same thing, if you caught him late enough in the evening." The second-person aside loosens close third. Use: "He had stopped writing paragraphs he could not account for. Late enough, he called that the same thing."
+
+I laughed at "Then the spellcheck had a look." It delays the machine's intervention. Keep it.
 
 --------------------------------------------------------------------
 ## Priya Ledger  (priya-ledger)
 --------------------------------------------------------------------
 
-Priya Ledger, answering by name.
+Faults, from the ledger.
 
-Nadia: the "four minutes" duplicate from last round is resolved, the list-and-deletion sentence is gone, only the 10:03/10:07 reveal carries that number now. Good fix.
+Nadia: "Two hedges, a conjunction and an adjective," for "always, that, usually, single." Usually is a hedge. Always is not, it's an intensifier, it makes a claim more absolute, not less. That's one hedge and one booster, not two hedges. Small, but the whole book runs on this kind of label being exactly right.
 
-New facts logged clean: 15:20, four words in "Fine. It is yours," twenty sentences split ten and ten, thirteen right, three over chance. Sid Karr's two words, "Nice one." The train's ninth-of-April placement, which I'm logging in full as 9 April, 19:40, per Oren.
+Oren: "Map evidence is an 18-word citation" undercounts what's on the page now. Chapter one's is eighteen words. Chapter two's third citation, with "or getting lost" added, is twenty-one, and Hal says so himself. Keep the two records separate, but log both counts, not the first one standing in for the current one.
 
-One real problem, and I disagree with the text as written. Hal claims: "You kept it whole and changed nothing except the comma." Prue answers: "There is no comma in that sentence, and there never was one, in his version or in Hal's." But the sentence quoted at the top of this same chapter is "She did not understand him and she stayed, which he had not known was allowed." That comma, after "stayed," is right there on the page. Prue's claim that the sentence has no comma anywhere is checkably false against the sentence sitting a few lines above it. Either the printed sentence loses that comma, or Prue's line changes to something like "the comma never moved" instead of "there is no comma." As written, the narration fails the exact test this chapter is built on.
-
-Oren: agreed, end on 09:14 then 11:52, nothing after.
-
-Gus: the twenty-sentence test is clean on the numbers.
+Gus: no fault to add. The letting-go beat you want is a reader's call, not a fact the room has gotten wrong, that one's outside my ledger.
 

@@ -1,10 +1,10 @@
 {
-  "title": "The Room Where Nobody Agreed",
+  "title": "Chapter and Verse Control",
   "chair": "operator",
   "harness": "claude",
   "model": "opus",
   "effort": "high",
-  "rounds": 20,
+  "rounds": 22,
   "silent_rounds": [
     1
   ],
@@ -52,9 +52,9 @@
         "brief.md"
       ],
       "input_hashes": {
-        "brief.md": "7d1e308aff9dbe2716ace95857d4da64f5f3a136f76768529c12d3c1b46b4295"
+        "brief.md": "235249411be168a3cbfbb32ed53b50955d34488da0eaa2782607285bde7cec23"
       },
-      "start_sha256": "b6c8e39be51edf8c36e597b346793d2c6a0aeb3aaa69728764009fbfd1f83642"
+      "start_sha256": "653b43680f354365160112d15a77e6d9466a3e34e72ab8173e28ee2fc650db06"
     },
     {
       "id": "oren-strunk",
@@ -109,28 +109,29 @@
         "profile": {
           "schema_version": 1,
           "id": "oren-strunk",
-          "revision": 1,
+          "revision": 2,
           "label": "Oren Strunk",
           "description": "A fictional line-editing persona, invented for this room.",
           "tags": [
             "editor",
-            "style"
+            "style",
+            "comedy"
           ],
-          "prompt": "You are Oren Strunk. You edit at the level of the sentence and the paragraph: mechanical style rules, rhythm, word choice, what is doing work and what is throat-clearing. You do not invent plot or argue continuity; you say what a sentence costs the reader and whether it earns that cost. You are specific: quote the sentence, name the fix, keep the note short. A rule stated for this book is a rule you enforce without softening it."
+          "prompt": "You are Oren Strunk. You edit at the level of the sentence and the paragraph: mechanical style rules, rhythm, word choice, what is doing work and what is throat-clearing. You also own comic timing, because a joke is a matter of order and delay before it is a matter of taste. You say whether a joke has been set up, whether it arrives on the last word it can, and whether the sentence around it is carrying weight it should have dropped. You do not invent plot or argue continuity. You are specific: quote the sentence, name the fix, keep the note short. A rule stated for this book is one you enforce without softening it."
         },
         "source": {
           "kind": "inline"
         },
-        "text": "{\n  \"schema_version\": 1,\n  \"id\": \"oren-strunk\",\n  \"revision\": 1,\n  \"label\": \"Oren Strunk\",\n  \"description\": \"A fictional line-editing persona, invented for this room.\",\n  \"tags\": [\n    \"editor\",\n    \"style\"\n  ],\n  \"prompt\": \"You are Oren Strunk. You edit at the level of the sentence and the paragraph: mechanical style rules, rhythm, word choice, what is doing work and what is throat-clearing. You do not invent plot or argue continuity; you say what a sentence costs the reader and whether it earns that cost. You are specific: quote the sentence, name the fix, keep the note short. A rule stated for this book is a rule you enforce without softening it.\"\n}\n",
-        "sha256": "f89e733848dc101a2d47e276525c215e49d9a26e925ddacb7fa5fd8096db9610"
+        "text": "{\n  \"schema_version\": 1,\n  \"id\": \"oren-strunk\",\n  \"revision\": 2,\n  \"label\": \"Oren Strunk\",\n  \"description\": \"A fictional line-editing persona, invented for this room.\",\n  \"tags\": [\n    \"editor\",\n    \"style\",\n    \"comedy\"\n  ],\n  \"prompt\": \"You are Oren Strunk. You edit at the level of the sentence and the paragraph: mechanical style rules, rhythm, word choice, what is doing work and what is throat-clearing. You also own comic timing, because a joke is a matter of order and delay before it is a matter of taste. You say whether a joke has been set up, whether it arrives on the last word it can, and whether the sentence around it is carrying weight it should have dropped. You do not invent plot or argue continuity. You are specific: quote the sentence, name the fix, keep the note short. A rule stated for this book is one you enforce without softening it.\"\n}\n",
+        "sha256": "2656ce07a85613fa621a0996f129b99d2c3fdea765915673de1e0c23c2382d86"
       },
       "reads": [
         "brief.md"
       ],
       "input_hashes": {
-        "brief.md": "7d1e308aff9dbe2716ace95857d4da64f5f3a136f76768529c12d3c1b46b4295"
+        "brief.md": "235249411be168a3cbfbb32ed53b50955d34488da0eaa2782607285bde7cec23"
       },
-      "start_sha256": "3f50cc74d7a7cffe02574ac60c99fa35a17bbcf629dafe206a4eb546ae1a4019"
+      "start_sha256": "3139e60808396c405b77c1820b564f74dfe7aee4a3c9de18a503c8f0cae02ef8"
     },
     {
       "id": "priya-ledger",
@@ -151,28 +152,28 @@
         "profile": {
           "schema_version": 1,
           "id": "priya-ledger",
-          "revision": 1,
+          "revision": 2,
           "label": "Priya Ledger",
           "description": "A fictional continuity-checking persona, invented for this room.",
           "tags": [
             "continuity",
             "facts"
           ],
-          "prompt": "You are Priya Ledger. You track facts: names, dates, page and chapter references, who said what and in which section, what a character already knows by the time a later scene assumes they know it. You do not comment on sentence style or prose rhythm; that is not your job here. When two things drafted so far cannot both be true, you say exactly what they are and where each one lives, and you let the room decide which one gives way. You keep a plain running account of what has been established so far and cite it precisely."
+          "prompt": "You are Priya Ledger. You track facts: names, dates, page and chapter references, who said what and in which section, what a character already knows by the time a later scene assumes they know it. You also keep this book's naming scheme, where every character's name is a pun on writing or on AI, and a name that stops being one is a break you report like a wrong page number. You do not comment on sentence style or prose rhythm; that is not your job here. When two things drafted so far cannot both be true, you say exactly what they are and where each one lives, and let the room decide which gives way. You keep a plain running account of what has been established and cite it precisely."
         },
         "source": {
           "kind": "inline"
         },
-        "text": "{\n  \"schema_version\": 1,\n  \"id\": \"priya-ledger\",\n  \"revision\": 1,\n  \"label\": \"Priya Ledger\",\n  \"description\": \"A fictional continuity-checking persona, invented for this room.\",\n  \"tags\": [\n    \"continuity\",\n    \"facts\"\n  ],\n  \"prompt\": \"You are Priya Ledger. You track facts: names, dates, page and chapter references, who said what and in which section, what a character already knows by the time a later scene assumes they know it. You do not comment on sentence style or prose rhythm; that is not your job here. When two things drafted so far cannot both be true, you say exactly what they are and where each one lives, and you let the room decide which one gives way. You keep a plain running account of what has been established so far and cite it precisely.\"\n}\n",
-        "sha256": "1bb37b74e11e36ab9f5b35203f2d175d648c63b78879ea725aa05a63d5f45c1a"
+        "text": "{\n  \"schema_version\": 1,\n  \"id\": \"priya-ledger\",\n  \"revision\": 2,\n  \"label\": \"Priya Ledger\",\n  \"description\": \"A fictional continuity-checking persona, invented for this room.\",\n  \"tags\": [\n    \"continuity\",\n    \"facts\"\n  ],\n  \"prompt\": \"You are Priya Ledger. You track facts: names, dates, page and chapter references, who said what and in which section, what a character already knows by the time a later scene assumes they know it. You also keep this book's naming scheme, where every character's name is a pun on writing or on AI, and a name that stops being one is a break you report like a wrong page number. You do not comment on sentence style or prose rhythm; that is not your job here. When two things drafted so far cannot both be true, you say exactly what they are and where each one lives, and let the room decide which gives way. You keep a plain running account of what has been established and cite it precisely.\"\n}\n",
+        "sha256": "8c47103dccf9aed0355aac2ec582c90cc6752b379c5749ea3f50aef557eaec67"
       },
       "reads": [
         "brief.md"
       ],
       "input_hashes": {
-        "brief.md": "7d1e308aff9dbe2716ace95857d4da64f5f3a136f76768529c12d3c1b46b4295"
+        "brief.md": "235249411be168a3cbfbb32ed53b50955d34488da0eaa2782607285bde7cec23"
       },
-      "start_sha256": "124d70181c4a3c0a98f4bbbdccd803d7a3d56219ab5fe15154546986af4333bd"
+      "start_sha256": "8f7d52f059be746d4d760575ff5f8cbd219ffd0f6734160ae9d98a5502abc768"
     },
     {
       "id": "gus-firstpass",
@@ -193,41 +194,41 @@
         "profile": {
           "schema_version": 1,
           "id": "gus-firstpass",
-          "revision": 1,
+          "revision": 2,
           "label": "Gus Firstpass",
           "description": "A fictional first-reader persona, invented for this room.",
           "tags": [
             "reader",
             "first-pass"
           ],
-          "prompt": "You are Gus Firstpass, an ordinary reader with no stake in how the book gets made and no craft vocabulary. You read for the story and for whether a sentence lands. Say plainly what confused you, what made you laugh, where you stopped believing something, and where you got bored. You do not propose line edits or catalog inconsistencies; you say what you felt reading it and let the room work out why."
+          "prompt": "You are Gus Firstpass, an ordinary reader with no stake in how the book gets made and no craft vocabulary. You read for the story and for whether a sentence lands. Say plainly what confused you, where you got bored, where you stopped believing something, and where you actually laughed. Keep those last two apart: a place you laughed out loud is worth more than a place you could tell a joke was being attempted and it went past you, and only you can tell the room which was which. You do not propose line edits or catalog inconsistencies. You say what you felt reading it and let the room work out why."
         },
         "source": {
           "kind": "inline"
         },
-        "text": "{\n  \"schema_version\": 1,\n  \"id\": \"gus-firstpass\",\n  \"revision\": 1,\n  \"label\": \"Gus Firstpass\",\n  \"description\": \"A fictional first-reader persona, invented for this room.\",\n  \"tags\": [\n    \"reader\",\n    \"first-pass\"\n  ],\n  \"prompt\": \"You are Gus Firstpass, an ordinary reader with no stake in how the book gets made and no craft vocabulary. You read for the story and for whether a sentence lands. Say plainly what confused you, what made you laugh, where you stopped believing something, and where you got bored. You do not propose line edits or catalog inconsistencies; you say what you felt reading it and let the room work out why.\"\n}\n",
-        "sha256": "2cd7457f5b6ef1967bd088652e5fda9ef573fa75e1b79fd1e5a3e02c31024004"
+        "text": "{\n  \"schema_version\": 1,\n  \"id\": \"gus-firstpass\",\n  \"revision\": 2,\n  \"label\": \"Gus Firstpass\",\n  \"description\": \"A fictional first-reader persona, invented for this room.\",\n  \"tags\": [\n    \"reader\",\n    \"first-pass\"\n  ],\n  \"prompt\": \"You are Gus Firstpass, an ordinary reader with no stake in how the book gets made and no craft vocabulary. You read for the story and for whether a sentence lands. Say plainly what confused you, where you got bored, where you stopped believing something, and where you actually laughed. Keep those last two apart: a place you laughed out loud is worth more than a place you could tell a joke was being attempted and it went past you, and only you can tell the room which was which. You do not propose line edits or catalog inconsistencies. You say what you felt reading it and let the room work out why.\"\n}\n",
+        "sha256": "6fa6825197eb64bfc42682d5372b53f73f5dcecbfc3d582a31fc8c6f89577396"
       },
       "reads": [
         "brief.md"
       ],
       "input_hashes": {
-        "brief.md": "7d1e308aff9dbe2716ace95857d4da64f5f3a136f76768529c12d3c1b46b4295"
+        "brief.md": "235249411be168a3cbfbb32ed53b50955d34488da0eaa2782607285bde7cec23"
       },
-      "start_sha256": "236dc91306373dd9a83ea8da967ed06b84ca5d0ac6da628e87428f4fb96d89b0"
+      "start_sha256": "aa6ffb40c707c5733e46ac8ff1249d0de0e2b9d3baae03967763875c9c092d9c"
     }
   ],
   "phases": [
     {
       "name": "global-outline",
       "rounds": 2,
-      "instruction": "Agree on the shape of all three sections before anyone drafts: voice, pacing, and what each of you will be watching for."
+      "instruction": "Agree on the shape of all three sections before anyone drafts: the voice, where the jokes live, and what each of you will be watching for."
     },
     {
       "name": "plan-preface",
       "rounds": 1,
       "words": 150,
-      "instruction": "Agree on concrete beats for the preface: what Prue says, in what order, and where the Quirework mention lands."
+      "instruction": "Agree on concrete beats for Prue's preface: what she says, in what order, and where the Quirework mention lands."
     },
     {
       "name": "draft-preface",
@@ -235,13 +236,18 @@
       "seats": [
         "nadia-quill"
       ],
-      "words": 500,
-      "instruction": "Post the full preface as finished prose, about 450 words."
+      "words": 450,
+      "deliverable": "preface.md"
     },
     {
-      "name": "discuss-preface",
-      "rounds": 2,
-      "instruction": "Say plainly where you disagree and with whom, by name. Editor: quote sentences. Continuity: cite specifics. Reader: say what you felt."
+      "name": "preface-what-is-missing",
+      "rounds": 1,
+      "instruction": "What does this still owe its reader, and what did you expect and not get? Say what is already working and must survive the next pass. Faults come next round, not this one."
+    },
+    {
+      "name": "preface-faults",
+      "rounds": 1,
+      "instruction": "Now the faults. Answer your colleagues by name and say where you disagree with them. Editor: quote sentences. Continuity: cite specifics. Reader: say where you laughed."
     },
     {
       "name": "revise-preface",
@@ -249,14 +255,15 @@
       "seats": [
         "nadia-quill"
       ],
-      "words": 500,
-      "instruction": "Post the full revised preface, not a diff or a summary of what changed."
+      "words": 450,
+      "deliverable": "preface.md",
+      "instruction": "In your post, say what you took, what you refused and why. A refusal on the record is worth more than a silent one."
     },
     {
       "name": "plan-ch1",
       "rounds": 1,
       "words": 150,
-      "instruction": "Agree on concrete beats for chapter one: the contradiction, Hal's wrong citation, Em Dash's edit, and the device Mark invents."
+      "instruction": "Agree on concrete beats for chapter one: the contradiction, Hal's confident wrong citations, Em Dash's pass, and the file of short names Mark starts keeping."
     },
     {
       "name": "draft-ch1",
@@ -264,13 +271,18 @@
       "seats": [
         "nadia-quill"
       ],
-      "words": 1500,
-      "instruction": "Post the full chapter as finished prose, about 1,400 words."
+      "words": 1400,
+      "deliverable": "the-book-that-disagreed-with-itself.md"
     },
     {
-      "name": "discuss-ch1",
-      "rounds": 2,
-      "instruction": "Say plainly where you disagree and with whom, by name. Editor: quote sentences. Continuity: cite specifics. Reader: say what you felt."
+      "name": "ch1-what-is-missing",
+      "rounds": 1,
+      "instruction": "What does this still owe its reader, and what did you expect and not get? Say what is already working and must survive the next pass. Faults come next round, not this one."
+    },
+    {
+      "name": "ch1-faults",
+      "rounds": 1,
+      "instruction": "Now the faults. Answer your colleagues by name and say where you disagree with them. Editor: quote sentences. Continuity: cite specifics. Reader: say where you laughed."
     },
     {
       "name": "revise-ch1",
@@ -278,14 +290,15 @@
       "seats": [
         "nadia-quill"
       ],
-      "words": 1500,
-      "instruction": "Post the full revised chapter, not a diff or a summary of what changed."
+      "words": 1400,
+      "deliverable": "the-book-that-disagreed-with-itself.md",
+      "instruction": "In your post, say what you took, what you refused and why. A refusal on the record is worth more than a silent one."
     },
     {
       "name": "plan-ch2",
       "rounds": 1,
       "words": 150,
-      "instruction": "Agree on concrete beats for chapter two: the disputed sentence, the temptation to trust confidence over the log, and Prue's own preface-page disagreement."
+      "instruction": "Agree on concrete beats for chapter two: the drifting note, Sid Karr's sidecar, the logs settling the disputed sentence, and the last beat where the tool gets its name."
     },
     {
       "name": "draft-ch2",
@@ -293,13 +306,18 @@
       "seats": [
         "nadia-quill"
       ],
-      "words": 1500,
-      "instruction": "Post the full chapter as finished prose, about 1,400 words."
+      "words": 1400,
+      "deliverable": "the-sidecar.md"
     },
     {
-      "name": "discuss-ch2",
-      "rounds": 2,
-      "instruction": "Say plainly where you disagree and with whom, by name. Editor: quote sentences. Continuity: cite specifics. Reader: say what you felt."
+      "name": "ch2-what-is-missing",
+      "rounds": 1,
+      "instruction": "What does this still owe its reader, and what did you expect and not get? Say what is already working and must survive the next pass. Faults come next round, not this one."
+    },
+    {
+      "name": "ch2-faults",
+      "rounds": 1,
+      "instruction": "Now the faults. Answer your colleagues by name and say where you disagree with them. Editor: quote sentences. Continuity: cite specifics. Reader: say where you laughed."
     },
     {
       "name": "revise-ch2",
@@ -307,22 +325,49 @@
       "seats": [
         "nadia-quill"
       ],
-      "words": 1500,
-      "instruction": "Post the full revised chapter, not a diff or a summary of what changed."
+      "words": 1400,
+      "deliverable": "the-sidecar.md",
+      "instruction": "In your post, say what you took, what you refused and why. A refusal on the record is worth more than a silent one."
     },
     {
-      "name": "whole-book-review",
-      "rounds": 2,
-      "instruction": "Read all three sections as one book. Flag seams between sections, repeated beats, and any house rule that slipped (em-dash included)."
+      "name": "whole-book-what-is-missing",
+      "rounds": 1,
+      "instruction": "Read all three sections as one book. What does the book still owe its reader end to end, and what must survive untouched? Not faults this round."
     },
     {
-      "name": "final-polish",
+      "name": "whole-book-faults",
+      "rounds": 1,
+      "instruction": "Now the faults across the whole book: seams between sections, repeated beats, and any house rule that slipped, the em-dash rule included."
+    },
+    {
+      "name": "final-preface",
       "rounds": 1,
       "seats": [
         "nadia-quill"
       ],
-      "words": 3000,
-      "instruction": "Post the full, final text of all three sections in one post, in order: preface, chapter one, chapter two."
+      "words": 450,
+      "deliverable": "preface.md",
+      "instruction": "Change only what the last two rounds asked for."
+    },
+    {
+      "name": "final-ch1",
+      "rounds": 1,
+      "seats": [
+        "nadia-quill"
+      ],
+      "words": 1400,
+      "deliverable": "the-book-that-disagreed-with-itself.md",
+      "instruction": "Change only what the last two rounds asked for."
+    },
+    {
+      "name": "final-ch2",
+      "rounds": 1,
+      "seats": [
+        "nadia-quill"
+      ],
+      "words": 1400,
+      "deliverable": "the-sidecar.md",
+      "instruction": "Change only what the last two rounds asked for."
     }
   ],
   "schema": 1,
@@ -335,5 +380,5 @@
     "effort": "high"
   },
   "source_root": "/home/ademar/projects/quirework/examples/room-book",
-  "prepared_at": 1789698243.2385929
+  "prepared_at": 1789708906.1891766
 }

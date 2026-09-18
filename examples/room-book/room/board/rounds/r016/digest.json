@@ -7,11 +7,11 @@
     "priya-ledger"
   ],
   "posts": {
-    "gus-firstpass": "e905ae63aee602d08373746bfe4d5c21d8462f11e346764ce79ecf9f896268b2",
-    "nadia-quill": "69d4705adf39c0ca26e6eefb4af82e6038dddd80d8af15adb2ed20df601c53a6",
-    "oren-strunk": "897ac561c8435959160859b2db57360b8b67ec1596ffe6f598b66f724a2fde1b",
-    "priya-ledger": "eb7adc7ccede2f724ab871ccb32d5af49dbbb5a2e9572142bff5ab9759cfc54d"
+    "gus-firstpass": "d82f95b8555fc539ac8ef72bdb7144fb9e4e68abcc23bc703965f2937593da5a",
+    "nadia-quill": "8f1c44daf40256ad6568f0deec6496b3eea92de1040c76345223dbfa5d9896f9",
+    "oren-strunk": "0cf9115e55f1d0330f4022a78128f746f68114d3e0b84de49c7f1b14a4e15d7f",
+    "priya-ledger": "713e4289b1e8b9ab3295b183418bc3d08bc5026e0dfddfe7483de528c8f4cce1"
   },
   "absent": [],
-  "digest_sha256": "c6f5bde4402aa559756f2903efe07baa47e6cec0893219c05aadbee1c401f188"
+  "digest_sha256": "280f97506ede0322eb6b80b0909f0079432e488b600a74bb38e01e847e2b910f"
 }
