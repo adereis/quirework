@@ -245,27 +245,47 @@ def turn_prompt(root, plan, seat, n):
     # line is sent on every round, so an absolute path is the operator's home
     # directory spelled out again in a writer's context every time the room
     # moves, for a file they are already standing next to.
-    if n == 1 or n in plan["silent_rounds"]:
+    opening = n == 1 or n in plan["silent_rounds"]
+    if opening:
         text = (
             "Read START.md and post. Nobody has posted yet, so say "
             "what you think before you hear anyone else."
         )
-    else:
+    elif others_spoke(root, plan, seat["id"], n - 1):
         text = (
             f"The board has moved: board/round-{n - 1:03d}/digest.md. Read it "
             "and post again, replacing what is there. Answer your colleagues "
             "by name."
         )
-        missed = [r for r in range(1, n) if seat["id"] not in acting(plan, r)]
-        if missed:
-            # A seat that sat out a phase comes back to a board it has not
-            # read. Saying only "the board has moved" would have it answer the
-            # last round as though it were the whole conversation.
-            text += (
-                f" You did not post in round{'s' if len(missed) > 1 else ''} "
-                f"{', '.join(str(r) for r in missed)}; those boards are in "
-                "board/ and are worth reading first."
+    else:
+        # A phase seating one writer hands that writer a board with no other
+        # voice on it, and announcing that the board has moved is then false.
+        # A drafter reads that silence as an answer: a measured room had its
+        # drafter say "absent an answer I am treating that beat as landed"
+        # about a note three colleagues were writing at that moment, one round
+        # behind where she had been told to look.
+        heard = last_heard(root, plan, seat["id"], n - 1)
+        text = (
+            "Nobody else has posted since"
+            + (
+                f" round {heard}: board/round-{heard:03d}/digest.md."
+                if heard
+                else " the room opened."
             )
+            + " Post again, replacing what is there. Anything you asked them "
+            "is still outstanding, not declined."
+        )
+    missed = [r for r in range(1, n) if seat["id"] not in acting(plan, r)]
+    if missed and not opening:
+        # A seat that sat out a phase comes back to a board it has not read.
+        # Saying only that the board moved would have it answer the last round
+        # as though it were the whole conversation. A silent round is shown no
+        # board at all, deliberately, so it is not told where the others are.
+        text += (
+            f" You did not post in round{'s' if len(missed) > 1 else ''} "
+            f"{', '.join(str(r) for r in missed)}; those boards are in "
+            "board/ and are worth reading first."
+        )
     made = deliverable(plan, n)
     if made:
         # Two files because they are two things, and the word count belongs to
@@ -539,6 +559,21 @@ def spoke(root, plan, n):
         for name in acting(plan, n)
         if (root / "board" / "posts" / name / f"r{n:03d}.md").exists()
     ]
+
+
+def others_spoke(root, plan, seat, n):
+    """Whether anyone but ``seat`` left a post on round ``n``'s board."""
+    return bool([name for name in spoke(root, plan, n) if name != seat])
+
+
+def last_heard(root, plan, seat, n):
+    """The most recent round up to ``n`` where ``seat`` heard somebody else.
+
+    A drafter coming out of a solo phase needs the board where the room last
+    spoke, not the one where it last changed. Those are the same round for
+    everyone except the seat that was drafting alone.
+    """
+    return next((r for r in range(n, 0, -1) if others_spoke(root, plan, seat, r)), None)
 
 
 def convergence(root, plan, n):

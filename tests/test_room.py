@@ -564,6 +564,12 @@ def test_a_drafting_phase_carries_its_own_length_and_instruction(staged):
 
 
 def test_a_seat_that_sat_out_is_told_what_it_missed(staged):
+    for n in (1, 2):
+        post(staged, "ana-pell", f"Ana in round {n}.")
+        post(staged, "bo-larke", f"Bo in round {n}.")
+        room.promote(staged, n)
+    post(staged, "bo-larke", "The passage itself, drafted alone.")
+    room.promote(staged, 3)
     _, frozen = room.load(staged)
     seat = next(s for s in frozen["seats"] if s["id"] == "ana-pell")
     assert "did not post in round 3" in room.turn_prompt(staged, frozen, seat, 4)
@@ -716,6 +722,9 @@ def test_a_room_without_phases_still_stops_when_it_converges(prepared, monkeypat
 
 def test_a_seat_is_told_paths_it_can_use_where_it_stands(staged):
     """The jail chdirs into the workspace, so the operator's home is noise."""
+    post(staged, "ana-pell", "Ana opens.")
+    post(staged, "bo-larke", "Bo opens.")
+    room.promote(staged, 1)
     _, frozen = room.load(staged)
     seat = next(s for s in frozen["seats"] if s["id"] == "bo-larke")
     standing = (staged / "seats" / "bo-larke" / "START.md").read_text()
@@ -862,3 +871,33 @@ def test_a_deliverable_name_may_not_leave_the_outbox(plan, tmp_path):
     write(plan, supplied)
     with pytest.raises(ValueError, match="plain file name"):
         room.prepare(plan, tmp_path / "escaping", resolve_models=False)
+
+
+def test_a_solo_phase_does_not_claim_the_board_moved(making):
+    """The drafter alone on a board must not read silence as an answer."""
+    post(making, "ana-pell", "Opening position.")
+    post(making, "bo-larke", "A rival position, and a question for you.")
+    room.promote(making, 1)
+    # Round two seats the drafter alone, so round three's board is her own.
+    post(making, "ana-pell", "My note about the draft.")
+    room.promote(making, 2)
+    _, frozen = room.load(making)
+    seat = next(s for s in frozen["seats"] if s["id"] == "ana-pell")
+    text = room.turn_prompt(making, frozen, seat, 3)
+    assert "The board has moved" not in text
+    assert "Nobody else has posted since round 1" in text
+    # It points at the board where the room last actually spoke, which is not
+    # the last board to change.
+    assert "board/round-001/digest.md" in text
+    assert "still outstanding, not declined" in text
+
+
+def test_a_board_with_colleagues_on_it_still_reads_as_moved(making):
+    post(making, "ana-pell", "Opening position.")
+    post(making, "bo-larke", "A rival position.")
+    room.promote(making, 1)
+    _, frozen = room.load(making)
+    seat = next(s for s in frozen["seats"] if s["id"] == "ana-pell")
+    text = room.turn_prompt(making, frozen, seat, 2)
+    assert "The board has moved: board/round-001/digest.md" in text
+    assert "Only your own last post" not in text
