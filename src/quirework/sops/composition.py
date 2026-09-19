@@ -6,6 +6,7 @@ import subprocess
 from pathlib import Path
 
 from quirework.sops import personas
+from quirework.providers import quota
 from quirework.project import current_project
 from quirework.sops import instruments
 from quirework.runs.storage import identifier
@@ -176,7 +177,7 @@ def compile_plan(spec, *, directory, root=None):
         raise ValueError("declare a nonempty models list")
     by_model = {}
     for model in models:
-        _object(model, {"id", "harness", "model"}, {"effort", "mode"})
+        _object(model, {"id", "harness", "model"}, {"effort", "mode", "tier"})
         for key, value in model.items():
             _text(value, f"model {key}")
         key = identifier(model["id"])
@@ -184,6 +185,10 @@ def compile_plan(spec, *, directory, root=None):
             raise ValueError("duplicate model allocation id")
         by_model[key] = {k: v for k, v in model.items() if k != "id"}
         by_model[key].setdefault("effort", "xhigh")
+        # Spend follows the model allocation; every compiled seat inherits it.
+        # An omitted tier preserves the run engine's declared-order default.
+        if by_model[key].get("tier", "standard") not in quota.TIERS:
+            raise ValueError(f"model tier must be one of {quota.TIERS}")
     definitions = {
         personas.resolve(s["persona"], root=root)["profile"]["id"]: s
         for s in preset["seats"]

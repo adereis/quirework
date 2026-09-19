@@ -87,6 +87,13 @@ coldread = "private/provenance/coldread"
 
 Capture selects sessions by their recorded relationship to the project
 and its worktrees. Capturing does not curate, stage, or commit sessions.
+Codex capture also excludes runtime subagents and delegated evaluation
+seats whose recorded tool calls name a raw capture in a configured
+session directory. It reports those exclusions. The ingest's main
+session remains eligible, as does a delegated task that only discusses
+a capture in prose. The configured paths apply across project worktrees;
+a matching directory name inside another project's absolute path does
+not establish an evaluation of this project's corpus.
 The catalog retains the existing tracked-source curation convention.
 Search reads human-authored turns; provider metadata is not proof of
 which model authored a historical turn.

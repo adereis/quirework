@@ -632,6 +632,17 @@ def _tool_input(payload):
     return json.dumps(value, ensure_ascii=False, sort_keys=True)
 
 
+def tool_inputs(path):
+    """Raw inputs from recorded tool calls, in rollout order."""
+    for obj in _objects(path):
+        payload = obj.get("payload")
+        if obj.get("type") != "response_item" or not isinstance(payload, dict):
+            continue
+        if payload.get("type") not in ("custom_tool_call", "function_call"):
+            continue
+        yield _tool_input(payload)
+
+
 def edit_paths(path):
     """Files changed through ``apply_patch`` calls recorded in the rollout."""
     out = []

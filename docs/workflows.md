@@ -53,6 +53,16 @@ receipt records the model actually served.
 bundles. `quirework sop panel` compiles a declared panel. These helpers
 live above the generic execution engine.
 
+A panel model allocation accepts `tier: cheap | premium | standard`.
+Every seat built from that allocation inherits its tier. For example, a
+panel can declare one inexpensive model as `cheap` and another as
+`premium`, even when both read from several perspectives. The run engine
+puts one cheap seat first, then the premium seats, then the remaining
+seats in declared order. Additional cheap seats stay with that
+remainder. An omitted tier is `standard`; a panel with no tiers keeps
+its declared order. Invalid tiers fail when the panel is compiled,
+before any model runs.
+
 Supported delivery includes text, clean prose, prose with figures,
 images, rendered PDF pages, and native files. Delivery and exposure are
 separate choices. A native file receipt does not establish that its

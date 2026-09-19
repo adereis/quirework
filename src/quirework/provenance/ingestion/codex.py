@@ -21,8 +21,10 @@ opaque reasoning state stay in the source rollout. A sweep may read a rollout
 that is still being written, so the capture records the source state it consumed
 and a later sweep refreshes it when the source grows. Sessions listed in
 ``removed-sessions.txt`` are never re-imported. Rollouts belonging to a *system*
-subagent are skipped and counted (see ``SYSTEM_SUBAGENTS``). This tool only
-captures; curation and commits belong to ``docs/configuration.md#provenance``.
+subagent are skipped and counted (see ``SYSTEM_SUBAGENTS``). Delegated seats
+that act on a configured raw capture are skipped and reported as evaluations,
+so an ingest does not seed the next ingest. Main sessions stay for curation.
+Capturing never stages or commits sessions.
 
 Pure stdlib and runnable under a bare ``python3`` with no venv and no installed
 package.
@@ -148,16 +150,47 @@ def system_subagent(meta: dict) -> str | None:
     return None
 
 
+def _capture_pattern(roots):
+    project = current_project()
+    prefixes = set()
+    for key in ("claude_sessions", "agy_sessions", "codex_sessions"):
+        folder = project.path(f"provenance.{key}")
+        prefixes.add(str(folder))
+        prefixes.add(folder.name)
+        try:
+            relative = folder.relative_to(project.root)
+        except ValueError:
+            continue
+        prefixes.add(str(relative))
+        prefixes.update(str(root / relative) for root in roots)
+    # Relative spellings must start a path, not match the tail of another
+    # project's absolute path. Each project supplies its own corpus layout.
+    return re.compile(
+        r"(?<![\w./~-])(?:"
+        + "|".join(re.escape(p) for p in sorted(prefixes, key=len, reverse=True))
+        + r")/[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12}\.jsonl\b",
+        re.I,
+    )
+
+
+def evaluation_seat(path, meta, pattern):
+    """A delegated seat acted on a configured raw capture, not just prose."""
+    if not codexfilter.subagent_kind(meta):
+        return False
+    return any(pattern.search(value) for value in codexfilter.tool_inputs(path))
+
+
 def sweep(repo=None):
     """Every saved rollout recorded as running in one of this project's trees.
 
-    Returns ``(keep, system)``: the rollouts to capture, and the system-subagent
-    rollouts deliberately left behind (returned rather than dropped so the run
-    can say how many it skipped).
+    Returns ``(keep, system, evaluation)``: selected rollouts, runtime
+    subagents, and delegated capture-evaluation seats. Exclusions remain
+    available to the caller so every selection rule can be reported.
     """
     roots = worktrees.project_trees(repo or current_project().root)
     home = codex_home()
-    keep, system = [], []
+    keep, system, evaluation = [], [], []
+    pattern = _capture_pattern(roots)
     for root in (home / "sessions", home / "archived_sessions"):
         if not root.is_dir():
             continue
@@ -165,8 +198,13 @@ def sweep(repo=None):
             meta = read_meta(path)
             if not worktrees.contains(roots, meta.get("cwd")):
                 continue
-            (system if system_subagent(meta) else keep).append(path)
-    return sorted(set(keep)), sorted(set(system))
+            if system_subagent(meta):
+                system.append(path)
+            elif evaluation_seat(path, meta, pattern):
+                evaluation.append(path)
+            else:
+                keep.append(path)
+    return sorted(set(keep)), sorted(set(system)), sorted(set(evaluation))
 
 
 def captured_source_fingerprint(dst: Path) -> tuple[int, str] | None:
@@ -233,7 +271,7 @@ def main(argv=None):
     current_project().path("provenance.codex_sessions").mkdir(
         parents=True, exist_ok=True
     )
-    sources, system = sweep()
+    sources, system, evaluation = sweep()
     removed = load_removed()
     copied = []
     unchanged = skipped = invalid = 0
@@ -250,11 +288,16 @@ def main(argv=None):
         else:
             unchanged += 1
 
+    for src in evaluation:
+        sid = session_id(src)
+        label = f"{sid}.jsonl" if sid else src.name
+        print(f"  - {label} was sent a session capture to evaluate -- not captured")
     for src, sid in copied:
         print(f"  + {sid}.jsonl  ({src.stat().st_size} bytes)")
     print(
         f"codex-sessions: {len(copied)} updated, {unchanged} unchanged, "
         f"{skipped} on removed-list, {len(system)} system subagent(s), "
+        f"{len(evaluation)} evaluation seat(s), "
         f"{invalid} without a usable id -> {current_project().path('provenance.codex_sessions')}"
     )
     return 0
