@@ -1404,8 +1404,8 @@ def _edit_targets(jsonl_path):
 def cmd_triage(args):
     """Mechanical relevance prioritizer over local sessions (free, no model calls).
 
-    A session that edits document files (state-of-states, the legacy spec,
-    docs/, analysis/, scratchpad/, legacy ideas/, exercises/) is 'keep'.
+    A session that edits document files (the manuscript, the spec, retained
+    analysis, scratch notes, the companion collections) is 'keep'.
     A session that does not is 'review':
     it might still be a substantive discussion that only touched tooling, so it
     needs an intelligent read before any removal -- the mechanics alone never

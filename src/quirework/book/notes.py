@@ -1157,7 +1157,7 @@ def check(docs: Path | None = None) -> int:
             )
 
     # 9. `@ch` is a reference form, never a mark kind. A comment that opens
-    # with it (`<!-- @ch(the-spout) ... -->`) is harvested as a new kind by
+    # with it (`<!-- @ch(a-chapter) ... -->`) is harvested as a new kind by
     # _ANNO and would quietly join the vocabulary, which is how the tag set
     # grows by accident. The pointer belongs inside a mark's body.
     for a in annos:
@@ -1412,7 +1412,7 @@ def main(argv=None) -> int:
         "--chapter",
         metavar="SUBSTR",
         help="only marks in files whose path matches this substring "
-        "(e.g. the-spout, spout)",
+        "(e.g. the-sidecar, sidecar)",
     )
     ap.add_argument(
         "--section",

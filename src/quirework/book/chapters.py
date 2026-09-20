@@ -392,7 +392,7 @@ def scan_layers(
 def count_advisory(docs: Path | None = None) -> list[str]:
     """The spelled-out chapter count in the prose, against the live one.
 
-    `_marks/the-boiler.md` asks for this in as many words: the numeric-reference
+    A sidecar can ask for this in as many words: the numeric-reference
     grep does not catch counts, and an insert or a cut re-counts every site.
     Advisory, because de-numbering the sentence is an equally good fix and that
     is an author call."""

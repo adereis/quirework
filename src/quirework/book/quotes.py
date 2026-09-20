@@ -14,30 +14,28 @@ which.
 410, which is not a report anybody reads. The misses sort into four kinds
 and three are correct:
 
-  1. wording quoted precisely to FORBID it, which is most of them. The
-     book's guards pin the variant that must not return ("only data, FULL
-     OF POTENTIAL", "Those are THE needles"), and those phrases are
-     supposed to be absent.
-  2. quotations of things outside the book -- Mabel, a paper, the author's
-     own conversation -- which live in @source and @ref.
+  1. wording quoted precisely to FORBID it, which is most of them. A
+     guard mark pins the variant that must not return, by convention with
+     the offending words in capitals, and those phrases are supposed to be
+     absent.
+  2. quotations of things outside the book -- a person quoted, a paper,
+     the author's own conversation -- which live in @source and @ref.
   3. spans carrying an elision, where the quotation is deliberately partial.
   4. real drift.
 
 So only spans introduced by an explicit verbatim cue are considered, from
 kinds that assert presence, with the forbidden-variant conventions filtered
-out. That cut reports six candidates against the live book, of which two
-are real: quotations off by a word ("by itself explains nothing" for "by
-itself IT explains nothing"), which is the shape a reading pass misses
-every time.
+out. On a book-length manuscript that cut reported six candidates, of
+which two were real: quotations off by a single word, which is the shape a
+reading pass misses every time.
 
 **Where it also asks WHICH chapter.** Existing-in-the-book is the weaker
-half of the question. A mark says `@ch(the-spout)` prints a line; the line
+half of the question. A mark says `@ch(a-chapter)` prints a line; the line
 exists, so the check passed, while the chapter naming it was wrong -- which
 is precisely what a chapter SPLIT produces, because the prose moves and the
 quotation does not. Two consecutive rounds had that as their dominant
-defect (`the-copper-base` out of `what-a-kettle-says`, then `the-steamer`
-out of `nearly-boiling`), each time found by hand, each time after the
-split had run unchecked for dozens of commits.
+defect, each time found by hand, each time after the split had run
+unchecked for dozens of commits.
 
 So a span whose quotation is attributed to a named chapter is checked
 against *that chapter*, and a quotation that resolves in some other chapter
@@ -82,7 +80,7 @@ _CUE = re.compile(
 )
 
 # ... and the negation has to attach to the CUE, not merely share the window
-# with it. Scanning the whole window loses real drift: the saucer chapter's "the copper room
+# with it. Scanning the whole window loses real drift: "the earlier chapter
 # refuses the dismissal, so this chapter may say the sentence X" is a positive
 # citation whose window happens to contain "refuses", and X is off by a word.
 _NEGATED = re.compile(
@@ -103,9 +101,9 @@ CAPS_RATIO = 0.30
 
 # How far back from the cue verb to look for the `@ch(slug)` that is its
 # subject. This is a search window, NOT the adjacency test -- `_SUBJECT_BREAK`
-# is that -- so it has to be wide enough to contain the whole token, and the
-# longest slug in the book already makes `@ch(a-pot-we-could-not-carry)` 29
-# characters. Sizing this as if it were the gap silently blinded the check to
+# is that -- so it has to be wide enough to contain the whole token, and a
+# descriptive slug readily makes an `@ch(...)` citation thirty characters or
+# more. Sizing this as if it were the gap silently blinded the check to
 # every long-slug citation, which is most of the ones worth catching.
 ATTR_GAP = 96
 

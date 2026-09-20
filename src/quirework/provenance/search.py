@@ -367,8 +367,8 @@ def _run_keyword(kws, o):
 # *band* is the signal, not the top score -- an unrelated query can still score
 # 0.72 here. Calibrated on three real queries, which is a small sample and the
 # reason the floor is set well below the lowest good one rather than between:
-#   0.087  "Mabel's kettle, the boiler left to sing"      -> on-topic hits
-#   0.037  "the china brain, a pot made of pennies"       -> on-topic hits
+#   0.087  a query naming a scene and its subject          -> on-topic hits
+#   0.037  a query naming a thought experiment by name     -> on-topic hits
 #   0.016  an abstract query about the author's own doubts -> unrelated hits
 # So this catches the degenerate case and stays quiet otherwise; it is a hint,
 # never a verdict on the results.

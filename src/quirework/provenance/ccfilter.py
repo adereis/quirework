@@ -331,7 +331,7 @@ def _blocks(content):
 #   * every assistant text block, verbatim, and thinking text where the
 #     harness recorded any;
 #   * one action record per tool call, with its parameters -- so `[Edit
-#     the-spout.qmd: "..."]`, the doc/meta edit split, and the tool counts all
+#     a-chapter.qmd: "..."]`, the doc/meta edit split, and the tool counts all
 #     still compute from the capture;
 #   * session identity, timestamps, model ids and permission mode.
 #

@@ -334,7 +334,7 @@ def _chapter_titles() -> dict[str, str]:
 
 
 def resolve_ch_refs(text: str) -> str:
-    """`@ch(the-spout)` -> "The spout", for the author-facing block only.
+    """`@ch(the-sidecar)` -> "The sidecar", for the author-facing block only.
 
     The metadata layer names a chapter by `@ch(slug)` because that is the one
     form a guard can resolve. The three block kinds are a *register*, though,
@@ -689,8 +689,8 @@ def _in_reading_order(source: Path) -> list[Path]:
 
     `locate` takes the FIRST match, so iteration order decides which chapter a
     snippet is blamed on when two of them carry the same sentence -- and that
-    misfires in practice: sops/redpen.md records "language model" being
-    reported against the copper room when it belonged to the china brain. A
+    misfires in practice: a review procedure recorded a shared phrase being
+    reported against one chapter when it belonged to a later one. A
     lexical sort approximated reading order only while the filenames carried
     ordinals, and it did not even do that reliably (`06b` sorts before `06`).
     The slugs carry no order at all, so read it from `_quarto.yml`, which owns
@@ -1571,7 +1571,7 @@ def main(argv=None) -> int:
         "build", help="render the book (or one --chapter) to a reviewable .docx"
     )
     b.add_argument(
-        "--chapter", help="one chapter slug, e.g. the-spout (default: whole book)"
+        "--chapter", help="one chapter slug, e.g. the-sidecar (default: whole book)"
     )
     b.add_argument(
         "--gray",

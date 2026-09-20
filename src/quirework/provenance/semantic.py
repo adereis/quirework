@@ -2,7 +2,7 @@
 """Meaning-based search over the human's own turns (``quirework provenance search --semantic``).
 
 Keyword search answers *"which sessions did I say this word in?"*. It cannot
-answer *"where did I first get uneasy about the steepness guard?"* -- that
+answer *"where did I first get uneasy about this design?"* -- that
 question has no word to grep for, because the unease was expressed in whatever
 words came to hand that day. This module closes that gap without giving up the
 one property that makes ``search`` worth having.
