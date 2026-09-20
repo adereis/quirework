@@ -144,13 +144,24 @@ def load(root=None):
             raise ValueError(f"invalid SOP identifier: {name}")
         _keys(
             entry,
-            {"family", "kind", "requires", "mechanics", "followups", "note"},
+            {"family", "kind", "skill", "requires", "mechanics", "followups",
+             "note"},
             name,
         )
         _text(entry["family"], f"{name} family")
         _text(entry["kind"], f"{name} kind")
         if entry["family"] not in families or entry["kind"] not in KINDS:
             raise ValueError(f"{name}: unknown family or kind")
+        # Exposing a skill is a deliberate per-SOP decision, never a side
+        # effect of adding a file. The field is required, so a new SOP fails
+        # validation until someone says yes or no; that is the whole point.
+        if not isinstance(entry["skill"], bool):
+            raise ValueError(
+                f"{name}: skill must be true or false -- decide whether this "
+                f"SOP gets its own skill route"
+            )
+        if entry["kind"] == "protocol" and entry["skill"]:
+            raise ValueError(f"{name}: a protocol is shared reading, not a skill")
         text = paths[name].read_text()
         if is_fragment(text) != (entry["kind"] == "protocol"):
             raise ValueError(

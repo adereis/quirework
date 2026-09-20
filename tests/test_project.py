@@ -128,6 +128,7 @@ def test_procedure_catalog_uses_configured_directory(tmp_path):
             "read": {
                 "family": "read",
                 "kind": "procedure",
+                "skill": True,
                 "requires": [],
                 "mechanics": [],
                 "followups": [],
@@ -147,6 +148,63 @@ def test_procedure_catalog_uses_configured_directory(tmp_path):
         explained = catalog.explain(data, "read")
         assert explained["reading_order"][0]["path"] == "procedures/read.md"
         assert explained["description"].startswith("Read a supplied note")
+
+
+def test_a_skill_is_a_catalog_decision(tmp_path):
+    """Adding a procedure file must not quietly add a skill route.
+
+    Letting the file tree decide is how a skill list grows to a size nobody
+    chose, with entries that route to "now pick a sub-procedure". The `skill`
+    field is required, so the person adding a procedure answers yes or no, and
+    `kind: procedure` with `skill: false` keeps a real procedure discoverable
+    through the catalog without its own front door.
+    """
+    directory = tmp_path / "procedures"
+    directory.mkdir()
+    (directory / "read.md").write_text("# Read\n\n<!-- @skill: Read it. -->\n")
+    (directory / "shared.md").write_text("# SOP fragment — shared\n\nRules.\n")
+
+    def write(**overrides):
+        entries = {
+            "read": {"family": "read", "kind": "procedure", "skill": True,
+                     "requires": [], "mechanics": [], "followups": [], "note": ""},
+            "shared": {"family": "read", "kind": "protocol", "skill": False,
+                       "requires": [], "mechanics": [], "followups": [], "note": ""},
+        }
+        for name, patch in overrides.items():
+            entries[name] = {**entries[name], **patch}
+            if patch.get("_drop"):
+                entries[name] = {k: v for k, v in entries[name].items()
+                                 if k not in ("skill", "_drop")}
+        (directory / "index.json").write_text(json.dumps({
+            "version": 1,
+            "families": [{"id": "read", "label": "Read", "question": "Clear?"}],
+            "entries": entries,
+        }))
+
+    project = Project.from_settings(
+        tmp_path, {"sops": {"root": "procedures", "catalog": "procedures/index.json"}}
+    )
+    with project_scope(project):
+        write()
+        assert [s for s, _ in commands.invokable()] == ["read"]
+
+        write(read={"_drop": True})
+        with pytest.raises(ValueError, match="expected fields.*skill"):
+            catalog.load()
+
+        write(read={"skill": "yes"})
+        with pytest.raises(ValueError, match="skill must be true or false"):
+            catalog.load()
+
+        write(shared={"skill": True})
+        with pytest.raises(ValueError, match="shared reading, not a skill"):
+            catalog.load()
+
+        # The state the file tree could not express: real procedure, no route.
+        write(read={"skill": False})
+        assert commands.invokable() == []
+        assert catalog.load()["entries"]["read"]["kind"] == "procedure"
 
 
 def test_generated_skills_name_the_project_own_guide(tmp_path):

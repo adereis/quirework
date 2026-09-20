@@ -6,10 +6,12 @@ thin Claude routes; `--target agents|both` also emits portable routes with
 Codex invocation metadata. `--check` validates without writing, using stdlib
 only so repository hooks do not need an installed environment.
 
-Procedures remain the single source of truth. Workflow and mode descriptions
-come from their @skill markers (or Goal lines); protocols identified by a
-`# SOP fragment` heading receive no skill. The generator owns marked SKILL.md
-bodies and the invocation policy field in portable route metadata. SOPs default
+Procedures remain the single source of truth. Their descriptions come from
+their @skill markers (or Goal lines). Which procedures get a route is curated
+in the catalog: its `skill` field is required, so adding a file forces an
+explicit yes or no instead of minting a route by default. Protocols identified
+by a `# SOP fragment` heading can never take one. The generator owns marked
+SKILL.md bodies and the invocation policy field in portable route metadata. SOPs default
 to explicit-only; an @skill-invocation marker can opt into implicit use. Other
 metadata and handwritten alias bodies remain independently maintained.
 """
@@ -112,14 +114,23 @@ def _yaml_quote(s: str) -> str:
 
 
 def invokable() -> list[tuple[str, str]]:
-    """(stem, description) for every SOP that should have a skill, sorted by stem."""
-    out = []
-    for p in _sop_files():
-        text = p.read_text(encoding="utf-8")
-        if is_fragment(text):
-            continue
-        out.append((p.stem, _description(text, p.stem)))
-    return out
+    """(stem, description) for every SOP the catalog exposes, sorted by stem.
+
+    The catalog decides, not this scan. `skill` is a required field there, so
+    a SOP added to the tree cannot acquire a front door until someone records
+    the decision; a project that leaves it to the file layout ends up with a
+    skill list nobody chose.
+    """
+    from . import catalog as _catalog
+
+    # Pass the root explicitly: the scan and the registry must name one tree,
+    # and a caller that redirects this module's project has redirected both.
+    entries = _catalog.load(current_project().root)["entries"]
+    return [
+        (p.stem, _description(p.read_text(encoding="utf-8"), p.stem))
+        for p in _sop_files()
+        if entries[p.stem]["skill"]
+    ]
 
 
 def _implicit_skills() -> set[str]:
@@ -294,6 +305,20 @@ def _generate(check: bool, skills=None, portable=False) -> int:
     try:
         implicit = _implicit_skills()
         expected = _expected(portable, implicit)
+        # An invocation policy on a SOP the catalog gives no skill is dead
+        # metadata that reads like a live route. Checked here rather than in
+        # _implicit_skills so marker syntax stays validatable without a
+        # catalog, which is how its unit tests reach it.
+        prefix = _prefix()
+        stray = {n[len(prefix):] for n in implicit} - {
+            n[len(prefix):] for n in expected
+        }
+        if stray:
+            raise ValueError(
+                f"{', '.join(sorted(stray))}: declares skill invocation but the "
+                f"catalog gives it no skill; set the catalog entry's skill "
+                f"field or drop the marker"
+            )
     except ValueError as exc:
         print(str(exc), file=sys.stderr)
         return 1

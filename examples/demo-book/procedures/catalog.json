@@ -1,13 +1,22 @@
 {
   "version": 1,
   "families": [
-    {"id": "authoring", "label": "Authoring", "question": "What do I do when I sit down to write?"},
-    {"id": "editions", "label": "Editions", "question": "Who is this book being retold for?"}
+    {
+      "id": "authoring",
+      "label": "Authoring",
+      "question": "What do I do when I sit down to write?"
+    },
+    {
+      "id": "editions",
+      "label": "Editions",
+      "question": "Who is this book being retold for?"
+    }
   ],
   "entries": {
     "write-a-chapter": {
       "family": "authoring",
       "kind": "procedure",
+      "skill": true,
       "requires": [],
       "mechanics": [
         "quirework book notes --primer",
@@ -22,6 +31,7 @@
     "variant-common": {
       "family": "editions",
       "kind": "protocol",
+      "skill": false,
       "requires": [],
       "mechanics": [],
       "followups": [],
@@ -30,8 +40,13 @@
     "variant-manager": {
       "family": "editions",
       "kind": "procedure",
-      "requires": ["variant-common"],
-      "mechanics": ["quirework book variant build manager"],
+      "skill": true,
+      "requires": [
+        "variant-common"
+      ],
+      "mechanics": [
+        "quirework book variant build manager"
+      ],
       "followups": [],
       "note": ""
     }

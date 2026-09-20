@@ -261,13 +261,23 @@ it and every entry must have a file, so neither can quietly rot:
     {"id": "tidy", "label": "Tidy", "question": "What needs straightening?"}
   ],
   "entries": {
-    "tidy": {"family": "tidy", "kind": "procedure", "requires": ["care"],
-             "mechanics": ["quirework text wrap"], "followups": [], "note": ""},
-    "care": {"family": "tidy", "kind": "protocol", "requires": [],
-             "mechanics": [], "followups": [], "note": ""}
+    "tidy": {"family": "tidy", "kind": "procedure", "skill": true,
+             "requires": ["care"], "mechanics": ["quirework text wrap"],
+             "followups": [], "note": ""},
+    "care": {"family": "tidy", "kind": "protocol", "skill": false,
+             "requires": [], "mechanics": [], "followups": [], "note": ""}
   }
 }
 ```
+
+`skill` decides whether the procedure gets its own generated route, and
+it is required rather than inferred. Adding a file is not a decision, so
+a procedure with no `skill` line fails validation until someone records
+one; that is what stops a skill list growing to a size nobody chose.
+`false` is a normal answer: the procedure stays discoverable through
+`sop list` and `sop NAME` without occupying a slot in every agent
+session's skill list. A `kind: protocol` fragment can never take a
+route, and asking for one is an error.
 
 `requires` is reading a procedure depends on and is traversed into a
 deduplicated reading order; `followups` is work that a result might
