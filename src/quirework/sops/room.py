@@ -34,6 +34,7 @@ from threading import Lock
 
 from quirework.project import current_project, submit
 from quirework.providers import blind
+from quirework.providers import quota
 from quirework.providers import models as drivers
 from quirework.runs import observe
 from quirework.runs.storage import (
@@ -231,7 +232,30 @@ def holdings(plan):
     return "".join(lines)
 
 
-def turn_prompt(root, plan, seat, n):
+def chair_note(root, n):
+    """What the operator told the room before round ``n``, if anything.
+
+    A room is a closed conversation on purpose, and the operator is the only
+    person who can see both the room and the world it is writing for. The
+    packet is hashed, so a fact discovered after preparation cannot be
+    corrected in it, and the board carries posts and nothing else. In the
+    first measured room four seats put direct questions to the chair in their
+    opening round -- a miscounted phrase, a reference with two possible
+    referents, a ruling only the editor held -- and nothing could reach them.
+
+    The note travels with the turn so every acting seat is told the same thing
+    at the same instant, and it is copied onto that round's digest so the
+    record shows what the room was working from. It is not a post: the chair
+    does not take a seat, is not answered by name, and never arrives in the
+    middle of a round.
+    """
+    path = root / "chair" / f"r{n:03d}.md"
+    if not path.exists():
+        return None
+    return path.read_text().strip() or None
+
+
+def turn_prompt(root, plan, seat, n, *, cold=False):
     """The one line a writer gets when the room moves.
 
     Everything standing -- the perspective, the reading, the length, where a
@@ -250,6 +274,18 @@ def turn_prompt(root, plan, seat, n):
         text = (
             "Read START.md and post. Nobody has posted yet, so say "
             "what you think before you hear anyone else."
+        )
+    elif cold:
+        # This seat has no session, so it has none of the standing assignment
+        # and none of the conversation. Saying only that the board moved would
+        # be addressed to a reader who has never read the brief.
+        text = (
+            "You are joining a room already in progress. Read START.md "
+            "first, then the boards in board/, beginning with "
+            f"board/round-{n - 1:03d}/digest.md. Then post as the others "
+            "do. Answer your colleagues by name. You were expected earlier "
+            "and could not be reached, so the room has not heard from you "
+            "yet and nothing it has said is a reply to you."
         )
     elif others_spoke(root, plan, seat["id"], n - 1):
         text = (
@@ -298,7 +334,11 @@ def turn_prompt(root, plan, seat, n):
         )
     elif words != plan["post_words"]:
         text += f" About {words} words this time."
-    return f"{text}{(' ' + extra) if extra else ''}\n"
+    text = f"{text}{(' ' + extra) if extra else ''}"
+    note = chair_note(root, n)
+    if note:
+        text += f"\n\nFrom the chair, to everyone acting this round:\n\n{note}"
+    return f"{text}\n"
 
 
 def prepare(plan_path, destination, *, resolve_models=True):
@@ -382,6 +422,7 @@ def prepare(plan_path, destination, *, resolve_models=True):
     (destination / ".gitignore").write_text(IGNORE)
     (destination / "board" / "posts").mkdir(parents=True)
     (destination / "board" / "rounds").mkdir(parents=True)
+    (destination / "chair").mkdir()
     frozen = dict(
         supplied,
         schema=SCHEMA,
@@ -726,6 +767,9 @@ def compose_digest(root, plan, n):
     # occupy.
     made = deliverable(plan, n)
     text = f"# The board -- round {n}\n\n"
+    note = chair_note(root, n)
+    if note:
+        text += f"{rule}\n## From the chair\n{rule}\n\n{note}\n\n"
     included = {}
     for name in board_order(plan["seats"], n):
         post = root / "board" / "posts" / name / f"r{n:03d}.md"
@@ -912,10 +956,35 @@ def run_seat(root, plan, seat, n, *, timeout=None):
     if digest(work / "START.md") != seat["start_sha256"]:
         raise RuntimeError(f"standing assignment changed: {name}")
     resume = state.get("session_id")
-    if n > 1 and not resume:
-        raise RuntimeError(f"{name} has no session to resume; run its first round")
+    # A seat with no session is one whose earlier turn produced nothing at
+    # all: a provider refusing before the model ran leaves a failed round and
+    # no conversation to continue. Refusing to run it again costs the seat for
+    # the rest of the room, and the alternative the procedure offered was to
+    # throw away every turn the other seats had already bought. So it opens a
+    # session now and joins in progress, reading the boards it missed. What it
+    # cannot recover is its opening position, which the room heard from
+    # everyone else before it arrived; `status` reports the round it joined so
+    # no later reading mistakes a late arrival for an independent opening.
+    cold = n > 1 and not resume
     record.mkdir(parents=True)
-    prompt = turn_prompt(root, plan, seat, n)
+    return _launch(
+        root, plan, seat, n, turn_prompt(root, plan, seat, n, cold=cold),
+        resume, timeout=timeout,
+    )
+
+
+def _launch(root, plan, seat, n, prompt, resume, *, timeout=None):
+    """Run one turn and bank what it produced, however it ended.
+
+    Split from ``run_seat`` so a continuation after a quota stop is the same
+    launch, the same jail, the same receipt and the same records as the turn
+    it replaces. A recovery that took a different path would be evidence
+    about the recovery rather than about the room.
+    """
+    name = seat["id"]
+    work, config = root / "seats" / name, seat_config(plan, seat)
+    record = root / "records" / name / f"r{n:03d}"
+    record.mkdir(parents=True, exist_ok=True)
     args, payload = drivers.command(config, work, prompt, resume=resume)
     jail, env, private = drivers.launch_context(config, work)
     jail += ["--ro-bind", str(work / "board"), str(work / "board")]
@@ -978,6 +1047,13 @@ def run_seat(root, plan, seat, n, *, timeout=None):
     except (RuntimeError, ValueError, OSError) as exc:
         got, status, detail = {}, "failed", str(exc)
     compacted = compaction(record / "events.jsonl")
+    # A provider limit and a crash both leave a failed turn, and only one of
+    # them is worth waiting out. Classifying here is what lets `continue`
+    # refuse everything else: a timeout re-run looks identical to a quota
+    # re-run at the command line and duplicates work that actually happened.
+    stop = quota.classify(config["harness"], record) if status == "failed" else None
+    if stop:
+        status = "quota"
     write(
         record / "receipt.json",
         {
@@ -987,6 +1063,8 @@ def run_seat(root, plan, seat, n, *, timeout=None):
             "timed_out": timed_out,
             "error": detail,
             "compaction_markers": compacted,
+            "quota_stop": stop["phase"] if stop else None,
+            "quota_scope": stop.get("scope") if stop else None,
         },
     )
     if compacted:
@@ -994,11 +1072,85 @@ def run_seat(root, plan, seat, n, *, timeout=None):
     state = read(state_path(root, name))
     if got.get("session_id"):
         state["session_id"] = got["session_id"]
-    state["rounds"][str(n)] = {"status": status, "seconds": seconds, "error": detail}
+    state["rounds"][str(n)] = {
+        "status": status,
+        "seconds": seconds,
+        "error": detail,
+        **({"quota_stop": stop["phase"], "quota_scope": stop.get("scope")} if stop else {}),
+    }
+    # A refused stop leaves no session; an interrupted one leaves the session
+    # holding the reasoning, and losing its id here is what turns a
+    # continuation into a cold restart wearing a continuation's receipt.
+    if stop and stop.get("session_id") and not state.get("session_id"):
+        state["session_id"] = stop["session_id"]
     state["status"] = status
     write(state_path(root, name), state)
     event(root, round=n, seat=name, event="collected", status=status, error=detail)
     return status
+
+
+def continue_seat(root, n, name, *, timeout=None):
+    """Take one seat's turn again after a provider limit stopped it.
+
+    Two stops, opposite recoveries, and `quota` owns which is which. *Refused*
+    means the provider declined before the model ran, so nothing exists to
+    continue: the identical turn is delivered again, in a fresh session, out
+    of the prompt the stopped attempt was given. Nothing is lost by that,
+    because nothing was produced. *Interrupted* means the model ran and the
+    wall arrived partway, so the session holds the reading and the reasoning
+    and the turn is continued inside it, with no re-delivery of anything the
+    seat has already been shown.
+
+    It refuses everything that is not a classified quota stop. A crash, a
+    timeout and an ambiguous transport fault look identical to this at the
+    command line, and re-running one of those can duplicate work that really
+    happened. The stopped attempt is archived whole beside the new one, so the
+    round reads as two submissions rather than one that changed its mind, and
+    the receipt says so.
+    """
+    root, plan = load(root)
+    # `seat_named` resolves an id or a position and returns the id, so the
+    # seat itself still has to be looked up.
+    name = seat_named(plan, name)
+    seat = next(s for s in plan["seats"] if s["id"] == name)
+    record = root / "records" / name / f"r{n:03d}"
+    state = read(state_path(root, name))
+    attempt = state.get("rounds", {}).get(str(n))
+    if not attempt:
+        raise ValueError(f"{name} has no round {n} to continue")
+    if attempt["status"] == "answered":
+        raise ValueError(f"{name} already answered round {n}")
+    if (root / "board" / "posts" / name / f"r{n:03d}.md").exists():
+        raise RuntimeError(f"round {n} is already published for {name}")
+    config = seat_config(plan, seat)
+    stop = quota.classify(config["harness"], record)
+    if not stop:
+        raise RuntimeError(
+            f"{name} does not carry a provider quota stop in round {n}; "
+            "diagnose the failure rather than taking the turn again"
+        )
+    resume = quota.resumable_session(stop)
+    prompt = (
+        quota.continuation() if resume else (record / "prompt.md").read_text()
+    )
+    number = len(list((record / "attempts").glob("[0-9][0-9]"))) + 1
+    folder = record / "attempts" / f"{number:02d}"
+    folder.mkdir(parents=True)
+    for item in ("events.jsonl", "stderr.log", "prompt.md", "launch.json", "receipt.json"):
+        source = record / item
+        if source.exists():
+            shutil.move(str(source), str(folder / item))
+    del state["rounds"][str(n)]
+    state.setdefault("attempts", []).append(
+        {"round": n, "attempt": number, "quota_stop": stop["phase"],
+         "quota_scope": stop.get("scope"), "resumed": resume}
+    )
+    write(state_path(root, name), state)
+    event(
+        root, round=n, seat=name, event="continuing",
+        quota_stop=stop["phase"], resumed=resume, attempt=number,
+    )
+    return _launch(root, plan, seat, n, prompt, resume, timeout=timeout)
 
 
 def run_round(root, n, *, jobs=2, timeout=None):
@@ -1037,6 +1189,16 @@ def run_round(root, n, *, jobs=2, timeout=None):
             for future in [submit(pool, task, s) for s in speakers]:
                 name, outcome = future.result()
                 results[name] = outcome
+        # A quota stop is not an absence, and the digest is the durable record
+        # of what the room was shown. Publishing one that files a seat as
+        # silent would put a false fact beyond reach, because a published
+        # board is never rewritten. So the round stays open, the operator
+        # waits the provider out, continues that seat, and promotes then.
+        stopped = sorted(k for k, v in results.items() if v == "quota")
+        if stopped:
+            event(root, round=n, event="round-held", waiting_on=stopped)
+            results["_board"] = {"held": stopped}
+            return results
         results["_board"] = promote(root, n)
     return results
 
@@ -1105,6 +1267,19 @@ def status(root):
             "rounds": state.get("rounds", {}),
             "posts": posts,
             "drafting": outbox.stat().st_size if outbox.exists() else 0,
+            # A seat that opened its session after round one heard the room
+            # before it spoke, so its first post is a reply and not an opening
+            # position. Round one is the only independent evidence a room
+            # contains, and a late arrival is the one way a seat can appear in
+            # it and not have supplied any.
+            "joined_late": next(
+                (
+                    int(r)
+                    for r, v in sorted(state.get("rounds", {}).items(), key=lambda i: int(i[0]))
+                    if v.get("status") == "answered"
+                ),
+                None,
+            ),
         }
     published = sorted(p.name for p in (root / "board" / "rounds").glob("r*"))
     return {
@@ -1212,6 +1387,10 @@ def _render(value):
             f"  {number}. {seat['label']:<{width}}  {seat['status'] or 'prepared':<10}"
             f"  posts: {len(seat['posts'])}{drafting}"
         )
+        if (joined := seat.get("joined_late")) and joined > 1:
+            lines.append(
+                f"     joined in round {joined}; it has no opening position"
+            )
     if value.get("compacted"):
         where = ", ".join(
             f"{r['seat']} in round {r['round']}" for r in value["compacted"]
@@ -1522,6 +1701,14 @@ def main(argv=None):
         recover.add_argument("root")
         recover.add_argument("number", type=int)
 
+    again = sub.add_parser(
+        "continue", help="take a seat's turn again after a provider quota stop"
+    )
+    again.add_argument("root")
+    again.add_argument("number", type=int)
+    again.add_argument("seat")
+    again.add_argument("--timeout", type=float, default=None)
+
     loop = sub.add_parser("rounds", help="run rounds until the room converges")
     loop.add_argument("root")
     loop.add_argument("--to", type=int, default=None, help="stop at this round")
@@ -1582,6 +1769,11 @@ def main(argv=None):
         ).items():
             detail = json.dumps(outcome) if isinstance(outcome, dict) else outcome
             print(f"{name}: {detail}")
+    elif args.command == "continue":
+        status = continue_seat(root, args.number, args.seat, timeout=args.timeout)
+        print(f"{args.seat}: {status}")
+        if status == "answered":
+            print(f"now close the round: quirework sop room promote {shown(root)} {args.number}")
     elif args.command == "open":
         print(open_round(root, args.number) or "silent round; no board")
     elif args.command == "rounds":

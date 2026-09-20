@@ -7,7 +7,8 @@ from pathlib import Path
 import pytest
 
 from quirework.providers import models as drivers
-from quirework.runs.storage import lock, shown, write
+from quirework.providers import quota
+from quirework.runs.storage import lock, read, shown, write
 from quirework.sops import room
 
 
@@ -199,11 +200,52 @@ def test_a_changed_packet_stops_the_seat(prepared):
         room.run_seat(prepared, plan, seat, 1)
 
 
-def test_a_later_round_needs_a_session_to_resume(prepared):
+def test_a_seat_with_no_session_joins_the_room_in_progress(prepared):
+    """A refusal before the model ran leaves nothing to continue, not a seat.
+
+    The alternative the controller used to offer was to lose that seat for
+    every remaining round, or to throw away the turns its colleagues had
+    already bought and start the room again.
+    """
     _, plan = room.load(prepared)
     seat = next(s for s in plan["seats"] if s["id"] == "ana-pell")
-    with pytest.raises(RuntimeError, match="no session to resume"):
-        room.run_seat(prepared, plan, seat, 2)
+    prompt = room.turn_prompt(prepared, plan, seat, 2, cold=True)
+    assert "Read START.md" in prompt
+    assert "joining a room already in progress" in prompt
+    assert "board/round-001/digest.md" in prompt
+    # It must not be told the others were answering it.
+    assert "nothing it has said is a reply to you" in prompt
+
+
+def test_a_late_arrival_is_named_as_one_in_status(prepared):
+    """A late seat's first post is a reply, and a reading must not take it
+    for an opening position."""
+    state = room.state_path(prepared, "ana-pell")
+    value = read(state)
+    value["rounds"] = {"1": {"status": "failed"}, "2": {"status": "answered"}}
+    write(state, value)
+    assert room.status(prepared)["seats"]["ana-pell"]["joined_late"] == 2
+
+
+def test_the_chair_reaches_a_round_it_speaks_to(prepared):
+    """The packet is hashed, so a fact found after preparation has no other
+    way in, and four seats of the first measured room asked for one."""
+    _, plan = room.load(prepared)
+    seat = next(s for s in plan["seats"] if s["id"] == "ana-pell")
+    assert room.chair_note(prepared, 1) is None
+    (prepared / "chair" / "r001.md").write_text("The coined phrase is five words.\n")
+    assert "five words" in room.turn_prompt(prepared, plan, seat, 1)
+    post(prepared, "ana-pell", "A position.")
+    room.promote(prepared, 1)
+    digest = (prepared / "board" / "rounds" / "r001" / "digest.md").read_text()
+    assert "## From the chair" in digest
+    assert digest.index("From the chair") < digest.index("A position.")
+
+
+def test_an_empty_chair_note_is_no_note(prepared):
+    """A stray empty file must not announce a chair who said nothing."""
+    (prepared / "chair" / "r001.md").write_text("   \n")
+    assert room.chair_note(prepared, 1) is None
 
 
 def test_status_reads_a_locked_room_without_blocking(prepared):
@@ -946,3 +988,89 @@ def test_an_unasked_file_is_not_forced_onto_the_board(making):
     digest_text = (making / "board" / "rounds" / "r003" / "digest.md").read_text()
     assert "Reissued." in digest_text
     assert "Fixed." not in digest_text
+
+
+def _stream(record, rows):
+    record.mkdir(parents=True, exist_ok=True)
+    (record / "events.jsonl").write_text(
+        "\n".join(json.dumps(r) for r in rows) + "\n"
+    )
+
+
+CAPACITY = [
+    {"type": "thread.started", "thread_id": "t-1"},
+    {"type": "turn.started"},
+    {"type": "turn.failed", "error": {"message": "Selected model is at capacity."}},
+]
+
+
+def test_a_quota_stop_holds_the_round_instead_of_publishing_an_absence(prepared):
+    """A published board is never rewritten, so a digest filing a stopped seat
+    as silent would put a false fact permanently out of reach."""
+    _, plan = room.load(prepared)
+    seat = next(s for s in plan["seats"] if s["id"] == "ana-pell")
+    record = prepared / "records" / "ana-pell" / "r001"
+    _stream(record, CAPACITY)
+    state = read(room.state_path(prepared, "ana-pell"))
+    state["rounds"] = {"1": {"status": "quota", "quota_stop": "refused"}}
+    write(room.state_path(prepared, "ana-pell"), state)
+    assert not (prepared / "board" / "rounds" / "r001").exists()
+
+
+def test_continue_refuses_a_failure_that_is_not_a_quota_stop(prepared):
+    """A crash and a wall look identical at the command line, and re-running
+    a crash can duplicate work that actually happened."""
+    record = prepared / "records" / "ana-pell" / "r001"
+    _stream(record, [{"type": "turn.failed", "error": {"message": "segfault"}}])
+    state = read(room.state_path(prepared, "ana-pell"))
+    state["rounds"] = {"1": {"status": "failed"}}
+    write(room.state_path(prepared, "ana-pell"), state)
+    with pytest.raises(RuntimeError, match="does not carry a provider quota stop"):
+        room.continue_seat(prepared, 1, "ana-pell")
+
+
+def test_continue_refuses_a_round_the_seat_already_answered(prepared):
+    state = read(room.state_path(prepared, "ana-pell"))
+    state["rounds"] = {"1": {"status": "answered"}}
+    write(room.state_path(prepared, "ana-pell"), state)
+    with pytest.raises(ValueError, match="already answered"):
+        room.continue_seat(prepared, 1, "ana-pell")
+
+
+def test_continue_refuses_once_the_round_is_published(prepared):
+    """After promotion the board is fixed; a late post would rewrite it."""
+    post(prepared, "ana-pell", "A position.")
+    room.promote(prepared, 1)
+    state = read(room.state_path(prepared, "ana-pell"))
+    state["rounds"] = {"1": {"status": "quota"}}
+    write(room.state_path(prepared, "ana-pell"), state)
+    with pytest.raises(RuntimeError, match="already published"):
+        room.continue_seat(prepared, 1, "ana-pell")
+
+
+def test_a_busy_model_is_a_refusal_and_not_an_allowance_to_wait_out(prepared):
+    """The stop that cost a real room a seat: no limit code, no limit text,
+    so it classified as an ordinary failure and no recovery would take it."""
+    record = prepared / "records" / "ana-pell" / "r001"
+    _stream(record, CAPACITY)
+    stop = quota.classify("codex", record)
+    assert stop["phase"] == "refused"
+    assert stop["scope"] == "capacity"
+    # Nothing to wait for, and nothing banked in the session to continue.
+    assert stop["resets_at"] is None
+    assert quota.resumable_session(stop) is None
+
+
+def test_an_interrupted_turn_is_continued_in_its_own_session(prepared):
+    """The wall arrived partway, so the session holds the reasoning and a
+    fresh run would buy all of it again."""
+    record = prepared / "records" / "ana-pell" / "r001"
+    _stream(record, [
+        {"type": "thread.started", "thread_id": "t-9"},
+        {"type": "item.completed", "item": {"type": "agent_message"}},
+        {"type": "turn.failed", "error": {"code": "rate_limit_exceeded",
+                                          "message": "usage limit reached"}},
+    ])
+    stop = quota.classify("codex", record)
+    assert stop["phase"] == "interrupted"
+    assert quota.resumable_session(stop) == "t-9"

@@ -97,6 +97,18 @@ LIMIT_TEXT = re.compile(
 
 CODEX_LIMIT_CODES = ("rate_limit_exceeded", "insufficient_quota")
 
+# A provider declining because the model itself is busy, which is not a usage
+# limit: there is no allowance to wait out and no reset time to wait for. The
+# recovery is the same as a refusal's, because nothing ran either way, and the
+# scope is reported separately so nobody is told to sit out a window that does
+# not exist. A writers room lost a seat for a whole run to one of these, with
+# the controller calling it an ordinary failure and refusing to take the turn
+# again; the model answered normally two minutes later.
+CAPACITY_TEXT = re.compile(
+    r"at capacity|overloaded|try a different model|temporarily unavailable",
+    re.I,
+)
+
 
 # The whole prompt a resumed agent gets. It says what happened, that the
 # assignment is unchanged, and that the work already done is still its own
@@ -153,6 +165,17 @@ def _claude(stream):
         return None
     result = results[0]
     said = str(result.get("result") or "")
+    if CAPACITY_TEXT.search(said) and not LIMIT_TEXT.search(said):
+        # Busy, not out of allowance. Nothing ran, so the turn is delivered
+        # again rather than continued, and no reset time is reported because
+        # there is none to report.
+        return dict(
+            phase="refused",
+            scope="capacity",
+            resets_at=None,
+            detail=said[:200],
+            output_tokens=0,
+        )
     limit = [
         r
         for r in stream
@@ -178,14 +201,26 @@ def _claude(stream):
 
 
 def _codex(stream):
+    stopped = [r for r in stream if r.get("type") == "turn.failed"]
     failed = [
-        r
-        for r in stream
-        if r.get("type") == "turn.failed"
-        and (r.get("error") or {}).get("code") in CODEX_LIMIT_CODES
+        r for r in stopped if (r.get("error") or {}).get("code") in CODEX_LIMIT_CODES
     ]
     if not failed:
-        return None
+        busy = [
+            r
+            for r in stopped
+            if CAPACITY_TEXT.search(str((r.get("error") or {}).get("message", "")))
+        ]
+        if not busy:
+            return None
+        error = busy[-1].get("error") or {}
+        return dict(
+            phase="refused",
+            scope="capacity",
+            resets_at=None,
+            detail=str(error.get("message", ""))[:200],
+            output_tokens=None,
+        )
     error = failed[-1].get("error") or {}
     produced = any(r.get("type") == "item.completed" for r in stream)
     return dict(
