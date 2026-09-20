@@ -224,10 +224,23 @@ def holdings(plan):
         if plan["seats"]
         else set()
     )
+    # A path is only the default name. Whatever is in it reaches every seat,
+    # so a filename carrying a model id, an author or a verdict puts that in
+    # the room: one measured run named six reader reports after the models
+    # that wrote them and had the seats addressing each other as "Sol" and
+    # "Astra" within two rounds, each attached to the wrong colleague. A
+    # `label` on the file says what it is without saying what it is called.
+    named = {
+        entry["path"]: entry["label"]
+        for seat in plan["seats"]
+        for entry in seat.get("files", [])
+        if entry.get("label")
+    }
     lines = []
     for seat in plan["seats"]:
         extra = sorted(set(seat.get("reads", [])) - common)
-        brought = ", ".join(extra) if extra else "nothing the rest of you lack"
+        shown_as = [named.get(rel, rel) for rel in extra]
+        brought = ", ".join(shown_as) if extra else "nothing the rest of you lack"
         lines.append(f"- {label(seat)}: {brought}\n")
     return "".join(lines)
 
@@ -468,6 +481,11 @@ def prepare(plan_path, destination, *, resolve_models=True):
         {"sha256": digest(destination / "plan.json")},
     )
     event(destination, event="prepared", seats=[s["id"] for s in seats], rounds=rounds)
+    # The roster is the one part of the packet an operator writes without
+    # reading: it is assembled from paths chosen for the filesystem and then
+    # shown to every seat. Printing it at the last moment anything can change
+    # is what turns a filename back into a decision.
+    frozen["roster"] = holdings(frozen)
     return frozen
 
 
@@ -747,6 +765,30 @@ def safe_name(value):
     text = str(value)
     if not text or "/" in text or text.startswith(".") or text != Path(text).name:
         raise ValueError(f"deliverable must be a plain file name: {value!r}")
+    return text
+
+
+def attributed(text, plan):
+    """The board as the operator reads it: each post's seat named by model.
+
+    Deliberately applied when printing and never when composing. The stored
+    digest is what the seats are shown, and a model name on it would tell
+    every writer which model wrote each post, which is a different room: a
+    seat would start weighing a colleague by its make rather than by what it
+    said. The operator has the opposite need, because the seats are the
+    instrument and reading the room means knowing which one spoke.
+
+    It also answers a real failure. A seat invented model nicknames for
+    colleagues it could not see and attached one of them to the wrong
+    argument, which is invisible until someone holds the board beside the
+    plan.
+    """
+    named = {
+        s["id"]: f"{s['config']['harness']}/{s['config'].get('model')}"
+        for s in plan["seats"]
+    }
+    for seat, made in named.items():
+        text = text.replace(f"({seat})", f"({seat}, {made})")
     return text
 
 
@@ -1153,12 +1195,16 @@ def continue_seat(root, n, name, *, timeout=None):
     return _launch(root, plan, seat, n, prompt, resume, timeout=timeout)
 
 
-def run_round(root, n, *, jobs=2, timeout=None):
+def run_round(root, n, *, jobs=1, timeout=None):
     """Open the round, run every seat, then close it by promoting the outboxes.
 
-    Seats run concurrently up to ``jobs``, and the account lease caps them
-    again per harness. The round closes once every seat has stopped, so the
-    board changes at exactly one instant and no seat reads a partial one.
+    Seats run one at a time unless ``jobs`` says otherwise, and the account
+    lease caps them again per harness. Sequential is the default because
+    seats sharing one account drain a rate window several times faster
+    together and the wall then lands mid-turn on all of them at once; it also
+    preserves whatever spend order the plan recorded. The round closes once
+    every seat has stopped, so the board changes at exactly one instant and no
+    seat reads a partial one.
     """
     root, plan = load(root)
     with lock(root / "room.lock"):
@@ -1203,7 +1249,7 @@ def run_round(root, n, *, jobs=2, timeout=None):
     return results
 
 
-def run_until(root, *, limit=None, jobs=2, timeout=None):
+def run_until(root, *, limit=None, jobs=1, timeout=None):
     """Run rounds until the room converges or the budget runs out.
 
     The room is asked to stop, never silenced: a single `round` still runs on
@@ -1267,6 +1313,7 @@ def status(root):
             "rounds": state.get("rounds", {}),
             "posts": posts,
             "drafting": outbox.stat().st_size if outbox.exists() else 0,
+            "served": f"{seat['config']['harness']}/{seat['config'].get('model')}",
             # A seat that opened its session after round one heard the room
             # before it spoke, so its first post is a reply and not an opening
             # position. Round one is the only independent evidence a room
@@ -1282,11 +1329,20 @@ def status(root):
             ),
         }
     published = sorted(p.name for p in (root / "board" / "rounds").glob("r*"))
+    # An operator writes `chair/r<NNN>.md` before opening round NNN and has
+    # nothing else to confirm it will be picked up, or to notice one left over
+    # from a round that has already run.
+    spoken = sorted(p.stem for p in (root / "chair").glob("r[0-9][0-9][0-9].md"))
+    chair = {
+        "delivered": [r for r in spoken if f"{r}" in {p for p in published}],
+        "queued": [r for r in spoken if r not in {p for p in published}],
+    }
     return {
         "room": str(root),
         "title": plan.get("title"),
         "rounds": budget(root, plan),
         "published_rounds": published,
+        "chair": chair,
         "seats": seats,
         # Read from the trail rather than from every receipt: the trail is
         # already open, and a red flag an operator has to go looking for is
@@ -1384,13 +1440,19 @@ def _render(value):
     for number, seat in enumerate(value["seats"].values(), 1):
         drafting = f"  drafting {seat['drafting']}B" if seat["drafting"] else ""
         lines.append(
-            f"  {number}. {seat['label']:<{width}}  {seat['status'] or 'prepared':<10}"
+            f"  {number}. {seat['label']:<{width}}  {seat['served']:<28}"
+            f"{seat['status'] or 'prepared':<10}"
             f"  posts: {len(seat['posts'])}{drafting}"
         )
         if (joined := seat.get("joined_late")) and joined > 1:
             lines.append(
                 f"     joined in round {joined}; it has no opening position"
             )
+    chair = value.get("chair") or {}
+    if chair.get("queued"):
+        lines += ["", f"  chair note queued for {', '.join(chair['queued'])}"]
+    if chair.get("delivered"):
+        lines.append(f"  chair spoke in {', '.join(chair['delivered'])}")
     if value.get("compacted"):
         where = ", ".join(
             f"{r['seat']} in round {r['round']}" for r in value["compacted"]
@@ -1650,7 +1712,10 @@ def follow(root, seat, *, thinking=True, poll=1.0, width=88):
     if render is None:
         raise ValueError(f"following a {harness} seat is not implemented yet")
     settled = _SETTLED[harness]
-    who = label(record)
+    # Which seat and which model, because a live view is where an operator is
+    # most likely to be asking who is speaking.
+    config = seat_config(plan, record)
+    who = f"{label(record)} [{config['harness']}/{config.get('model')}]"
     seen, waiting, opened = 0, False, False
     while True:
         paths = transcripts(root, plan, seat)
@@ -1690,7 +1755,7 @@ def main(argv=None):
     turn = sub.add_parser("round", help="open, run and close one round")
     turn.add_argument("root")
     turn.add_argument("number", type=int)
-    turn.add_argument("--jobs", type=int, default=2)
+    turn.add_argument("--jobs", type=int, default=1)
     turn.add_argument("--timeout", type=float, default=None)
 
     for name, help_text in (
@@ -1712,7 +1777,7 @@ def main(argv=None):
     loop = sub.add_parser("rounds", help="run rounds until the room converges")
     loop.add_argument("root")
     loop.add_argument("--to", type=int, default=None, help="stop at this round")
-    loop.add_argument("--jobs", type=int, default=2)
+    loop.add_argument("--jobs", type=int, default=1)
     loop.add_argument("--timeout", type=float, default=None)
 
     more = sub.add_parser("extend", help="raise the room's round budget")
@@ -1804,7 +1869,8 @@ def main(argv=None):
         digest_file = root / "board" / "rounds" / f"r{args.number:03d}" / "digest.md"
         if not digest_file.is_file():
             raise ValueError(f"round {args.number} has not been published in {root}")
-        print(digest_file.read_text())
+        _, plan = load(root, verify=False)
+        print(attributed(digest_file.read_text(), plan))
     elif args.command == "watch":
         try:
             watch(root, poll=args.poll)

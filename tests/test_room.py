@@ -68,6 +68,26 @@ def prepared(plan, tmp_path):
     return tmp_path / "room"
 
 
+@pytest.fixture
+def prepared_labelled(plan, tmp_path):
+    """A room whose private holdings are named for the room, not by path."""
+    source = plan.parent
+    (source / "reports-gpt-6-astra.md").write_text("An old reader report.\n")
+    (source / "plain.md").write_text("Unlabelled.\n")
+    spec = read(plan)
+    spec["seats"][1]["files"] = [
+        {
+            "path": "reports/gpt-6-astra.md",
+            "local_source": "reports-gpt-6-astra.md",
+            "label": "six reader reports on an earlier draft",
+        },
+        {"path": "notes/plain.md", "local_source": "plain.md"},
+    ]
+    write(plan, spec)
+    room.prepare(plan, tmp_path / "labelled", resolve_models=False)
+    return tmp_path / "labelled"
+
+
 def post(root, seat, text):
     (root / "seats" / seat / "outbox" / "post.md").write_text(text)
 
@@ -1082,3 +1102,46 @@ def test_the_cli_can_still_read_a_room_after_every_branch(prepared, capsys):
     module-level function raises UnboundLocalError. Shipped once."""
     room.main(["status", str(prepared)])
     assert "rounds published" in capsys.readouterr().out
+
+
+def test_the_operator_sees_models_and_the_room_never_does(prepared):
+    """Naming the model on the stored digest would be a different room: a
+    seat would weigh a colleague by its make instead of by what it said."""
+    post(prepared, "ana-pell", "A position.")
+    room.promote(prepared, 1)
+    stored = (prepared / "board" / "rounds" / "r001" / "digest.md").read_text()
+    _, plan = room.load(prepared)
+    model = plan["seats"][0]["config"]["model"]
+    assert model not in stored
+    assert model in room.attributed(stored, plan)
+    assert "(ana-pell," in room.attributed(stored, plan)
+
+
+def test_a_labelled_private_file_is_named_without_its_path(prepared_labelled):
+    """Whatever is in a private holding's filename reaches every seat, so a
+    name carrying a model id puts that in the room."""
+    _, plan = room.load(prepared_labelled)
+    roster = room.holdings(plan)
+    assert "six reader reports on an earlier draft" in roster
+    assert "gpt-6-astra" not in roster
+
+
+def test_an_unlabelled_private_file_still_shows_its_path(prepared_labelled):
+    """The path stays the default, so naming is opt-in rather than required."""
+    _, plan = room.load(prepared_labelled)
+    assert "notes/plain.md" in room.holdings(plan)
+
+
+def test_status_names_a_queued_chair_note_before_it_is_spent(prepared):
+    (prepared / "chair" / "r002.md").write_text("A correction.\n")
+    value = room.status(prepared)
+    assert value["chair"]["queued"] == ["r002"]
+    assert value["chair"]["delivered"] == []
+
+
+def test_a_round_runs_one_seat_at_a_time_unless_asked(prepared):
+    """Seats sharing one account drain a rate window faster together, and the
+    wall then lands mid-turn on all of them at once."""
+    import inspect
+    assert inspect.signature(room.run_round).parameters["jobs"].default == 1
+    assert inspect.signature(room.run_until).parameters["jobs"].default == 1
