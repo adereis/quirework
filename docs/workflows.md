@@ -1,6 +1,50 @@
-# Procedures and model runs
+# Writing and research with an AI companion
 
-An SOP remains a procedure the operator follows. Its catalog describes
+Quirework is designed to sit underneath an AI companion such as Claude
+Code or Codex. You describe the writing or research job in conversation.
+The companion reads the project's instructions, follows its SOP, drives
+the relevant Quirework tools, and brings the result back for your
+judgment.
+
+The companion is the operator. It can inspect the whole project and make
+an authorized change. A model seat is different. It receives a declared
+packet through a selected harness and returns evidence to the companion.
+
+For example, you might ask Codex to revise a chapter whose central claim
+has changed. Codex can load the spec and find every bound chapter. It
+can then ask blind readers what the revision communicates. You decide
+whether their reaction should change the book.
+
+## The authoring loop
+
+Most work follows the same loop even when the SOP changes:
+
+1. The human names the aim and the scope.
+2. The companion reads the project guide and the selected SOP.
+3. The companion runs `quirework book notes --primer` to load the spec,
+   bindings, guidance, and open work.
+4. The companion retrieves only the prose, sources, and prior human
+   decisions the task needs.
+5. The companion writes, researches, or prepares a controlled model run.
+6. The companion analyzes the returned evidence against the spec and the
+   human's request.
+7. The companion runs the SOP's checks and reports any decision it could
+   not make safely.
+
+The spec gives this loop a stable center. A sentence can move during a
+rewrite. A commitment should move only when the author means to change
+what the book holds. Bindings let the companion propagate that change
+through the whole book instead of polishing one chapter into
+disagreement with the rest.
+
+The spec also gives outside model work a reference point. A workshop
+draft or blind review can reveal a problem. It cannot silently redefine
+the book's position. The companion must reconcile the finding with the
+spec before it proposes an edit.
+
+## Procedures and skills
+
+An SOP remains a procedure the companion follows. Its catalog describes
 required reading, mechanical tools, and conditional follow-ups. A link
 to another procedure never launches it automatically.
 
@@ -8,7 +52,8 @@ to another procedure never launches it automatically.
 
 `quirework sop list` and `quirework sop explain NAME` read the project's
 catalog. `quirework sop skills --target both` generates thin entry
-points for Claude and portable agents. The SOP remains the content
+points for Claude Code and portable agents such as Codex. The generated
+skill routes the companion to the SOP. The SOP remains the content
 owner. Project configuration selects the skill-name prefix.
 
 Personas specify perspectives. Instruments specify questions. Panels
@@ -17,9 +62,41 @@ access. Preparation resolves the selected data and freezes the composed
 assignment alongside its source identities.
 
 Research is a supervised workflow. A research assignment can request
-external source access through its tool policy. The operator still
-checks sources and evaluates the answer. Provenance retrieval and model
-output are evidence to inspect.
+external source access through its tool policy. The companion still
+checks the sources. The human still evaluates the conclusion. Provenance
+retrieval and model output are evidence to inspect.
+
+## Companions and harnesses
+
+The companion you are talking to does not determine which models a
+procedure may use. Quirework supports Codex, Claude Code, and
+Antigravity as harnesses for controlled seats. One procedure can use a
+single harness or mix several.
+
+That separation is useful for independence. A Claude Code companion can
+ask a Codex model to review its edit. A Codex companion can compare
+drafts made through Claude and Antigravity. Quirework records the
+requested model and the served model, so changing providers does not
+erase what happened.
+
+Harnesses do not all make the same guarantees. A plan declares tools,
+filesystem exposure, model, and effort per seat. Preparation rejects a
+capability the selected harness cannot provide. The resulting receipt
+records the boundary that was actually enforced or audited.
+
+## Rooms, workshops, and reviews
+
+Each book owns the exact procedure and its editorial rules. Quirework
+supplies the mechanics for several recurring patterns.
+
+The useful workflows differ mainly in who may see what:
+
+| Need | Workflow | What each seat sees | Durable result |
+|---|---|---|---|
+| Develop one answer through disagreement | Writers room | Its own packet, then the shared board between rounds | Attributed posts and named deliverables |
+| Produce genuinely independent alternatives | Prose workshop | One frozen packet, never another writer's draft | Anonymous drafts with a sealed identity key |
+| Learn what the page tells a reader | Blind reader panel | Only the selected reader-facing material | Reports tied to personas, questions, and receipts |
+| Test an edit against the whole book | Consistency review | The project guide, spec, marks, brief, and Git delta | An independent findings report |
 
 ## Run plans
 
@@ -67,6 +144,37 @@ Supported delivery includes text, clean prose, prose with figures,
 images, rendered PDF pages, and native files. Delivery and exposure are
 separate choices. A native file receipt does not establish that its
 pages were inspected visually.
+
+## Prose workshops
+
+A prose workshop asks several independent writers to solve the same
+bounded problem. Use it when you want real alternatives rather than a
+single draft with several rounds of self-commentary. The writers do not
+see one another's work.
+
+`quirework sop workshop prepare` freezes the assignment, orientation,
+source files, required reading, outputs, and writer roster. Each writer
+receives a private workspace. Project instruction files and companion
+memory are kept out of that workspace, because the experiment is meant
+to test the supplied brief rather than the habits of the operator who
+prepared it.
+
+The companion can run the writers through different harnesses and
+models. It can also include a manually operated seat. Quota stops
+preserve partial work and resume the same session when the provider
+makes that possible.
+
+Seal the drafts before comparing them.
+`quirework sop workshop anonymize` shuffles completed drafts under
+letters and writes the identity key without printing it. The reporting
+commands withhold near-unique draft sizes until that seal exists. Read
+the prose first. Open model identities and usage only after the
+editorial judgment has been recorded.
+
+A useful workshop SOP therefore separates four jobs. The companion
+prepares the shared packet. Independent writers make alternatives. A
+blind editor compares the anonymous drafts. The human chooses what, if
+anything, enters the book.
 
 ## Writers rooms
 
@@ -164,10 +272,10 @@ room was never asked.
 
 A phase may name a `deliverable`, and its seats then write two files: a
 post, which is the note to the room, and the work itself. A drafting
-phase produces both whether or not the plan says so, and without a name
-for the second one they arrive welded into a single post that has to be
-cut apart afterwards against whatever separator the room improvised.
-The phase's `words` then describes the work, and `post_words` the note.
+phase produces both whether or not the plan says so. Without a name, the
+work and the note arrive welded into one post. The operator must then
+split them using whatever separator the room improvised. The phase's
+`words` describes the work. Its `post_words` describes the note.
 
 ```json
 {"name": "draft", "rounds": 1, "seats": ["wren"], "words": 1400,
@@ -176,11 +284,12 @@ The phase's `words` then describes the work, and `post_words` the note.
 
 Promotion keeps it at `board/made/SEAT/rNNN/NAME`, hashed and logged
 like a post, and the digest carries it under its author's name so the
-next phase reads the note and the work together. The file itself stays
-a file, so assembling the result is copying rather than parsing. A
-deliverable is a plain file name, checked when the room is prepared. A
-seat that posts without producing the file is recorded as having not
-made it, which is a fact about the round rather than a failed round.
+next phase reads the note and the work together. The work stays a
+separate file. Assembly is therefore a copy operation rather than a
+parsing task. A deliverable is a plain file name, checked when the room
+is prepared. A seat that posts without producing the file is recorded as
+having not made it. That is a fact about the round rather than a failed
+round.
 
 Promotion takes any file the plan names in any phase, not only the one
 the current round asked for. A seat correcting an earlier section after
@@ -234,6 +343,64 @@ the file in a packet the objecting seat had never been shown.
 
 Seats may be given different packets on purpose. Asymmetric exposure is
 what makes disagreement between them substantive rather than stylistic.
+
+## Blind reader panels
+
+A blind reader should encounter the book as a reader would. Do not give
+that seat the spec, sidecars, workshop debate, or the author's
+explanation unless the question specifically requires them. The absence
+of that context is the test.
+
+Personas state who is reading. Instruments state what the reader is
+asked. Panels allocate those perspectives across explicit models and
+harnesses. `quirework book plan` prepares the selected book material.
+`quirework sop panel` compiles the declared panel into a run plan. The
+generic run engine then freezes and executes the seats.
+
+This pattern is useful at several scales. A sample read can stop after
+the opening chapters and report whether the book earns the next page. A
+chapter read can find an unexplained term or a broken inference. A full
+read-through can show where interest, trust, or comprehension changes
+over time.
+
+Blindness does not make a reader correct. It makes the reaction
+answerable to the material the reader actually saw. The companion
+compares that reaction with the intended reading experience and brings
+the difference to the human.
+
+## Consistency review
+
+Consistency has a mechanical layer and a judgment layer. Both belong in
+the default workflow.
+
+The mechanical layer catches relationships that can be stated exactly.
+`quirework book notes --check` validates the spec and the chapter
+sidecars. `quirework book notes bind --slug S` finds every chapter that
+expresses one commitment. `book chapters --check`, `book quotes`,
+`book figures --check`, `text check`, and `dev check` cover the other
+declared invariants. A companion should run the checks named by the SOP
+before presenting a change as complete.
+
+The judgment layer asks whether a coherent edit is actually coherent
+with the rest of the book. `quirework sop review` gives an independent
+reviewer the project guide, the spec, the marks, a brief, and a concrete
+Git delta. By default, the reviewer sees the repository read-only. Its
+private home does not carry the operator's saved conclusions. An
+unjailed fallback is disclosed in the run record.
+
+The reviewer must not be the model that made the edit. That requirement
+makes a cross-harness check straightforward: a Codex edit can go to
+Claude, or a Claude edit can go to Codex. After a repair,
+`quirework sop review resume` returns to the same reviewer and lets it
+inspect the new delta. Do not brief it with the argument that its first
+finding was wrong, because agreement after coaching is not independent
+evidence.
+
+These layers catch different failures. The mechanical check can prove
+that a binding points to a real spec section. The contextual reviewer
+can notice that the chapter now argues the opposite of that section
+while still naming it correctly. The companion reconciles both results
+and the human decides whether the commitment or the prose should move.
 
 ## Execution and recovery
 

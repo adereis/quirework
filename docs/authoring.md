@@ -1,16 +1,40 @@
 # Writing a book with Quirework
 
-This is the path from an empty directory to a book with a spec, marked
-chapters, figures and its own procedures. Every command below was run
-against a throwaway project; nothing here is specific to a particular
-book. The [configuration guide](configuration.md) is the reference for
-each setting named, and the [workflow guide](workflows.md) covers model
-runs.
+This is the path from an empty directory to a book an AI companion can
+work on without keeping the whole project in one conversation. The
+finished project has a spec, marked chapters, figures, and its own
+procedures. Every command below was run against a throwaway project.
+Nothing here is specific to a particular book.
+
+You can follow this guide at a terminal. The expected use is to open the
+book project in Claude Code or Codex and let that companion operate the
+commands as its procedures require. The
+[configuration guide](configuration.md) is the reference for each
+setting. The [workflow guide](workflows.md) covers the companion loop
+and controlled model runs.
 
 Quirework holds no opinion about what your book argues. It holds the
 shape: chapters in reading order, a register of what the book commits
-to, marks that tie the two together, figures, and procedures an agent
-follows.
+to, marks that tie the two together, figures, and procedures an AI
+companion follows.
+
+## A normal writing session
+
+Tell the companion what outcome you want. A request can be as simple as
+"revise the opening under the write-a-chapter procedure." The companion
+should then read the project guide and use
+`quirework sop explain write-a-chapter` to resolve the procedure's
+required reading.
+
+The next command is `quirework book notes --primer`. It puts the spec
+before the chapter guidance and bindings. That order matters. The
+companion learns what the book holds before it changes how one chapter
+expresses it.
+
+After the edit, the companion updates any relationship that genuinely
+changed. It then runs the procedure's checks and reports what still
+needs human judgment. A blind read or workshop may inform that report.
+Neither one changes the spec by itself.
 
 ## The layers
 
@@ -23,7 +47,7 @@ without the ones below it.
 | Spec | one file of numbered commitments, each with a slug | `book notes --primer` |
 | Marks | per-chapter sidecars of `@`-annotations, including which spec section a chapter expresses | `book notes`, `book notes bind` |
 | Figures | the book's illustration set, materialized into the build | `book figures` |
-| Procedures | the playbooks an agent follows, with personas and questions | `sop list`, `sop explain`, `sop skills` |
+| Procedures | the playbooks an AI companion follows, with personas and questions | `sop list`, `sop explain`, `sop skills` |
 | Provenance | the sessions the book was written in | `provenance search`, `provenance metrics` |
 
 ## 1. The manuscript
@@ -223,8 +247,10 @@ overrides it.
 
 ## 5. Procedures
 
-A procedure is a playbook an agent reads and follows; Quirework does not
-execute one. They live in a directory of the project's choosing:
+A procedure is a playbook an AI companion reads and follows. Quirework
+supplies tools for its mechanical steps, but it does not execute the
+procedure as a whole. Procedures live in a directory of the project's
+choosing:
 
 ```toml
 [sops]
@@ -275,7 +301,7 @@ it is required rather than inferred. Adding a file is not a decision, so
 a procedure with no `skill` line fails validation until someone records
 one; that is what stops a skill list growing to a size nobody chose.
 `false` is a normal answer: the procedure stays discoverable through
-`sop list` and `sop NAME` without occupying a slot in every agent
+`sop list` and `sop NAME` without occupying a slot in every companion
 session's skill list. A `kind: protocol` fragment can never take a
 route, and asking for one is an error.
 
@@ -284,8 +310,9 @@ deduplicated reading order; `followups` is work that a result might
 justify and is deliberately never traversed. `quirework sop list` groups
 by family, `sop explain NAME` prints the reading order with its word
 count, and `sop skills --target both` generates thin Claude and portable
-routes so an agent can be pointed at a procedure by name. The generated
-routes name the project's own guide, which `sops.operator_guide` sets.
+routes so a companion can be pointed at a procedure by name. The
+generated routes name the project's own guide, which
+`sops.operator_guide` sets.
 
 Personas are perspectives and instruments are questions, kept separate
 so either can vary alone. A persona is one JSON file per profile under

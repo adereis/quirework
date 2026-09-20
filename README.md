@@ -1,19 +1,68 @@
 # Quirework
 
-Quirework is a book-writing and research companion. It publishes a book,
-keeps a long argument consistent with itself, remembers how the work
-happened, and puts the result in front of a model under controlled
-conditions. Each book supplies its own content, vocabulary and editorial
-rules; the tool supplies the machinery and holds no opinion about what
-you are arguing.
+Quirework is a set of tools for writing and researching a book with an
+AI companion such as Claude Code or Codex. The companion works in your
+book project. Quirework gives it a durable spec, named procedures,
+consistency checks, publication tools, and controlled ways to ask other
+models for an independent view.
 
-It does not write your book and it does not settle editorial questions.
-It builds the artifacts, catches the drift a person cannot see across
-thirty chapters, and hands you evidence to judge.
+You can run every command yourself. That is not the workflow Quirework
+was made for. The normal workflow is to tell your companion what you
+want to accomplish, let it follow the project's procedure, and judge the
+evidence it brings back.
+
+Quirework does not write your book and it does not settle editorial
+questions. It gives the collaboration a memory and a method. It builds
+the artifacts, catches drift across chapters, and preserves enough
+evidence for you to make the call.
 
 Any Quarto book can use it. One installation serves several, because a
 project is selected by a `quirework.toml` found from the working
 directory and never by where the package happens to live.
+
+## The default workflow
+
+The author sets the aim and keeps editorial authority. The AI companion
+coordinates the work. Quirework makes that work inspectable and
+repeatable.
+
+A typical revision starts with a request in Claude Code or Codex. The
+companion then follows this loop:
+
+1. Read the project's guide and resolve the relevant SOP with
+   `quirework sop explain NAME`.
+2. Load the book's commitments, chapter guidance, and bindings with
+   `quirework book notes --primer`.
+3. Inspect the prose and any prior human decisions needed for this task.
+4. Draft or revise inside the limits of the SOP.
+5. Use a writers room, a prose workshop, or blind readers when the task
+   benefits from independent perspectives.
+6. Reconcile those reports against the spec instead of treating a model
+   answer as authority.
+7. Run the structural, editorial, and publication checks named by the
+   SOP.
+8. Return the change, the evidence, and any remaining author decision.
+
+The spec is the center of that loop. It states what the book currently
+holds. Chapter sidecars bind passages to those commitments. When one
+commitment changes, the companion can find every chapter that expresses
+it before a local edit becomes a book-wide contradiction.
+
+SOPs make the rest of the loop project-specific. A book can define how
+its companion writes a chapter, checks a claim, researches a source,
+runs a workshop, or prepares a blind read. Quirework catalogs those
+procedures and generates thin skill routes for Claude Code and portable
+agents. The SOP remains the source of truth.
+
+The foreground companion is not tied to the models it supervises. A
+Codex session can send a blind reading to Claude. A Claude Code session
+can convene a room with Codex, Claude, and Antigravity seats. Each seat
+declares its harness, model, effort, materials, and access policy. The
+receipt records what the provider actually served.
+
+The [workflow guide](docs/workflows.md) develops this loop through four
+especially useful patterns: writers rooms, independent prose workshops,
+blind-reader panels, and contextual consistency reviews.
 
 ## What it does
 
@@ -91,7 +140,7 @@ own session rather than restarted, and a compaction event is always
 reported even when the answer looks fine. `export` hands back the
 answers and a sanitized receipt.
 
-### Turns procedures into something an agent can follow
+### Turns procedures into something your companion can follow
 
 Procedures are files the project writes, and the catalog makes them
 navigable: `sop explain NAME` prints required reading in dependency
@@ -99,7 +148,8 @@ order with its word count, while follow-up work is recorded and
 deliberately never traversed for you. Personas say who is reading,
 instruments say what they are asked, and both are versioned data
 composed at preparation and frozen with the run. `sop skills` generates
-thin entry points so an agent can be pointed at a procedure by name.
+thin entry points so Claude Code or Codex can be pointed at a procedure
+by name.
 
 ## Install
 
@@ -120,9 +170,10 @@ Enforced filesystem isolation uses bubblewrap on Linux. PDF and SVG
 operations use Poppler and librsvg when the selected operation needs
 those formats. Missing required dependencies produce an error.
 
-## Choose an activity
+## Let the companion choose the tools
 
-Everything above is reached through six command groups:
+You normally work by describing the job to your AI companion. The
+command groups below are the vocabulary it uses to carry out that job:
 
 ```text
 quirework book        Build and inspect book artifacts
@@ -133,8 +184,9 @@ quirework dev         Run project checks
 quirework config      Inspect project configuration
 ```
 
-Add `--help` at any level to inspect the actual options. Help does not
-require a book, a private corpus, or a provider account.
+You can also run the commands directly. Add `--help` at any level to
+inspect the actual options. Help does not require a book, a private
+corpus, or a provider account.
 
 Common operations include:
 
