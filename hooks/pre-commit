@@ -1,0 +1,46 @@
+#!/bin/sh
+# The gate that keeps the tree at the formatter's fixed point.
+#
+# Every `--check` mode in this repository was written to be run from here,
+# and for a long time nothing was: formatting drift landed inside ordinary
+# feature commits and was swept up later by a commit that did nothing else.
+# Two sweeps in seventy-seven commits is the evidence that asking people to
+# remember was not working.
+#
+# Enable it once per clone, because Git will not run a hook out of the
+# working tree on its own:
+#
+#     git config core.hooksPath hooks
+#
+# It refuses rather than warns when it cannot run the checks. A gate that
+# passes when its tools are missing is the gate this repository already had,
+# and the drift it let through was invisible in review. While the tree is
+# under heavy development that trade is worth the friction of a blocked
+# commit; `--no-verify` is the escape when a commit genuinely should not be
+# gated.
+set -eu
+
+root=$(git rev-parse --show-toplevel)
+cd "$root"
+
+refuse() {
+	echo "pre-commit: $1" >&2
+	echo "pre-commit: fix it, or commit with --no-verify to skip the gate" >&2
+	echo "pre-commit: setup is in docs/development.md" >&2
+	exit 1
+}
+
+# Checked here rather than left to the check suite. `dev check` tolerates an
+# absent formatter on purpose, because a consuming book need not use one, but
+# this tree declares that it sits at the formatter's fixed point and cannot
+# assert that without the formatter.
+command -v ruff >/dev/null 2>&1 ||
+	refuse "ruff is not on PATH, so formatting drift would go unchecked"
+
+for candidate in "$root/.venv/bin/quirework" quirework; do
+	if [ -x "$candidate" ] || command -v "$candidate" >/dev/null 2>&1; then
+		exec "$candidate" dev check --staged
+	fi
+done
+
+refuse "quirework is not runnable here, so nothing could be checked"

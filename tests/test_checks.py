@@ -21,16 +21,41 @@ def test_drift_fails_and_names_the_file(tmp_path, capsys):
     assert "commit that on its own" in printed
 
 
-def test_a_missing_formatter_is_silent_rather_than_a_failure(
+def test_a_missing_formatter_is_reported_rather_than_a_failure(
     tmp_path, capsys, monkeypatch
 ):
-    """A check that fails on a missing tool teaches people to ignore it."""
+    """A check that fails on a missing tool teaches people to ignore it.
+
+    It still has to say so. Printing nothing reads exactly like passing, so
+    a machine without the formatter would report a drifted tree as clean.
+    """
     (tmp_path / "drifted.py").write_text(DRIFTED)
     monkeypatch.setattr(checks.shutil, "which", lambda name: None)
     assert checks.formatting_check(tmp_path, ["drifted.py"]) == 0
-    assert capsys.readouterr().out == ""
+    printed = capsys.readouterr().out
+    assert "skipped" in printed
+    assert "passed" not in printed
 
 
 def test_a_project_with_no_python_is_not_checked(tmp_path, capsys):
     assert checks.formatting_check(tmp_path, []) == 0
     assert capsys.readouterr().out == ""
+
+
+def test_the_default_suite_can_describe_itself(capsys):
+    """`--list` is offered for any suite, so the default one has to answer."""
+    assert checks.default_checks(["--list"]) == 0
+    printed = capsys.readouterr().out
+    assert "Formatting" in printed
+    assert "Python source checks" in printed
+
+
+def test_listing_a_suite_runs_nothing(monkeypatch, capsys):
+    """Describing the checks must not be a way to accidentally run them."""
+
+    def refuse(*args, **kwargs):
+        raise AssertionError("--list ran a check")
+
+    monkeypatch.setattr(checks.subprocess, "run", refuse)
+    assert checks.default_checks(["--list"]) == 0
+    assert "passed" not in capsys.readouterr().out

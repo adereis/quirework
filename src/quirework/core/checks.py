@@ -7,10 +7,26 @@ import subprocess
 from quirework.project import current_project, extension
 
 
+SUITE = (
+    ("Python source checks", "every selected .py file parses"),
+    ("Formatting", "`ruff format` would leave the tree unchanged"),
+)
+
+
 def default_checks(argv=None):
     parser = argparse.ArgumentParser(prog="quirework dev check")
     parser.add_argument("--staged", action="store_true")
+    # The dispatcher offers --list for any suite, so the default one has to
+    # answer it too. It reached this parser and was rejected as unknown,
+    # which made the option unusable in exactly the projects that have no
+    # configured suite to describe.
+    parser.add_argument("--list", action="store_true")
     args = parser.parse_args(argv)
+    if args.list:
+        print("Default suite:")
+        for name, description in SUITE:
+            print(f"  {name:22} {description}")
+        return 0
     root = current_project().root
     command = (
         [
@@ -60,11 +76,16 @@ def formatting_check(root, paths):
     produces are invisible in review because they look like the change they
     are hiding in.
 
-    Silent where the formatter is absent, because a project that does not use
-    one has nothing here to be wrong about, and a check that fails on a
-    missing tool teaches people to ignore it.
+    Tolerant of an absent formatter, because a project that does not use one
+    has nothing here to be wrong about, and a check that fails on a missing
+    tool teaches people to ignore it. It says so rather than saying nothing:
+    printing no line at all is indistinguishable from passing, which is how a
+    machine without the formatter reports a clean tree over a drifted one.
     """
-    if not paths or not shutil.which("ruff"):
+    if not paths:
+        return 0
+    if not shutil.which("ruff"):
+        print("Formatting: skipped, no formatter installed")
         return 0
     result = subprocess.run(
         ["ruff", "format", "--check", *paths],

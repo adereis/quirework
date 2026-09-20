@@ -39,6 +39,43 @@ and frozen-run boundaries serialize the selected settings. Package
 installation paths are used only to locate implementation resources,
 never the book.
 
+## The commit gate
+
+Enable the hook once per clone. Git does not run a hook out of the
+working tree on its own, so a hook nobody enables is the same as no
+hook:
+
+```bash
+git config core.hooksPath hooks
+```
+
+`hooks/pre-commit` runs `quirework dev check --staged`, which parses
+every staged Python file and asserts that `ruff format` would leave it
+alone. `ruff` must be on `PATH`; it is a contributor tool rather than a
+package dependency, so a standard install does not supply it.
+
+The hook refuses the commit when it cannot run those checks, whether
+Quirework is not installed or the formatter is missing. A gate that
+passes when its tools are absent is the gate this repository already
+had. That is stricter than `dev check` itself, which tolerates a missing
+formatter because a consuming book need not use one; this tree declares
+that it sits at the formatter's fixed point and cannot assert that
+without the formatter. While the tree is under heavy development the
+friction of a blocked commit is worth more than the drift.
+
+The tree sits at the formatter's fixed point, which is what lets a
+contributor run `ruff format` out of tidiness and get an empty diff. The
+gate exists because that invariant was not holding on its own:
+formatting drift arrived inside ordinary feature commits and was swept
+up later by commits that did nothing else, twice in the first
+seventy-seven. A sweep is not a fix, since the drift is invisible in
+review and the sweep hides the next one.
+
+`--no-verify` skips the hook for a commit that genuinely should not be
+gated. `quirework dev check --list` describes the suite without running
+it. A consuming book selects its own suite with `checks.command`, and
+the hook then runs that instead.
+
 ## Tests
 
 ```bash
