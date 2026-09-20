@@ -1770,9 +1770,12 @@ def main(argv=None):
             detail = json.dumps(outcome) if isinstance(outcome, dict) else outcome
             print(f"{name}: {detail}")
     elif args.command == "continue":
-        status = continue_seat(root, args.number, args.seat, timeout=args.timeout)
-        print(f"{args.seat}: {status}")
-        if status == "answered":
+        # Not `status`: that name is a function in this module, and binding it
+        # here makes it local to `main` for the whole body, so every other
+        # command's call to it raises UnboundLocalError.
+        outcome = continue_seat(root, args.number, args.seat, timeout=args.timeout)
+        print(f"{args.seat}: {outcome}")
+        if outcome == "answered":
             print(f"now close the round: quirework sop room promote {shown(root)} {args.number}")
     elif args.command == "open":
         print(open_round(root, args.number) or "silent round; no board")

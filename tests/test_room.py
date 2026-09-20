@@ -1074,3 +1074,11 @@ def test_an_interrupted_turn_is_continued_in_its_own_session(prepared):
     stop = quota.classify("codex", record)
     assert stop["phase"] == "interrupted"
     assert quota.resumable_session(stop) == "t-9"
+
+
+def test_the_cli_can_still_read_a_room_after_every_branch(prepared, capsys):
+    """A dispatch branch that binds the name `status` makes it local to
+    `main` for the whole body, so every other command's call to the
+    module-level function raises UnboundLocalError. Shipped once."""
+    room.main(["status", str(prepared)])
+    assert "rounds published" in capsys.readouterr().out
