@@ -178,9 +178,23 @@ def read(project, *, since=None, here=False):
     command, not a bug in the reader. It is counted and reported rather than
     skipped in silence, because a store that is quietly losing records
     should say so.
+
+    `since` accepts either form `when` does, and is normalized here rather
+    than at the command line, so no caller can hand an age to a comparison
+    that only understands a date.
+
+    `here` means this project, not this directory. A book gets checked out
+    more than once -- a canon pass in one worktree while tooling moves in
+    another -- and a command run in either one is the same book's work, so
+    every checkout's copy of the project counts.
     """
     directory = store(project)
-    root = str(current_project().root) if here else None
+    since = when(since) if since else None
+    roots = None
+    if here:
+        from quirework.provenance import worktrees
+
+        roots = {str(p) for p in worktrees.project_trees(project.root)}
     rows, damaged = [], 0
     if not directory.is_dir():
         return rows, damaged
@@ -198,7 +212,7 @@ def read(project, *, since=None, here=False):
                 continue
             if since and entry["at"][:10] < since:
                 continue
-            if root and entry.get("project") != root:
+            if roots is not None and entry.get("project") not in roots:
                 continue
             rows.append(entry)
     rows.sort(key=lambda e: e["at"])
@@ -413,7 +427,7 @@ def main(argv=None) -> int:
         p.add_argument(
             "--here",
             action="store_true",
-            help="only records made in the current project",
+            help="only records made in this project, in any of its checkouts",
         )
         p.add_argument("--json", action="store_true", help="machine-readable output")
         p.add_argument(

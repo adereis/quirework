@@ -217,6 +217,41 @@ def test_a_window_is_a_date_or_an_age(tmp_path):
         usage.when("last tuesday")
 
 
+def test_a_report_window_may_be_an_age_and_not_only_a_date(tmp_path):
+    """An age reached the filter as a literal string and matched nothing."""
+    project = project_with(tmp_path)
+    today = usage.when("0d")
+    for at in ("2024-01-02T00:00:00Z", f"{today}T00:00:00Z"):
+        usage.append({"at": at, "command": "book build"}, project=project)
+    rows, _ = usage.read(project, since="30d")
+    assert [row["at"][:10] for row in rows] == [today]
+    rows, _ = usage.read(project, since="2024-01-01")
+    assert len(rows) == 2
+
+
+def test_here_means_this_book_in_every_checkout(tmp_path):
+    """A pass made in a worktree is the same book's work as one in the main tree."""
+    project = project_with(tmp_path)
+    (project.root / ".git").mkdir()
+    linked = tmp_path / "book-codex"
+    linked.mkdir()
+    admin = project.root / ".git" / "worktrees" / "codex"
+    admin.mkdir(parents=True)
+    (admin / "gitdir").write_text(f"{linked / '.git'}\n")
+    (linked / ".git").write_text(f"gitdir: {admin}\n")
+    made = {
+        "2026-05-04T00:00:00Z": project.root,
+        "2026-05-05T00:00:00Z": linked,
+        "2026-05-06T00:00:00Z": tmp_path / "another-book",
+    }
+    for at, root in made.items():
+        usage.append(
+            {"at": at, "command": "book build", "project": str(root)}, project=project
+        )
+    rows, _ = usage.read(project, here=True)
+    assert [row["project"] for row in rows] == [str(project.root), str(linked)]
+
+
 def test_the_default_store_is_shared_by_every_project_of_one_user(
     monkeypatch, tmp_path
 ):
