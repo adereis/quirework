@@ -166,21 +166,42 @@ def test_a_skill_is_a_catalog_decision(tmp_path):
 
     def write(**overrides):
         entries = {
-            "read": {"family": "read", "kind": "procedure", "skill": True,
-                     "requires": [], "mechanics": [], "followups": [], "note": ""},
-            "shared": {"family": "read", "kind": "protocol", "skill": False,
-                       "requires": [], "mechanics": [], "followups": [], "note": ""},
+            "read": {
+                "family": "read",
+                "kind": "procedure",
+                "skill": True,
+                "requires": [],
+                "mechanics": [],
+                "followups": [],
+                "note": "",
+            },
+            "shared": {
+                "family": "read",
+                "kind": "protocol",
+                "skill": False,
+                "requires": [],
+                "mechanics": [],
+                "followups": [],
+                "note": "",
+            },
         }
         for name, patch in overrides.items():
             entries[name] = {**entries[name], **patch}
             if patch.get("_drop"):
-                entries[name] = {k: v for k, v in entries[name].items()
-                                 if k not in ("skill", "_drop")}
-        (directory / "index.json").write_text(json.dumps({
-            "version": 1,
-            "families": [{"id": "read", "label": "Read", "question": "Clear?"}],
-            "entries": entries,
-        }))
+                entries[name] = {
+                    k: v
+                    for k, v in entries[name].items()
+                    if k not in ("skill", "_drop")
+                }
+        (directory / "index.json").write_text(
+            json.dumps(
+                {
+                    "version": 1,
+                    "families": [{"id": "read", "label": "Read", "question": "Clear?"}],
+                    "entries": entries,
+                }
+            )
+        )
 
     project = Project.from_settings(
         tmp_path, {"sops": {"root": "procedures", "catalog": "procedures/index.json"}}

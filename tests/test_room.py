@@ -1012,9 +1012,7 @@ def test_an_unasked_file_is_not_forced_onto_the_board(making):
 
 def _stream(record, rows):
     record.mkdir(parents=True, exist_ok=True)
-    (record / "events.jsonl").write_text(
-        "\n".join(json.dumps(r) for r in rows) + "\n"
-    )
+    (record / "events.jsonl").write_text("\n".join(json.dumps(r) for r in rows) + "\n")
 
 
 CAPACITY = [
@@ -1085,12 +1083,20 @@ def test_an_interrupted_turn_is_continued_in_its_own_session(prepared):
     """The wall arrived partway, so the session holds the reasoning and a
     fresh run would buy all of it again."""
     record = prepared / "records" / "ana-pell" / "r001"
-    _stream(record, [
-        {"type": "thread.started", "thread_id": "t-9"},
-        {"type": "item.completed", "item": {"type": "agent_message"}},
-        {"type": "turn.failed", "error": {"code": "rate_limit_exceeded",
-                                          "message": "usage limit reached"}},
-    ])
+    _stream(
+        record,
+        [
+            {"type": "thread.started", "thread_id": "t-9"},
+            {"type": "item.completed", "item": {"type": "agent_message"}},
+            {
+                "type": "turn.failed",
+                "error": {
+                    "code": "rate_limit_exceeded",
+                    "message": "usage limit reached",
+                },
+            },
+        ],
+    )
     stop = quota.classify("codex", record)
     assert stop["phase"] == "interrupted"
     assert quota.resumable_session(stop) == "t-9"
@@ -1143,5 +1149,6 @@ def test_a_round_runs_one_seat_at_a_time_unless_asked(prepared):
     """Seats sharing one account drain a rate window faster together, and the
     wall then lands mid-turn on all of them at once."""
     import inspect
+
     assert inspect.signature(room.run_round).parameters["jobs"].default == 1
     assert inspect.signature(room.run_until).parameters["jobs"].default == 1

@@ -310,8 +310,8 @@ def _generate(check: bool, skills=None, portable=False) -> int:
         # _implicit_skills so marker syntax stays validatable without a
         # catalog, which is how its unit tests reach it.
         prefix = _prefix()
-        stray = {n[len(prefix):] for n in implicit} - {
-            n[len(prefix):] for n in expected
+        stray = {n[len(prefix) :] for n in implicit} - {
+            n[len(prefix) :] for n in expected
         }
         if stray:
             raise ValueError(

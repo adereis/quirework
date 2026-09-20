@@ -1010,8 +1010,13 @@ def run_seat(root, plan, seat, n, *, timeout=None):
     cold = n > 1 and not resume
     record.mkdir(parents=True)
     return _launch(
-        root, plan, seat, n, turn_prompt(root, plan, seat, n, cold=cold),
-        resume, timeout=timeout,
+        root,
+        plan,
+        seat,
+        n,
+        turn_prompt(root, plan, seat, n, cold=cold),
+        resume,
+        timeout=timeout,
     )
 
 
@@ -1118,7 +1123,11 @@ def _launch(root, plan, seat, n, prompt, resume, *, timeout=None):
         "status": status,
         "seconds": seconds,
         "error": detail,
-        **({"quota_stop": stop["phase"], "quota_scope": stop.get("scope")} if stop else {}),
+        **(
+            {"quota_stop": stop["phase"], "quota_scope": stop.get("scope")}
+            if stop
+            else {}
+        ),
     }
     # A refused stop leaves no session; an interrupted one leaves the session
     # holding the reasoning, and losing its id here is what turns a
@@ -1172,25 +1181,39 @@ def continue_seat(root, n, name, *, timeout=None):
             "diagnose the failure rather than taking the turn again"
         )
     resume = quota.resumable_session(stop)
-    prompt = (
-        quota.continuation() if resume else (record / "prompt.md").read_text()
-    )
+    prompt = quota.continuation() if resume else (record / "prompt.md").read_text()
     number = len(list((record / "attempts").glob("[0-9][0-9]"))) + 1
     folder = record / "attempts" / f"{number:02d}"
     folder.mkdir(parents=True)
-    for item in ("events.jsonl", "stderr.log", "prompt.md", "launch.json", "receipt.json"):
+    for item in (
+        "events.jsonl",
+        "stderr.log",
+        "prompt.md",
+        "launch.json",
+        "receipt.json",
+    ):
         source = record / item
         if source.exists():
             shutil.move(str(source), str(folder / item))
     del state["rounds"][str(n)]
     state.setdefault("attempts", []).append(
-        {"round": n, "attempt": number, "quota_stop": stop["phase"],
-         "quota_scope": stop.get("scope"), "resumed": resume}
+        {
+            "round": n,
+            "attempt": number,
+            "quota_stop": stop["phase"],
+            "quota_scope": stop.get("scope"),
+            "resumed": resume,
+        }
     )
     write(state_path(root, name), state)
     event(
-        root, round=n, seat=name, event="continuing",
-        quota_stop=stop["phase"], resumed=resume, attempt=number,
+        root,
+        round=n,
+        seat=name,
+        event="continuing",
+        quota_stop=stop["phase"],
+        resumed=resume,
+        attempt=number,
     )
     return _launch(root, plan, seat, n, prompt, resume, timeout=timeout)
 
@@ -1322,7 +1345,9 @@ def status(root):
             "joined_late": next(
                 (
                     int(r)
-                    for r, v in sorted(state.get("rounds", {}).items(), key=lambda i: int(i[0]))
+                    for r, v in sorted(
+                        state.get("rounds", {}).items(), key=lambda i: int(i[0])
+                    )
                     if v.get("status") == "answered"
                 ),
                 None,
@@ -1445,9 +1470,7 @@ def _render(value):
             f"  posts: {len(seat['posts'])}{drafting}"
         )
         if (joined := seat.get("joined_late")) and joined > 1:
-            lines.append(
-                f"     joined in round {joined}; it has no opening position"
-            )
+            lines.append(f"     joined in round {joined}; it has no opening position")
     chair = value.get("chair") or {}
     if chair.get("queued"):
         lines += ["", f"  chair note queued for {', '.join(chair['queued'])}"]
@@ -1841,7 +1864,9 @@ def main(argv=None):
         outcome = continue_seat(root, args.number, args.seat, timeout=args.timeout)
         print(f"{args.seat}: {outcome}")
         if outcome == "answered":
-            print(f"now close the round: quirework sop room promote {shown(root)} {args.number}")
+            print(
+                f"now close the round: quirework sop room promote {shown(root)} {args.number}"
+            )
     elif args.command == "open":
         print(open_round(root, args.number) or "silent round; no board")
     elif args.command == "rounds":

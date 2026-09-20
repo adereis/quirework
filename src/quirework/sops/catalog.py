@@ -144,8 +144,7 @@ def load(root=None):
             raise ValueError(f"invalid SOP identifier: {name}")
         _keys(
             entry,
-            {"family", "kind", "skill", "requires", "mechanics", "followups",
-             "note"},
+            {"family", "kind", "skill", "requires", "mechanics", "followups", "note"},
             name,
         )
         _text(entry["family"], f"{name} family")
