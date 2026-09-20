@@ -13,7 +13,7 @@ Parsing and presentation stay outside the reusable execution engine.
 | `runs` | Execution state, recovery, checkpoints, evidence |
 | `providers` | Native invocation, model resolution, receipts, isolation |
 | `delivery` | Frozen material transforms and turn delivery |
-| `core` | Artifact classification, project check dispatch, pinned tools |
+| `core` | Artifact classification, project check dispatch, pinned tools, usage records |
 
 Some operations need a program too large to vendor: an EPUB validator,
 an e-reader renderer. `core.pinned` fetches one by version, URL and

@@ -109,6 +109,7 @@ class Project:
                         "providers",
                         "checks",
                         "extensions",
+                        "usage",
                     }
                     if unknown:
                         raise ConfigurationError(

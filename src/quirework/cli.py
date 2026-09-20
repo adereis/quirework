@@ -27,6 +27,7 @@ GROUPS = {
     "sop": "Find procedures and operate supervised workflows",
     "dev": "Repository checks and tooling maintenance",
     "config": "Inspect and validate project configuration",
+    "usage": "Report which commands and procedures get used",
 }
 COMMANDS = {
     ("book", "build"): Command("book.render", "Render the configured book", "book"),
@@ -120,6 +121,18 @@ COMMANDS = {
     ("sop", "room"): Command("sops.room", "Operate a writers room over a shared board"),
     ("sop", "blind"): Command("providers.blind", "Inspect and enforce run isolation"),
     ("dev", "check"): Command("core.checks", "Run the configured repository checks"),
+    ("usage", "show"): Command(
+        "core.usage", "Summarize recorded command usage", prefix=("show",)
+    ),
+    ("usage", "sops"): Command(
+        "core.usage", "Rank procedures by recorded reads", prefix=("sops",)
+    ),
+    ("usage", "log"): Command(
+        "core.usage", "Read the most recent records", prefix=("log",)
+    ),
+    ("usage", "prune"): Command(
+        "core.usage", "Remove old usage records", prefix=("prune",)
+    ),
 }
 
 
@@ -131,7 +144,7 @@ def _parser(group=None):
             for name in ("book", "text", "provenance", "sop")
         ]
         lines += ["", "Maintain:"]
-        lines += [f"  {name:12} {GROUPS[name]}" for name in ("dev", "config")]
+        lines += [f"  {name:12} {GROUPS[name]}" for name in ("dev", "config", "usage")]
         p = argparse.ArgumentParser(
             prog="quirework",
             description="Tools for writing, research, and supervised reviews.",
@@ -185,7 +198,15 @@ def invoke(command, argv=(), *, project):
         if item.component and not help_only:
             project.require(item.component)
         module = importlib.import_module("quirework." + item.module)
-        return module.main([*item.prefix, *argv]) or 0
+        if help_only:
+            # Asking what a command does is not using it, and help stays free
+            # of side effects, so nothing is recorded on this path.
+            return module.main([*item.prefix, *argv]) or 0
+        from .core.usage import record
+
+        with record(key, argv, project=project) as outcome:
+            outcome.status = module.main([*item.prefix, *argv]) or 0
+            return outcome.status
 
 
 def main(argv=None):
@@ -249,6 +270,10 @@ def main(argv=None):
                     project.require("provenance")
                 if project.get("book"):
                     project.require("book")
+                if project.get("usage.store") is not None:
+                    # Resolve it here, where somebody is asking, instead of
+                    # letting a typo surface as a warning on every command.
+                    project.path("usage.store")
                 print("Configuration is valid.")
             else:
                 print(json.dumps(project.describe(), indent=2))

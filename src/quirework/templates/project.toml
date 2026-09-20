@@ -45,6 +45,15 @@ enabled = false
 # Private redaction rules protect blind analyst copies, not primary data.
 # redaction_policy = "private/redactions.toml"
 
+[usage]
+# Which commands and procedures this project runs, recorded on this
+# machine and read back by `quirework usage`. Nothing is sent anywhere,
+# no command arguments are kept, and one shared store across your books
+# is what makes the comparison between them worth anything.
+# enabled = true
+# Omit to share the per-user store under the XDG state tree.
+# store = "~/.local/state/quirework/usage"
+
 [runs]
 # Omit to use a separate directory for this project in the XDG state tree.
 # store = "~/private/example-book-runs"

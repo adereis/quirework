@@ -141,6 +141,54 @@ distribution package installs the same file as
 `/usr/share/user-tmpfiles.d/quirework.conf`, which a user's own copy in
 `~/.config` overrides.
 
+## Usage records
+
+Quirework records which of its commands ran, so the tool can be shaped
+by what people use rather than by what somebody guessed they use. It is
+on by default and entirely local: nothing is transmitted, and nothing
+but `quirework usage` reads the file.
+
+```toml
+[usage]
+enabled = true
+store = "~/.local/state/quirework/usage"
+```
+
+Set `enabled = false` to record nothing for a project.
+`QUIREWORK_USAGE=0` does the same for one process or one shell and
+overrides the file, which is what a shared machine or a test harness
+needs. `quirework usage prune --before 90d` removes old records, and
+deleting the directory is always safe.
+
+One record is one dispatched command, appended as a line of JSON to a
+monthly file: the command, the project root, the exit status, how long
+it took, and the version that ran. Command ARGUMENTS ARE NOT RECORDED.
+`quirework provenance search` takes a phrase out of the author's own
+notes, so a file that accumulated arguments would become a private
+corpus nobody agreed to keep. The single exception is a procedure's
+name, and only once the project has resolved it to a file under
+`sops.root`, because which procedure gets used is the question these
+records exist to answer.
+
+The store is per-user rather than per-project, which is the opposite of
+how run storage works and is the point: the comparison worth having is
+across the books one person writes, so the project root is a field in
+each record instead of a separate directory. Set `store` to keep a
+project's records somewhere else, which also separates them from
+everything else that user runs.
+
+Three kinds of invocation are outside the count, and a report read
+without knowing that will understate them. `--help` is not use of a
+command. The `config` and `usage` groups inspect the tool rather than do
+its work. And a procedure an agent reads straight off disk, which is
+what a generated skill instructs, never reaches Quirework at all, so
+procedure counts are a floor rather than a total.
+
+Recording never costs a command its result. A store that cannot be
+written is reported once on stderr and then left alone for the rest of
+the process. `quirework config check` resolves a configured `store` so a
+typo fails where somebody is asking rather than on every later command.
+
 ## Project policy and extensions
 
 Policy files are commented TOML data referenced by configuration.
