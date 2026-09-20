@@ -47,3 +47,9 @@ def pytest_configure(config):
     # at the start of a session.
     state = Path(config.option.basetemp).parent / "quirework-state"
     os.environ["XDG_STATE_HOME"] = str(state)
+    # Relocating the store is not the same as not recording, and a test run is
+    # not use of a command: a suite that dispatches `sop show` forty times to
+    # check its exit status should leave no usage records anywhere. The tests
+    # that are *about* recording drop this variable in their own fixture, so
+    # switching it off here costs them nothing.
+    os.environ["QUIREWORK_USAGE"] = "0"
