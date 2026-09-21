@@ -222,8 +222,8 @@ be named by its position in the room as `status` numbers them, so
 following a room is `follow ROOM 1` through `follow ROOM 4` rather than
 four persona slugs. A seat whose id is itself a number keeps that id.
 One terminal per seat reads as four people working. Following is
-implemented for the Antigravity adapter; another harness reports that
-rather than printing nothing.
+implemented for all three harnesses, each with its own renderer for the
+shape of its native stream.
 
 Seats may name their own harness, model and effort; the room supplies
 the default for any a seat omits. A mixed room costs no special

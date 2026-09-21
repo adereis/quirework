@@ -126,7 +126,7 @@ def window_flags(config):
     -- to the ceiling it calls `max_context_window`, which is 872,000. Setting
     the auto-compact limit to the same number means a run that outgrows its
     context fails loudly at the ceiling instead of quietly compacting below
-    it, which is what `runs/harness.py` has always done and what the blind
+    it, which is what `providers/harness.py` has always done and what the blind
     drivers do with their own constant.
 
     Neither setting was here or in `review.py`, so every workshop and review

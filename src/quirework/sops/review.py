@@ -396,7 +396,7 @@ def command(config, mode, session_id, report_dir):
             "-c",
             "features.multi_agent=false",
             # The whole window, and no compaction. Shared with the workshop so
-            # the two launchers cannot drift from runs/harness.py again: this
+            # the two launchers cannot drift from providers/harness.py again: this
             # module built its own argv and omitted both, so every review ran
             # at the model's session default and could compact. The resume
             # inherits the prior transcript, so it compacts first.
