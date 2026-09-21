@@ -666,3 +666,25 @@ def test_compacted_result_is_banked_and_exported_with_warning(setup, monkeypatch
     assert (
         exported / "reader/first/answer.md"
     ).read_text() == "An exploratory finding.\n"
+
+
+def test_a_turn_declares_how_many_images_its_material_references(setup):
+    """A seat that fetches its own figures is handed none, so `history_images` is
+    0 by design and proves nothing. The declared count is what turns the ones it
+    opened from a stray tool call into evidence."""
+    root, path, plan = setup
+    plan["seats"][0]["turns"][0]["referenced_images"] = 2
+    path.write_text(json.dumps(plan))
+    engine.prepare(path, root / "record", resolve=False)
+    frozen = json.loads((root / "record" / "plan.json").read_text())
+    assert frozen["seats"][0]["turns"][0]["referenced_images"] == 2
+    assert frozen["seats"][0]["turns"][1]["referenced_images"] == 0
+
+
+@pytest.mark.parametrize("value", [-1, "2", 1.0, None])
+def test_a_bad_referenced_image_count_is_refused_before_launch(setup, value):
+    root, path, plan = setup
+    plan["seats"][0]["turns"][0]["referenced_images"] = value
+    path.write_text(json.dumps(plan))
+    with pytest.raises(ValueError, match="referenced_images"):
+        engine.prepare(path, root / "record", resolve=False)

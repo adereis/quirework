@@ -295,8 +295,12 @@ def prepare(plan_path, destination, *, resolve=True):
                     "min_bytes",
                     "metadata",
                     "addenda",
+                    "referenced_images",
                 }:
                     raise ValueError("unknown turn field")
+                referenced = turn.get("referenced_images", 0)
+                if type(referenced) is not int or referenced < 0:
+                    raise ValueError("referenced_images must be a non-negative integer")
                 label = identifier(turn["id"])
                 if label in labels:
                     raise ValueError("duplicate turn id")
@@ -337,6 +341,7 @@ def prepare(plan_path, destination, *, resolve=True):
                         headings=headings,
                         min_bytes=min_bytes,
                         outputs=outputs,
+                        referenced_images=referenced,
                         materials=items,
                         allow_unchanged_outputs=turn.get(
                             "allow_unchanged_outputs", False
@@ -697,6 +702,24 @@ class Run:
                 )
             receipt["history_images"] = sum(expected.values())
             receipt["additional_tool_images"] = sum((observed - expected).values())
+            # A seat that fetches its own material is handed no images, so
+            # `history_images` is 0 by design and the only trace of a figure it
+            # opened is `additional_tool_images`, which reads like a stray tool
+            # call. A turn that declares how many its material references turns
+            # that number into a check: a seat rating plates from their captions
+            # alone would otherwise be indistinguishable from one that opened
+            # every file.
+            if turn.get("referenced_images"):
+                opened = receipt["additional_tool_images"]
+                receipt["referenced_images_opened"] = (
+                    f"{opened}/{turn['referenced_images']}"
+                )
+                if opened < turn["referenced_images"]:
+                    receipt.setdefault("red_flags", []).append(
+                        "Opened fewer images than the material references: "
+                        f"{opened} of {turn['referenced_images']}; visual verdicts "
+                        "in this answer are not evidence."
+                    )
         answers = record / "answers"
         answers.mkdir(exist_ok=True)
         target = answers / "answer.md"

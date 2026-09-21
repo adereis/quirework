@@ -368,6 +368,57 @@ answerable to the material the reader actually saw. The companion
 compares that reaction with the intended reading experience and brings
 the difference to the human.
 
+### Two ways to deliver a whole book
+
+Sequential delivery hands the seat one chapter per launch and the
+operator controls every reveal. `quirework book packet` builds the
+segments and `quirework book plan read` compiles them. The material is
+frozen into the record, which is what lets the record certify the bytes
+the reader saw, and the cost is one launch per chapter.
+
+A self-driven read launches once. `quirework book packet --prose-dir
+DIR` writes the reader-facing projection of each chapter plus the
+figures under the names the chapter text references, and `quirework
+book plan selfdriven DIR PLAN --mount PATH` compiles the walk: the seat
+opens each chapter with its own tools, opens the figures that chapter
+references, and writes a reaction file before opening the next one. One
+session's prefix only grows, so most of its input is served from cache.
+
+The two are not interchangeable, and the differences belong in the
+charter. The self-driven material is mounted rather than frozen, so the
+bytes live outside the record and have to be pinned beside it. The seat
+also sees its own surroundings, which is why the mount is named
+neutrally and nothing else lives beside it: a seat with a shell looks
+around before it reads, and the first thing a measured one did was
+search for an agent guide. `plan selfdriven` refuses a mount inside the
+project, and refuses one matching a declared mount marker.
+
+Figures are where a self-driven read fails silently, because the seat is
+handed no images: `history_images` is 0 by design, and a seat that rated
+every plate from its caption would look exactly like one that opened
+every file. So the turn declares `referenced_images`, and the receipt
+reports `referenced_images_opened` and red-flags a shortfall. Any turn
+may declare it; a turn whose material is mounted rather than attached is
+where it earns its place.
+
+A self-driven read needs its own instrument, not the printed-book one.
+A reader instrument opens by telling the seat what it has been handed,
+and a sentence promising attached pages is a lie told in the first line
+to a seat that fetches its own files. The tool composes the questions it
+is given and rewrites nothing: declare a reader preset whose questions
+describe a seat that opens its own material, and declare that preset's
+`delivery` so the wrong one is refused rather than composed.
+
+The whole book is read inside one turn, so the block the seat repeats
+per chapter has to stand on its own. That is the instrument's opening
+ask, which states the form, rather than its continuation ask, which says
+to reply in the same form as before and has no before here. `--ask`
+names another one for an instrument that words it differently, and an
+instrument with no declared sequence requires it. `--withhold-wrap`
+moves the closing question into a second turn, for a read whose closing
+question is itself the measurement and must not be visible while the
+seat reads; `--wrap-ask` names it where the sequence does not.
+
 ## Consistency review
 
 Consistency has a mechanical layer and a judgment layer. Both belong in

@@ -119,3 +119,28 @@ def test_the_book_keeps_its_own_punctuation_treaty(book):
     prose = sorted((EXAMPLE / "manuscript").rglob("*.qmd"))
     offenders = [str(p) for p in prose if "—" in p.read_text(encoding="utf-8")]
     assert offenders == []
+
+
+def test_a_self_driven_reader_gets_clean_text_and_real_figure_names(book, tmp_path):
+    """The directory a seat walks on its own, built from the same reading order
+    as the printed book. Both halves matter: the source would leak marks and
+    anchors, and a figure renamed `material-024.png` would stop a chapter that
+    asks for `sidecar.png` by name. The embed is resolved against the chapter
+    that carries it, so this works for a project that keeps its illustrations
+    somewhere other than beside the front matter."""
+    from quirework.book import panelkit
+
+    out = tmp_path / "read"
+    assert panelkit.prose_dir(out) == 0
+    chapters = sorted(p.name for p in (out / "chapters").glob("*.md"))
+    assert chapters == [
+        f"{i:02d}-{stem}.md"
+        for i, stem in enumerate(
+            ("index", "preface", "the-book-that-disagreed-with-itself", "the-sidecar"),
+            start=1,
+        )
+    ]
+    assert sorted(p.name for p in (out / "figures").glob("*")) == ["sidecar.png"]
+    text = (out / "chapters" / "04-the-sidecar.md").read_text(encoding="utf-8")
+    assert "figures/sidecar.png" in text
+    assert "@bind" not in text and "{#sec-" not in text

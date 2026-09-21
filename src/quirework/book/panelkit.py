@@ -48,6 +48,7 @@ from pathlib import Path
 from quirework.project import current_project
 from quirework.book import bookstage as _bookstage
 from quirework.book import render as _render
+from quirework.delivery import text as _text
 
 # the kit output tree (git-ignored)
 # own render stage (see `build`)
@@ -455,6 +456,113 @@ def assemble(kit_dir: Path, run_dir: Path, matter: bool = False) -> int:
     return 0
 
 
+def prose_dir(out: Path) -> int:
+    """Build the directory a SELF-DRIVEN seat reads: clean chapter text, real names.
+
+    The packet's PDFs are for a seat that is handed its pages. A self-driven seat
+    instead walks a directory with its own tools, one chapter at a time, and that
+    needs two things the packet cannot give it. The chapter text has to be the
+    reader-facing projection rather than the source, or the marks and anchors
+    leak. And the figure files have to keep the names the chapter text
+    references, which frozen `file` delivery deliberately destroys: it renames
+    every material to `material-NNN.ext` so a filename cannot leak information,
+    and a chapter asking for `doubling.png` in a directory of `material-024.png`
+    stops the read.
+
+    Reading order and chapter numbering come from `bookstage.book_rows`, the one
+    owner, so a self-driven read cannot disagree with the printed book about
+    which chapter is which. Matter is excluded, as it is for an assembled run
+    directory.
+    """
+    stage = _settings().STAGE_KIT
+    rc = _render.stage_book(stage)
+    if rc:
+        return rc
+    # The body, by the same two rules the packet slices on, because
+    # `kind == "chapter"` alone also matches a copyright page or a colophon: the
+    # front matter is the unlisted run before the first listed entry, and the
+    # back matter is a Part holding no numbered chapter. What is left is what a
+    # reader reads.
+    all_rows = _bookstage.book_rows(stage)
+    head = next(
+        (i for i, r in enumerate(all_rows) if r.kind == "part" or r.listed),
+        len(all_rows),
+    )
+    body_parts = {
+        r.part for r in all_rows if r.kind == "chapter" and r.number is not None
+    }
+    rows = [
+        r
+        for r in all_rows[head:]
+        if r.kind == "chapter" and r.rel and (r.part is None or r.part in body_parts)
+    ]
+    if out.exists() and any(out.iterdir()):
+        print(
+            f"panel-kit: {_shown(out)} is not empty -- name a fresh directory",
+            file=sys.stderr,
+        )
+        return 1
+    (out / "chapters").mkdir(parents=True, exist_ok=True)
+    (out / "figures").mkdir(exist_ok=True)
+    figures = 0
+    for i, row in enumerate(rows, start=1):
+        source = stage / row.rel
+        text, refs = _text.clean_qmd(source.read_text(encoding="utf-8"))
+        stem = Path(row.rel).stem
+        (out / "chapters" / f"{i:02d}-{stem}.md").write_text(text, encoding="utf-8")
+        for ref in refs:
+            # The embed is relative to the chapter that carries it, which is the
+            # only placement the projection itself assumes. Resolving it against
+            # a named gallery directory instead would make this command work for
+            # one layout and fail silently for the next.
+            original = (source.parent / ref["source"]).resolve()
+            target = out / "figures" / Path(ref["file"]).name
+            if target.exists():
+                continue
+            if not original.is_file():
+                print(
+                    f"panel-kit: {_shown(source)} references {ref['source']}, "
+                    "which is not in the stage",
+                    file=sys.stderr,
+                )
+                return 1
+            if original.suffix.lower() == ".svg":
+                if not shutil.which("rsvg-convert"):
+                    print(
+                        "panel-kit: rsvg-convert not found (Fedora: sudo dnf "
+                        "install librsvg2-tools)",
+                        file=sys.stderr,
+                    )
+                    return 127
+                subprocess.run(
+                    ["rsvg-convert", "-w", "1600", "-o", str(target), str(original)],
+                    check=True,
+                    capture_output=True,
+                )
+            elif original.suffix.lower() == target.suffix.lower():
+                shutil.copyfile(original, target)
+            else:
+                # The projection names every figure `.png`, so anything else
+                # would land under a name that misdescribes its bytes.
+                print(
+                    f"panel-kit: {ref['source']} is neither SVG nor PNG; convert "
+                    "it in the figure set rather than here",
+                    file=sys.stderr,
+                )
+                return 1
+            figures += 1
+    print(
+        f"panel-kit: {_shown(out)}/ -- {len(rows)} chapter file(s), "
+        f"{figures} figure(s), no book.pdf"
+    )
+    print(
+        "airgap check: `ls -a` it -- chapters/, figures/, and nothing else. Mount "
+        "it read-only at a path that does not name this project; a seat with a "
+        "shell probes its surroundings before it reads."
+    )
+    return 0
+
+
 def _shown(path: Path) -> Path:
     try:
         return path.relative_to(current_project().root)
@@ -480,6 +588,12 @@ def main(argv=None) -> int:
         help="--run-dir: include the front- and back-matter blocks",
     )
     ap.add_argument(
+        "--prose-dir",
+        default=None,
+        help="build the self-driven seat's directory here (clean chapter text "
+        "+ named figure images) and build no PDFs at all",
+    )
+    ap.add_argument(
         "--reuse-kit",
         action="store_true",
         help="--run-dir: assemble from the existing kit, no rebuild "
@@ -487,6 +601,8 @@ def main(argv=None) -> int:
     )
     args = ap.parse_args(argv)
     out_dir = Path(args.out).resolve() if args.out else _settings().BUILD_KIT
+    if args.prose_dir:
+        return prose_dir(Path(args.prose_dir).expanduser().resolve())
 
     if not (args.reuse_kit and args.run_dir):
         rc = build(out_dir)

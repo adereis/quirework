@@ -272,3 +272,25 @@ A book can define `sops.default_reader` and named `sops.reader_presets`.
 Each preset selects an `instrument` and `include_matter` boolean. The
 instrument supplies its own default persona. An explicit `--instrument`
 or `--persona` overrides that selection for a prepared book read.
+
+A preset may also declare `delivery`, the list of deliveries its
+questions were written for, from `pages`, `file` and `self-driven`. A
+reader instrument opens by telling the seat what it has been handed, so
+the same questions asked under another delivery begin with a false
+sentence, and the seat answers the courier rather than the book.
+Declaring the list makes that a refusal instead. Declaring nothing keeps
+the questions usable everywhere, because a project with one delivery
+should not have to say so. An explicit `--instrument` overrides the
+check, which is how a deliberate mismatch is run.
+
+A preset may name `ask` and `wrap_ask` for a self-driven read. An
+instrument written for that mode has no continuation ask, so it has no
+sequence to declare, and naming the asks in the preset keeps them off
+every launch command.
+
+`providers.isolation_policy` can list `mount_markers`: path words that
+would tell a seat whose book it is reading. A self-driven read refuses a
+mount matching one. They are deliberately separate from
+`project_markers`, which the blind canary matches against a seat's
+answer. A book about consciousness wants that word to fail a mount path
+and never to fail a verdict, and one list cannot do both.
