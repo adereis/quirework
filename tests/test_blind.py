@@ -62,6 +62,20 @@ def test_force_overrides_age_but_not_a_live_seat(tmp_path, monkeypatch):
     assert "pid 4242" in report["kept"][0][2]
 
 
+def test_prune_refuses_where_it_cannot_tell_a_live_seat_from_an_idle_one(
+    tmp_path, monkeypatch
+):
+    """Without /proc, ``occupied`` has no answer. That used to read as "not
+    in use", so on such a machine `--force` would remove a running seat's
+    home; the only safe reading of no answer is to keep the home."""
+    _, home = seat(tmp_path, "mara")
+    monkeypatch.setattr(blind, "liveness_known", lambda: False)
+    report = blind.prune([tmp_path], grace=0, force=True)
+    assert home.exists()
+    assert report["removed"] == []
+    assert "liveness unknown" in report["kept"][0][2]
+
+
 def test_nothing_that_is_not_a_private_home_is_ever_removed(tmp_path):
     """The suffix is the whole safety rule, so it is the whole test."""
     keep = tmp_path / "records"

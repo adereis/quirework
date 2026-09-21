@@ -389,6 +389,16 @@ def _bytes(home: Path) -> int:
     return total
 
 
+def liveness_known() -> bool:
+    """Whether this machine can say which seats still have a live process.
+
+    ``occupied`` reads ``/proc``. Without it there is no answer, and no
+    answer must never be read as "nobody is here": a running seat's home
+    removed out from under it breaks the run it is in the middle of.
+    """
+    return Path("/proc").is_dir()
+
+
 def occupied(home: Path) -> int | None:
     """The pid of a process still working in this home's seat, or None.
 
@@ -430,17 +440,27 @@ def prune(roots, *, grace: float = 3600, force: bool = False, dry_run: bool = Fa
     whether or not the directory still exists.
     """
     removed, kept, freed = [], [], 0
+    known = liveness_known()
     for root in roots:
         for home in private_homes(Path(root).expanduser().resolve()):
             if home.name[-len(STATE_SUFFIX) :] != STATE_SUFFIX or not home.is_dir():
                 continue  # belt and braces: never rmtree something else
-            size, pid = _bytes(home), occupied(home)
+            size, pid = _bytes(home), occupied(home) if known else None
             age = time.time() - _touched(home)
             # The age window is advice and `force` overrides it. A live seat
             # is not: removing the home out from under a running harness would
             # break the run it is in the middle of, and no flag here should be
-            # able to do that.
-            if pid is not None:
+            # able to do that. Nor may "cannot tell" pass for "not in use".
+            if not known:
+                kept.append(
+                    (
+                        home,
+                        size,
+                        f"liveness unknown without /proc on {sys.platform}; "
+                        "check for a live seat and remove the home by hand",
+                    )
+                )
+            elif pid is not None:
                 kept.append((home, size, f"in use by pid {pid}"))
             elif age < grace and not force:
                 kept.append((home, size, f"touched {int(age)}s ago"))
