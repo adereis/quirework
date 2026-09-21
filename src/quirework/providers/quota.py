@@ -130,11 +130,32 @@ def continuation(note=None):
 
 
 def rows(path):
-    """Parse complete JSON lines; a truncated last line is a visible failure."""
+    """Parse the complete JSON lines; an unterminated last line is dropped.
+
+    A seat killed mid-flush leaves its stream ending in half a row. The
+    receipt already fails on that, loudly, and the classifier runs right
+    after it on the same stream. Raising here a second time was worse than
+    useless: it escaped the room's launch before the receipt was written,
+    so a killed turn banked no ``receipt.json`` and no round state, and the
+    round reported a JSON parse error where the seat's exit code belonged.
+    Only a line that lacks its newline is dropped; a malformed complete
+    line is still the visible failure it always was.
+    """
     path = Path(path)
     if not path.exists():
         return []
-    return [json.loads(line) for line in path.read_text().splitlines() if line.strip()]
+    out = []
+    with path.open("rb") as stream:
+        for line in stream:
+            if not line.strip():
+                continue
+            try:
+                out.append(json.loads(line))
+            except json.JSONDecodeError:
+                if not line.endswith(b"\n"):
+                    break
+                raise
+    return out
 
 
 def session_id(harness, stream):

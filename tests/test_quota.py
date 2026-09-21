@@ -253,3 +253,33 @@ def test_every_seat_appears_exactly_once():
     order = quota.spend_order(declared)
     assert sorted(s["id"] for s in order) == ["a", "b", "c", "d", "e"]
     assert len(order) == len(declared)
+
+
+def test_truncated_stream_classifies_from_its_complete_rows(tmp_path):
+    """A seat killed mid-flush must still be classified, not crash the caller.
+
+    The receipt has already failed on the same stream; a classifier that
+    raised a second time escaped the room's launch before any receipt or
+    round state was written.
+    """
+    record = tmp_path / "turn"
+    record.mkdir()
+    complete = "".join(json.dumps(r) + "\n" for r in claude_rows(produced=False))
+    (record / "events.jsonl").write_text(complete + '{"type": "assistant", "mes')
+    detail = quota.classify("claude", record)
+    assert detail["phase"] == "refused"
+    assert detail["session_id"] == "sid-1"
+    (record / "events.jsonl").write_text(
+        '{"type": "system", "subtype": "init"}\n{"type": "assis'
+    )
+    assert quota.classify("claude", record) is None
+
+
+def test_malformed_complete_line_is_still_a_visible_failure(tmp_path):
+    record = tmp_path / "turn"
+    record.mkdir()
+    (record / "events.jsonl").write_text(
+        '{"type": "system"}\nnot json\n{"type": "result"}\n'
+    )
+    with pytest.raises(json.JSONDecodeError):
+        quota.classify("claude", record)
