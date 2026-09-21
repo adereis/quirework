@@ -236,9 +236,13 @@ def test_generated_skills_name_the_project_own_guide(tmp_path):
     (directory / "tidy.md").write_text("# Tidy\n\n<!-- @skill: Tidy it. -->\n")
     settings = {"sops": {"root": "procedures", "catalog": "procedures/index.json"}}
     with project_scope(Project.from_settings(tmp_path, settings)):
-        assert 'per AGENTS.md\n("How work happens")' in commands._skill_md(
-            "tidy", "Tidy it."
-        )
+        body = commands._skill_md("tidy", "Tidy it.")
+        assert 'per AGENTS.md\n("How work happens")' in body
+        # The route goes through the command, not the file, so the read is
+        # counted; the file is still named as the source of truth.
+        assert "Run `quirework sop show tidy`" in body
+        assert "Read `procedures/tidy.md`" not in body
+        assert "`procedures/tidy.md` is the single source of truth" in body
     named = dict(settings)
     named["sops"] = {**settings["sops"], "operator_guide": "CONTRIBUTING.md"}
     with project_scope(Project.from_settings(tmp_path, named)):

@@ -201,9 +201,12 @@ which also separates them from everything else that user runs.
 Three kinds of invocation are outside the count, and a report read
 without knowing that will understate them. `--help` is not use of a
 command. The `config` and `usage` groups inspect the tool rather than do
-its work. And a procedure an agent reads straight off disk, which is
-what a generated skill instructs, never reaches Quirework at all, so
-procedure counts are a floor rather than a total.
+its work. And a procedure read straight off disk never reaches
+Quirework at all. A generated skill therefore routes the companion
+through `quirework sop show NAME`, which prints the procedure verbatim
+and counts the read; a companion that opens the file anyway, or a
+person reading it in an editor, is not counted, so procedure counts
+remain a floor rather than a total.
 
 Recording never costs a command its result. A store that cannot be
 written is reported once on stderr and then left alone for the rest of
