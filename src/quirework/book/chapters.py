@@ -54,13 +54,14 @@ def _options():
     """Read policy from the selected project for this operation."""
     from types import SimpleNamespace
 
-    default_layers = _default_layers()
-    METADATA_LAYERS = tuple(
-        current_project()
-        .data("book.chapter_policy", {})
-        .get("metadata_layers", default_layers)
+    configured = (
+        current_project().data("book.chapter_policy", {}).get("metadata_layers")
     )
-    return SimpleNamespace(METADATA_LAYERS=METADATA_LAYERS)
+    # The default is derived only when nothing is declared. Computing it either
+    # way would make a project that names its own layers fail for want of a
+    # `book.source` the answer never used.
+    layers = tuple(configured) if configured is not None else _default_layers()
+    return SimpleNamespace(METADATA_LAYERS=layers)
 
 
 @dataclass(frozen=True)

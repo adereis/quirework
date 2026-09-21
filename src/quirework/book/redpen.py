@@ -316,11 +316,21 @@ def render_book_notes_block(
     return _render_block(NOTES_START_BOOK, intro, sections)
 
 
-@lru_cache(maxsize=1)
-def _chapter_titles() -> dict[str, str]:
+@lru_cache(maxsize=8)
+def _chapter_titles_at(root: Path) -> dict[str, str]:
     from quirework.book.chapters import registry
 
     return {c.slug: c.title for c in registry()}
+
+
+def _chapter_titles() -> dict[str, str]:
+    """The reading order's titles, cached per project.
+
+    Keyed by the selected project's root, never globally: one process can
+    select more than one project -- a test suite does, and so does any caller
+    that resolves a second book -- and a cache that ignores the selection
+    answers the second project with the first one's chapters."""
+    return _chapter_titles_at(current_project().root)
 
 
 def resolve_ch_refs(text: str) -> str:

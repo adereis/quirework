@@ -64,3 +64,18 @@ def test_a_declared_policy_still_wins(tmp_path):
     with project_scope(project):
         assert chapters._layer_files() == [other]
         assert sidecar not in chapters._layer_files()
+
+
+def test_a_declared_policy_needs_no_book_source(tmp_path):
+    """The default glob is derived from `book.source`, and a project that
+    declares its own layers never uses it. Computing it anyway made the
+    declared answer depend on a setting it does not read, so a tool-only
+    project asking which layers to scan failed instead of being told."""
+    root = tmp_path / "book"
+    root.mkdir()
+    (root / "notes.md").write_text("a layer the project names for itself\n")
+    policy = root / "chapters.toml"
+    policy.write_text('metadata_layers = ["notes.md"]\n')
+    project = _project(root, chapter_policy="chapters.toml")
+    with project_scope(project):
+        assert chapters._options().METADATA_LAYERS == ("notes.md",)
