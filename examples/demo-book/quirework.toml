@@ -5,6 +5,7 @@ name = "Chapter and Verse Control"
 
 [book]
 source = "manuscript"
+quarto = "manuscript/_quarto.yml"
 chapters = "manuscript/sections"
 build = "build"
 spec = "manuscript/sections/_spec.md"
@@ -13,6 +14,7 @@ figure_checks = ["cvc_checks.figures:check_style"]
 variant_policy = "config/variant-policy.toml"
 render_policy = "config/render-policy.toml"
 typst_template = "manuscript/typst-show.typ"
+variants = "variants"
 
 [sops]
 root = "procedures"

@@ -11,8 +11,8 @@
       "date_end": "2026-09-16",
       "model": "sonnet-5",
       "human_turns": 8,
-      "assistant_turns": 441,
-      "tokens": 23113,
+      "assistant_turns": 440,
+      "tokens": 22110,
       "doc_edits": 0,
       "meta_edits": 65,
       "top_edited": [
@@ -20,7 +20,7 @@
         "quirework.toml×9",
         "_quarto.yml×5"
       ],
-      "sha256": "60854cb328a97a0a1fc0d42153088c6d2e386aca37b4d482212af9e583d488a6",
+      "sha256": "9a833e10f0a2fe7bb0d2df14c0d9ab31b0f5423c4100b88bfad6060b9853e023",
       "coldread": false,
       "scope": "book",
       "highlight": false,

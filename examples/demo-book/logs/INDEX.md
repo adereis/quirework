@@ -15,7 +15,7 @@ Of those, **0** are scope `making` (the apparatus: tools, guards, process rules)
 
 | date | id | title | model | ~tok | doc/meta | scope | cold | ★ |
 | --- | --- | --- | --- | --: | --- | --- | :-: | :-: |
-| 2026-09-16 | `893d06b2` | Chapter and Verse Control manuscript layer | sonnet-5 | 23k | 0/65 | book | — |  |
+| 2026-09-16 | `893d06b2` | Chapter and Verse Control manuscript layer | sonnet-5 | 22k | 0/65 | book | — |  |
 
 ## Antigravity sessions (`agy-sessions/`)
 
