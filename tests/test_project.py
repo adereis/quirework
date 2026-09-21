@@ -26,7 +26,9 @@ def book(root, slug):
         f"book:\n  chapters:\n    - sections/{slug}.qmd\nformat:\n  html: default\n"
     )
     (root / "quirework.toml").write_text(
-        'schema = 1\n[book]\nsource = "manuscript"\nchapters = "manuscript/sections"\n'
+        'schema = 1\n[book]\nsource = "manuscript"\n'
+        'quarto = "manuscript/_quarto.yml"\n'
+        'chapters = "manuscript/sections"\n'
     )
     return Project.load(root)
 
@@ -35,7 +37,6 @@ def test_different_layout_and_no_private_corpus(tmp_path):
     project = book(tmp_path / "novel", "arrival")
     with project_scope(project):
         assert [c.slug for c in chapters.registry()] == ["arrival"]
-        assert chapters._options().RETIRED_TOKENS == {}
         assert not (project.root / "private").exists()
 
 
@@ -529,11 +530,18 @@ def test_policy_snapshot_is_local_and_callers_cannot_mutate_it(tmp_path):
     assert next_operation.data("text.terminology") == {"value": "second"}
 
 
-def test_book_without_legacy_aliases_can_check_metadata(tmp_path):
-    directory = tmp_path / "docs/canon/_marks"
+def test_book_can_check_metadata_without_migration_tables(tmp_path):
+    directory = tmp_path / "manuscript/sections/_marks"
     directory.mkdir(parents=True)
     (directory / "arrival.md").write_text("# Arrival\n\nA neutral note.\n")
-    project = Project.from_settings(tmp_path, {})
+    project = Project.from_settings(
+        tmp_path,
+        {
+            "book": {
+                "source": "manuscript",
+                "chapters": "manuscript/sections",
+            }
+        },
+    )
     with project_scope(project):
-        unresolved, retired, pointers = chapters.scan_layers(known={"arrival"})
-        assert not unresolved and not retired and not pointers
+        assert chapters.scan_layers(known={"arrival"}) == []

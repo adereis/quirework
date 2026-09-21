@@ -8,10 +8,16 @@ schema = 1
 [project]
 # A display name for reports and configuration inspection.
 name = "Example Book"
+# Ignored working notes that may be discarded or reorganized freely.
+scratchpad = "scratchpad"
+# Ignored project material that must never be published.
+private = "private"
 
 [book]
 # Contains _quarto.yml and the live manuscript sources.
 source = "manuscript"
+# Quarto project file used for reading order and rendering.
+quarto = "manuscript/_quarto.yml"
 # The chapter directory inside source; change to match your layout.
 chapters = "manuscript/sections"
 # Authoritative SVG assets used to materialize render galleries.
@@ -19,7 +25,15 @@ figures = "manuscript/sections/illustrations"
 # Generated output only. Keep this directory out of Git.
 build = "build"
 # Optional semantic register if your book uses annotation bindings.
-# spec = "manuscript/sections/_framework.md"
+# spec = "manuscript/sections/_spec.md"
+# Optional book-wide annotations used by the red-pen review copy.
+# review_notes = "manuscript/sections/_review-notes.md"
+# Reader-facing documents that cite the spec or quote the canon.
+companion_dirs = ["companion"]
+# Working material is never treated as an authority by annotation checks.
+noncanonical_roots = ["scratchpad"]
+# Derived editions live outside the canon source tree.
+variants = "variants"
 # Optional project terminology and formatting policy.
 # chapter_policy = "config/chapters.toml"
 
@@ -38,7 +52,7 @@ skill_prefix = "example-"
 enabled = false
 # Uncomment after selecting an existing corpus. Standard runtime
 # subdirectories are derived from this root unless overridden.
-# root = "private/provenance"
+# root = "private/corpus"
 # Use tracked for Git-curated sources. Presence explicitly accepts the
 # files already in an external corpus, so review that choice first.
 # curation = "tracked"
@@ -58,4 +72,4 @@ enabled = false
 # Omit to use a separate directory for this project in the XDG state tree.
 # store = "~/private/example-book-runs"
 # Reviewed output may live with the book; raw sessions stay private.
-reviews = "analysis/reviews"
+reviews = ".quirework/reviews"

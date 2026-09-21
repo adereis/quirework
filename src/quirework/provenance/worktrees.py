@@ -85,7 +85,7 @@ def checkouts(start):
     The main checkout first, then each linked worktree, deduplicated and sorted.
     When `start` is not inside a repository at all, the answer is `start` itself
     -- so a caller can use this unconditionally in place of its own root. When
-    it *is* inside one, `start` may be a subdirectory (`<checkout>/docs/canon`)
+    it *is* inside one, `start` may be a subdirectory (`<checkout>/manuscript`)
     and only the checkouts are returned, never the subdirectory.
     """
     root = Path(start).resolve()

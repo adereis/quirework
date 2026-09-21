@@ -44,7 +44,7 @@ Flags (compile):
     --min N         drop turns under N words (default 0; TRIVIAL handles acks)
 
 NOTE FOR THE OPERATOR: this is the data-collection half. The deliverable is the
-human's hand-authored file, not this dump. See sops/human-input.md.
+human's hand-authored file, not this dump. Follow the project's procedure.
 """
 
 import argparse

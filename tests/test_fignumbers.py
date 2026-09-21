@@ -158,9 +158,9 @@ def test_missing_figure_is_caught_by_the_count(tmp_path, capsys):
 
 def test_caption_key_survives_markup_and_typography():
     """The join key is what lets four writers' captions be compared at all."""
-    html = fn.caption_key("The <em>same</em> bar, turned&nbsp;on three minds.")
-    pdf = fn.caption_key("The same bar, turned on three\nminds.")
-    docx = fn.caption_key("The same bar, turned on three minds.")
+    html = fn.caption_key("The <em>same</em> bar, shown&nbsp;on three maps.")
+    pdf = fn.caption_key("The same bar, shown on three\nmaps.")
+    docx = fn.caption_key("The same bar, shown on three maps.")
     assert html == pdf == docx
 
 

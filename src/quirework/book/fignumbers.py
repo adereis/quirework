@@ -276,7 +276,7 @@ def verify(site: Path, stage: Path, formats: list[str]) -> int:
         print("\nfigure numbering: the editions do not agree.")
         for p in problems:
             print(f"  {p}")
-        config = current_project().path("book.quarto", "docs/_quarto.yml")
+        config = stage / _bookstage.BOOK_CONFIG
         template = current_project().get("book.typst_template")
         where = f"`crossref` in {_named(config)}"
         if template:

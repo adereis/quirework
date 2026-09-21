@@ -12,7 +12,12 @@ from quirework.sops import composition
 @pytest.fixture
 def panel_spec(tmp_path):
     def write(kind, name, value):
-        path = tmp_path / "sops" / kind / f"{name}.json"
+        directory = {
+            "personas": "profiles",
+            "instruments": "questions",
+            "panels": "panels",
+        }[kind]
+        path = tmp_path / directory / f"{name}.json"
         path.parent.mkdir(parents=True, exist_ok=True)
         path.write_text(json.dumps(value))
 
@@ -66,7 +71,14 @@ def panel_spec(tmp_path):
         ],
         "materials": [{"source": "note.md", "delivery": "text"}],
     }
-    with project_scope(Project.from_settings(tmp_path, {})):
+    settings = {
+        "sops": {
+            "personas": "profiles",
+            "instruments": "questions",
+            "panels": "panels",
+        }
+    }
+    with project_scope(Project.from_settings(tmp_path, settings)):
         yield spec
 
 

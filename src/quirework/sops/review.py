@@ -2,8 +2,8 @@
 
 A review is a reviewer, a delta and a brief. The reviewer runs *inside* the
 repository with the whole instruction stack visible, because a reviewer that
-cannot read `AGENTS.md`, the cards, the spec and the marks cannot check a claim
-against what the framework holds. That is the opposite of `prose_workshop`,
+cannot read the project guide, the spec, and the marks cannot check a claim
+against what the book holds. That is the opposite of a confined workshop,
 whose confinement to a frozen packet is its experiment; here the same
 confinement would be a defect, so only `blind.jail_argv`'s **home-blanking** is
 reused and none of its packet.
@@ -82,8 +82,23 @@ def _options():
             "Review the supplied changes and their procedures. Report concrete findings.\n\n{brief}\n\n{delta}\n\nWrite the report to {report}.",
         )
     )
+    project = current_project()
+    declared = [
+        project.get("book.source"),
+        *(project.get("book.companion_dirs", ()) or ()),
+    ]
+    default_reviewable = []
+    for value in declared:
+        if not value:
+            continue
+        path = Path(value)
+        try:
+            relative = path.relative_to(project.root) if path.is_absolute() else path
+        except ValueError:
+            continue
+        default_reviewable.append(str(relative).strip("/") + "/")
     REVIEWABLE = tuple(
-        current_project().data("sops.review_policy", {}).get("reviewable", ("docs/",))
+        project.data("sops.review_policy", {}).get("reviewable", default_reviewable)
     )
     return SimpleNamespace(
         FRAME=FRAME,
@@ -97,7 +112,7 @@ def _settings():
     """Resolve paths from the current operation, without import-time state."""
     from types import SimpleNamespace
 
-    ROUNDS = current_project().path("runs.reviews", "analysis/rounds")
+    ROUNDS = current_project().path("runs.reviews")
     DEFAULT_STORE = current_project().state_root
     return SimpleNamespace(DEFAULT_STORE=DEFAULT_STORE, ROUNDS=ROUNDS)
 
@@ -1165,8 +1180,8 @@ def _collect(
 
 # Where an edit is reviewable: the book, the spec and the companions that
 # reason from it. Tooling and records are outside, not because they matter
-# less, but because the reviewer this SOP describes checks claims against what
-# the framework holds.
+# less, but because the reviewer this procedure describes checks claims against
+# what the book holds.
 
 
 def _trailer(rev, key):
@@ -1299,7 +1314,7 @@ usage: quirework sop review [run | resume | continue | fork | status | audit | p
 Cross-model editorial review of a delta. Procedure: docs/workflows.md.
 
   quirework sop review run SCOPE --range A..B --brief FILE --model M
-      Open analysis/rounds/<date>-review-SCOPE/ and take the first turn.
+      Open a dated review record under `runs.reviews` and take the first turn.
       --range HEAD reviews the uncommitted working tree instead.
   quirework sop review resume RUN --brief FILE [--range A..B]
       Hand the same reviewer the new commits and let it re-derive whether
@@ -1320,13 +1335,13 @@ Cross-model editorial review of a delta. Procedure: docs/workflows.md.
       Show collected turns and saved progress from uncollected turns.
       An uncollected turn may still be running; do not launch a duplicate.
   quirework sop review audit [--since REF]
-      Reviewable commits (docs/, exercises/, cases/) since the last commit
+      Commits touching the configured reviewable paths since the last commit
       carrying a Reviewed-by: trailer that carry none themselves. Advisory:
       whether an edit needed a foreign reviewer is a judgment, not a gate.
   quirework sop review prompt SCOPE --range A..B --brief FILE --model M
       Print the composed prompt and argv, launch nothing.
 
-New runs accept --persona ID (default: framework-coauthor), --kind
+New runs accept --persona ID (default: the configured project persona), --kind
 consistency|procedure, and --paths-file FILE for explicit target paths including
 new files. The persona is frozen; resume and fork cannot select another one.
 

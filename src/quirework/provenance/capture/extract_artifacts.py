@@ -4,9 +4,9 @@ conversation into standalone files, replaying create/rewrite/update ops to
 reconstruct each artifact's final state.
 
   usage: extract-artifacts.py <conversation-uuid>
-  reads  private/provenance/conversations/<uuid>.raw.json
-  writes private/provenance/conversations/artifacts/<uuid>/<artifact-id>.<ext>
-         private/provenance/conversations/artifacts/<uuid>/manifest.json
+  reads  .quirework/provenance/conversations/<uuid>.raw.json
+  writes .quirework/provenance/conversations/artifacts/<uuid>/<artifact-id>.<ext>
+         .quirework/provenance/conversations/artifacts/<uuid>/manifest.json
 
 The manifest records every operation (command, version_uuid, byte length,
 source message index) so the full version trajectory is documented even though

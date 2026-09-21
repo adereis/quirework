@@ -16,7 +16,7 @@ Prerequisites (see the Quirework workflow guide):
   2. Log in to claude.ai in that window.
   3. python fetch-conversation.py <conversation-uuid>
 
-Writes private/provenance/conversations/<uuid>.raw.json (verbatim API response).
+Writes .quirework/provenance/conversations/<uuid>.raw.json (verbatim API response).
 """
 
 import json, sys, urllib.request
@@ -76,7 +76,7 @@ JS = r"""
 USAGE = """usage: quirework provenance capture CONVERSATION_UUID
 
 Capture a claude.ai conversation into the provenance corpus, writing
-private/provenance/conversations/<uuid>.raw.json
+.quirework/provenance/conversations/<uuid>.raw.json
 
 Needs the `capture` extra (websocket-client) and a Chrome running with remote
 debugging, logged in to claude.ai. The uuid is the last path segment of the

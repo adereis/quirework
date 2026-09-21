@@ -48,7 +48,7 @@ def test_redact_removes_authorship_verdict():
 
 
 def test_redact_keeps_subject_matter():
-    text = "consciousness is a state of states"
+    text = "the kettle whistles before the train arrives"
     assert ccfilter.redact(text) == text
 
 
@@ -61,7 +61,7 @@ def test_strip_wrappers_removes_injected_spans():
 
 def test_has_fingerprint():
     assert ccfilter._has_fingerprint("... at Example Labs ...")
-    assert not ccfilter._has_fingerprint("a neutral sentence about minds")
+    assert not ccfilter._has_fingerprint("a neutral sentence about kettles")
 
 
 def test_sidechain_meta_and_harness_turns_never_reach_the_analyst(tmp_path):
@@ -293,7 +293,7 @@ def test_ordinary_tool_results_are_still_dropped(tmp_path, redpen_archive):
                                 "type": "tool_use",
                                 "id": "t1",
                                 "name": "Read",
-                                "input": {"file_path": "/x/the-spout.qmd"},
+                                "input": {"file_path": "/x/the-sidecar.qmd"},
                             }
                         ]
                     },
@@ -350,7 +350,7 @@ def test_askuserquestion_renders_question_options_and_answer(tmp_path):
                                 "input": {
                                     "questions": [
                                         {
-                                            "question": "Should the spout chapter keep the whistling image?",
+                                            "question": "Should the sidecar chapter keep the kettle image?",
                                             "options": [
                                                 {
                                                     "label": "Keep it",
@@ -375,8 +375,8 @@ def test_askuserquestion_renders_question_options_and_answer(tmp_path):
                             {
                                 "type": "tool_result",
                                 "tool_use_id": "t1",
-                                "content": 'Your questions have been answered: "Should the spout '
-                                'chapter keep the whistling image?"="Cut it"',
+                                "content": 'Your questions have been answered: "Should the sidecar '
+                                'chapter keep the kettle image?"="Cut it"',
                             }
                         ]
                     },
@@ -384,7 +384,7 @@ def test_askuserquestion_renders_question_options_and_answer(tmp_path):
             ],
         )
     )
-    assert "Should the spout chapter keep the whistling image?" in body
+    assert "Should the sidecar chapter keep the kettle image?" in body
     assert "Keep it" in body and "it repeats the dial" in body
     assert "### Human (answer to AskUserQuestion)" in body
     assert '"Cut it"' in body
@@ -446,7 +446,9 @@ def test_capture_keeps_the_dialogue_and_drops_the_freight(tmp_path):
                             "type": "tool_use",
                             "id": "t1",
                             "name": "Read",
-                            "input": {"file_path": "/repo/docs/canon/the-spout.qmd"},
+                            "input": {
+                                "file_path": "/repo/manuscript/sections/the-sidecar.qmd"
+                            },
                         },
                     ],
                 },
@@ -475,7 +477,9 @@ def test_capture_keeps_the_dialogue_and_drops_the_freight(tmp_path):
     assert assistant["message"]["model"] == "claude-opus-5"
     assert blocks[0] == {"type": "thinking", "thinking": "weigh it"}
     assert blocks[1]["text"] == "Here is the plan."
-    assert blocks[2]["input"]["file_path"] == "/repo/docs/canon/the-spout.qmd"
+    assert (
+        blocks[2]["input"]["file_path"] == "/repo/manuscript/sections/the-sidecar.qmd"
+    )
     assert "toolUseResult" not in result
     assert "content" not in result["message"]["content"][0]
     assert result["message"]["content"][0]["tool_use_id"] == "t1"
@@ -598,7 +602,7 @@ def test_capture_prints_the_same_action_markers_as_its_source(tmp_path):
     """A file body is cut back, but never below what the marker prints."""
     body = "\n".join(f"    line {i} of a long rewritten section" for i in range(400))
     records = [
-        {"type": "user", "message": {"content": "Rewrite the spout."}},
+        {"type": "user", "message": {"content": "Rewrite the sidecar."}},
         {
             "type": "assistant",
             "message": {
@@ -608,7 +612,7 @@ def test_capture_prints_the_same_action_markers_as_its_source(tmp_path):
                         "id": "w1",
                         "name": "Write",
                         "input": {
-                            "file_path": "/repo/docs/canon/the-spout.qmd",
+                            "file_path": "/repo/manuscript/sections/the-sidecar.qmd",
                             "content": body,
                         },
                     },
@@ -617,7 +621,7 @@ def test_capture_prints_the_same_action_markers_as_its_source(tmp_path):
                         "id": "e1",
                         "name": "Edit",
                         "input": {
-                            "file_path": "/repo/docs/canon/the-spout.qmd",
+                            "file_path": "/repo/manuscript/sections/the-sidecar.qmd",
                             "old_string": body,
                             "new_string": body,
                         },

@@ -1,36 +1,10 @@
 #!/usr/bin/env python3
-"""Capture this repo's local Claude Code sessions into the provenance corpus.
+"""Capture a project's local Claude Code sessions into its provenance corpus.
 
-Claude Code stores each session as a JSONL transcript under
-`~/.claude/projects/<encoded-cwd>/<session-uuid>.jsonl`, keyed to the
-literal `cwd` a session was launched from -- a session started from a
-*subdirectory* of this repo (`docs/`, `analysis/reads/`, ...) gets
-its own separate encoded directory, and the project-level `SessionEnd`
-hook wired in this repo's `.claude/settings.json` does not fire for it
-(confirmed empirically; ten such sessions sat uncaptured for weeks).
-A session launched from another `git worktree` checkout of this repo is
-the same problem one level out: its own encoded directory, and a sweep
-that only knew about the checkout it was run from could not see it.
-This copies transcripts into `private/provenance/cc-sessions/` so the
-record survives Claude Code's own `cleanupPeriodDays` sweep and lands in
-git -- the local-CLI counterpart to the claude.ai web captures in
-`../conversations/`.
-
-The sweep below covers **every checkout of this repository** (`worktrees.py`
-owns that list), and for each one the repo-root project directory plus every
-sibling directory Claude Code created for a subdirectory launch -- but only
-ever as a side effect of some *root*-launched session's `SessionEnd` firing
-(or a manual run). A repo where every session is launched from a subdirectory
-still needs an occasional manual sweep; see
-`private/provenance/cc-sessions/README.md`.
-
-Encoded directory names are lossy (both `/` and `.` become `-`), so the
-candidate list is a *superset*: `<repo>-docs` is `<repo>/docs`, but it would
-also be a sibling project literally named that. A transcript is therefore
-accepted on the `cwd` it recorded, checked against the real checkout paths --
-and only for files that would actually be copied, so the steady state stays
-one `stat` per transcript. A transcript that records no cwd at all falls back
-to the directory it was found in, which is the old behavior: never miss.
+Claude Code keys transcript directories to the literal working directory. The
+sweep therefore considers project subdirectories and every linked checkout.
+Encoded directory names are lossy, so a transcript is accepted only when its
+recorded working directory belongs to one of those checkouts.
 
 Captures are **normalized**, not verbatim: `ccfilter.normalize_capture` keeps
 the human's prompts, the assistant's prose and thinking, one action record per

@@ -39,7 +39,7 @@ def _settings():
     from types import SimpleNamespace
 
     DEFAULT_ROOT = current_project().state_root
-    ROSTER = current_project().path("sops.roster", "sops/prose-workshop/roster.json")
+    ROSTER = current_project().path("sops.roster")
     return SimpleNamespace(DEFAULT_ROOT=DEFAULT_ROOT, ROSTER=ROSTER)
 
 
@@ -316,15 +316,13 @@ def prepare(plan_path, destination, *, resolve_models=True):
 def _reading_order(repo, files):
     """Chapter order for the staged book files, from the book's own config.
 
-    Silent when the source tree has no `docs/`, or when nothing staged is a
+    Silent when no book source is configured, or when nothing staged is a
     chapter: an experiment supplying one passage needs no order.
     """
     try:
         from quirework.book import chapters as _chapters
 
-        registry = _chapters.registry(
-            current_project().path_at(repo, "book.source", "docs")
-        )
+        registry = _chapters.registry(current_project().path_at(repo, "book.source"))
     except Exception:
         return ""
     staged = {Path(rel).name for rel in files if rel.endswith(".qmd")}

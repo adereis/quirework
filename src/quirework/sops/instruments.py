@@ -18,10 +18,7 @@ def load(name, *, root=None, _active=()):
     identifier(name)
     if name in _active:
         raise ValueError("cycle in instrument scope variants")
-    path = (
-        current_project().path_at(root, "sops.instruments", "sops/instruments")
-        / f"{name}.json"
-    )
+    path = current_project().path_at(root, "sops.instruments") / f"{name}.json"
     data = personas.parse(path.read_bytes().decode("utf-8"))
     if (
         not isinstance(data, dict)
@@ -147,16 +144,6 @@ def prompt(turn, instrument, *, persona=UNSET, first=True, scope=None):
         extra, more = entry_text(instrument, ask, scope)
         text += "\n\n" + extra
         headings = [*headings, *more]
-    # Preserve measured questions; adapt only the legacy image courier. The
-    # exact composed prompt is frozen, so this is not silent prompt reuse.
-    replacements = {
-        "The attached images are every consecutive page of the one chapter now available.": "The supplied material is the one chapter now available.",
-        "Read EVERY page as a page, including every figure, diagram, and caption, before": "Read it completely, inspecting any supplied figures and captions, before",
-        "The attached images are\nevery consecutive page of the only new chapter you have received. Read every page,": "The supplied material is\nthe only new chapter you have received. Read it completely,",
-        "The attached images are every consecutive page of a front- or back-matter\nblock of the one book you are reading. Read every page as a page, including any": "The supplied material is a front- or back-matter\nblock of the one book you are reading. Read it completely, including any",
-    }
-    for before, after in replacements.items():
-        text = text.replace(before, after)
     if instrument and instrument.get("scope_notice") and first:
         text = f"Declared scope: {scope}.\n" + text
     if persona is UNSET:

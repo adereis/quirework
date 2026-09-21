@@ -51,7 +51,7 @@ def test_capture_keeps_the_dialogue_and_hollows_out_the_freight(tmp_path):
                 tool_calls=[
                     {
                         "name": "view_file",
-                        "args": {"AbsolutePath": "/repo/docs/canon/x.qmd"},
+                        "args": {"AbsolutePath": "/repo/manuscript/sections/x.qmd"},
                     }
                 ],
             ),
@@ -71,7 +71,10 @@ def test_capture_keeps_the_dialogue_and_hollows_out_the_freight(tmp_path):
     assert kept[0]["content"].startswith("<USER_REQUEST>")
     assert kept[1]["content"] == "Here is the plan."
     assert kept[1]["thinking"] == "weighing the options"
-    assert kept[1]["tool_calls"][0]["args"]["AbsolutePath"] == "/repo/docs/canon/x.qmd"
+    assert (
+        kept[1]["tool_calls"][0]["args"]["AbsolutePath"]
+        == "/repo/manuscript/sections/x.qmd"
+    )
     for record in kept[2:]:
         assert "content" not in record  # ...but hollowed out
         assert record["created_at"] == "2026-08-17T22:00:00Z"
@@ -148,7 +151,7 @@ def test_a_file_body_is_cut_back_but_a_parameter_is_not(tmp_path):
                     {
                         "name": "write_to_file",
                         "args": {
-                            "TargetFile": "/repo/docs/canon/the-spout.qmd",
+                            "TargetFile": "/repo/manuscript/sections/the-sidecar.qmd",
                             "CodeContent": body,
                         },
                     },
@@ -161,7 +164,7 @@ def test_a_file_body_is_cut_back_but_a_parameter_is_not(tmp_path):
         ],
     )
     args = kept[0]["tool_calls"][0]["args"]
-    assert args["TargetFile"] == "/repo/docs/canon/the-spout.qmd"
+    assert args["TargetFile"] == "/repo/manuscript/sections/the-sidecar.qmd"
     assert body.startswith(args["CodeContent"])
     assert len(args["CodeContent"]) < len(body) // 4
     # a parameter is not a payload

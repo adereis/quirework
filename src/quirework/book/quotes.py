@@ -156,9 +156,9 @@ def _prose_corpus(docs: Path) -> str:
     appears in no chapter), and their text is what the reader sees.
     """
     parts = [f.read_text() for f in sorted(docs.rglob("*.qmd"))]
-    for name in (notes.SPEC_FILE, notes.BOOK_NOTES_FILE):
-        f = docs / current_project().chapter_subdir / name
-        if f.exists():
+    for key in ("book.spec", "book.review_notes"):
+        f = notes._configured_book_file(docs, key)
+        if f is not None and f.exists():
             parts.append(f.read_text())
     for svg in sorted(docs.rglob("illustrations/*.svg")):
         # element text only; the geometry would match anything by accident
@@ -181,9 +181,9 @@ def _chapter_corpora(docs: Path) -> tuple[dict[str, str], str]:
     for f in sorted(docs.rglob("*.qmd")):
         per[f.stem] = notes._searchable(f.read_text())
     loose: list[str] = []
-    for name in (notes.SPEC_FILE, notes.BOOK_NOTES_FILE):
-        f = docs / current_project().chapter_subdir / name
-        if f.exists():
+    for key in ("book.spec", "book.review_notes"):
+        f = notes._configured_book_file(docs, key)
+        if f is not None and f.exists():
             loose.append(f.read_text())
     for svg in sorted(docs.rglob("illustrations/*.svg")):
         loose.extend(re.findall(r">([^<>]+)<", svg.read_text()))
@@ -195,7 +195,7 @@ def _known_slugs(docs: Path, per_chapter: dict[str, str]) -> set[str]:
 
     `_quarto.yml` is the sole source of what is in the book, so it is the right
     filter -- but it is absent from any tree that is not the live one, and the
-    attribution check must not be the reason a synthetic docs/ raises. Without
+    attribution check must not be the reason a synthetic source tree raises. Without
     it every `.qmd` stem is treated as nameable, which is looser and harmless:
     the check compares where words ARE against where a mark SAYS they are, and
     a stem that is not really a chapter fails both halves alike.
@@ -254,9 +254,7 @@ def _is_forbidden_variant(span: str) -> bool:
 
 def scan(docs: Path | None = None) -> list[Hit]:
     docs = (
-        Path(docs)
-        if docs is not None
-        else notes.current_project().path("book.source", "docs")
+        Path(docs) if docs is not None else notes.current_project().path("book.source")
     )
     corpus = _prose_corpus(docs)
     per_chapter, loose = _chapter_corpora(docs)
@@ -384,8 +382,11 @@ def main(argv: list[str] | None = None) -> int:
         description="Check that phrases the marks quote still exist in the book.",
     )
     p.add_argument(
-        "--docs", type=Path, default=None, help="docs/ root (defaults to the repo's)"
+        "--source",
+        type=Path,
+        default=None,
+        help="book source root (default: configured)",
     )
     args = p.parse_args(argv)
-    report(scan(args.docs))
+    report(scan(args.source))
     return 0

@@ -18,8 +18,8 @@ It is the complete, mechanical layer *beneath* the hand-curated ``highlights.md`
 Outputs (both committed, both private -- they point at raw logs, like the
 cold-read manifest):
 
-    private/provenance/index.json   canonical, machine source of truth
-    private/provenance/INDEX.md     rendered human table
+    .quirework/provenance/index.json   canonical, machine source of truth
+    .quirework/provenance/INDEX.md     rendered human table
 
 Commands:
     (no args)     rebuild index.json + INDEX.md from the tracked corpus
@@ -682,8 +682,8 @@ USAGE = """usage: quirework provenance catalog [--check]
 Regenerate the provenance catalog from the tracked corpus.
 
 Writes both outputs (private -- they point at raw logs):
-  private/provenance/index.json   canonical, machine source of truth
-  private/provenance/INDEX.md     rendered human table
+  .quirework/provenance/index.json   canonical, machine source of truth
+  .quirework/provenance/INDEX.md     rendered human table
 
 options:
   -h, --help  show this help message and exit

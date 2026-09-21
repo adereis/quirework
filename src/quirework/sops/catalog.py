@@ -80,7 +80,7 @@ def _named(path):
 
 def _sops_root(root):
     """The project's own procedure directory; its name is a project choice."""
-    return current_project().path_at(root, "sops.root", "sops")
+    return current_project().path_at(root, "sops.root")
 
 
 def load(root=None):
@@ -88,7 +88,7 @@ def load(root=None):
     if root is None:
         root = current_project().root
     root = Path(root)
-    catalog = current_project().path_at(root, "sops.catalog", "sops/catalog.json")
+    catalog = current_project().path_at(root, "sops.catalog")
     if not catalog.is_file():
         # The first thing a new project asks the SOP layer, and an errno tells
         # it nothing. Name the file and where its shape is written down.
@@ -254,7 +254,7 @@ def markdown(data, root=None):
     lines = [
         "# SOP discovery catalog",
         "",
-        f"Generated from `{_named(current_project().path('sops.catalog', 'sops/catalog.json'))}`",
+        f"Generated from `{_named(current_project().path('sops.catalog'))}`",
         "and the SOP descriptions. These are",
         "the task families, specialized procedures and shared protocols. Read the",
         "selected workflow and instrument before use.",
@@ -352,7 +352,7 @@ def main(argv=None):
                 print("\n" + report["scope"])
         else:
             content = markdown(data, current_project().root)
-            path = current_project().path("sops.root", "sops") / "catalog" / "README.md"
+            path = current_project().path("sops.root") / "catalog" / "README.md"
             if args.check:
                 if not path.exists() or path.read_text() != content:
                     raise ValueError(

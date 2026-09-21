@@ -426,18 +426,9 @@ available, but a failed run condition does not become a clean result.
 Export copies answers and curated receipts. It does not publish them or
 copy runtime homes and raw event streams.
 
-Existing records dispatch through their verified frozen executor.
-Historical commands, prompts, answers, and hashes remain unchanged. The
-current command surface translates a start request when dispatching a
-supported pre-extraction executor. A provider version mismatch still
-requires attention rather than silent reinterpretation.
-
 Workshop and contextual-review commands retain their specialized state
 and manual-session features. They share provider adapters and account
 leases with the generic engine.
 
-Capture schema identifiers remain unchanged for compatibility with
-stored transcripts. Project redaction policies are separate data.
-Changing a marker list changes the analysis recipe; a verified legacy
-marker fingerprint preserves existing cache identities for the unchanged
-book policy. Primary transcripts are never rewritten by redaction.
+Project redaction policies are separate data. Changing a marker list changes
+the analysis recipe. Primary transcripts are never rewritten by redaction.

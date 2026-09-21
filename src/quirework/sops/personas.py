@@ -125,7 +125,7 @@ def resolve(reference=None, *, root=None):
         name = _options().DEFAULT if ref["id"] == "default" else ref["id"]
         if not isinstance(name, str) or not NAME.fullmatch(name):
             raise ValueError("invalid persona id")
-        directory = current_project().path_at(root, "sops.personas", "sops/personas")
+        directory = current_project().path_at(root, "sops.personas")
         rel = str(Path(_project_relative(root, directory)) / f"{name}.json")
         if "at" in ref:
             revision = _git(
@@ -211,20 +211,13 @@ def same_perspective(one, two):
 def check(*, root=None, base=None):
     if root is None:
         root = current_project().root
-    if (
-        current_project().path_at(root, "sops.personas", "sops/personas")
-        / "default.json"
-    ).exists():
+    if (current_project().path_at(root, "sops.personas") / "default.json").exists():
         raise ValueError(
             "default.json is reserved by the default alias; configure the default profile"
         )
     profiles = [
         resolve(p.stem, root=root)
-        for p in sorted(
-            (current_project().path_at(root, "sops.personas", "sops/personas")).glob(
-                "*.json"
-            )
-        )
+        for p in sorted(current_project().path_at(root, "sops.personas").glob("*.json"))
     ]
     if not profiles:
         raise ValueError("persona catalog is empty")
@@ -233,7 +226,7 @@ def check(*, root=None, base=None):
             root, "rev-parse", "--verify", "--end-of-options", base + "^{commit}"
         ).strip()
         directory = _project_relative(
-            root, current_project().path_at(root, "sops.personas", "sops/personas")
+            root, current_project().path_at(root, "sops.personas")
         )
         paths = set(
             _git(

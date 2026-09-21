@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Effort/contribution metrics across the whole provenance corpus.
 
-Reads the source types under private/provenance/ and reports human-vs-AI effort:
+Reads the configured provenance sources and reports human-vs-AI effort:
   - claude.ai web dialogues   : conversations/*.raw.json   (structured, timestamps)
   - local Claude Code sessions: cc-sessions/*.jsonl        (structured, timestamps)
   - local Codex sessions      : codex-sessions/*.jsonl     (structured, timestamps)
@@ -41,7 +41,7 @@ Metrics are deliberately conservative and labeled with their caveats:
   * "Engaged wall-clock" sums each session's first->last message gap; it ignores
     idle gaps between sessions (those show up in the calendar span instead).
 
-Pasted content (e.g. the human pasting the whole framework into a turn) inflates
+Pasted content (e.g. the human pasting the whole spec into a turn) inflates
 "human words" and cannot be reliably separated from typed input. Rather than
 ignore it, the `paste` sub-report estimates it (see below), and the metrics
 report prints a paste-corrected AI:human ratio alongside the raw one.
@@ -79,7 +79,7 @@ such, not as a true count.
 NOTE FOR THE OPERATOR: this script is the *data-collection* half. The published
 effort/contribution artifact is not its raw dump -- you run it, read the flagged
 paste cases (`paste --show`), sanity-check the numbers, then write the report in
-prose with the caveats kept. See sops/effort-metrics.md.
+prose with the caveats kept. Follow the project's reporting procedure.
 """
 
 import argparse, glob, json, re, subprocess
@@ -94,15 +94,13 @@ from quirework.project import current_project
 WORDS = re.compile(r"\S+")
 
 
-def _configured_relative(key, fallback):
-    """A configured book path as the project names it, or the old default."""
-    from quirework.project import ConfigurationError
-
+def _configured_relative(key):
+    """A configured book path as the project names it."""
+    configured = current_project().path(key)
     try:
-        configured = current_project().path(key, fallback)
         return str(configured.relative_to(current_project().root))
-    except (ConfigurationError, ValueError):
-        return fallback
+    except ValueError:
+        return str(configured)
 
 
 def _options():
@@ -117,28 +115,21 @@ def _options():
         .data("provenance.metrics_policy", {})
         .get("source_of_truth", None)
     )
-    # Where the finished prose is, and which paths' git history counts as
-    # writing it. Both defaulted to the literal "docs", so a project whose
-    # book is anywhere else measured an empty directory: zero words of essay,
-    # zero lines of churn, and a crash on the fallback below. The book
-    # configuration already answers both questions.
+    # The book configuration answers where the canon lives. Policy may narrow
+    # the history paths when a project needs a different measurement boundary.
     CANONICAL_DIR = (
         current_project()
         .data("provenance.metrics_policy", {})
-        .get("canonical_dir", _configured_relative("book.chapters", "docs"))
-    )
-    LEGACY_SPEC = (
-        current_project().data("provenance.metrics_policy", {}).get("legacy_spec", None)
+        .get("canonical_dir", _configured_relative("book.chapters"))
     )
     ESSAY_PATHS = (
         current_project()
         .data("provenance.metrics_policy", {})
-        .get("essay_paths", [_configured_relative("book.source", "docs")])
+        .get("essay_paths", [_configured_relative("book.source")])
     )
     return SimpleNamespace(
         CANONICAL_DIR=CANONICAL_DIR,
         ESSAY_PATHS=ESSAY_PATHS,
-        LEGACY_SPEC=LEGACY_SPEC,
         OUTPUT_COUNTS=OUTPUT_COUNTS,
         SOURCE_OF_TRUTH=SOURCE_OF_TRUTH,
     )
@@ -491,12 +482,6 @@ def _segments(lines):
 
 
 # ---- repo / git metrics ---------------------------------------------------
-# The narrative essay is the current source of truth; the legacy spec is its
-# demoted predecessor (a separate file lineage, not a rename of the narrative).
-# pre-flip canonical (now migrated into docs/canon/)
-
-
-# the canonical essay across its lifetime: the original single file + the chapters
 
 
 def _git(*args):
@@ -516,21 +501,6 @@ def git_metrics():
         _git("rev-list", "--count", "HEAD").strip() or 0
     )
     g["commits_sot"] = _count("log", "--format=%H", "--", *_options().ESSAY_PATHS)
-    legacy = (
-        current_project().data("provenance.metrics_policy", {}).get("legacy_paths", [])
-    )
-    if _options().LEGACY_SPEC and _options().LEGACY_SPEC not in legacy:
-        legacy = [_options().LEGACY_SPEC, *legacy]
-    g["commits_legacy"] = (
-        _count("log", "--follow", "--format=%H", "--", _options().LEGACY_SPEC)
-        if _options().LEGACY_SPEC
-        else 0
-    )
-    # union of commits touching either canonical-doc file (no --follow: takes
-    # multiple paths; rename hops across the two names are negligible here)
-    g["commits_doc_any"] = _count(
-        "log", "--format=%H", "--", *_options().ESSAY_PATHS, *legacy
-    )
     # net churn on the source of truth
     add = rem = 0
     for ln in _git(
@@ -599,7 +569,7 @@ RELAY = re.compile(r"""(?ix)
   | (feedback \s+ i \s+ (agree|got|received))
   | (review \s+ (from|by|i))
   | (what \s+ i \s+ wrote \s+ (there|in))
-  | (notes \s+ of \s+ a \s+ framework)
+  | (notes \s+ of \s+ a \s+ specification)
 """)
 # After stripping leading whitespace and the backslash escapes the chat client
 # inserts on paste (\>, \-, \---), does a line open like markdown structure?
@@ -838,7 +808,7 @@ def paste_report(st, min_words=150, show=0):
         "prose pastes (a draft essay pasted with no markdown) only trip the AMBIGUOUS"
     )
     print("or RELAY-phrase nets, never the line-level one -- so the line-level is a")
-    print("floor. The two biggest single pastes are whole framework dumps into Gemini.")
+    print("floor. Large plain-prose pastes may remain in the ambiguous band.")
     if show:
         print(
             "\n" + "=" * 78 + "\nLARGEST FLAGGED TURNS (for manual review)\n" + "=" * 78
@@ -877,10 +847,7 @@ def report(accs, total, pst=None, scope=None):
     print("PROVENANCE EFFORT METRICS")
     print("=" * 70)
     bd = scope_breakdown()
-    print(
-        f"Corpus: the CURATED corpus committed under private/provenance/, scope="
-        f"{scope or 'all'}."
-    )
+    print(f"Corpus: the configured curated corpus, scope={scope or 'all'}.")
     print(
         f"  book={bd.get(SCOPE.BOOK, 0)} session(s) (the book's ideas and prose) · "
         f"making={bd.get(SCOPE.MAKING, 0)} (the apparatus: tools, guards, process)."
@@ -1026,14 +993,6 @@ def report_repo(g, o, total):
     print(f"Commits, repo total                : {g['commits_total']:,}")
     essay = ", ".join(str(path) for path in _options().ESSAY_PATHS)
     print(f"Commits touching the book ({essay}): {g['commits_sot']:,}")
-    # A book that has never moved its text between files has no earlier
-    # lineage to count, and a line reading "(None): 0" is not a measurement.
-    if _options().LEGACY_SPEC:
-        print(
-            f"Commits touching the legacy spec     ({_options().LEGACY_SPEC}): "
-            f"{g['commits_legacy']:,}"
-        )
-        print(f"Commits touching any canonical doc   : {g['commits_doc_any']:,}")
     print(
         f"Source-of-truth churn              : +{g['sot_added']:,} / "
         f"-{g['sot_removed']:,} lines (semantic-line-wrapped, ~1 sentence/line)"

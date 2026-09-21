@@ -30,7 +30,7 @@ def test_sidecars_are_found_under_a_source_not_named_docs(tmp_path):
         assert chapters._layer_files() == [sidecar]
 
 
-def test_the_historical_docs_layout_still_resolves(tmp_path):
+def test_a_source_named_docs_resolves(tmp_path):
     root, sidecar = _book(tmp_path, "docs")
     project = _project(root, source="docs", chapters="docs/sections")
     with project_scope(project):

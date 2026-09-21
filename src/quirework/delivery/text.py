@@ -1,7 +1,6 @@
-"""Reader-facing QMD projection, extracted from the established panel builder.
+"""Reader-facing QMD projection.
 
-The legacy driver remains unchanged for historical runs. New preparation uses
-this module; it is not a second Quarto renderer and makes no layout claim.
+This is not a second Quarto renderer and makes no layout claim.
 """
 
 import re

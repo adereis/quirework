@@ -6,8 +6,8 @@ obfuscated batchexecute RPCs), so we drive the authenticated debug Chrome to the
 conversation and read the rendered turns out of the DOM.
 
   usage: fetch-gemini.py <conversation-id-or-url>
-  writes private/provenance/conversations/gemini-<id>.raw.html  (verbatim turn DOM)
-         private/provenance/conversations/gemini-<id>.md         (rendered transcript)
+  writes .quirework/provenance/conversations/gemini-<id>.raw.html  (verbatim turn DOM)
+         .quirework/provenance/conversations/gemini-<id>.md         (rendered transcript)
 
 Note: the Gemini DOM exposes no per-message timestamps, so the transcript has no
 dates — annotate the index row manually.

@@ -1,18 +1,14 @@
 #!/usr/bin/env python3
 """Curate and materialize the book's figures.
 
-The canonical book embeds figures as ``![caption](illustrations/NAME.svg){…}``.
-The SVGs themselves are tracked sources under ``docs/canon/illustrations/``
-(right next to the chapter files that embed them). At build time,
-``quirework book build`` stages the book into ``build/book/`` and this module
-copies the embedded figures into ``build/book/canon/illustrations/`` so the
-chapters' relative ``illustrations/NAME.svg`` embeds resolve correctly in the
-staged render tree.
+Canon prose embeds figures as ``![caption](illustrations/NAME.svg){…}``.
+The configured figure directory holds the tracked SVG sources. At build time,
+this module copies embedded figures into the corresponding staged directory so
+relative embeds resolve there.
 
 Commands (``quirework book figures …``):
 
-    build            materialize the embedded figures into
-                     build/book/canon/illustrations/ (default action);
+    build            materialize the embedded figures into the build stage;
                      regenerates a matplotlib chart export from its sibling .py
                      if missing/stale; prunes orphans.
     check / --check  read-only consistency gate (used by the pre-commit hook):
@@ -86,13 +82,17 @@ def _settings():
     """Resolve paths from the current operation, without import-time state."""
     from types import SimpleNamespace
 
-    CANONICAL = current_project().path("book.chapters", "docs/canon")
-    ILLUSTRATIONS = current_project().path("book.figures", str(CANONICAL / GALLERY))
+    CANONICAL = current_project().path("book.chapters")
+    ILLUSTRATIONS = current_project().path("book.figures")
     BUILD_BOOK = current_project().path("book.build", "build") / "book"
     BUILD_ILLUSTRATIONS = BUILD_BOOK / current_project().chapter_subdir / GALLERY
     BUILD_DIR = current_project().path("book.build", "build") / "figures"
     BUILD_GRAY_DIR = current_project().path("book.build", "build") / "figures-gray"
-    _TEMPLATE = current_project().path("book.typst_template", "docs/typst-show.typ")
+    _TEMPLATE = (
+        current_project().path("book.typst_template")
+        if current_project().get("book.typst_template") is not None
+        else None
+    )
     return SimpleNamespace(
         BUILD_BOOK=BUILD_BOOK,
         BUILD_DIR=BUILD_DIR,
@@ -248,7 +248,7 @@ def generate_gray(names: set[str], out: Path) -> int:
 # was authored to a screen scale nobody had multiplied out.
 #
 # The block width is the one number here that lives somewhere else --
-# docs/typst-show.typ owns the trim and the margins -- so it is READ from that
+# The configured Typst template owns the trim and margins, so they are read from that
 # template rather than copied, and a margin change reaches this check for free.
 # The floor is 6pt, which is where incidental type in a printed book stops
 # being readable; 7 to 8pt is where it stops being a squint.
@@ -259,7 +259,10 @@ VIEWBOX_UNITS = 960.0
 def print_text_block_in() -> float | None:
     """The print text block's width in inches, read from the Typst template."""
     try:
-        src = _settings()._TEMPLATE.read_text(encoding="utf-8")
+        template = _settings()._TEMPLATE
+        if template is None:
+            return None
+        src = template.read_text(encoding="utf-8")
     except OSError:
         return None
     page = re.search(r"#set page\((.*?)\n\)", src, re.S)

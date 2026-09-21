@@ -1,12 +1,8 @@
 """Placement shared by review-evidence guards and Markdown formatting.
 
-A saved run record is evidence: its files are kept exactly as the run wrote
+A saved run record is evidence. Its files are kept exactly as the run wrote
 them, so no formatter may reflow them and no advisory may treat them as
-authority. Which directories hold those records is the project's choice and
-was, until this module read configuration, a fixed list of four directory
-names belonging to the one book this tool was extracted from. Every other
-project therefore protected paths it does not have while leaving its own
-unprotected, and nothing reported either.
+authority. The project declares which directories hold those records.
 
 Directory names alone never endorse an analysis's conclusions.
 """
@@ -17,9 +13,8 @@ from quirework.project import current_project
 def run_roots() -> tuple[str, ...]:
     """Project-relative directories holding saved run records.
 
-    `runs.evidence_roots` lists them for a project that keeps several,
-    including the legacy locations of records it still reads. A project that
-    keeps one names it as `runs.reviews` and needs nothing further. A project
+    `runs.evidence_roots` lists them for a project that keeps several. A project
+    that keeps one names it as `runs.reviews` and needs nothing further. A project
     with neither has no saved records, and nothing is treated as evidence.
     """
     project = current_project()

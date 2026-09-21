@@ -12,12 +12,18 @@ schema = 1
 
 [project]
 name = "A Small Notebook"
+scratchpad = "scratchpad"
+private = "private"
 
 [book]
 source = "manuscript"
+quarto = "manuscript/_quarto.yml"
 chapters = "manuscript/sections"
 figures = "manuscript/sections/illustrations"
 build = "build"
+variants = "variants"
+companion_dirs = ["companion"]
+noncanonical_roots = ["scratchpad"]
 
 [sops]
 root = "procedures"
@@ -28,11 +34,16 @@ panels = "panels"
 skill_prefix = "notebook-"
 ```
 
-The book source directory contains its `_quarto.yml`. Book settings can
-also name `spec`, `references`, `review_notes`, and `typst_template`
-when the project uses those features. Annotation bindings resolve
+`book.quarto` names the Quarto project file. Book settings can also name
+`spec`, `references`, `review_notes`, and `typst_template` when the
+project uses those features. Annotation bindings resolve
 against the configured semantic register; a book need not adopt another
 project's claims or vocabulary.
+
+`project.scratchpad` and `project.private` document the two non-publishing
+spaces. `book.noncanonical_roots` tells checks which working paths have no
+authority. `book.companion_dirs` names reader-facing documents outside the
+canon. `book.variants` names the root for derived editions.
 
 `sops.root` names the procedure directory, so a project can call it
 `procedures` or anything else; discovery and reading both follow the
@@ -77,13 +88,11 @@ source locations:
 ```toml
 [provenance]
 enabled = true
-root = "private/provenance"
-conversations = "private/provenance/conversations"
-claude_sessions = "private/provenance/cc-sessions"
-codex_sessions = "private/provenance/codex-sessions"
-agy_sessions = "private/provenance/agy-sessions"
-coldread = "private/provenance/coldread"
+root = "private/corpus"
 ```
+
+Runtime-specific subdirectories are derived from `root`. Declare an individual
+path only when an existing corpus uses another layout.
 
 Capture selects sessions by their recorded relationship to the project
 and its worktrees. Capturing does not curate, stage, or commit sessions.
@@ -195,8 +204,7 @@ Policy files are commented TOML data referenced by configuration.
 Existing JSON policy files remain readable. They keep project vocabulary
 and visual choices out of Quirework's implementation:
 
-- `book.chapter_policy`: `retired_tokens`, `metadata_layers`, and
-  `identity_layers`. The metadata layers default to the sidecar
+- `book.chapter_policy`: `metadata_layers`. The metadata layers default to the sidecar
   directories under `book.source`, so a project declares this only to
   scan something else.
 - `book.layout_policy`: `typst_prologues` and `typst_epilogues`.
@@ -218,9 +226,8 @@ to describing nothing rather than to another project's directory names.
 whose quotations and spec citations `book notes --check` then gates.
 `book.noncanonical_roots` names directories that hold working material
 rather than authority, so a mark resting on one is reported.
-`runs.evidence_roots` names every directory holding saved run records,
-including locations a project has since moved away from but still reads;
-a project that keeps one needs only `runs.reviews`. Files inside a run
+`runs.evidence_roots` names every directory holding saved run records.
+A project that keeps one needs only `runs.reviews`. Files inside a run
 record are never reflowed by `text wrap` and never read as authority,
 which is the guarantee these three settings buy.
 

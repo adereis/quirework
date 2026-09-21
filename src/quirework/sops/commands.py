@@ -40,7 +40,7 @@ def _settings():
     """Resolve paths from the current operation, without import-time state."""
     from types import SimpleNamespace
 
-    SOPS = current_project().path("sops.root", "sops")
+    SOPS = current_project().path("sops.root")
     SKILLS = current_project().root / ".claude" / "skills"
     return SimpleNamespace(SKILLS=SKILLS, SOPS=SOPS)
 
@@ -401,7 +401,7 @@ def _print(name: str) -> int:
 
 USAGE = """usage: quirework sop [list | show NAME | explain NAME | catalog | skills]
 
-The operator playbooks under sops/. A SOP is the entry point for a task: the
+The operator playbooks under the configured procedure directory. A SOP is the entry point for a task: the
 agent follows it, drives the tools, then analyzes and delivers.
 
   quirework sop                list existing procedures by task and purpose

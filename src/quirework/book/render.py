@@ -1,7 +1,7 @@
 """Shared render staging for the Quarto book.
 
-`quirework book build` stages the book and runs Quarto in the staged tree (never
-writing into `docs/`). That staging plus Quarto discovery lives here.
+`quirework book build` stages the book and runs Quarto there, never in the
+configured source tree. That staging plus Quarto discovery lives here.
 
 A book renders from **three** stages, because screen and print have different
 front matter and two formats mishandle `part:` dividers:
@@ -43,7 +43,7 @@ from quirework.book import figures as _figures
 # the screen stage (git-ignored)
 # the parts-flattened stage
 # the print stage (see below)
-SITE = "_site"  # Quarto output-dir (relative to each stage), from docs/_quarto.yml
+SITE = "_site"  # Quarto output directory relative to each stage.
 
 # Book formats whose output has no part-divider concept: Quarto drops every
 # `part:` from them (taking a file-based part's opening essay with it), so they
@@ -103,14 +103,13 @@ def mirror_sources(src: Path, stage: Path) -> None:
     EPUB's grayscale `illustrations-gray/`) are skipped here: they are build
     artifacts that `figures.build()` materializes straight into the staged tree.
     Agent-guidance and repo-scaffolding files (`AGENTS.md`, `CLAUDE.md`,
-    `GEMINI.md`, `.gitignore`) are skipped too: they live in `docs/` for editors,
+    `GEMINI.md`, `.gitignore`) are skipped too: they live with sources for editors,
     are not book sources, and only confuse anyone reading the staged tree. The
     per-chapter metadata sidecars (`_marks/`) are skipped as well: they are pure
     working metadata, never rendered, and keeping them out of the stage means the
     published book cannot leak a mark into its HTML source (the marks are gone
     from the prose `.qmd` and the sidecars never arrive). `ignore_patterns`
-    matches by basename at every depth, so the one entry covers both `docs/_marks/`
-    and `docs/canon/_marks/`.
+    matches by basename at every depth, so one entry covers every metadata sidecar.
     """
     stage.mkdir(parents=True, exist_ok=True)
     for child in stage.iterdir():
@@ -141,7 +140,7 @@ def mirror_sources(src: Path, stage: Path) -> None:
 
 
 def stage_book(stage: Path | None = None) -> int:
-    """Stage docs/ into a parts-intact render tree and materialize the galleries.
+    """Stage configured sources into a parts-intact tree and materialize figures.
 
     Default stage is build/book/ (the publish stage); redpen passes its own so a
     review-copy build cannot clobber the publish stage's `_site` outputs or its
@@ -150,7 +149,7 @@ def stage_book(stage: Path | None = None) -> int:
     on a non-zero result.
     """
     stage = stage or _options().BUILD_BOOK
-    mirror_sources(current_project().path("book.source", "docs"), stage)
+    mirror_sources(current_project().path("book.source"), stage)
     _bookstage.render_contents(stage)
     # Print settings that have to take effect partway through the book (the
     # front matter's roman folios giving way to arabic, the back matter set
@@ -169,7 +168,7 @@ def stage_book(stage: Path | None = None) -> int:
 
 
 def stage_book_print() -> int:
-    """Stage docs/ into build/book-print/: parts intact, screen-only pages gone.
+    """Stage print sources with parts intact and screen-only pages removed.
 
     Same staging as `stage_book`, then `bookstage.blank_chapters` empties the
     pages a printed book does not have (`PRINT_DROPS`) -- emptied rather than
@@ -189,7 +188,7 @@ def stage_book_print() -> int:
 
 
 def stage_book_noparts() -> int:
-    """Stage docs/ into build/book-noparts/ with the book's parts flattened.
+    """Stage sources with the book's parts flattened.
 
     Same staging as `stage_book`, then the fix for the parts-less formats: promote
     each file-based `part:` to a chapter in its reading-order slot and mark its H1
@@ -198,7 +197,7 @@ def stage_book_noparts() -> int:
     Returns the figure-build return code.
     """
     mirror_sources(
-        current_project().path("book.source", "docs"), _settings().BUILD_BOOK_NOPARTS
+        current_project().path("book.source"), _settings().BUILD_BOOK_NOPARTS
     )
     # Before flatten (it wants real parts), and with anchor links: Quarto rewrites
     # a `chapter.qmd` link to the output file for HTML only.
@@ -226,7 +225,7 @@ def stage_book_noparts() -> int:
 
 
 def book_formats() -> list[str]:
-    """The `format:` keys declared in docs/_quarto.yml (top-level block), in order.
+    """The configured Quarto file's top-level `format:` keys, in order.
 
     A tiny stdlib scan, not a YAML dependency (the package core is stdlib-only,
     like redpen's own `_quarto.yml` parsing): find `format:` at column 0, then take
@@ -234,9 +233,7 @@ def book_formats() -> list[str]:
     (nested keys like `theme:` / `filters:` are skipped).
     """
     lines = (
-        (current_project().path("book.quarto", "docs/_quarto.yml"))
-        .read_text(encoding="utf-8")
-        .splitlines()
+        current_project().path("book.quarto").read_text(encoding="utf-8").splitlines()
     )
     keys: list[str] = []
     i, n = 0, len(lines)
@@ -300,7 +297,7 @@ def restrict_formats(stage: Path, keep: list[str]) -> None:
     A single `quarto render` (no --to) then emits exactly those formats in one
     pass. That is how a stage renders both its formats: a comma-joined --to is
     rejected by Quarto, and running one `--to` render after another cleans the
-    first's output out of _site. Operates on the staged copy; docs/ is untouched.
+    first's output out of _site. Operates on staged copies only.
     Unknown names in `keep` are simply absent from the result.
     """
     cfg = stage / "_quarto.yml"
@@ -376,7 +373,7 @@ def partition_formats(
 HELP = """\
 usage: quirework book build [--to FMT[,FMT...]] [--any-font] [quarto render args...]
 
-Render the book into build/ (the render workdir), never into the docs/
+Render the book into build/ (the render workdir), never into configured
 sources. Renders from three staged trees: HTML with the book's parts intact,
 Typst PDF with screen-only front matter emptied, and EPUB/DOCX with the parts
 flattened so Quarto cannot drop them. Chapter numbers stay identical across
@@ -386,7 +383,7 @@ Every final output lands in build/book/_site/.
 options:
   -h, --help        show this help message and exit
   --to FMT[,FMT..]  render only these declared formats (repeatable);
-                    default is everything declared in docs/_quarto.yml
+                    default is everything declared in book.quarto
   --any-font        render even if a required typeface is missing. Off by
                     default because a missing font does not fail: the
                     renderer substitutes and the book comes out whole and
@@ -429,7 +426,7 @@ def main(argv: list[str] | None = None) -> int:
         if unknown:
             # restrict_formats keeps only declared blocks, so an unknown name
             # would silently render nothing it promised.
-            config = current_project().path("book.quarto", "docs/_quarto.yml")
+            config = current_project().path("book.quarto")
             try:
                 named = config.relative_to(current_project().root)
             except ValueError:

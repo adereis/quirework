@@ -3,9 +3,9 @@
 replaying create_file / str_replace operations to their final state.
 
   usage: extract-files.py <conversation-uuid>
-  reads  private/provenance/conversations/<uuid>.raw.json
-  writes private/provenance/conversations/files/<uuid>/<basename>   (final content)
-         private/provenance/conversations/files/<uuid>/manifest.json
+  reads  .quirework/provenance/conversations/<uuid>.raw.json
+  writes .quirework/provenance/conversations/files/<uuid>/<basename>   (final content)
+         .quirework/provenance/conversations/files/<uuid>/manifest.json
 
 Only create_file and str_replace are replayed (the operations that deterministic-
 ally define file content). bash_tool / view / present_files are ignored. If a

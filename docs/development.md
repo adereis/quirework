@@ -85,9 +85,8 @@ the hook then runs that instead.
 Unit tests use fictional text and diagrams. They check project
 isolation, custom catalogs, formatting, artifact transforms, independent
 seats, interrupted receipts, forks, quota recovery, and immutable
-snapshots. The consuming book keeps its own integration tests, including
-exact parity with its historical questions and project-specific visual
-rules.
+snapshots. A consuming book keeps its own integration tests for its questions
+and project-specific visual rules.
 
 Run a minimal unrelated book through rendering as an installation check.
 Run the consumer's gates and relevant publication formats before

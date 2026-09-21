@@ -1,48 +1,21 @@
-"""The reader-facing field-term guard (`quirework text check`).
+"""Reader-facing terminology advisory (`quirework text check`).
 
-docs/AGENTS.md ("Editing the essay", the jargon bullet) owns the rule this
-reports on: every field term in reader-facing prose must be *avoided*,
-*introduced-and-glossed* on first use, or *confined to* `sources.qmd`.
-The book has always kept it; the exercises collection drifted and was
-swept back, which is what this module exists to make durable.
-
-It WARNS, it does not gate. The author is the instrument for this test
-and the ruling is his: docs/AGENTS.md is explicit that an agent's confidence
-that a term is "standard" is worth nothing here, because the agent has
-read the literature and the reader has not. So the check reports
-candidates with enough context to rule on, and the pre-commit hook
-prints them and lets the commit through.
-
-Scope is reader-facing prose only:
-
-  docs/canon/*.qmd     the book, minus sources.qmd
-  exercises/*.md       the companion collection (arguments)
-  cases/*.md           the companion collection (evidence)
-
-`sources.qmd` is where the rule *sends* field terms, so excluding it is
-the rule working, not a hole. The metadata layer (`_marks/`,
-`_framework.md`, `_map.md`) is agent-facing and dense on purpose, and is
-never scanned.
+The selected project supplies the terms, allowed contexts, source globs, and
+excluded filenames. The check reports candidates with enough context for an
+author to decide whether a term needs a gloss. It warns and does not gate.
 
 Three suppressions keep the signal honest, and all three are mechanical:
 
-  1. code spans -- `#qualia-deflation` is a slug citation, not a
+  1. code spans -- `#kettle-signal` is a slug citation, not a
      use of the word.
-  2. quoted material -- a paper title ("Epiphenomenal Qualia") or a
+  2. quoted material -- a paper title or a
      verbatim citation of the metadata layer. Quoting a register that
      licenses a word is not adopting it.
   3. an adjacent gloss -- the term introduced and explained on the spot,
      which is option two of the rule and already compliant.
 
-What the heuristics cannot see is in ALLOW, one entry per settled keep
-with its reason, so a clean tree reports zero and a newly introduced
-bare term is the only thing that shows up. An allowlist that grows
-without reasons is how this check dies; each entry carries why.
-
 Matching runs per paragraph over whitespace-normalized text, not per
-line, because the prose is hard-wrapped: "tu quoque" and "moral patient"
-can straddle a line break, and a line-wise grep would miss exactly the
-phrases most worth catching.
+line, because a term can straddle a hard line break.
 """
 
 from __future__ import annotations
@@ -70,21 +43,10 @@ from quirework.project import current_project
 # in the same paragraph as a settled keep.
 
 
-# sources.qmd is the rule's own destination for field terms; the metadata
-# layer is agent-facing. Neither is reader-facing prose.
-
-
 # Option two of the rule is "introduced-and-glossed on first use", so the
 # question a hit has to answer is whether the reader is told what the word
-# means where they meet it. Three shapes, all observed in the live text:
-#
-#   immediate    "animalism, the view that you are a biological organism"
-#   windowed     "**Animalism.** Eric Olson's view is that you are ..."
-#                "Ruth Millikan's teleosemantics grounds content in
-#                 selection history: what a state is about is ..."
-#                "For the panpsychist, experience in some faint form goes
-#                 all the way down" (the spout, the sentence kettles.md cites)
-#   preceding    "is what philosophy calls the Hard Problem" (where steam escapes)
+# means where they meet it. The patterns recognize immediate, surrounding, and
+# preceding explanations.
 #
 # The windowed tier is deliberately permissive. This is a warning, and a
 # warning that cries wolf is one nobody reads; a missed bare term costs a
@@ -106,23 +68,20 @@ GLOSS_WINDOWED = re.compile(
     re.I,
 )
 
-# "For the panpsychist, <what they hold>." The position's name, then its
-# content, in one sentence. Both halves are required: sentence-initial
-# "For the", AND the comma that opens the explanatory clause. Without the
-# second half this swallows any "... ask for the valence", which is the
-# exact sentence that triggered the sweep.
+# A sentence beginning "For the specialist, ..." can define a position. Both
+# the opener and the comma that starts the explanation are required.
 GLOSS_FOR_THE_BEFORE = re.compile(r"(?:^|(?<=[.;!?])\s)(?:For|To)\s+(?:the|a|an)\s*$")
 GLOSS_FOR_THE_AFTER = re.compile(r"^[a-z]*\s*,")
 
-# A gloss that PRECEDES the term: "what philosophy calls X", "known as X".
+# A gloss that precedes the term: "what the field calls X", "known as X".
 GLOSS_BEFORE = re.compile(
-    r"(?:what\s+philosophy\s+calls|philosophy\s+calls|known\s+as|"
+    r"(?:what\s+(?:the\s+)?[a-z-]+\s+calls|[a-z-]+\s+calls|known\s+as|"
     r"called|call(?:s|ed)?\s+it|the\s+name\s+for)\s*$",
     re.I,
 )
 
 # A following academic citation marks a work being named, not a term being
-# used: "Fading and dancing qualia (Chalmers, 1995)".
+# used: "A Field Guide (Rivera, 2025)".
 CITATION_AFTER = re.compile(
     r"^[a-z*]*\s*\(\s*[A-Z][\w.'-]+(?:\s*(?:and|&|,)\s*[A-Z][\w.'-]+)*,?\s*\d{4}",
 )
@@ -139,9 +98,7 @@ def _options():
         current_project().data("text.terminology", {}).get("allow", [])
     )
     SCOPE_GLOB = tuple(
-        current_project()
-        .data("text.terminology", {})
-        .get("scope_glob", (("docs", "*.qmd"),))
+        current_project().data("text.terminology", {}).get("scope_glob", ())
     )
     EXCLUDE_NAMES = set(
         current_project().data("text.terminology", {}).get("exclude_names", set())
@@ -239,8 +196,8 @@ def _mask_spans(text: str) -> list[tuple[int, int]]:
     for m in re.finditer(r"[\"“][^\"“”]{0,400}?[\"”]", text):
         spans.append(m.span())
     # Emphasis is deliberately NOT masked. Italics and bold mark work
-    # titles here, but they also mark ordinary stress ("the *other* way",
-    # "**Animalism.**" as a label), so masking them would silence a bare
+    # titles here, but they also mark ordinary stress ("the *other* way"), so
+    # masking them would silence a bare
     # term for the wrong reason. A named work is recognized instead by the
     # citation that follows it (CITATION_AFTER), which is the actual
     # signal.
@@ -269,9 +226,8 @@ def scan_text(text: str, path: str) -> list[Hit]:
 
     The rule is "introduced-and-glossed *on first use*", so a term the
     file explains anywhere is a term the reader has been given, and
-    later bare uses of it are correct rather than sloppy: fission
-    glosses animalism at its heading and then uses it plainly four lines
-    on. Reporting every occurrence would turn one editorial decision
+    later bare uses of it are correct rather than sloppy. Reporting every
+    occurrence would turn one editorial decision
     into four identical warnings.
     """
     paras = _paragraphs(text)
@@ -340,7 +296,7 @@ def _expand(paths: list[str]) -> tuple[list[Path], list[str]]:
     and anything in an underscore directory (`_marks/`, the metadata layer) —
     the same shape as the default scope. A named file is scanned as given.
     A path that exists as neither is returned in `missing`: silently
-    skipping it once made `jargon docs/canon` print a clean pass over
+    skipping it would make `jargon manuscript` print a clean pass over
     nothing, which is the worst answer a check can give.
     """
     files: list[Path] = []
@@ -387,7 +343,7 @@ def report(hits: list[Hit], stream=sys.stderr) -> None:
         by_file.setdefault(h.path, []).append(h)
     print(
         f"\nadvisory ({len(hits)} bare field term(s) in reader-facing prose; "
-        f'docs/AGENTS.md "Editing the essay" — warning, not gated):',
+        "warning, not gated):",
         file=stream,
     )
     for path, items in by_file.items():
@@ -397,8 +353,8 @@ def report(hits: list[Hit], stream=sys.stderr) -> None:
             print(f"          ...{h.window}...", file=stream)
             print(f"          -> {h.hint}", file=stream)
     print(
-        "\n  Each must be avoided, introduced-and-glossed on first use, or\n"
-        "  confined to sources.qmd. The author rules; do not batch-replace.",
+        "\n  Each term needs the treatment declared by project policy. "
+        "The author rules; do not batch-replace.",
         file=stream,
     )
 

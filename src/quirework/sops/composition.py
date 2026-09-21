@@ -41,9 +41,7 @@ def panel(name, *, root=None):
         root = current_project().root
     _text(name, "panel id")
     identifier(name)
-    path = (
-        current_project().path_at(root, "sops.panels", "sops/panels") / f"{name}.json"
-    )
+    path = current_project().path_at(root, "sops.panels") / f"{name}.json"
     if path.is_symlink():
         raise ValueError("panel source cannot be a symlink")
     raw = path.read_bytes().decode("utf-8")
@@ -95,11 +93,7 @@ def check_panels(*, root=None, base=None):
     root = Path(root)
     values = {
         p.stem: panel(p.stem, root=root)[0]
-        for p in sorted(
-            (current_project().path_at(root, "sops.panels", "sops/panels")).glob(
-                "*.json"
-            )
-        )
+        for p in sorted(current_project().path_at(root, "sops.panels").glob("*.json"))
     }
     if base:
 
@@ -115,7 +109,7 @@ def check_panels(*, root=None, base=None):
             "rev-parse", "--verify", "--end-of-options", base + "^{commit}"
         ).strip()
         directory = personas._project_relative(
-            root, current_project().path_at(root, "sops.panels", "sops/panels")
+            root, current_project().path_at(root, "sops.panels")
         )
         paths = set(
             git(

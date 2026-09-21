@@ -15,9 +15,9 @@ def _project(**settings):
 
 
 def test_a_project_with_one_review_directory_needs_no_list():
-    with project_scope(_project(runs={"reviews": "analysis/rounds"})):
-        assert artifact_paths.run_roots() == ("analysis/rounds",)
-        assert artifact_paths.run_evidence("analysis/rounds/a-read/seat/answer.md")
+    with project_scope(_project(runs={"reviews": ".quirework/reviews"})):
+        assert artifact_paths.run_roots() == (".quirework/reviews",)
+        assert artifact_paths.run_evidence(".quirework/reviews/a-read/seat/answer.md")
         assert not artifact_paths.run_evidence("manuscript/sections/opening.qmd")
 
 
@@ -39,11 +39,11 @@ def test_a_root_may_sit_at_any_depth():
 
 def test_the_operator_note_at_the_top_of_a_record_is_not_evidence():
     """The operator's own summary is written by hand and formatted like prose."""
-    with project_scope(_project(runs={"reviews": "analysis/rounds"})):
-        note = "analysis/rounds/a-read/_summary.md"
+    with project_scope(_project(runs={"reviews": ".quirework/reviews"})):
+        note = ".quirework/reviews/a-read/_summary.md"
         assert artifact_paths.run_operator_note(note)
         assert not artifact_paths.run_evidence(note)
-        deeper = "analysis/rounds/a-read/seat/_notes.md"
+        deeper = ".quirework/reviews/a-read/seat/_notes.md"
         assert not artifact_paths.run_operator_note(deeper)
         assert artifact_paths.run_evidence(deeper)
 
@@ -51,4 +51,4 @@ def test_the_operator_note_at_the_top_of_a_record_is_not_evidence():
 def test_a_project_that_declares_nothing_has_no_evidence_paths():
     with project_scope(_project()):
         assert artifact_paths.run_roots() == ()
-        assert not artifact_paths.run_evidence("analysis/rounds/a-read/answer.md")
+        assert not artifact_paths.run_evidence(".quirework/reviews/a-read/answer.md")

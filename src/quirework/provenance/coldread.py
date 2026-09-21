@@ -24,8 +24,8 @@ for most, Opus where depth is worth the tokens), and a mixed-model corpus
 must be stable, not converge back to the default by silent re-analysis.
 
 What is cached and committed:
-    private/provenance/coldread/manifest.json      index (private: points at raw logs)
-    private/provenance/coldread/reports/<key>.md   one blind-analyst report per source
+    .quirework/provenance/coldread/manifest.json      index (points at raw logs)
+    .quirework/provenance/coldread/reports/<key>.md   one analyst report per source
 
 What is NOT committed (regenerated on demand into ~/tmp):
     the filtered transcript renders the analysts read -- they contain verbatim
@@ -101,7 +101,6 @@ PROMPT_VERSIONS = {
     # as prior human direction and only the edges are diagnostic (2026-08-13).
     SCOPE.MAKING: 3,
 }
-PROMPT_VERSION = PROMPT_VERSIONS[SCOPE.BOOK]  # back-compat alias
 # The analysis model, selected by the author: Sonnet reads-and-classifies well
 # at a fraction of Opus cost, and the id here is what the CLI alias below
 # resolves to (recorded per the take-it-from-the-human doctrine).
@@ -141,8 +140,6 @@ def _reports_tmp():
 # under the brief it will actually be read with, rather than cache-hitting on a
 # report written to answer the other question.
 
-# back-compat alias
-# alias resolves to MODEL (claude-sonnet-5), recorded in cache
 ANALYZE_TIMEOUT_S = 600
 
 
@@ -155,6 +152,22 @@ def _options():
     """Read policy from the selected project for this operation."""
     from types import SimpleNamespace
 
+    project = current_project()
+    declared = [
+        project.get("book.source"),
+        *(project.get("book.companion_dirs", ()) or ()),
+        *(project.get("book.noncanonical_roots", ()) or ()),
+    ]
+    default_dirs = []
+    for value in declared:
+        if not value:
+            continue
+        path = Path(value)
+        try:
+            relative = path.relative_to(project.root) if path.is_absolute() else path
+        except ValueError:
+            continue
+        default_dirs.append(str(relative).strip("/") + "/")
     MODEL = current_project().data("provenance.coldread_policy", {}).get("model", None)
     CLI_MODEL = (
         current_project().data("provenance.coldread_policy", {}).get("cli_model", None)
@@ -165,7 +178,7 @@ def _options():
     _DOC_DIRS = tuple(
         current_project()
         .data("provenance.coldread_policy", {})
-        .get("doc_dirs", ("docs/",))
+        .get("doc_dirs", default_dirs)
     )
     return SimpleNamespace(
         CLI_MODEL=CLI_MODEL,
@@ -403,11 +416,11 @@ def load_manifest():
     return {
         "schema": 1,
         "filter_version": FILTER_VERSION,
-        "prompt_version": PROMPT_VERSION,
+        "prompt_version": PROMPT_VERSIONS[SCOPE.BOOK],
         "default_model": _options().MODEL,
         "updated": None,
         "sources": {},
-        "integrated_into": "private/provenance/authorship-coldread.md",
+        "integrated_into": ".quirework/provenance/authorship-coldread.md",
         "integrated_keys": [],
     }
 
@@ -524,7 +537,7 @@ def _lock_holder(fh):
 def save_manifest(m):
     m.pop("_dirty", None)
     m["filter_version"] = FILTER_VERSION
-    m["prompt_version"] = PROMPT_VERSION
+    m["prompt_version"] = PROMPT_VERSIONS[SCOPE.BOOK]
     # The corpus is mixed-model by design; only the per-source entries say
     # which model read which source. The top level records the default.
     m.pop("model", None)
@@ -598,14 +611,8 @@ def render_sha256(path):
 
 
 def report_name(sha, scope=SCOPE.BOOK, filter_version=None, persona=None):
-    """Cache filename for one source's report under one scope.
-
-    The book scope keeps the historical, scope-less name on purpose: folding
-    a scope token into it would orphan every report in the cache at the moment
-    the second run was added, re-buying two hundred analyses to rename them.
-    Only the making scope carries an infix.
-    """
-    tag = "" if scope == SCOPE.BOOK else f"-{scope}"
+    """Cache filename for one source's report under one scope."""
+    tag = f"-{scope}"
     version = FILTER_VERSION if filter_version is None else filter_version
     variant = "-persona-" + persona["sha256"] if persona else ""
     return f"{sha[:12]}-f{version}p{PROMPT_VERSIONS[scope]}{tag}{variant}.md"
@@ -778,19 +785,8 @@ def cmd_status(_args):
 
 
 def _render_out(scope=SCOPE.BOOK):
-    """Staging dir for one scope's renders.
-
-    The book scope keeps the historical path so existing habits and any
-    half-finished sweep still work; the making run stages beside it. Separate
-    dirs, not one mixed dir, because `analyze` sweeps whatever it finds and a
-    leftover render from the other run would be analyzed under this run's
-    brief.
-    """
-    return (
-        _render_base()
-        if scope == SCOPE.BOOK
-        else _render_base().with_name(_render_base().name + f"-{scope}")
-    )
+    """Staging directory for one analysis scope."""
+    return _render_base().with_name(_render_base().name + f"-{scope}")
 
 
 def _parse_scope(args):
@@ -1328,20 +1324,14 @@ def cmd_analyze(args):
 # mechanical execution, not authorship. Counting them as "doc" auto-keeps
 # plumbing sessions and hides them from the intelligent read.
 
-# exercises/ and cases/ are the reader-facing companion collections — tracked,
-# gate-checked canon companions, so editing them is authorship work, not
-# plumbing (author ruling; the docstring above always said so).
-
 
 def _repo_relative(fp):
     """A recorded edit path, made relative to whichever checkout it names.
 
     A session records absolute paths, and the checkout it ran in is not
-    necessarily the one this process was started from: with a `git worktree` in
-    play the same file is `<main>/docs/canon/x.qmd` in one session and
-    `<worktree>/docs/canon/x.qmd` in the next. Stripping only `ROOT` left the
-    other checkout's paths absolute, so every one of them classified `meta` --
-    a whole worktree's canon work reading as plumbing in triage and the catalog.
+    necessarily the one this process was started from. With a `git worktree` in
+    play the same file can live below either checkout. Stripping only the active
+    root would leave the other checkout's paths absolute and misclassify them.
     Longest checkout first, because one checkout's path can be a string prefix
     of another's.
     """
@@ -1515,8 +1505,8 @@ def cmd_triage(args):
     print(
         "'keep' is a prioritization signal, not a final verdict: confirm the top-edited"
     )
-    print("column shows canonical content (docs/canon/**, _map.md, the legacy spec),")
-    print("not just README/AGENTS/SOP plumbing -- a plumbing-only keep is removed too.")
+    print("Confirm that the top-edited column shows configured book material,")
+    print("not only project guides or tooling files.")
     print("web/era-a sessions are not shown; judge those manually.")
     if short_untracked:
         print(
@@ -1552,7 +1542,7 @@ subcommands (default: status):
       --only SUBSTR           restrict to renders matching SUBSTR
       --model M               analyst model (default: the configured one)
       --persona ID            reusable analyst profile; separate cache namespace
-  status --persona ID         inspect that profile's cache without changing legacy results
+  status --persona ID         inspect that profile's cache
       --limit N               analyze at most N renders
       --oldest                walk the corpus oldest-first (incremental sweeps
                               then cover a contiguous stretch of the arc)

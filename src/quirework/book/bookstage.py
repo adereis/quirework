@@ -1,14 +1,11 @@
 """Staged-book structure utilities shared by render, redpen, and panel-kit.
 
-Everything here operates on a *staged* copy of the book (`build/...`), never on
-`docs/` itself: walking and rewriting the staged `_quarto.yml`'s `book.chapters`
+Everything here operates on a staged copy of the book, never on configured
+sources: walking and rewriting the staged `_quarto.yml`'s `book.chapters`
 block (parts flattened for the formats that have no part concept), unnumbering a
 promoted part's H1, copying a figure gallery beside a standalone chapter, capping
 DOCX image widths for Google Docs, and repairing the two conformance defects the
-EPUB writers emit. These grew up inside redpen (the
-first consumer) and were extracted once render and panel-kit needed them too:
-they are book-structure concepts, not review concepts, and their old home forced
-lazy-import cycles in both directions.
+EPUB writers emit. These are book-structure concepts shared by several commands.
 """
 
 from __future__ import annotations
@@ -106,7 +103,7 @@ class _Item(NamedTuple):
     """One entry in a staged `book.chapters` list, as `_chapters_items` reads it.
 
     `kind` is `comment` (the line verbatim, so a rewrite can put it back),
-    `chapter` (a file), `part-file` (`part: canon/part-two.qmd`, a divider that
+    `chapter` (a file), `part-file` (`part: sections/part-two.qmd`, a divider that
     is itself prose) or `part-title` (`part: "Part One: …"`, a bare heading).
     `value` is the comment line, the file path, or the part title; `children`
     are the chapter files nested under a part."""
@@ -183,7 +180,7 @@ def book_chapters(stage: Path) -> list[str]:
     """Ordered chapter files from a staged `_quarto.yml`, parts flattened.
 
     Reading order, one entry per real file: bare chapters, file-based part dividers
-    (`part: canon/part-two.qmd`), and each part's nested chapters. Title-only parts
+    (`part: sections/part-two.qmd`), and each part's nested chapters. Title-only parts
     (`part: "Part One: …"`) contribute nothing, since they name no file."""
     _, _, _, _, items = _read_items(stage)
     out: list[str] = []
@@ -197,7 +194,7 @@ def book_chapters(stage: Path) -> list[str]:
 def _divider_slug(title: str) -> str:
     """A staged divider file's stem, by the book's own chapter-naming rule: the
     title lowercased and hyphenated, truncated at the first comma or colon. So
-    "Part One: What spouts do" is `part-one.qmd`."""
+    "Part One: Departures" is `part-one.qmd`."""
     head = re.split(r"[,:]", title, maxsplit=1)[0]
     return re.sub(r"[^a-z0-9]+", "-", head.lower()).strip("-") or "part"
 
@@ -206,9 +203,8 @@ def _divider_heading(title: str) -> str:
     """A divider H1's inline content: the title, split into its label and its
     name so a stylesheet can set the two apart.
 
-    Print does the same split in `docs/typst-show.typ` and for the same reason:
-    every part title reads "Part Two: What we pay them", and set as one line it
-    is too long for the measure. The label goes above a rule, small and tracked;
+    A configured print template can apply the same split. A long part title may
+    not fit the measure as one line. The label goes above a rule, small and tracked;
     the name below it carries the page. Doing the split HERE, in the markup, is
     what lets the EPUB have it: a stylesheet cannot separate two halves of one
     text node.
@@ -229,7 +225,7 @@ def _write_part_divider(stage: Path, title: str) -> str:
 
     `.unnumbered` so it consumes no chapter number (every format still reads
     1..N with the dividers between them), and `.part-divider` so the EPUB can
-    style it as the page it is (`docs/epub-styles.html`)."""
+    style it as the page it is."""
     rel = f"{_divider_slug(title)}.qmd"
     dest = stage / rel
     if dest.exists():
@@ -244,7 +240,7 @@ def flatten_book_parts(stage: Path) -> tuple[list[str], list[str]]:
     """Rewrite the staged `_quarto.yml` so nothing is lost to a `part:`.
 
     Word and EPUB book output have no part-divider concept: Quarto drops every
-    `part:` from those formats. For a *file*-based part (`part: canon/part-two.qmd`)
+    `part:` from those formats. For a *file*-based part (`part: sections/part-two.qmd`)
     that takes the whole part-opening essay down with it, prose and figures and
     all, without a warning; for a title-only part (`part: "Part One: …"`) it
     silently deletes the division of the book, which is how the EPUB shipped as
@@ -833,9 +829,8 @@ def conform_epub(epub_path: Path) -> None:
 # and would print the wrong figures.
 #
 # What DOES work is a raw block sitting in the document flow, where a `set`
-# rule applies to the rest of the body. `contents.qmd` is the precedent: it has
-# carried a raw `#outline` since the book had a contents page. These blocks are
-# written into the STAGED copies only, so `docs/` keeps no build scaffolding
+# rule applies to the rest of the body. These blocks are written into staged
+# copies only, so the configured sources keep no build scaffolding
 # and no prose file has to carry a print setting.
 #
 # `{=typst}` means every other format ignores the block, so HTML, EPUB and DOCX
@@ -895,8 +890,7 @@ def inject_typst_prologues(
 
 
 # The title a staged chapter is reduced to when a format should not print it.
-# `docs/typst-show.typ` matches this exact string and renders nothing; the two
-# must stay in step, and this is the only place it is spelled.
+# The configured Typst template matches this exact string and renders nothing.
 PRINT_OMIT_MARKER = "quirework-omit-from-this-format"
 
 
@@ -928,7 +922,7 @@ def blank_chapters(stage: Path, rels: set[str]) -> list[str]:
     So the entry stays, and the file is replaced by an unnumbered, unlisted
     heading carrying `PRINT_OMIT_MARKER`. Unnumbered keeps it out of the
     chapter count and unlisted keeps it out of the contents; the marker is what
-    `docs/typst-show.typ` matches to render nothing at all, so no page is
+    the configured Typst template matches to render nothing at all, so no page is
     emitted. The marker only ever exists in a staged copy.
 
     Returns the chapters actually emptied.

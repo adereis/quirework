@@ -1,22 +1,9 @@
 #!/usr/bin/env python3
-"""Wrap Markdown to the repo's line conventions, and strip trailing whitespace.
+"""Wrap Markdown according to project-selected line conventions.
 
-The repo wraps two ways, by how each file is consumed (see the root AGENTS.md
-"Markdown conventions"):
-
-* **Prose** (the canonical book: `docs/**/*.qmd`) is wrapped *one sentence per
-  line* ("semantic line breaks"). The book is read rendered or via the red-pen
-  `.docx`, almost never as source; sentence-per-line makes a sentence-level edit
-  a one-line diff, and Markdown still renders the paragraph as one flow (a lone
-  newline is a "soft break" = a space).
-
-* **Technical docs** (`AGENTS.md`/`CLAUDE.md`/`GEMINI.md`, `README.md`, the
-  canonical index `docs/canon/_map.md`, `analysis/`, `scratchpad/`, `ideas/`,
-  `books-and-papers/`, `exercises/`, `cases/`, provenance READMEs) are
-  hard-wrapped at 72 columns, one blank line between paragraphs, like most
-  open-source Markdown. These are read
-  as source in editors and terminals, so a bounded column keeps them legible; a
-  paragraph reflows only within itself, so the diff stays local.
+Prose uses semantic line breaks, with one sentence per source line. Technical
+documents use bounded columns. A configured classifier chooses the mode for a
+path, so no consumer directory layout is built into this module.
 
 Every mode also strips trailing whitespace from every line. Files that are
 generated or verbatim (the provenance transcripts/indexes, the panel raw output)
@@ -118,7 +105,7 @@ def _restore(text: str) -> str:
 # Known limitation: a quoted title ending in ? or ! that continues mid-sentence
 # with a space then ( or a digit reads as a boundary here, so `"...Bat?" (1974)`
 # splits and orphans the year. It is cosmetic (a soft break renders as a space),
-# but write such citations in the house style the rest of sources.qmd uses --
+# but write such citations in a project-selected house style --
 # `"Title?", 1974` (comma butting the closing quote), or year-in-front -- which
 # leaves no space+quote boundary to trip. Not fixed in the splitter on purpose:
 # `?"`/`!"` before a capital is genuinely ambiguous (title mid-sentence vs. a

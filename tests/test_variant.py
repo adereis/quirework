@@ -50,7 +50,12 @@ def _book(tmp_path):
 
 def _project(root, **overrides):
     settings = {
-        "book": {"source": "manuscript", "chapters": "manuscript/sections"},
+        "book": {
+            "source": "manuscript",
+            "quarto": "manuscript/_quarto.yml",
+            "chapters": "manuscript/sections",
+            "variants": "variants",
+        },
         "sops": {"root": "procedures"},
     }
     settings.update(overrides)

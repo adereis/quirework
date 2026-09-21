@@ -1,4 +1,4 @@
-"""Panel kit: airgap-ready artifacts for the blind reader panels (`sops/persona-panel.md`).
+"""Airgap-ready artifacts for blind reader panels.
 
 From a single fresh render, build the two artifact shapes the panels read:
 
@@ -6,39 +6,30 @@ From a single fresh render, build the two artifact shapes the panels read:
   - `chapters/NN-slug.pdf`  -- one PDF per reading segment (Path C: sequential reveal)
   - `manifest.json`         -- per-segment title, filename, page count, and the source SHA
 
-**The segments are SLICED out of `book.pdf`, never rendered a second time.** They
-are therefore the book: its 5.5 x 8.5 trim, its face, its measure, its folios and
-running heads, its figures where the typesetter put them, and its Part dividers.
-Rendering each chapter standalone -- the earlier design -- produced a second,
-unmaintained edition of the book (US Letter, Libertinus, 115 pages against the
-book's 169) and silently dropped every Part divider, because a title-only
-`part:` names no file. Both defects reached readers: one filed the missing Part
-pages as a confusion in the book, another quietly assigned Part One's chapters
-to Part Two. A kit that is not the book charges its own gaps to the author
-(`sops/author-voice-read.md`, "What differs").
+Segments are sliced out of `book.pdf`, never rendered a second time. They retain
+the published trim, typography, figures, running furniture, and part dividers.
+A standalone chapter render would be a different edition and could make a
+reader report a packaging defect as a defect in the canon.
 
 The slice is taken from the PDF's **own outline**, not from a page-range table
 and not by fingerprinting page text: `bookstage.book_outline` builds the same
 labels Quarto writes as bookmarks, so the two are compared entry by entry and a
 mismatch is a hard error rather than a kit that is off by a chapter.
 
-Segments are the units a reader actually consumes, which is not one per file:
+Segments are the units a reader actually consumes, which need not be one per file:
 
-  - the unlisted front matter (title page, welcome, copyright, dedication,
-    contents) is ONE block, because nobody reads it a page at a time;
+  - unlisted front matter is one block;
   - a Part divider RIDES on the chapter it opens, as it is bound in the book --
     the reader turns the divider and the chapter starts;
-  - the back matter is ONE block, for the same reason as the front;
-  - everything else -- the preface and each chapter -- is its own segment.
+  - back matter is one block;
+  - each remaining chapter is its own segment.
 
 `--run-dir` assembles the neutral directory a blind seat is pointed at: the body
 segments only (preface through the last chapter), no `book.pdf`, and a manifest
-describing exactly what was copied. That last part is not tidiness. The run dir
-used to be assembled by hand, and a shipped run's `manifest.json` was left
-malformed by the hand-edit that dropped two entries from it.
+    describing exactly what was copied.
 
 This module only builds the artifacts. It never launches a persona: the agent
-drives the blind runs under the SOP. The kit lives under `build/` (inside the
+    drives the blind runs under the project procedure. The kit lives under `build/` (inside the
 repo, git-ignored), so a blind seat must never read it in place -- assemble a run
 dir out of it, or the repo's `AGENTS.md` leaks into the read.
 """
@@ -243,7 +234,7 @@ def plan_segments(
 
 
 def _source_sha() -> tuple[str, bool]:
-    """(short HEAD SHA, working-tree-dirty) for the docs sources, for the manifest.
+    """(short HEAD SHA, working-tree-dirty) for configured book sources.
     The kit renders the working tree, so a dirty flag says the read includes
     uncommitted edits. Returns ("unknown", False) outside a git checkout."""
     try:
@@ -256,12 +247,9 @@ def _source_sha() -> tuple[str, bool]:
         ).stdout.strip()
     except (subprocess.CalledProcessError, FileNotFoundError):
         return "unknown", False
-    # The packet records whether the book it was made from had uncommitted
-    # edits, so the path asked about has to be the book's. It was the literal
-    # `docs`, which for any project whose source is named otherwise reports a
-    # clean tree always: the packet would then claim provenance it does not
-    # have, which is worse than not claiming any.
-    source = current_project().path("book.source", "docs")
+    # The packet records whether the book had uncommitted edits, so the status
+    # query must name the configured source tree.
+    source = current_project().path("book.source")
     try:
         named = source.relative_to(current_project().root)
     except ValueError:
@@ -396,10 +384,7 @@ def build(out_dir: Path) -> int:
         f"panel-kit: {len(dividers)} Part divider(s) ride on the chapter they open "
         f"({', '.join(dividers) or '-'})"
     )
-    print(
-        "assemble a run dir out of it (`--run-dir`); never point a seat at build/ "
-        "(see sops/persona-panel.md)."
-    )
+    print("assemble a run dir out of it (`--run-dir`); never point a seat at build/.")
     return 0
 
 
@@ -410,8 +395,7 @@ def assemble(kit_dir: Path, run_dir: Path, matter: bool = False) -> int:
     back matter are each one block and most seats have no business reading either:
     a trade reader, a high-schooler or a persona seat spends its tokens on the book,
     not on the copyright page and the colophon. `--with-matter` ships them for the
-    reads that do want them (the trust-signal tiering in
-    `sops/reader-readthrough.md`).
+    reads that do want them.
 
     No `book.pdf`: a sequential read must not be able to read ahead. And the
     kept segments are **renumbered from 1**, because a run dir that opened at

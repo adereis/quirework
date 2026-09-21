@@ -52,17 +52,17 @@ def test_main_thread_drops_injected_card_and_keeps_visible_dialogue(tmp_path):
             _message(
                 "user", "# AGENTS.md instructions for /repo\n\n<environment_context>x"
             ),
-            _message("user", "Please sharpen the spout argument."),
+            _message("user", "Please sharpen the kettle scene."),
             _message(
                 "assistant", "The weak point is the transition.", phase="commentary"
             ),
         ],
     )
     assert codex.records(path) == [
-        ("human", "Please sharpen the spout argument.", "2026-08-17T22:19:00Z"),
+        ("human", "Please sharpen the kettle scene.", "2026-08-17T22:19:00Z"),
         ("assistant", "The weak point is the transition.", "2026-08-17T22:19:00Z"),
     ]
-    assert codex.human_records(path)[0][1] == "Please sharpen the spout argument."
+    assert codex.human_records(path)[0][1] == "Please sharpen the kettle scene."
 
 
 def test_raw_labels_injected_context_instead_of_calling_it_human(tmp_path):
@@ -123,18 +123,18 @@ def test_apply_patch_targets_are_recovered_from_escaped_exec_input(tmp_path):
             "name": "exec",
             "input": (
                 'const patch = "*** Begin Patch\\n'
-                "*** Update File: /repo/docs/canon/the-spout.qmd\\n"
+                "*** Update File: /repo/manuscript/sections/the-sidecar.qmd\\n"
                 '@@\\n-old\\n+new\\n*** End Patch"; '
                 "await tools.apply_patch(patch);"
             ),
         },
     }
     path = _write(tmp_path / "rollout.jsonl", [_meta(), call])
-    assert codex.edit_paths(path) == ["/repo/docs/canon/the-spout.qmd"]
+    assert codex.edit_paths(path) == ["/repo/manuscript/sections/the-sidecar.qmd"]
     doc, meta, files = codex.edit_targets(
-        path, lambda value: "doc" if "/docs/" in value else "meta"
+        path, lambda value: "doc" if "/manuscript/" in value else "meta"
     )
-    assert (doc, meta, files) == (1, 0, {"the-spout.qmd": 1})
+    assert (doc, meta, files) == (1, 0, {"the-sidecar.qmd": 1})
 
 
 def test_torn_or_unknown_records_are_ignored(tmp_path):
@@ -225,7 +225,7 @@ def test_an_exec_marker_carries_the_command_not_just_the_tool_name(tmp_path):
                 'the workspace so the chapter can be verified?"});'
             ),
             _exec(
-                r"""const r = await tools.exec_command({"cmd":"rg -n \"the spout\" docs"});"""
+                r"""const r = await tools.exec_command({"cmd":"rg -n \"the kettle\" manuscript"});"""
             ),
             _exec(
                 'const r = await tools.exec_command({"cmd":["bash","-lc","ls -la"]});'
@@ -237,7 +237,7 @@ def test_an_exec_marker_carries_the_command_not_just_the_tool_name(tmp_path):
     # the justification is not the command, however quotable it looks
     assert "[exec_command: quirework book build]" in body
     assert "Allow the render" not in body
-    assert '[exec_command: rg -n "the spout" docs]' in body
+    assert '[exec_command: rg -n "the kettle" manuscript]' in body
     assert "[exec_command: bash -lc ls -la]" in body
 
 
@@ -266,7 +266,7 @@ def test_markers_sit_where_they_happened_and_repeats_collapse(tmp_path):
         tmp_path / "rollout.jsonl",
         [
             _meta(),
-            _message("user", "Fix the steamer chapter."),
+            _message("user", "Fix the sidecar chapter."),
             _exec('await tools.exec_command({"cmd":"rg -n steamer docs"});'),
             _exec('await tools.write_stdin({"chars":""});'),
             _exec('await tools.write_stdin({"chars":""});'),
@@ -290,14 +290,14 @@ def test_the_edits_stat_agrees_with_edit_paths(tmp_path):
     """catalog/triage count patches one way and the render another; one truth."""
     patch = (
         'const patch = "*** Begin Patch\\n'
-        "*** Update File: /repo/docs/canon/the-spout.qmd\\n"
-        "*** Update File: /repo/docs/canon/_marks/the-spout.md\\n"
+        "*** Update File: /repo/manuscript/sections/the-sidecar.qmd\\n"
+        "*** Update File: /repo/manuscript/sections/_marks/the-sidecar.md\\n"
         '*** End Patch"; await tools.apply_patch(patch);'
     )
     path = _write(tmp_path / "rollout.jsonl", [_meta(), _exec(patch)])
     body, stats = codex.filter_session(path)
     assert stats["edits"] == len(codex.edit_paths(path)) == 2
-    assert "[Edit the-spout.qmd]" in body and "[Edit the-spout.md]" in body
+    assert "[Edit the-sidecar.qmd]" in body and "[Edit the-sidecar.md]" in body
 
 
 def test_normalize_keeps_provenance_signal_and_drops_runtime_transport(tmp_path):
@@ -315,7 +315,7 @@ def test_normalize_keeps_provenance_signal_and_drops_runtime_transport(tmp_path)
     }
     patch = (
         'const patch = "*** Begin Patch\\n'
-        "*** Update File: /repo/docs/canon/the-spout.qmd\\n"
+        "*** Update File: /repo/manuscript/sections/the-sidecar.qmd\\n"
         '*** End Patch"; await tools.apply_patch(patch);'
     )
     call = _exec(patch)
@@ -332,7 +332,7 @@ def test_normalize_keeps_provenance_signal_and_drops_runtime_transport(tmp_path)
     rows = [
         meta,
         _message("user", "# AGENTS.md instructions for /repo\n\nInjected."),
-        _message("user", "Please sharpen the spout argument."),
+        _message("user", "Please sharpen the kettle scene."),
         reasoning,
         call,
         output,

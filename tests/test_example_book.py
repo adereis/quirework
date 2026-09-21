@@ -22,9 +22,13 @@ EXAMPLE = Path(__file__).resolve().parents[1] / "examples" / "demo-book"
 
 
 @pytest.fixture
-def book():
+def book(monkeypatch):
     if not (EXAMPLE / "quirework.toml").is_file():
         pytest.skip("the example book is not in this checkout")
+    # The example's extension is source in this repository. Put that source on
+    # the test import path so a fresh clone does not depend on an editable
+    # installation left behind in one contributor's virtual environment.
+    monkeypatch.syspath_prepend(str(EXAMPLE / "cvc_checks" / "src"))
     project = Project.load(EXAMPLE)
     with project_scope(project):
         yield project

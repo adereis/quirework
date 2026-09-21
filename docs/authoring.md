@@ -2,8 +2,8 @@
 
 This is the path from an empty directory to a book an AI companion can
 work on without keeping the whole project in one conversation. The
-finished project has a spec, marked chapters, figures, and its own
-procedures. Every command below was run against a throwaway project.
+finished project separates its spec, canon prose, variants, companion
+documents, scratchpad, and private material. Every command below was run against a throwaway project.
 Nothing here is specific to a particular book.
 
 You can follow this guide at a terminal. The expected use is to open the
@@ -43,10 +43,14 @@ without the ones below it.
 
 | Layer | What it is | The commands |
 |---|---|---|
-| Manuscript | Quarto chapters in a declared reading order | `book build`, `book chapters` |
+| Canon prose | Quarto chapters in a declared reading order | `book build`, `book chapters` |
 | Spec | one file of numbered commitments, each with a slug | `book notes --primer` |
 | Marks | per-chapter sidecars of `@`-annotations, including which spec section a chapter expresses | `book notes`, `book notes bind` |
+| Companion documents | reader-facing material that cites the spec or canon | `book notes --check` |
+| Variants | derived editions whose master remains the canon | `book variant` |
 | Figures | the book's illustration set, materialized into the build | `book figures` |
+| Scratchpad | disposable working material with no authority | project policy |
+| Private material | ignored sources and records that must not publish | project policy |
 | Procedures | the playbooks an AI companion follows, with personas and questions | `sop list`, `sop explain`, `sop skills` |
 | Provenance | the sessions the book was written in | `provenance search`, `provenance metrics` |
 
@@ -62,15 +66,21 @@ schema = 1
 
 [project]
 name = "A Small Notebook"
+scratchpad = "scratchpad"
+private = "private"
 
 [book]
 source = "manuscript"
+quarto = "manuscript/_quarto.yml"
 chapters = "manuscript/sections"
 build = "build"
+variants = "variants"
+companion_dirs = ["companion"]
+noncanonical_roots = ["scratchpad"]
 ```
 
-Quarto owns reading order and publication settings, so the book's
-`_quarto.yml` lives inside `book.source` and lists the chapters:
+Quarto owns reading order and publication settings. `book.quarto` names the
+file that lists the chapters:
 
 ```yaml
 lang: en-US
@@ -139,10 +149,8 @@ Point at it and it becomes the binding namespace:
 spec = "manuscript/sections/_spec.md"
 ```
 
-The file name is the project's own. Leaving `spec` unset makes Quirework
-look for `_framework.md` beside the chapters, which is one book's habit
-rather than a rule, so a project that calls the file something else
-simply says so here.
+The file name is the project's own. Commands that use bindings require this
+setting instead of guessing a name or location.
 
 The slugs are the whole mechanism. A chapter does not restate a
 commitment; it names the section it expresses, so changing a commitment

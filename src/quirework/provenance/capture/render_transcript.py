@@ -3,8 +3,8 @@
 transcript, preserving turn order, thinking blocks, and tool calls.
 
   usage: render-transcript.py <conversation-uuid>
-  reads  private/provenance/conversations/<uuid>.raw.json
-  writes private/provenance/conversations/<uuid>.md
+  reads  .quirework/provenance/conversations/<uuid>.raw.json
+  writes .quirework/provenance/conversations/<uuid>.md
 
 The .md is a derived convenience view. The .raw.json is the canonical, verbatim
 evidence — regenerate the .md from it rather than hand-editing.

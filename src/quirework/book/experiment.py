@@ -1,4 +1,4 @@
-"""Forked reader experiments. Procedure: sops/chapter-experiment.md.
+"""Forked reader experiments driven by a project-owned procedure.
 
 The operator owns assignment, artifacts and interpretation. A reader sees the
 same page transport and frozen read-through prompt on every arm. Runtime homes
@@ -42,11 +42,7 @@ def _settings():
     """Resolve paths from the current operation, without import-time state."""
     from types import SimpleNamespace
 
-    SOURCE = (
-        current_project().path("sops.root", "sops")
-        / "blind-drivers"
-        / "codex_reader_readthrough.py"
-    )
+    SOURCE = current_project().path("sops.reader_driver")
     return SimpleNamespace(SOURCE=SOURCE)
 
 
@@ -826,7 +822,7 @@ def prepare(args):
     else:
         manifest = read_json(args.original_kit / "manifest.json")
         if manifest["dirty"]:
-            raise RuntimeError("baseline kit must be rendered from clean HEAD docs")
+            raise RuntimeError("baseline kit must be rendered from clean canon sources")
         segments = [i for i in manifest["chapters"] if i["kind"] == "chapter"]
         start_matches = [i for i, s in enumerate(segments) if s["stem"] == args.chapter]
         end_slug = args.through_chapter or args.chapter

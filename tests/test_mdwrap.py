@@ -71,7 +71,7 @@ def test_comment_closing_and_reopening_on_one_line_is_split():
     # scanner used to hand the tail to _reflow_comment, which gave up silently
     src = (
         "<!-- @guidance first mark. -->"
-        "<!-- @ref second mark lives in ideas/exercises/ai-trolley.md -->"
+        "<!-- @ref second mark lives in companion/field-note.md -->"
     )
     out = mdwrap.rewrap(src)
     lines = out.split("\n")
@@ -131,12 +131,12 @@ def test_comment_closer_may_overhang_the_margin():
     # as a token would orphan it onto a line of its own. If you came here to
     # make annotations respect 72 strictly, that is the trade you are making --
     # see AGENTS.md, "Markdown conventions".
-    # the real @genesis mark from ch5, whose last line lands on the margin
+    # A fictional @genesis mark whose last line lands on the margin.
     src = (
-        "<!-- @genesis Rocky was a natural choice: the author is a fan of "
-        "Project Hail Mary and of science fiction generally, and Rocky is "
-        "alien, widely known, and ties straight to the philosophical Bat "
-        "(Nagel). -->"
+        "<!-- @genesis Lin was a natural choice: the author is a fan of "
+        "The Glass Station and of science fiction generally, and Lin is "
+        "fictional, familiar inside the story, and tied to its invented "
+        "field guide. -->"
     )
     lines = mdwrap.rewrap(src).split("\n")
     assert all(len(l) <= 72 for l in lines[:-1])

@@ -107,128 +107,6 @@ def book(
     return str(output)
 
 
-def comparison(prepared, output, *, persona=None):
-    """Compile an existing *prepared* chapter artifact into the shared engine.
-
-    Existing active/completed records are not converted or resumed here. The
-    original preparation tool remains the owner of clean render/patch checks.
-    """
-    prepared = Path(prepared).expanduser().resolve()
-    p = read(prepared / "plan.json")
-    if (prepared / "state.json").exists():
-        raise ValueError("do not convert an active or completed legacy experiment")
-    if p.get("protocol") != "chapter-experiment-v2":
-        raise ValueError("unsupported chapter artifact protocol")
-    if digest(prepared / "plan.json") != (prepared / "plan.sha256").read_text().strip():
-        raise ValueError("prepared comparison plan changed")
-    for rel, value in p["hashes"].items():
-        if digest(prepared / rel) != value:
-            raise ValueError("prepared comparison input changed")
-    baseline = p.get("baseline_manifest")
-    if baseline and baseline.get("dirty"):
-        raise ValueError("comparison baseline is not clean")
-
-    def images(arm):
-        return [
-            digest(prepared / f)
-            for segment in p["arms"][arm]["segments"]
-            for f in segment["pages"]
-        ]
-
-    if images("a") != images("b"):
-        raise ValueError("duplicate-original control differs")
-
-    from quirework.sops import personas
-
-    synthetic = bool(p.get("canary_markers"))
-    old_role, selected = "", None
-    if synthetic and persona is not None:
-        raise ValueError("a transport canary keeps its literal prompts")
-    if not synthetic:
-        reader = p.get("seat", "trade")
-        boundaries = {
-            "trade": " This is about the EXPERIENCE of reading",
-            "skeptic": "\n\nYou are still a reader, not a reviewer.",
-        }
-        if reader not in boundaries:
-            raise ValueError("unrecognized frozen reader kind")
-        old_role, boundary, _ = p["prompts"]["first"].partition(boundaries[reader])
-        if (
-            not boundary
-            or not old_role.strip()
-            or any(p["prompts"][key].count(old_role) != 1 for key in ("first", "next"))
-        ):
-            raise ValueError(
-                "cannot identify the frozen role without changing its questions"
-            )
-        # This is a compatibility record derived from the frozen prompt, not
-        # an assertion that an old run used a current catalog revision.
-        original = {
-            "schema_version": 1,
-            "id": f"legacy-{reader}-reader",
-            "revision": 1,
-            "label": f"Frozen {reader} reader",
-            "tags": ["reader"],
-            "description": "Exact perspective recovered from this prepared comparison.",
-            "prompt": old_role,
-        }
-        selected = personas.resolve(
-            persona if persona is not None else {"inline": original}
-        )
-
-    def turn(row, index, first=False):
-        return dict(
-            id=f"part-{index:03d}",
-            prompt=p["prompts"]["first" if first else "next"].replace(
-                old_role, "{{persona}}"
-            )
-            if selected
-            else p["prompts"]["first" if first else "next"],
-            headings=p["prompts"]["headings"],
-            materials=[
-                dict(source=str(prepared / f), delivery="image") for f in row["pages"]
-            ],
-        )
-
-    policy = dict(tools="none", filesystem="enforced")
-    common = dict(
-        harness=p["runner"],
-        model=p["model"],
-        effort=p["effort"],
-        policy=policy,
-        persona={"frozen": selected} if selected else None,
-        scope="passage",
-    )
-    parent = [turn(r, i, i == 0) for i, r in enumerate(p["prefix"])]
-    if not parent:
-        raise ValueError("comparison needs a completed prefix boundary")
-    seats = [dict(common, id="parent", turns=parent)]
-    for arm in p["order"]:
-        seats.append(
-            dict(
-                common,
-                id=arm,
-                parent=dict(seat="parent", after=parent[-1]["id"]),
-                turns=[turn(r, i) for i, r in enumerate(p["arms"][arm]["segments"])],
-            )
-        )
-    value = dict(
-        title="Forked chapter comparison",
-        source=dict(source_sha=p["source_sha"]),
-        metadata=dict(
-            legacy_preparation_sha=digest(prepared / "plan.json"),
-            arm_order=p["order"],
-            prompt_revision=p["prompt_revision"],
-            control_pair=["a", "b"],
-        ),
-        seats=seats,
-    )
-    if Path(output).exists():
-        raise ValueError("plan output exists")
-    write(output, value)
-    return str(output)
-
-
 def bundle(
     artifact,
     output,
@@ -327,15 +205,14 @@ def main(argv=None):
         description="Compile declared book materials into run plans.",
     )
     sub = p.add_subparsers(dest="kind", required=True)
-    for kind in ("read", "bundle", "compare"):
+    for kind in ("read", "bundle"):
         child = sub.add_parser(kind)
         child.add_argument("source")
         child.add_argument("output")
         child.add_argument("--persona")
-        if kind != "compare":
-            child.add_argument("--harness", required=True)
-            child.add_argument("--model", required=True)
-            child.add_argument("--effort", default="xhigh")
+        child.add_argument("--harness", required=True)
+        child.add_argument("--model", required=True)
+        child.add_argument("--effort", default="xhigh")
         if kind == "read":
             child.add_argument("--seat", help="configured reader preset")
             child.add_argument("--instrument", help="explicit question instrument")
@@ -345,8 +222,7 @@ def main(argv=None):
             child.add_argument("--text-only", action="store_true")
     args = p.parse_args(argv)
     common = {"persona": args.persona}
-    if args.kind != "compare":
-        common.update(harness=args.harness, model=args.model, effort=args.effort)
+    common.update(harness=args.harness, model=args.model, effort=args.effort)
     if args.kind == "read":
         result = book(
             args.source,
@@ -364,7 +240,5 @@ def main(argv=None):
             images=not args.text_only,
             **common,
         )
-    else:
-        result = comparison(args.source, args.output, **common)
     print(json.dumps(result, indent=2))
     return 0

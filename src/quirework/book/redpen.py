@@ -21,7 +21,7 @@ the transform, not prose. See ``double_figures``.
 `build` also injects a visible **review-notes block** at each section top (bounded
 by the ``NOTES_START`` / ``NOTES_END`` sentinels), so the author sees the
 work-in-progress while reading and can edit it in place; this happens in the
-staged tree only, never in ``docs/``. The block is **author-facing**: it carries
+staged tree only, never in the configured sources. The block is **author-facing**: it carries
 the human-readable authorial layers — ``@guidance`` (how it should read),
 ``@genesis`` (where it came from: why this subject, the inspiration behind it),
 and ``@variant`` (what a derived edition does differently here). The bodyless
@@ -35,9 +35,8 @@ the review copy). There are three flavors:
   full). A pointer inherits its target's audience: only ``@see`` marks resolving
   to the three block kinds appear, so the list can never name a note the document
   did not print (see ``_see_pointers``);
-* **the preface** — the preface (``preface.qmd``) gets its own block too;
 * **book-wide** — a single block at the very top of the document, built from
-  ``docs/canon/_review-notes.md`` (a never-rendered HTML-comment manifest of
+  ``book.review_notes`` (a never-rendered HTML-comment manifest of
   notes that apply across the whole book). A whole-book note is written once
   there and *referred to* where it bites via ``@see(slug)`` marks, never repeated
   verbatim in every chapter.
@@ -45,7 +44,7 @@ the review copy). There are three flavors:
 A whole-book `build` also **flattens the book's parts** in the staged tree: Word
 has no part-divider concept and Quarto drops every ``part:`` from that format,
 which would silently take a file-based part's whole opening essay
-(``part: canon/part-two.qmd``) with it. See ``flatten_book_parts``.
+(``part: sections/part-two.qmd``) with it. See ``flatten_book_parts``.
 
 `read` parses a `.docx` exported from Google Docs and reports these channels,
 each located back to a source line:
@@ -58,8 +57,8 @@ each located back to a source line:
   **Suggesting mode** to arrive as tracked changes; plain-mode edits bake into the
   body and are not read here (they can only be recovered by a noisy diff);
 * **review-notes edits** — tracked changes made *inside* a review-notes block,
-  grouped by the block they belong to (a chapter, the preface, or ``«book-wide»``
-  → ``docs/canon/_review-notes.md``), to be folded back into that section's
+  grouped by the block they belong to (a chapter or ``«book-wide»`` routed to
+  ``book.review_notes``), to be folded back into that section's
   ``@guidance`` / ``@genesis`` / ``@variant`` metadata rather than into prose;
 * **review-notes free edits** — the review-notes block is *generated* from source,
   so a block edited in **plain mode** (not Suggesting) is still recoverable: its
@@ -77,8 +76,8 @@ only the *delta* from source (right for folding small edits back); when a block
 carries a full first-person guidance or genesis account, the delta loses the
 words and structure, so `notes` reproduces it instead.
 
-Nothing is applied automatically: `read` reports, the operator triages (see
-`sops/redpen.md`). Pure stdlib (zip + ElementTree); the `.docx` is an OOXML zip.
+Nothing is applied automatically: `read` reports and the operator triages under
+the project's procedure. Pure stdlib (zip + ElementTree); the `.docx` is an OOXML zip.
 """
 
 from __future__ import annotations
@@ -121,11 +120,21 @@ def _settings():
     """Resolve paths from the current operation, without import-time state."""
     from types import SimpleNamespace
 
-    CANONICAL = current_project().path("book.chapters", "docs/canon")
+    CANONICAL = current_project().path("book.chapters")
+    SOURCE = current_project().path("book.source")
+    REVIEW_NOTES = (
+        current_project().path("book.review_notes")
+        if current_project().get("book.review_notes") is not None
+        else None
+    )
     BUILD_REDPEN = current_project().path("book.build", "build") / "redpen"
     STAGE_REDPEN = current_project().path("book.build", "build") / "redpen-stage"
     return SimpleNamespace(
-        BUILD_REDPEN=BUILD_REDPEN, CANONICAL=CANONICAL, STAGE_REDPEN=STAGE_REDPEN
+        BUILD_REDPEN=BUILD_REDPEN,
+        CANONICAL=CANONICAL,
+        REVIEW_NOTES=REVIEW_NOTES,
+        SOURCE=SOURCE,
+        STAGE_REDPEN=STAGE_REDPEN,
     )
 
 
@@ -182,7 +191,7 @@ def _strip_heading_number(s: str) -> str:
 
 # Review-notes block: human-facing marks, surfaced as a visible, editable block
 # in the review .docx so the author sees what is in progress while reading
-# — and can edit it in place. Injected only into the *staged* tree (never docs/);
+# — and can edit it in place. Injected only into the staged tree;
 # the sentinels below let `read` recognize the block and route its edits back to
 # metadata rather than into prose. The book-wide block has its own start sentinel
 # (it contains NOTES_START as a substring, so `read` must test it first) and its
@@ -194,11 +203,7 @@ NOTES_END = "end review notes"
 # The captions rendered at the head of each section inside a block (render_block
 # emits them as `*<caption>*`; Google renders the italics away). Matched on their
 # opening word(s) so `redpen notes` can group a block's items under their section.
-# The retired Concepts captions remain readable for historical review documents;
-# new builds never emit them.
 _NOTE_CAPTIONS = (
-    "concepts",
-    "concept",
     "guidance",
     "genesis",
     "variant notes",
@@ -208,28 +213,14 @@ _NOTE_CAPTIONS = (
 
 
 def _caption_of(low: str) -> str | None:
-    """The section a paragraph opens, including retired Concepts captions in
-    historical review documents. Longest match wins."""
+    """The section a paragraph opens. Longest match wins."""
     for c in sorted(_NOTE_CAPTIONS, key=len, reverse=True):
         if low.startswith(c + ":"):
             return c
     return None
 
 
-# The book-wide notes live in this never-rendered manifest (leading underscore +
-# absent from _quarto.yml).
-BOOK_NOTES = "_review-notes.md"
 BOOK_NOTES_LABEL = "«book-wide»"
-# Two distinct front-matter files, once conflated when the preface *was* index.qmd:
-#   FIRST_FILE -- Quarto force-pins index.qmd to reading-position 1 in every
-#     format, so it is the top of the document. The workflow guide and the
-#     book-wide notes block go here (they must sit at the very front). It now
-#     holds the short welcome landing, not the preface.
-#   PREFACE -- the preface, its own front-matter page (in docs/, a level up from
-#     docs/canon/). It gets its own review-notes block and its sidecar lives at
-#     docs/_marks/preface.md.
-FIRST_FILE = "index.qmd"
-PREFACE = "preface.qmd"
 
 _H1 = re.compile(r"(?m)^# .+$")
 _FRONTMATTER = re.compile(r"(?s)\A---\n.*?\n---[ \t]*\n")
@@ -286,8 +277,8 @@ def render_notes_block(
             genesis,
         ),
         (
-            "Variant notes: what a derived edition (young-reader, SWE, philosopher, "
-            "...) should do differently here. Not part of the canonical book.",
+            "Variant notes: what a derived edition should do differently here. "
+            "Not part of the canonical book.",
             variant,
         ),
     ]
@@ -307,7 +298,7 @@ def render_book_notes_block(
     genesis: list[str],
     variant: list[str],
 ) -> str:
-    """The single book-wide review-notes block, from docs/canon/_review-notes.md."""
+    """The single book-wide review-notes block."""
     intro = (
         "*These notes apply across the whole book, not to one chapter. A "
         "chapter that leans on one shows a short pointer down in its own "
@@ -317,9 +308,8 @@ def render_book_notes_block(
         ("Guidance: book-wide voice, depth, theme, goals.", guidance),
         ("Genesis: where the book came from -- the inspirations behind it.", genesis),
         (
-            "Variant notes: what a derived edition does differently throughout "
-            "(e.g. the SWE edition's tools/models/repo material). Not part of the "
-            "canonical book.",
+            "Variant notes: what a derived edition does differently throughout. "
+            "Not part of the canonical book.",
             variant,
         ),
     ]
@@ -359,32 +349,41 @@ def _anno_lines(annos, kind: str) -> list[str]:
     return out
 
 
-def book_notes(canonical_dir: Path):
-    """The @-annotations in the book-wide notes manifest ([] when it is absent)."""
-    f = canonical_dir / BOOK_NOTES
+def _source_root_for(chapter_dir: Path) -> Path:
+    """The source root that contains a configured chapter directory."""
+    root = Path(chapter_dir)
+    for _ in current_project().chapter_subdir.parts:
+        root = root.parent
+    return root
+
+
+def _review_notes_path(chapter_dir: Path) -> Path | None:
+    """The configured review manifest mapped into the supplied source tree."""
+    configured = _settings().REVIEW_NOTES
+    if configured is None:
+        return None
+    try:
+        relative = configured.relative_to(_settings().SOURCE)
+    except ValueError:
+        return configured
+    return _source_root_for(chapter_dir) / relative
+
+
+def book_notes(chapter_dir: Path):
+    """The configured book-wide annotations, or an empty list."""
+    f = _review_notes_path(chapter_dir)
     return (
-        _notes.scan_text(f.read_text(encoding="utf-8"), BOOK_NOTES)
-        if f.exists()
+        _notes.scan_text(f.read_text(encoding="utf-8"), f.name)
+        if f is not None and f.exists()
         else []
     )
 
 
-def _sidecar_annos(qmd: Path, src_canon: Path):
-    """A chapter's own marks, read from its source sidecar `_marks/<stem>.md`.
-
-    The per-chapter metadata lives beside the chapter in the *source* tree and is
-    never staged (render mirrors exclude `_marks/`), so the build path reaches
-    into the source for it while injecting the review block into the staged
-    prose. The preface (`preface.qmd`) sits a level up (in `docs/`, not
-    `docs/canon/`), so its sidecar is `docs/_marks/preface.md`; every canon
-    chapter's is `docs/canon/_marks/<stem>.md`. Empty list when the chapter has
-    no marks (no sidecar)."""
-    if qmd.name == PREFACE:
-        side = src_canon.parent / _notes.MARKS_DIR / "preface.md"
-    else:
-        side = src_canon / _notes.MARKS_DIR / f"{qmd.stem}.md"
+def _sidecar_annos(source: Path):
+    """A prose file's annotations from its sibling metadata sidecar."""
+    side = source.parent / _notes.MARKS_DIR / f"{source.stem}.md"
     return (
-        _notes.scan_text(side.read_text(encoding="utf-8"), qmd.name)
+        _notes.scan_text(side.read_text(encoding="utf-8"), source.name)
         if side.exists()
         else []
     )
@@ -408,10 +407,7 @@ def _see_pointers(annos, by_slug: dict) -> list[str]:
     **A pointer inherits its target's audience.** A @see at a non-block note,
     normally @todo, is agent cross-referencing and is dropped here: it stays
     harvested by `quirework book notes` but never reaches the review copy. The same
-    filter prevents a malformed or legacy binding note from leaking through a
-    pointer. Without it, the block once echoed dense contract text into several
-    chapters while telling the author to edit a note the document never printed.
-    Filtering here is what makes that caption true."""
+    filter prevents a malformed binding note from leaking through a pointer."""
     out = []
     for a in annos:
         if a.kind != "see":
@@ -434,7 +430,7 @@ def _see_pointers(annos, by_slug: dict) -> list[str]:
     return out
 
 
-def _inject_own_block(qmd: Path, by_slug: dict, src_canon: Path) -> bool:
+def _inject_own_block(qmd: Path, by_slug: dict, source: Path) -> bool:
     """Insert a section's own review-notes block at its title anchor (H1, or the
     preface's frontmatter). False when the file has no anchor to sit under. The
     block is built from the chapter's source sidecar (`_sidecar_annos`); the
@@ -443,7 +439,7 @@ def _inject_own_block(qmd: Path, by_slug: dict, src_canon: Path) -> bool:
     pt = _insert_point(text)
     if pt is None:
         return False
-    annos = _sidecar_annos(qmd, src_canon)
+    annos = _sidecar_annos(source)
     block = render_notes_block(
         _anno_lines(annos, "guidance"),
         _anno_lines(annos, "genesis"),
@@ -456,34 +452,14 @@ def _inject_own_block(qmd: Path, by_slug: dict, src_canon: Path) -> bool:
     return True
 
 
-def inject_review_notes(canonical_dir: Path, src_canon: Path = None) -> int:
-    """Insert each staged chapter's own review-notes block after its H1, built
-    from that chapter's source-sidecar human-facing marks plus a *See
-    also* list resolving its @see(slug) pointers against the book-wide notes.
-    Injects into the staged tree (`canonical_dir`) while reading the marks from
-    the source tree (`src_canon`, since `_marks/` is not staged); returns the
-    number of chapters injected. `_review-notes.md` is the book-wide source, not
-    a chapter, and is not a `.qmd` so the glob skips it."""
-    if src_canon is None:
-        src_canon = _settings().CANONICAL
-    by_slug = _book_notes_by_slug(book_notes(canonical_dir))
+def inject_review_notes(stage: Path) -> int:
+    """Insert review blocks into every configured prose file in reading order."""
+    chapter_dir = stage / current_project().chapter_subdir
+    by_slug = _book_notes_by_slug(book_notes(chapter_dir))
     return sum(
-        _inject_own_block(qmd, by_slug, src_canon)
-        for qmd in sorted(canonical_dir.glob("*.qmd"))
-    )
-
-
-def inject_preface_notes(stage: Path, src_canon: Path = None) -> bool:
-    """Give the preface (``preface.qmd``) its own block too."""
-    if src_canon is None:
-        src_canon = _settings().CANONICAL
-    preface = stage / PREFACE
-    if not preface.exists():
-        return False
-    return _inject_own_block(
-        preface,
-        _book_notes_by_slug(book_notes(stage / current_project().chapter_subdir)),
-        src_canon,
+        _inject_own_block(stage / rel, by_slug, _settings().SOURCE / rel)
+        for rel in _bookstage.book_chapters(stage)
+        if (stage / rel).is_file()
     )
 
 
@@ -519,8 +495,8 @@ Each chapter has a bordered block near its top, marked *review notes
   (voice, length, depth, theme, goals). Extend or correct freely.
 - **Genesis:** where the chapter came from -- why this subject, the
   inspiration behind it. Your origin story; never an agent's to invent.
-- **Variant notes:** what a derived edition (young-reader, SWE,
-  philosopher, ...) should do differently here. Not part of the book.
+- **Variant notes:** what a derived edition should do differently here.
+  Not part of the book.
 
 These blocks **can be edited freely in plain mode** (no Suggesting
 needed). The tool recovers your changes by comparing against the
@@ -542,20 +518,29 @@ to the review-notes blocks, and map each one back to its source line.
 """
 
 
+def _first_book_file(stage: Path) -> Path | None:
+    """The first configured prose file that exists in a staged book."""
+    return next(
+        (
+            stage / rel
+            for rel in _bookstage.book_chapters(stage)
+            if (stage / rel).is_file()
+        ),
+        None,
+    )
+
+
 def inject_guide(stage: Path, chapter: str | None) -> bool:
     """Inject the review-workflow guide into the staged tree.
 
-    Whole-book: inject into ``index.qmd`` (Quarto force-pins it to
-    reading-position 1 regardless of ``_quarto.yml`` order, so it is the top of
-    the document; a separate file would land lower).
-    Single-chapter: inject into the chapter file between frontmatter
-    and H1."""
+    Whole-book builds use the first configured prose file. Single-chapter
+    builds use that chapter. The guide sits after any YAML frontmatter."""
     if chapter:
         stem = chapter[:-4] if chapter.endswith(".qmd") else chapter
         target = stage / current_project().chapter_subdir / f"{stem}.qmd"
     else:
-        target = stage / FIRST_FILE
-    if not target.exists():
+        target = _first_book_file(stage)
+    if target is None or not target.exists():
         return False
     text = target.read_text(encoding="utf-8")
     fm = _FRONTMATTER.match(text)
@@ -567,15 +552,17 @@ def inject_guide(stage: Path, chapter: str | None) -> bool:
 
 def inject_book_block(stage: Path, chapter: str | None) -> bool:
     """Insert the book-wide block at the very top of the document: into the
-    first-rendered file (``index.qmd``, the welcome) for a whole-book build, or
+    first configured prose file for a whole-book build, or
     into the single chapter for a --chapter build (so the book-wide notes ride
     along either way). Runs *after* the own-block injectors, so it lands above
     the target's own block. False when there is no manifest or no target to
     inject into."""
     canonical = stage / current_project().chapter_subdir
-    if not (canonical / BOOK_NOTES).exists():
+    if _review_notes_path(canonical) is None:
         return False
     annos = book_notes(canonical)
+    if not annos:
+        return False
     block = render_book_notes_block(
         _anno_lines(annos, "guidance"),
         _anno_lines(annos, "genesis"),
@@ -585,8 +572,8 @@ def inject_book_block(stage: Path, chapter: str | None) -> bool:
         stem = chapter[:-4] if chapter.endswith(".qmd") else chapter
         target = canonical / f"{stem}.qmd"
     else:
-        target = stage / FIRST_FILE
-    if not target.exists():
+        target = _first_book_file(stage)
+    if target is None or not target.exists():
         return False
     text = target.read_text(encoding="utf-8")
     pt = _insert_point(text)
@@ -973,9 +960,10 @@ def _block_lines(block_md: str) -> list[str]:
 
 
 def _source_h1_map(src_dir: Path) -> dict[str, Path]:
-    """{lower-cased H1 title -> chapter file}, to resolve a doc heading to source."""
+    """{lower-cased H1 title -> prose file}, to resolve a document heading."""
     m: dict[str, Path] = {}
-    for f in sorted(src_dir.glob("*.qmd")):
+    source_root = _source_root_for(src_dir)
+    for f in sorted(source_root.rglob("*.qmd")):
         h1 = _H1.search(f.read_text(encoding="utf-8"))
         if h1:
             m[_norm(re.sub(r"\{#.*?\}", "", h1.group(0).lstrip("#"))).lower()] = f
@@ -988,7 +976,7 @@ def _render_source_block(
     """The block freshly rendered from *current* source for `owner`, as comparable
     lines — or None if the owner can't be resolved to a source file."""
     if owner == BOOK_NOTES_LABEL:
-        if not (src_dir / BOOK_NOTES).exists():
+        if _review_notes_path(src_dir) is None:
             return None
         annos = book_notes(src_dir)
         return _block_lines(
@@ -1001,12 +989,8 @@ def _render_source_block(
     key = _norm(_strip_heading_number(owner)).lower()
     f = h1map.get(key)
     if f is None:
-        pref = src_dir.parent / PREFACE
-        if key == "preface" and pref.exists():
-            f = pref
-        else:
-            return None
-    annos = _sidecar_annos(f, src_dir)
+        return None
+    annos = _sidecar_annos(f)
     by_slug = _book_notes_by_slug(book_notes(src_dir))
     return _block_lines(
         render_notes_block(
@@ -1163,7 +1147,7 @@ def format_review(rev: Review) -> str:
         out.append(
             f"\n### REVIEW-NOTES EDITS ({len(rev.notes_edits)}) "
             f"-> fold into @guidance / @genesis / @variant metadata, not prose "
-            f"({BOOK_NOTES_LABEL} -> docs/canon/{BOOK_NOTES})"
+            f"({BOOK_NOTES_LABEL} -> configured book.review_notes)"
         )
         for owner, red in rev.notes_edits:
             out.append(f"\n[{owner}]\n  {red}")
@@ -1203,7 +1187,7 @@ _COLOR_EMBED = re.compile(
 def double_figures(stage_canon: Path) -> int:
     """Append each color figure's grayscale twin beneath it, in the staged canon.
 
-    Rewrites the *staged* chapter prose only (never `docs/`): after every embed
+    Rewrites staged chapter prose only: after every embed
     line pointing at the color gallery (`illustrations/NAME.svg`), insert the
     generated gray image (`illustrations-gray/NAME.svg`, bare and uncaptioned so
     it takes no figure number of its own) and a label. The original embed line is
@@ -1243,7 +1227,8 @@ def _build_chapter(
     src_qmd = stage / current_project().chapter_subdir / f"{stem}.qmd"
     if not src_qmd.exists():
         print(
-            f"redpen: no chapter '{stem}' (looked for canon/{stem}.qmd)",
+            f"redpen: no chapter '{stem}' "
+            f"(looked under {current_project().chapter_subdir})",
             file=sys.stderr,
         )
         return 2, None
@@ -1300,11 +1285,7 @@ def build(chapter: str | None, out_dir: Path, gray: bool = False) -> int:
         print(
             f"redpen: --gray: generated {ng} grayscale twin(s), doubled {nd} figure(s)"
         )
-    n = inject_review_notes(
-        stage / current_project().chapter_subdir
-    )  # guidance/genesis/variant per chapter
-    if inject_preface_notes(stage):  # the preface gets one too
-        n += 1
+    n = inject_review_notes(stage)
     book = inject_book_block(stage, chapter)  # book-wide block at the document top
     guide = inject_guide(stage, chapter)  # workflow guide at the very front
     print(
@@ -1462,8 +1443,8 @@ def _dump_raw(docx: Path, raw_dir: Path) -> list[str]:
 
     The `.docx` itself is not archived (binary, and mostly embedded images);
     these parts are plain text, diffable, and carry every comment, tracked
-    change and anchor context. Without them, an improvement to the anchor
-    matcher could never be applied to the historical rounds.
+    change and anchor context. They allow a later extractor to re-read the
+    durable record.
     """
     written = []
     raw_dir.mkdir(parents=True, exist_ok=True)
@@ -1585,7 +1566,7 @@ def main(argv=None) -> int:
     )
     r.add_argument("docx", help="the reviewed .docx downloaded from Google Docs")
     r.add_argument(
-        "--source", default=None, help="source .qmd or dir (default: docs/canon)"
+        "--source", default=None, help="source .qmd or dir (default: book.chapters)"
     )
     r.add_argument(
         "--out",
@@ -1609,12 +1590,12 @@ def main(argv=None) -> int:
     a.add_argument(
         "--out",
         required=True,
-        help="artifact path, e.g. private/provenance/redpen/v7-2026-08-02.md",
+        help="artifact path, e.g. .quirework/provenance/redpen/round-7.md",
     )
     a.add_argument(
         "--source",
         default=None,
-        help="canon of that round (a worktree at its SHA), default: docs/canon",
+        help="canon of that round (a worktree at its SHA); default: book.chapters",
     )
     a.add_argument("--canon-sha", default=None, help="SHA to record in the header")
     a.add_argument(

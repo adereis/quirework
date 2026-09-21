@@ -9,7 +9,7 @@ machine that is merely missing a package renders a whole, plausible,
 exists and why `render` refuses rather than warns.
 
 Nothing is declared here twice. The families are READ from the files that
-already name them -- `docs/typst-show.typ` for the book's text and display
+already name them -- the configured Typst template for text and display
 faces, and the figure SVGs for the one the illustrations are lettered in --
 so a face swap is still the single edit it was designed to be, and this
 check follows it automatically. `figures.print_text_block_in()` reads the
@@ -69,19 +69,23 @@ def _settings():
     """Resolve paths from the current operation, without import-time state."""
     from types import SimpleNamespace
 
-    TEMPLATE = current_project().path("book.typst_template", "docs/typst-show.typ")
-    ILLUSTRATIONS = current_project().path("book.figures", "docs/canon/illustrations")
+    TEMPLATE = (
+        current_project().path("book.typst_template")
+        if current_project().get("book.typst_template") is not None
+        else None
+    )
+    ILLUSTRATIONS = current_project().path("book.figures")
     return SimpleNamespace(ILLUSTRATIONS=ILLUSTRATIONS, TEMPLATE=TEMPLATE)
 
 
 def _families_in_template() -> list[str]:
     """The text and display faces, from the Typst template that names them."""
+    if _settings().TEMPLATE is None:
+        return []
     try:
         src = _settings().TEMPLATE.read_text(encoding="utf-8")
     except FileNotFoundError:
-        if current_project().get("book.typst_template") is not None:
-            raise
-        return []
+        raise
     out: list[str] = []
     for var in ("text-face", "display-face"):
         m = re.search(rf"#let {var}\s*=\s*\(([^)]*)\)", src)

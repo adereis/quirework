@@ -141,25 +141,6 @@ class Project:
 
     def path(self, key, default=None):
         value = self.get(key, default)
-        book_defaults = {
-            "book.quarto": ("book.source", "docs", "_quarto.yml"),
-            "book.chapters": ("book.source", "docs", "canon"),
-            "book.figures": ("book.chapters", "docs/canon", "illustrations"),
-            "book.spec": ("book.chapters", "docs/canon", "_framework.md"),
-            "book.references": ("book.chapters", "docs/canon", "_references.md"),
-            "book.review_notes": ("book.chapters", "docs/canon", "_review-notes.md"),
-            "book.typst_template": ("book.source", "docs", "typst-show.typ"),
-        }
-        if (
-            key in book_defaults
-            and self.get(key) is None
-            and (
-                self.get("book.source") is not None
-                or self.get("book.chapters") is not None
-            )
-        ):
-            parent, fallback, name = book_defaults[key]
-            return self.path(parent, fallback) / name
         children = {
             "conversations": "conversations",
             "claude_sessions": "cc-sessions",
@@ -192,8 +173,8 @@ class Project:
 
     @property
     def chapter_subdir(self):
-        source = self.path("book.source", "docs")
-        chapters = self.path("book.chapters", "docs/canon")
+        source = self.path("book.source")
+        chapters = self.path("book.chapters")
         try:
             return chapters.relative_to(source)
         except ValueError as exc:
@@ -280,10 +261,34 @@ class Project:
                     f"configured provenance directory is missing: {root}"
                 )
         elif component == "book":
-            path = self.path("book.source", "docs")
-            if not path.is_dir():
+            source = self.path("book.source")
+            if not source.is_dir():
                 raise ConfigurationError(
-                    f"configured book source directory is missing: {path}"
+                    f"configured book source directory is missing: {source}"
+                )
+            chapters = self.path("book.chapters")
+            if not chapters.is_dir():
+                raise ConfigurationError(
+                    f"configured canon directory is missing: {chapters}"
+                )
+            quarto = self.path("book.quarto")
+            if not quarto.is_file():
+                raise ConfigurationError(f"configured Quarto file is missing: {quarto}")
+            for key, kind in (
+                ("book.spec", "spec file"),
+                ("book.review_notes", "review-notes file"),
+            ):
+                if self.get(key) is not None and not self.path(key).is_file():
+                    raise ConfigurationError(
+                        f"configured {kind} is missing: {self.path(key)}"
+                    )
+            if (
+                self.get("book.figures") is not None
+                and not self.path("book.figures").is_dir()
+            ):
+                raise ConfigurationError(
+                    f"configured figure directory is missing: "
+                    f"{self.path('book.figures')}"
                 )
 
     def describe(self):

@@ -11,16 +11,14 @@ Convention (one tag per comment; the parenthetical and body are optional):
 
     <!-- @guidance  how this chapter should read (voice, length, depth, goals) -->
     <!-- @genesis   where it came from: why this subject, the inspiration behind it -->
-    <!-- @bind(floor-condition) -->
-    <!-- @todo      rephrase the spout example to stop begging the question -->
-    <!-- @variant(swe)  the k8s self-monitoring example belongs in the SWE edition -->
-    <!-- @ref       conv:c00a7331 -- the Mary's Room exchange that seeded this -->
+    <!-- @bind(kettle-signal) -->
+    <!-- @todo      make the kettle example concrete -->
+    <!-- @variant(audio)  describe the signal for the audio edition -->
+    <!-- @ref       source:field-notes -- the interview that seeded this -->
     <!-- @see(em-dashes)  the long dialogue here is the worst offender -->
 
 Comments may span multiple lines; the body is whitespace-collapsed. Any tag name
-is accepted (the list above is convention, not a closed set), so the vocabulary
-can grow without code changes -- and shrink: RETIRED_KINDS below is the set that
-has been withdrawn, which `check()` reports if one comes back.
+is accepted. The list above is convention, not a closed set.
 """
 
 from __future__ import annotations
@@ -93,7 +91,7 @@ _JOURNALING = re.compile(
 # lines above", "at line 22", "142-143 says". AGENTS.md bans them outright --
 # the next insertion anywhere above makes the number wrong, and until this
 # advisory nothing checked it, so twenty-six went live. Name the scene or the
-# phrase instead ("at the careful-steward passage"), which survives every edit
+# phrase instead ("at the train-platform passage"), which survives every edit
 # that does not retire the thing itself. The match runs on the whitespace-
 # collapsed body on purpose: the sidecars hard-wrap at 72 columns, so the
 # phrase routinely spans a line break and a line-based grep cannot see it,
@@ -105,8 +103,8 @@ _JOURNALING = re.compile(
 # Three forms were added after the first cut shipped and six live pins walked
 # straight past it. "thirteen lines later" slipped because the number-word list
 # stopped at twelve, which is the whole failure: a word list is a hole with an
-# edge. And the colon address -- `preface:3`, `@ch(how-it-whistles):69`,
-# `how-it-whistles.qmd:71` -- carries no "line" keyword at all, so nothing in
+# edge. And the colon address -- `preface:3`, `@ch(the-sidecar):69`,
+# `the-sidecar.qmd:71` -- carries no "line" keyword at all, so nothing in
 # the original pattern could see it; the one live instance was already wrong by
 # two. The left side is required to look like a slug, a chapter pointer or a
 # filename precisely so "Reader panel: 5 of 6" and a "15:40" timestamp do not
@@ -130,8 +128,8 @@ _LINE_PIN = re.compile(
     | \blines?\s+\d+(?:\s*[-–]\s*\d+)?\b            # "line 22", "lines 8-9"
     | \b\d+\s*[-–]\s*\d+\s+(?: says|reads|prints|carries )\b
     | (?: @ch\([a-z0-9-]+\)                         # the colon-address forms:
-        | \b[a-z][a-z0-9-]*\.(?:qmd|md|svg)         #   how-it-whistles.qmd:71
-        | \b[a-z]+(?:-[a-z0-9]+)+                   #   @ch(how-it-whistles):69
+        | \b[a-z][a-z0-9-]*\.(?:qmd|md|svg)         #   the-sidecar.qmd:71
+        | \b[a-z]+(?:-[a-z0-9]+)+                   #   @ch(the-sidecar):69
         | \bpreface )                               #   preface:3
       \s*:\s*\d+(?:\s*[-–]\s*\d+)?\b
     """,
@@ -139,11 +137,10 @@ _LINE_PIN = re.compile(
 )
 
 # The structural `@bind(slug)` token, used by bodyless sidecar relationships and
-# by companion `Anchors:` joins. Semantic prose cites the framework as `#slug`.
+# by companion `Anchors:` joins. Semantic prose cites the spec as `#slug`.
 _BIND_REF = re.compile(r"@bind\(([\w-]+)\)")
 _BIND_TOKEN = re.compile(r"@bind\(([^)]*)\)")
-_LEGACY_CLAIM_REF = re.compile(r"@claim\(([\w-]+)\)")
-# A semantic citation of the framework section itself. Exclude Pandoc
+# A semantic citation of the spec section itself. Exclude Pandoc
 # ``{#anchor}`` attributes; those name document locations, not commitments.
 _SPEC_REF = re.compile(r"(?<![\w{/])#([A-Za-z][\w-]*)\b")
 
@@ -154,40 +151,27 @@ _SPEC_REF = re.compile(r"(?<![\w{/])#([A-Za-z][\w-]*)\b")
 _CH_REF = re.compile(r"@ch\(([^)]*)\)")
 
 
-# Tokens in an **Anchors:** run that are unmistakably a chapter pointer: an
-# explicit `.qmd`, or the retired numeric vocabulary the migration is clearing.
-# Anything else in a run is inert prose and is left alone, which is the
-# conservatism the run's parser has always promised; this is only the set that
-# must never be silently skipped.
+# Tokens in an **Anchors:** run that are unmistakably chapter pointers use
+# `@ch(slug)` or a `.qmd` filename. Other tokens are ordinary prose.
 def _bare(tok: str) -> str:
-    """A run's token reduced to a chapter stem: `sources.qmd` -> `sources`."""
+    """A run's token reduced to a chapter stem: `the-sidecar.qmd` -> `the-sidecar`."""
     return tok[:-4] if tok.endswith(".qmd") else tok
 
 
 def _chapter_shaped(tok: str) -> bool:
-    import quirework.book.chapters as _options_quirework_book_chapters
-
-    return (
-        tok.endswith(".qmd")
-        or tok in _options_quirework_book_chapters._options().RETIRED_TOKENS
-    )
+    return tok.endswith(".qmd")
 
 
 # The imperative register the spec must not use: a commitment is stated
-# ("temperature has no zero"), never ordered ("NEVER restore temperature") —
+# ("the archive records source hashes"), never ordered ("NEVER omit hashes") —
 # a well-stated commitment makes its own instruction derivable. All-caps forms
 # only: indicative prose legitimately says "never".
 _IMPERATIVE = re.compile(r"\b(NEVER|DO NOT|DON'T|MUST NOT|MAY NOT|BANNED)\b")
 
 
-# The reader-facing companion collections: the worked thought experiments and
-# the real-case evidence. AGENTS.md makes them the deliberate exception to
-# canon self-containment (a mark may point at them, because they are tracked
-# and stable where `scratchpad/` notes are allowed to vanish), and the exception
-# runs both ways: the entries cite the spec by slug and quote the book by the
-# paragraph. Neither direction had a gate. `notes --check` never read these
-# directories at all, so a spec rename or chapter edit could strand a citation
-# with every sidecar gate green.
+# Companion documents are a declared exception to canon self-containment. They
+# can cite the spec by slug and quote the canon by passage, so the check follows
+# both directions without assuming their directory names.
 def companion_dirs() -> tuple[str, ...]:
     """The reader-facing companion collections this book declares, if any.
 
@@ -205,7 +189,7 @@ COMPANION_SKIP = {"_template.md"}
 
 # A quotation attributed to the book. Both forms are used by the entries and
 # both have failed: a double-quoted span lifted from a chapter, and a bolded
-# span attributed to the framework. The length floor keeps single-word emphasis
+# span attributed to the spec. The length floor keeps single-word emphasis
 # (**resolved**) out;
 # the ceiling keeps a runaway span from swallowing a paragraph.
 # Whitespace-only differences are never misquotes and _norm already collapses
@@ -222,9 +206,9 @@ _BACKTICKED = re.compile(r"`([^`]+)`")
 
 
 def _code_spec_refs(text: str) -> list[tuple[str, int]]:
-    """Framework ``#slug`` citations inside Markdown code spans.
+    """Spec ``#slug`` citations inside Markdown code spans.
 
-    Companion prose uses code spans to distinguish framework slugs from local
+    Companion prose uses code spans to distinguish spec slugs from local
     Markdown anchors and URL fragments. Return each slug with its absolute
     offset in ``text`` so diagnostics retain correct line numbers.
     """
@@ -311,17 +295,15 @@ SKIP_NAMES = {"AGENTS.md", "CLAUDE.md", "GEMINI.md"}
 # A chapter's metadata marks live in a sidecar `<dir>/_marks/<stem>.md` beside
 # it, never inline in the prose. scan() attributes a sidecar's marks to the
 # sibling chapter `<dir>/<stem>.qmd`; `notes --check` verifies the layout stays
-# honest. Book-wide review notes live in this manifest under docs/canon/ and are
-# the target a chapter's @see(slug) resolves against.
+# honest. A configured book-wide review manifest is the target a chapter's
+# @see(slug) resolves against.
 MARKS_DIR = "_marks"
-BOOK_NOTES_FILE = "_review-notes.md"
 
-# The framework spec (docs/canon/): the central commitments register. Its
+# The spec is the central commitments register. Its
 # level-2 sections (`## Title {#slug}`) are the binding namespace — a chapter's
 # @bind(slug) resolves against these anchors, and any number of chapters may
 # bind one section. A slug the spec does not declare is a hard error: there is
 # no independent claim layer.
-SPEC_FILE = "_framework.md"
 
 # The audience split, and the single place it is declared. These three kinds are
 # HUMAN-FACING and are surfaced in the red-pen review block; @bind is structural
@@ -342,36 +324,16 @@ BLOCK_KINDS = ("guidance", "genesis", "variant")
 # kinds (@todo, @ref, @source) legitimately carry dates and stay out.
 CONTRACT_KINDS = ("guidance",)
 
-# Withdrawn vocabulary. The tag set is open by design, which is why a retired
-# kind can re-seed silently: a session reading an old SOP or an old session log
-# writes one and nothing objects. Each of these had a live run and was cleared.
-# @expand ("add X here") is a @todo whose whole semantics argues for new prose,
-# against the standing rule that a finding is not a license to add any; a
-# reaction with no action is @guidance if it is about how the chapter reads and
-# @todo if it is a request, so @feedback had no residue of its own. @flavor was
-# renamed to @variant. @decision is the one AGENTS.md already forbids in words
-# ("do not reintroduce one"): an open call is a @todo, and a settled one folds
-# into the spec section or guidance as present-tense rationale.
-RETIRED_KINDS = {
-    "concept": "derive chapter summaries from current prose when needed",
-    "claim": "renamed to @bind; the framework owns the commitment",
-    "expand": "a request is @todo; adding prose is not a default",
-    "feedback": "a reaction is @guidance (how it reads) or @todo (a request)",
-    "flavor": "renamed to @variant",
-    "intuition": "never adopted; the author's own words are @genesis/@guidance",
-    "decision": "an open call is @todo; a settled one is a spec section",
-}
-
 # One-line gloss per kind, for `notes --list`. The tag set is open and `--list`
-# only shows kinds actually present, so this maps the kinds in live use; a new
-# (or revived) kind lists without a gloss until one is added here.
+# only shows kinds actually present. A new kind lists without a gloss until one
+# is added here.
 KIND_DESCRIPTIONS = {
-    "bind": "chapter-to-framework bindings",
+    "bind": "chapter-to-spec bindings",
     "guidance": "how a chapter should read (the author's intent)",
     "genesis": "where a chapter came from (origin, not direction)",
     "todo": "open working state / the agent's worklist",
     "variant": "what a derived edition should do differently here",
-    "figure": "built illustrations (docs/canon/illustrations/)",
+    "figure": "built illustrations",
     "ref": "prior-art / conversation pointers",
     "source": "per-claim citation",
     "see": "pointer to a book-wide review note",
@@ -379,7 +341,7 @@ KIND_DESCRIPTIONS = {
 
 # The `--primer` preset: what a fresh session must act from or stay consistent
 # with -- the bindings and the constraints on how the book reads
-# (@guidance). The framework spec is printed first and owns what is true.
+# (@guidance). The spec is printed first and owns what is true.
 # Not @genesis: that is provenance a session reaches for deliberately.
 # Absent members are skipped silently (a preset is not a typo).
 PRIMER_KINDS = ("bind", "guidance")
@@ -456,25 +418,26 @@ def _chapter_for(f: Path) -> Path:
     return f
 
 
-def _configured_book_file(docs, key, fallback):
+def _configured_book_file(docs, key):
     project = current_project()
     if project.get(key) is None:
-        return Path(docs) / project.chapter_subdir / fallback
+        return None
     configured = project.path(key)
-    source = project.path("book.source", "docs")
+    source = project.path("book.source")
     if configured.is_relative_to(source):
         return Path(docs) / configured.relative_to(source)
     return configured
 
 
 def _spec_path(docs=None) -> Path:
-    """This project's spec file. `_framework.md` is one book's choice of name."""
-    docs = (
-        Path(docs)
-        if docs is not None
-        else current_project().path("book.source", "docs")
-    )
-    return _configured_book_file(docs, "book.spec", SPEC_FILE)
+    """This project's configured spec file."""
+    docs = Path(docs) if docs is not None else current_project().path("book.source")
+    spec = _configured_book_file(docs, "book.spec")
+    if spec is None:
+        from quirework.project import ConfigurationError
+
+        raise ConfigurationError("configure book.spec in quirework.toml")
+    return spec
 
 
 def _spec_name(docs=None) -> str:
@@ -482,14 +445,10 @@ def _spec_name(docs=None) -> str:
 
 
 def spec_sections(docs: Path | None = None) -> list[tuple[str | None, str, str]]:
-    """(anchor, title, body) for each level-2 section of the framework spec,
+    """(anchor, title, body) for each level-2 section of the spec,
     in file order. The anchor is None where a section is missing its {#slug}
     (a hard `check()` problem). Empty if the spec does not exist."""
-    docs = (
-        Path(docs)
-        if docs is not None
-        else current_project().path("book.source", "docs")
-    )
+    docs = Path(docs) if docs is not None else current_project().path("book.source")
     spec = _spec_path(docs)
     if not spec.exists():
         return []
@@ -520,8 +479,8 @@ def spec_slugs(docs: Path | None = None) -> set[str]:
 
 
 def scan(paths: list[Path] | None = None) -> list[Annotation]:
-    """Harvest annotations from every doc under the given paths (default docs/)."""
-    roots = paths or [current_project().path("book.source", "docs")]
+    """Harvest annotations below the given paths or configured book source."""
+    roots = paths or [current_project().path("book.source")]
     out: list[tuple[Path, str, str]] = []  # (file to read, chapter, source)
     for root in roots:
         root = Path(root)
@@ -548,24 +507,28 @@ _FRONT_TITLE = re.compile(r'(?m)^title:\s*["\']?(.+?)["\']?\s*$')
 
 
 def _reading_order() -> dict[str, int]:
-    """Map each rel path to its position in the book, read from docs/_quarto.yml.
+    """Map each relative path to its position in the configured book.
 
     Lets `--by chapter` follow the book's order (the welcome landing first, part
     dividers in place) instead of a lexical filename sort, which misplaces
     index.qmd and part-two.qmd. Empty if the config is absent (e.g. a custom
     --path scan), in which case the caller falls back to sorting by path.
     """
+    project = current_project()
     try:
-        text = (current_project().path("book.quarto", "docs/_quarto.yml")).read_text()
+        text = project.path("book.quarto").read_text()
+        prefix = project.path("book.source").relative_to(project.root)
     except OSError:
         return {}
+    except ValueError:
+        prefix = Path()
     order: dict[str, int] = {}
     for line in text.splitlines():
         if line.lstrip().startswith("#"):  # skip YAML comments
             continue
         m = _QMD_TOKEN.search(line)
         if m:
-            order.setdefault(f"docs/{m.group(1)}", len(order))
+            order.setdefault(str(prefix / m.group(1)), len(order))
     return order
 
 
@@ -588,7 +551,7 @@ def _chapter_title(rel: str) -> str:
 
 
 def _print_spec_toc(docs: Path | None = None) -> None:
-    """The framework spec's table of contents, printed at the top of the
+    """The spec's table of contents, printed at the top of the
     primer: the commitments register is the book's skeleton, so a fresh
     session reads it before the per-chapter marks. Silent while the spec has
     no sections (early in the migration)."""
@@ -714,7 +677,7 @@ def _blocks(text: str) -> list[tuple[str, int]]:
 
 
 def _attributed_spans(
-    block: str, stems: set[str], spec_name: str = SPEC_FILE
+    block: str, stems: set[str], spec_name: str
 ) -> list[tuple[str, int]]:
     """Quotations in one block that are attributed to canon, with offsets.
 
@@ -723,7 +686,7 @@ def _attributed_spans(
     item is one of the entries' own subheadings ("**It costs the reader
     first.**"), never a quotation. And attribution is read from the 200
     characters *before* the span rather than from the block as a whole: an
-    entry quotes Nozick, an objector's voice and its own falsifier wording in
+    entry quotes an outside source, an objector's voice, and its own wording in
     the same paragraph that cites a chapter, so block-level attribution flags
     all three."""
     out: list[tuple[str, int]] = []
@@ -774,19 +737,11 @@ def anchor_pairs(
 
     The run is prose, so it is read positionally: a chapter reference sets the
     chapter that the `@bind(slug)` tokens after it belong to, until the next
-    one. A bare `#slug` is the cases/ collection's form and names a spec
+    one. A bare `#slug` names a spec
     section directly, with no chapter claimed, so it yields None.
 
-    Three buckets, and the third is the point. A token is a chapter reference
-    (`@ch(slug)`, or a bare stem while the migration is in flight), a slug, or
-    inert -- and a run legitimately trails off into prior art, so inert is the
-    common case and stays silent. What must NOT stay silent is a token that is
-    unmistakably a chapter pointer and resolves to nothing: the old grammar
-    ended `elif tok in stems`, so an unknown one fell off the chain, `current`
-    kept its previous value, and every `@bind` after it was attributed to the
-    wrong chapter or to none. Invariant 8 then had nothing left to check and
-    printed nothing -- a rename could strand all 21 entries with every gate
-    green. Those are returned as `unresolved` and reported by the caller.
+    A token is a chapter reference, a spec slug, or inert prose. An explicit
+    chapter pointer that resolves to nothing is returned in `unresolved`.
     """
     m = _ANCHORS_RUN.search(text)
     if not m:
@@ -810,8 +765,7 @@ def anchor_pairs(
         elif tok.startswith("#") and tok[1:] in spec:
             pairs.append((None, tok[1:]))
         elif _bare(tok) in stems:
-            # A run may name a file with its extension (`sources.qmd`'s floor
-            # entry), which is a real pointer and not a stale one; the stem is
+            # A run may name a file with its extension. The stem is
             # what the binding map is keyed by.
             current = _bare(tok)
         elif _chapter_shaped(tok):
@@ -835,11 +789,7 @@ def coverage(
     sections belong to no chapter and to no exercise either ("The reverse
     direction is not an invariant" in AGENTS.md, for the same reason).
     """
-    docs = (
-        Path(docs)
-        if docs is not None
-        else current_project().path("book.source", "docs")
-    )
+    docs = Path(docs) if docs is not None else current_project().path("book.source")
     spec = spec_slugs(docs)
     stems = {p.stem for p in docs.rglob("*.qmd")}
     by_slug: dict[str, list[str]] = {}
@@ -869,8 +819,8 @@ def companion_check(
     are cited from canon marks in turn.
 
     A quotation that appears nowhere in canon is an advisory, because the
-    detection is necessarily a heuristic -- an entry quotes Nozick and Parfit
-    as well as the book, and only a paragraph that also cites canon is
+    detection is necessarily a heuristic. An entry may quote outside sources
+    as well as the book, so only a paragraph that also cites canon is
     considered. What it catches is the failure that has actually happened:
     prose or a mark body edited out from under a live quotation."""
     problems: list[str] = []
@@ -890,7 +840,7 @@ def companion_check(
                 ln = text.count("\n", 0, m.start()) + 1
                 problems.append(
                     f"{rel}:{ln}: @bind takes exactly one slug. Write one "
-                    f"relationship token per framework section."
+                    f"relationship token per spec section."
                 )
         pairs, unresolved = anchor_pairs(text, stems, spec)
         for tok in unresolved:
@@ -934,16 +884,9 @@ def companion_check(
             ln = text.count("\n", 0, m.start()) + 1
             problems.append(
                 f"{rel}:{ln}: @bind('{m.group(1)}') names no section of "
-                f"{_spec_name(docs)}. The entry cites a commitment that has been "
-                f"renamed or folded away: repoint it at the section that "
+                f"{_spec_name(docs)}. The entry cites a missing commitment; "
+                f"point it at the section that "
                 f"holds the content now."
-            )
-        for m in _LEGACY_CLAIM_REF.finditer(text):
-            ln = text.count("\n", 0, m.start()) + 1
-            problems.append(
-                f"{rel}:{ln}: @claim({m.group(1)}) is retired. Use "
-                f"@bind({m.group(1)}) in **Anchors:** or '#{m.group(1)}' "
-                f"in semantic prose."
             )
         for slug, pos in _code_spec_refs(text):
             if slug in spec:
@@ -952,7 +895,7 @@ def companion_check(
             problems.append(
                 f"{rel}:{ln}: spec section '#{slug}' does not exist in "
                 f"{_spec_name(docs)}. The entry cites a commitment that has been "
-                f"renamed or folded away."
+                f"missing."
             )
         for block, offset in _blocks(text):
             for span, pos in _attributed_spans(block, stems, _spec_name(docs)):
@@ -973,11 +916,11 @@ def check(docs: Path | None = None) -> int:
     """Lint the split-metadata layout; replaces physical co-location as the
     drift guard. Ten hard invariants (any failure → exit 1):
 
-      1. no book `.qmd` under docs/ carries an @-mark (marks live in sidecars);
+      1. no canon `.qmd` carries an @-mark (marks live in sidecars);
       2. every `_marks/<stem>.md` has a sibling `<stem>.qmd` (no orphan sidecar);
       3. every heading in a sidecar resolves to a real heading/anchor in its
          chapter (the mirror can never drift from the prose it indexes);
-      4. the framework spec's level-2 sections each carry an {#slug} anchor,
+      4. the spec's level-2 sections each carry an {#slug} anchor,
          unique across the spec (they are the binding namespace);
       5. every @bind is bodyless and its slug names a spec section (any
          number of chapters may bind the same one);
@@ -995,7 +938,7 @@ def check(docs: Path | None = None) -> int:
          never used as a mark kind. A chapter-shaped token that resolves to
          nothing used to be skipped in silence, which turned invariant 8 into
          a no-op rather than a failure.
-     10. `docs/_quarto.yml` and the chapter files on disk are a bijection.
+     10. the configured Quarto file and chapter files on disk are a bijection.
          The dual of invariant 2: every listed file exists, and every chapter
          on disk is listed, so nothing renders nowhere and nothing is named
          that is not there.
@@ -1003,25 +946,20 @@ def check(docs: Path | None = None) -> int:
     Plus six advisories, printed but never fatal.
 
     Quotations in the companion collections that appear nowhere in canon.
-    Heuristic by necessity (the entries quote Nozick and Searle too, so only a
+    Heuristic by necessity (entries quote outside sources too, so only a
     paragraph that also cites canon is read), and an advisory for that reason;
     what it catches is a chapter or other metadata edited out from under a live
-    quotation, which no gate saw because none of them read `exercises/`.
+    quotation, which no gate saw before companion documents were configured.
 
     Spec sections in the imperative or contract register (a
     NEVER / DO NOT / BANNED order, or an all-caps run). The spec states and
-    prices — "temperature has no zero" — and never orders, because a
+    prices — "the archive records source hashes" — and never orders, because a
     well-stated commitment makes its own instruction derivable; an imperative
     is almost always an under-stated commitment.
 
-    Marks that reference analyses, scratch notes or legacy ideas, which the
-    self-containment rule forbids. Retaining evidence does not make it a
-    semantic owner. Stable reader-facing companions remain permitted. The
-    check stays advisory; it does not decide whether a finding was adopted.
-
-    Marks written in a retired kind (`RETIRED_KINDS`) are hard errors. Accepting
-    any tag name lets the vocabulary grow without a code change, so an old SOP
-    or session log can otherwise re-seed a withdrawn kind silently.
+    Marks that reference declared non-canonical working material. Retaining
+    evidence does not make it a semantic owner. Stable reader-facing companion
+    documents remain permitted. The check stays advisory.
 
     And block-surfaced marks (`BLOCK_KINDS`) written in the AI register, detected
     by a run of three or more consecutive all-caps words — contract shorthand
@@ -1041,19 +979,15 @@ def check(docs: Path | None = None) -> int:
     its recorded false-positive exclusions live at `_JOURNALING`; @genesis is
     exempt by design (an origin story is history).
 
-    And dangling inline framework `#slug` references in any mark body. Inline
+    And dangling inline spec `#slug` references in any mark body. Inline
     refs are not part of the binding graph, and a section merge or rename is
     exactly the edit that dangles them; they resolve against the spec anchors.
 
     Figure sources are deliberately NOT checked here: a @figure mark may be
-    drafted before its SVG is built (docs/AGENTS.md, "Figures"), and
+    drafted before its SVG is built, and
     `figures --check`
     already gates every rendered embed against its source."""
-    docs = (
-        Path(docs)
-        if docs is not None
-        else current_project().path("book.source", "docs")
-    )
+    docs = Path(docs) if docs is not None else current_project().path("book.source")
     problems: list[str] = []
 
     # 1. every book .qmd is mark-free.
@@ -1087,7 +1021,7 @@ def check(docs: Path | None = None) -> int:
     annos = scan([docs])
 
     # 4. the spec's binding namespace: anchored, unique level-2 sections.
-    spec_rel = _rel(_configured_book_file(docs, "book.spec", SPEC_FILE))
+    spec_rel = _rel(_spec_path(docs))
     sections = spec_sections(docs)
     spec_seen: dict[str, str] = {}
     for slug, title, _ in sections:
@@ -1118,29 +1052,29 @@ def check(docs: Path | None = None) -> int:
         if len(a.args) != 1:
             problems.append(
                 f"{at}: @bind takes exactly one slug (got {len(a.args)}). "
-                f"Write one bodyless relationship per framework section."
+                f"Write one bodyless relationship per spec section."
             )
         if not slug:
             continue
         if a.body:
             problems.append(
                 f"{at}: @bind('{slug}') has a body. Bindings are relationships, "
-                f"not preservation contracts; route the content to the framework, "
+                f"not preservation contracts; route the content to the spec, "
                 f"guidance, a todo, the prose, or git."
             )
         if slug in spec:
             continue
         problems.append(
             f"{at}: @bind('{slug}') binds no section of "
-            f"{spec_rel}. Every @bind names a framework section: "
+            f"{spec_rel}. Every @bind names a spec section: "
             f"name the section the chapter expresses, or add it."
         )
 
     # 6. @see resolves to a book-wide note.
-    rn = _configured_book_file(docs, "book.review_notes", BOOK_NOTES_FILE)
+    rn = _configured_book_file(docs, "book.review_notes")
     rn_slugs = (
-        {a.args[0] for a in scan_text(rn.read_text(), BOOK_NOTES_FILE) if a.args}
-        if rn.exists()
+        {a.args[0] for a in scan_text(rn.read_text(), rn.name) if a.args}
+        if rn is not None and rn.exists()
         else set()
     )
     for a in annos:
@@ -1150,10 +1084,13 @@ def check(docs: Path | None = None) -> int:
         at = f"{a.source or a.file}:{a.line}"
         if not slug:
             problems.append(f"{at}: @see with no slug")
+        elif rn is None:
+            problems.append(
+                f"{at}: @see('{slug}') requires configured book.review_notes"
+            )
         elif slug not in rn_slugs:
             problems.append(
-                f"{at}: @see('{slug}') resolves to no book-wide "
-                f"note in {BOOK_NOTES_FILE}"
+                f"{at}: @see('{slug}') resolves to no book-wide note in {rn.name}"
             )
 
     # 9. `@ch` is a reference form, never a mark kind. A comment that opens
@@ -1179,7 +1116,7 @@ def check(docs: Path | None = None) -> int:
     # **Anchors:** run names chapters that really bind those slugs. Computed
     # here, before the problems are printed; the quotation half and the
     # missing-run half are advisories and print below with the others.
-    # The collections are siblings of docs/, so a caller pointing check() at a
+    # Companion paths resolve from the project root, so a caller pointing check() at a
     # temporary tree (the tests do) gets that tree's companions or none, never
     # the live repo's measured against a synthetic spec.
     comp_problems, comp_quotes, comp_anchors = companion_check(
@@ -1187,27 +1124,14 @@ def check(docs: Path | None = None) -> int:
     )
     problems += comp_problems
 
-    revived = [a for a in annos if a.kind in RETIRED_KINDS]
-    for a in revived:
-        argstr = f"({a.args[0]})" if a.args else ""
-        problems.append(
-            f"{a.source or a.file}:{a.line}: @{a.kind}{argstr} uses a retired "
-            f"kind — {RETIRED_KINDS[a.kind]}"
-        )
     for a in annos:
         if a.kind == "bind" or not a.body:
             continue
         for m in _BIND_REF.finditer(a.body):
             problems.append(
                 f"{a.source or a.file}:{a.line}: @{a.kind} cites "
-                f"@bind({m.group(1)}). Use '#{m.group(1)}' for the framework "
+                f"@bind({m.group(1)}). Use '#{m.group(1)}' for the spec "
                 f"section; @bind is reserved for bodyless relationships."
-            )
-        for m in _LEGACY_CLAIM_REF.finditer(a.body):
-            problems.append(
-                f"{a.source or a.file}:{a.line}: @{a.kind} cites retired "
-                f"@claim({m.group(1)}). Use '#{m.group(1)}' for the framework "
-                f"section."
             )
 
     for p in problems:
@@ -1332,7 +1256,7 @@ def check(docs: Path | None = None) -> int:
     ]
     if dangling:
         print(
-            f"\nadvisory ({len(dangling)} inline framework #slug reference(s) "
+            f"\nadvisory ({len(dangling)} inline spec #slug reference(s) "
             f"resolve to no spec section):",
             file=sys.stderr,
         )
@@ -1382,7 +1306,7 @@ def main(argv=None) -> int:
         "  quirework book notes bind                only @bind relationships\n"
         "  quirework book notes --primer            the fresh-session primer\n"
         "                                       (bind+guidance, by chapter)\n"
-        "  quirework book notes bind --slug two-faces\n"
+        "  quirework book notes bind --slug authorship-by-log\n"
         "                                       who binds that spec section\n"
         "  quirework book notes --by chapter        the whole book's marks, in order\n"
         "  quirework book notes --list              the kind vocabulary + counts",
@@ -1451,7 +1375,7 @@ def main(argv=None) -> int:
         action="append",
         default=[],
         metavar="PATH",
-        help="scan this file/dir instead of docs/ (repeatable)",
+        help="scan this file/dir instead of book.source (repeatable)",
     )
     args = ap.parse_args(argv)
 
@@ -1459,7 +1383,7 @@ def main(argv=None) -> int:
         # --check is the layout gate, not a view: the filters below do not
         # apply to it, and silently ignoring one would return a verdict about
         # a different question than the one asked. A single --path forwards
-        # as the docs root to lint (what the tests do via check(docs=...)).
+        # as the source root to lint (what the tests do via check(docs=...)).
         ignored = [
             name
             for name, val in (
@@ -1482,7 +1406,7 @@ def main(argv=None) -> int:
             return 2
         if len(args.path) > 1:
             print(
-                "--check takes at most one --path (the docs root to lint).",
+                "--check takes at most one --path (the source root to lint).",
                 file=sys.stderr,
             )
             return 2
@@ -1542,9 +1466,6 @@ def main(argv=None) -> int:
             for k, _ in sorted(present.items(), key=lambda kv: (-kv[1], kv[0]))
         )
         for k in unknown:
-            if k in RETIRED_KINDS:
-                print(f"retired kind '{k}': {RETIRED_KINDS[k]}", file=sys.stderr)
-                continue
             sugg = difflib.get_close_matches(k, list(present), n=1)
             hint = f" did you mean '{sugg[0]}'?" if sugg else ""
             if "/" in k or Path(k).exists():

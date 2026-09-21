@@ -42,9 +42,8 @@ from quirework.providers.blind import seat_dir
 from quirework.book import notes as _notes
 
 
-# Blind drafters run headless from a neutral CWD (no project CLAUDE.md or
-# path-keyed memory there) with every tool off (blind.NO_TOOLS: an
-# allow-nothing, never a deny-list), exactly like the cold-read analysts.
+# Blind drafters run headless from a neutral CWD with a minimal tool allow-list,
+# exactly like the cold-read analysts.
 # Subagents inherit the project framing and are NOT blind -- never use them
 # here (docs/workflows.md#execution-and-recovery).
 
@@ -94,9 +93,9 @@ def _settings():
     """Resolve paths from the current operation, without import-time state."""
     from types import SimpleNamespace
 
-    SOPS = current_project().path("sops.root", "sops")
-    DOCS = current_project().path("book.source", "docs")
-    QUARTO = current_project().path("book.quarto", str(DOCS / "_quarto.yml"))
+    SOPS = current_project().path("sops.root")
+    DOCS = current_project().path("book.source")
+    QUARTO = current_project().path("book.quarto")
     return SimpleNamespace(DOCS=DOCS, QUARTO=QUARTO, SOPS=SOPS)
 
 
@@ -450,7 +449,7 @@ def cmd_build(argv: list[str]) -> int:
     policy = current_project().data("book.variant_policy", {})
     assert_blind(bundle, tuple(policy.get("blind_tells", ())))
 
-    out_dir = out_dir or (current_project().root / "variants" / kind)
+    out_dir = out_dir or (current_project().path("book.variants") / kind)
     raw_dir = out_dir / "_raw"
     print(
         f"variant build: {kind}  ({len(chapters)} chapter(s), "
@@ -524,11 +523,11 @@ is generated from it, never the other way round.
   quirework book variant build KIND      run the mechanical layer: assemble a
                                      blindness-safe bundle, then fan out one
                                      blind `claude -p` per chapter into
-                                     variants/KIND/_raw/ for the operator's
+                                     book.variants/KIND/_raw/ for the operator's
                                      analyze + compose pass
 
 build options:
-  --out DIR      output dir (default: variants/KIND/)
+  --out DIR      output dir (default: book.variants/KIND/)
   --model M      model for the per-chapter runs (default: the variant
                  policy's default_model)
   --par N        how many chapters to run in parallel (default: 5)

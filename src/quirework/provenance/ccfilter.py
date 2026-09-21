@@ -46,7 +46,7 @@ import sys
 #         extraction of it"). Worse, the rounds whose agents correctly
 #         redirected the dump to a scratch file lost it most completely, so
 #         allowlisting the tool_result would not fix them. The marks are now
-#         spliced from `private/provenance/redpen/`, joined on the .docx
+#         spliced from the configured review archive, joined on the .docx
 #         filename in the command line (17/17 real extractions resolve), which
 #         survives the redirect and the deletion of the .docx itself.
 #     (b) AskUserQuestion -- 76 calls across 50 sessions, every one rendering
@@ -94,7 +94,7 @@ _WRAP_RE = [re.compile(rf"<{w}>.*?</{w}>", re.DOTALL) for w in _WRAPPERS]
 #   * identity / authority -- so the analyst weighs behavior, not credentials;
 #   * authorship-attribution verdicts -- so the analyst is not handed the
 #     conclusion (who originated the ideas) it is supposed to reach.
-# The framework's *subject matter* is deliberately NOT redacted: an analyst
+# The book's subject matter is deliberately NOT redacted: an analyst
 # must see the dialogue's content to judge who drove it. Redaction applies to
 # assistant text too, because an AI *reciting its injected instructions* is the
 # system prompt leaking, not authorship evidence (unlike an AI parroting the
@@ -114,20 +114,14 @@ def contamination_markers():
 
 
 def policy_version(base):
-    """Identify the declared redaction recipe while preserving a verified legacy recipe."""
-    from quirework.project import current_project
+    """Identify the declared redaction recipe."""
     import hashlib
 
     markers = contamination_markers()
     digest = hashlib.sha256(
         json.dumps(markers, ensure_ascii=False, separators=(",", ":")).encode()
     ).hexdigest()
-    legacy = (
-        current_project()
-        .data("provenance.redaction_policy", {})
-        .get("legacy_markers_sha256")
-    )
-    return base if digest == legacy else f"{base}-policy-{digest[:16]}"
+    return f"{base}-policy-{digest[:16]}"
 
 
 REDACT_PLACEHOLDER = "«redacted: project context»"

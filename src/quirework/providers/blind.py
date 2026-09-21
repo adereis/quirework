@@ -85,8 +85,6 @@ MIN_TOOLS = ["--tools", "Read"]
 # ride on every claude launch.
 NO_MCP = ["--mcp-config", '{"mcpServers":{}}', "--strict-mcp-config"]
 
-NO_TOOLS = MIN_TOOLS  # back-compat alias; the name lied, the flags now do not
-
 
 def _options():
     """Read policy from the selected project for this operation."""
@@ -986,9 +984,7 @@ CANARY_PROMPT = (
 # them wrong. A word the seat echoes back from the path it was asked to read
 # cannot be a marker: it fires on a perfectly blind seat. Neither can a phrase
 # that is ordinary English, such as a book title made of common words, for the
-# same reason. A retired phrase that still appears throughout the project's
-# guidance does belong, because a leak of the guidance still carries it. A
-# marker that a blind seat could produce innocently reports a breach that never
+# same reason. A marker that a blind seat could produce innocently reports a breach that never
 # happened, which is the one failure this list cannot afford.
 
 
