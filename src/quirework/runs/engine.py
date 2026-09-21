@@ -23,6 +23,7 @@ from quirework.providers import quota
 from quirework.providers import models as workshop_drivers
 from quirework.sops import personas
 from quirework.project import current_project
+from quirework.project import submit
 from quirework.delivery import artifacts
 from quirework.providers import harness
 from quirework.sops import instruments
@@ -1105,9 +1106,15 @@ class Run:
                     ) as exc:
                         return "stopped: " + str(exc)
 
+                # `submit` carries the caller's project context into each
+                # worker. A bare pool.map would let a worker re-resolve the
+                # project from disk, and under the frozen executor that walk
+                # starts from the record rather than the project: the seat
+                # would then read another catalog and another account lease.
                 with ThreadPoolExecutor(max_workers=jobs) as pool:
-                    for name, result in zip(ready, pool.map(execute, ready)):
-                        results[name] = result
+                    futures = [submit(pool, execute, n) for n in ready]
+                    for name, future in zip(ready, futures):
+                        results[name] = future.result()
                 remaining = [n for n in remaining if n not in ready]
         return results
 

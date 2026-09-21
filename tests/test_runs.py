@@ -257,6 +257,25 @@ def test_claude_model_only_on_start_codex_every_turn():
                 assert ("--model" in argv) == (mode == "start")
 
 
+def test_a_worker_thread_runs_under_the_callers_project(setup, monkeypatch):
+    """A seat runs in a pool thread. It must see the project the operator
+    selected, not one re-resolved from wherever the worker happens to stand,
+    or a frozen executor's seats read the wrong catalog and account lease."""
+    from quirework.project import Project, current_project, project_scope
+
+    run = prepared(setup)
+    seen = []
+    monkeypatch.setattr(
+        engine.Run,
+        "run_seat",
+        lambda self, name, *a: seen.append(current_project().root) or "done",
+    )
+    chosen = Project.from_settings(setup[0] / "chosen", {})
+    with project_scope(chosen):
+        assert run.run(jobs=2) == {"reader": "done"}
+    assert seen == [chosen.root]
+
+
 def test_bootstrap_uses_frozen_executor_not_live_state_interpreter(setup, monkeypatch):
     run = prepared(setup)
     root = run.root
