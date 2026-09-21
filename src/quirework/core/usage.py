@@ -247,8 +247,16 @@ def summarize(rows):
         target = entry.get("target")
         if not target:
             continue
-        seen = procedures.setdefault(target, {"count": 0, "first": None, "last": None})
+        seen = procedures.setdefault(
+            target, {"count": 0, "first": None, "last": None, "projects": {}}
+        )
         seen["count"] += 1
+        # One name can be a procedure in several books, and the store is
+        # shared across all of them, so a count without its projects cannot
+        # be read back to the book it came from.
+        seen["projects"][entry["project"]] = (
+            seen["projects"].get(entry["project"], 0) + 1
+        )
         at = entry["at"]
         seen["first"] = at if seen["first"] is None else min(seen["first"], at)
         seen["last"] = at if seen["last"] is None else max(seen["last"], at)
@@ -371,6 +379,12 @@ def _sops(project, options):
     for name, seen in procedures:
         window = f"{seen['first'][:10]} to {seen['last'][:10]}"
         print(f"  {seen['count']:>6}  {name:<32}  {window}")
+        # Where the reads came from, since the store spans every book this
+        # user writes and the name alone does not say which one this was.
+        for root, count in sorted(seen["projects"].items(), key=lambda kv: -kv[1]):
+            label = report["project_names"].get(root, "")
+            share = f"{count:>6}  " if len(seen["projects"]) > 1 else " " * 8
+            print(f"        {share}{shown(root)}  {label}".rstrip())
     if damaged:
         print(f"{damaged} unreadable record(s) skipped.", file=sys.stderr)
     return 0

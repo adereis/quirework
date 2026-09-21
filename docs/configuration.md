@@ -182,9 +182,11 @@ records exist to answer.
 The store is per-user rather than per-project, which is the opposite of
 how run storage works and is the point: the comparison worth having is
 across the books one person writes, so the project root is a field in
-each record instead of a separate directory. Set `store` to keep a
-project's records somewhere else, which also separates them from
-everything else that user runs.
+each record instead of a separate directory. `quirework usage sops`
+therefore lists, under each procedure, the projects it was read in and
+how many reads each one made, because one name can be a procedure in
+several books. Set `store` to keep a project's records somewhere else,
+which also separates them from everything else that user runs.
 
 Three kinds of invocation are outside the count, and a report read
 without knowing that will understate them. `--help` is not use of a

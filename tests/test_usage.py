@@ -252,6 +252,29 @@ def test_here_means_this_book_in_every_checkout(tmp_path):
     assert [row["project"] for row in rows] == [str(project.root), str(linked)]
 
 
+def test_a_procedure_report_names_the_books_it_was_read_in(tmp_path, capsys):
+    """One store for every book means a bare procedure name is ambiguous:
+    the report has to say which project each read came from."""
+    shared = {"usage": {"store": str(tmp_path / "records")}}
+    one = project_with(tmp_path / "a", procedures=["revise"], **shared)
+    two = project_with(tmp_path / "b", procedures=["revise"], **shared)
+    for project in (one, two, two):
+        assert invoke(("sop", "show"), ["revise"], project=project) == 0
+    report = usage.summarize(records(one))
+    assert report["procedures"]["revise"]["projects"] == {
+        str(two.root): 2,
+        str(one.root): 1,
+    }
+    capsys.readouterr()
+    assert invoke(("usage", "sops"), [], project=one) == 0
+    out = capsys.readouterr().out
+    lines = [line for line in out.splitlines() if "book" in line]
+    # Both books are listed under the one name, the busier one first, with
+    # its share of the reads in front of it.
+    assert lines[0].split()[0] == "2" and str(two.root)[-6:] in lines[0]
+    assert lines[1].split()[0] == "1" and str(one.root)[-6:] in lines[1]
+
+
 def test_the_default_store_is_shared_by_every_project_of_one_user(
     monkeypatch, tmp_path
 ):
