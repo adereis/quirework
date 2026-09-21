@@ -16,13 +16,14 @@ just pass files and get the right treatment. A hard self-check (`_canonical`)
 compares the file before and after with all whitespace collapsed; if anything
 other than whitespace changed, the run aborts and writes nothing.
 
-This module and its sibling artifact_paths helper are stdlib-only. It also
-runs as `python ../quirework/src/quirework/text/mdwrap.py` without installing the package.
+This module and its sibling artifact_paths helper are stdlib-only, so the file
+also runs directly, without installing the package. Paths below are relative to
+this repository; from a project that vendors it, prefix its checkout.
 
 Usage:
-    python ../quirework/src/quirework/text/mdwrap.py FILE [FILE ...]       # rewrap in place
-    python ../quirework/src/quirework/text/mdwrap.py --check FILE [...]    # exit 1 if not wrapped
-    python ../quirework/src/quirework/text/mdwrap.py --width 72 FILE ...   # column-mode width
+    python src/quirework/text/mdwrap.py FILE [FILE ...]       # rewrap in place
+    python src/quirework/text/mdwrap.py --check FILE [...]    # exit 1 if not wrapped
+    python src/quirework/text/mdwrap.py --width 72 FILE ...   # column-mode width
 """
 
 from __future__ import annotations

@@ -711,7 +711,7 @@ def sha256_file(path):
 def main(argv):
     if not argv:
         print(
-            "usage: python3 ../quirework/src/quirework/provenance/ccfilter.py SESSION.jsonl [> out.md]",
+            "usage: python3 -m quirework.provenance.ccfilter SESSION.jsonl [> out.md]",
             file=sys.stderr,
         )
         return 2
