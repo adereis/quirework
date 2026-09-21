@@ -330,6 +330,10 @@ so either can vary alone. A persona is one JSON file per profile under
 }
 ```
 
+The [persona name catalogue](persona-name-catalog.md) offers fictional,
+task-linked labels for profiles. The profile prompt remains the source
+of the seat's actual behavior.
+
 An instrument under `sops.instruments` is one JSON file of questions:
 
 ```json
