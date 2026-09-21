@@ -33,6 +33,18 @@ def test_commands_preserve_requested_models_and_manual_file_transport(tmp_path):
             assert (payload is None) == manual
 
 
+def test_a_research_seat_gets_the_web_only_where_the_harness_can_grant_it(tmp_path):
+    base = {"model": "m", "effort": "high", "max_context_window": 400_000}
+    args, _ = d.command(
+        {**base, "harness": "claude", "tools": "research"}, tmp_path, "x"
+    )
+    assert "Read,Write,Edit,Glob,Grep,WebSearch,WebFetch" in args
+    args, _ = d.command({**base, "harness": "claude"}, tmp_path, "x")
+    assert not any("WebSearch" in a for a in args)
+    with pytest.raises(ValueError, match="agy cannot confine"):
+        d.command({**base, "harness": "agy", "tools": "research"}, tmp_path, "x")
+
+
 def test_compaction_and_model_substitution_fail():
     with pytest.raises(RuntimeError, match="compacted"):
         d._no_compaction(

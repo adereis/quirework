@@ -826,6 +826,56 @@ def test_the_rounds_command_reports_a_held_round(prepared, monkeypatch, capsys):
     assert "stopped: held on bo-larke" in out
 
 
+def _research_plan(plan, harness, tools="research"):
+    supplied = read(plan)
+    supplied["harness"] = "codex"
+    supplied["seats"][1].update({"tools": tools, "harness": harness})
+    write(plan, supplied)
+    return plan
+
+
+def test_a_research_seat_is_launched_with_the_web_and_marked_on_the_board(
+    plan, tmp_path
+):
+    """The digest's "[can search the web]" mark is a claim to the other seats.
+    It used to be read off the plan and never reach the launcher, so a room
+    could be told a colleague checked a source through a seat that had no
+    way to."""
+    root = tmp_path / "room"
+    room.prepare(_research_plan(plan, "codex"), root, resolve_models=False)
+    _, frozen = room.load(root)
+    bo = next(s for s in frozen["seats"] if s["id"] == "bo-larke")
+    assert bo["config"]["tools"] == "research"
+    # An unresolved config carries no catalog ceiling; supply the one the
+    # driver insists on so the command can be built at all.
+    ceiling = {"max_context_window": 400_000}
+    args, _ = room.drivers.command({**bo["config"], **ceiling}, tmp_path, "Check it.")
+    assert 'web_search="live"' in args
+    ana = next(s for s in frozen["seats"] if s["id"] == "ana-pell")
+    assert ana["config"]["tools"] == "write"
+    args, _ = room.drivers.command({**ana["config"], **ceiling}, tmp_path, "Write it.")
+    assert 'web_search="disabled"' in args
+    post(root, "ana-pell", "Ana opens.")
+    post(root, "bo-larke", "Bo cites a source.")
+    room.promote(root, 1)
+    digest = (root / "board" / "rounds" / "r001" / "digest.md").read_text()
+    assert "(bo-larke)  [can search the web]" in digest
+    assert "(ana-pell)  [can search the web]" not in digest
+
+
+def test_a_research_seat_is_refused_where_it_cannot_be_enforced(plan, tmp_path):
+    with pytest.raises(ValueError, match="agy cannot confine"):
+        room.prepare(
+            _research_plan(plan, "agy"), tmp_path / "room", resolve_models=False
+        )
+    with pytest.raises(ValueError, match="tools must be one of"):
+        room.prepare(
+            _research_plan(plan, "codex", "browse"),
+            tmp_path / "room",
+            resolve_models=False,
+        )
+
+
 def test_a_seat_is_told_paths_it_can_use_where_it_stands(staged):
     """The jail chdirs into the workspace, so the operator's home is noise."""
     post(staged, "ana-pell", "Ana opens.")

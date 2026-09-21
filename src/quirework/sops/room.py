@@ -411,6 +411,19 @@ def prepare(plan_path, destination, *, resolve_models=True):
             chosen = drivers.resolve(
                 chosen["harness"], chosen["model"], chosen["effort"]
             )
+        # The digest tells the room which seats can search the web, so the
+        # claim has to be true: the policy travels in the seat's config to the
+        # launcher, and a harness that cannot enforce it is refused here
+        # rather than marked on the board as if it could.
+        tools = item.get("tools", "write")
+        if tools not in TOOLS:
+            raise ValueError(f"seat {item['id']!r}: tools must be one of {TOOLS}")
+        if tools == "research" and chosen["harness"] == "agy":
+            raise ValueError(
+                f"seat {item['id']!r}: agy cannot confine a seat to a tool set, "
+                "so a research seat there cannot be told from a writing one"
+            )
+        chosen = {**chosen, "tools": tools}
         seats.append(
             dict(
                 item,
@@ -686,6 +699,11 @@ def convergence(root, plan, n):
         "reason": "novelty" if quiet else "closing" if closed else None,
         "series": series,
     }
+
+
+# What a seat may do beyond writing its post: `write` is the room's floor,
+# `research` adds the harness's web tools for a seat that must check sources.
+TOOLS = ("write", "research")
 
 
 def seat_config(plan, seat):

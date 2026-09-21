@@ -230,6 +230,13 @@ the default for any a seat omits. A mixed room costs no special
 handling, because every adapter call already takes a seat's own
 configuration.
 
+A seat may also declare `tools`. The default, `write`, is what a post
+needs. `research` adds the harness's web tools for a seat that must
+check a source, and the digest marks that seat as able to search so the
+others can weigh its citations. The mark is only ever made when the
+launcher enforces it: Antigravity cannot confine a seat to a tool set,
+so a research seat there is refused when the room is prepared.
+
 A room may run in phases. A phase names how many rounds it lasts, and
 may seat only part of the room, set its own post length, and add one
 line of instruction. Rounds a seat sits out are not absences: it is

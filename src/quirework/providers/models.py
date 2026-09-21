@@ -207,8 +207,11 @@ def command(config, workspace, prompt, *, manual=False, resume=None):
     is not.
     """
     harness, model, effort = (config[k] for k in ("harness", "model", "effort"))
+    research = config.get("tools", "write") == "research"
     if resume and manual:
         raise ValueError("resume the writer automatically or relaunch it by hand")
+    if research and harness == "agy":
+        raise ValueError("agy cannot confine a seat to a tool set")
     if harness == "codex":
         args = ["codex"] + (
             []
@@ -231,7 +234,7 @@ def command(config, workspace, prompt, *, manual=False, resume=None):
             "-c",
             'model_verbosity="high"',
             "-c",
-            'web_search="disabled"',
+            'web_search="live"' if research else 'web_search="disabled"',
             "-c",
             "project_doc_max_bytes=0",
             "-c",
@@ -251,6 +254,9 @@ def command(config, workspace, prompt, *, manual=False, resume=None):
             return args + [prompt], None
         return args + ["--skip-git-repo-check", "--json", "-"], prompt.encode()
     if harness == "claude":
+        tools = "Read,Write,Edit,Glob,Grep" + (
+            ",WebSearch,WebFetch" if research else ""
+        )
         args = [
             "claude",
             *(quota.resume_argv("claude", resume) if resume else []),
@@ -259,9 +265,9 @@ def command(config, workspace, prompt, *, manual=False, resume=None):
             "--effort",
             effort,
             "--tools",
-            "Read,Write,Edit,Glob,Grep",
+            tools,
             "--allowedTools",
-            "Read,Write,Edit,Glob,Grep",
+            tools,
             "--disable-slash-commands",
             *window_flags(config),
             *blind.BLIND_SETTINGS,
