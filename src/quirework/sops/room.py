@@ -1301,6 +1301,14 @@ def run_until(root, *, limit=None, jobs=1, timeout=None):
             return played, "budget"
         outcome = run_round(root, number, jobs=jobs, timeout=timeout)
         played.append((number, outcome))
+        # A held round has no board and no signal: a seat hit a provider
+        # wall and the round stays open until the operator continues it.
+        # Asking for another round here would run it on top of an unclosed
+        # one, so the loop hands back instead of reading a digest that was
+        # deliberately never written.
+        held = outcome["_board"].get("held")
+        if held:
+            return played, f"held on {', '.join(held)}"
         signal = outcome["_board"]["convergence"]
         if signal["converged"] and not plan.get("phases"):
             return played, f"converged on {signal['reason']}"
@@ -1874,6 +1882,14 @@ def main(argv=None):
             root, limit=args.to, jobs=args.jobs, timeout=args.timeout
         )
         for number, outcome in played:
+            held = outcome["_board"].get("held")
+            if held:
+                print(
+                    f"round {number}: held, waiting on {', '.join(held)}; "
+                    f"continue each with: quirework sop room continue "
+                    f"{shown(root)} {number} SEAT, then promote {number}"
+                )
+                continue
             signal = outcome["_board"]["convergence"]
             print(
                 f"round {number}: {len(outcome['_board']['posted'])} posted, "
@@ -1912,7 +1928,6 @@ def main(argv=None):
             )
         except KeyboardInterrupt:
             return 0
-    return 0
     return 0
 
 

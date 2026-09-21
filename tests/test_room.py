@@ -782,6 +782,50 @@ def test_a_room_without_phases_still_stops_when_it_converges(prepared, monkeypat
     assert why == "converged on novelty"
 
 
+def test_rounds_hands_back_when_a_provider_wall_holds_a_round(prepared, monkeypatch):
+    """A held round has no digest and no signal. The loop used to reach for
+    the signal anyway and die on a KeyError, in the one situation the module
+    is built to survive; it must instead stop and name the seats to continue."""
+    ran = []
+
+    def fake_round(root, n, **kw):
+        ran.append(n)
+        if n == 2:
+            # No board directory: the round is open, waiting on a seat.
+            return {"_board": {"held": ["ana-pell"]}}
+        (root / "board" / "rounds" / f"r{n:03d}").mkdir(parents=True)
+        return {
+            "_board": {
+                "posted": ["ana-pell", "bo-larke"],
+                "convergence": {"converged": False, "reason": ""},
+            }
+        }
+
+    monkeypatch.setattr(room, "run_round", fake_round)
+    played, why = room.run_until(prepared)
+    assert ran == [1, 2]
+    assert why == "held on ana-pell"
+    assert [n for n, _ in played] == [1, 2]
+
+
+def test_the_rounds_command_reports_a_held_round(prepared, monkeypatch, capsys):
+    """The command's own report must survive the outcome shape a hold returns,
+    and tell the operator what to run next."""
+    monkeypatch.setattr(
+        room,
+        "run_until",
+        lambda root, **kw: (
+            [(3, {"_board": {"held": ["bo-larke"]}})],
+            "held on bo-larke",
+        ),
+    )
+    assert room.main(["rounds", str(prepared)]) == 0
+    out = capsys.readouterr().out
+    assert "round 3: held, waiting on bo-larke" in out
+    assert "continue" in out and "promote 3" in out
+    assert "stopped: held on bo-larke" in out
+
+
 def test_a_seat_is_told_paths_it_can_use_where_it_stands(staged):
     """The jail chdirs into the workspace, so the operator's home is noise."""
     post(staged, "ana-pell", "Ana opens.")
