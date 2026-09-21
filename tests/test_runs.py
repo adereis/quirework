@@ -407,6 +407,40 @@ def test_unsubmitted_intent_recovers_without_losing_prior_attempt(setup, monkeyp
     assert "0" in state["retired_attempts"]["first"]
 
 
+def test_a_seat_is_counted_when_it_is_launched_not_when_it_answers(setup, monkeypatch):
+    """The usage record is made before the process starts, so a seat the
+    provider then refuses is still a launch that happened."""
+    from quirework.core import usage
+
+    run = prepared(setup)
+    monkeypatch.setattr(harness, "command", lambda *a: (["fixture"], b"", "prompt"))
+    monkeypatch.setattr(
+        harness, "launch_context", lambda *a: ([], {}, run.private("reader"))
+    )
+    launched = []
+    monkeypatch.setattr(
+        usage,
+        "seat",
+        lambda workflow, config, **kw: launched.append((workflow, config)),
+    )
+
+    def fail_spawn(*a, **kw):
+        raise OSError("synthetic pre-spawn failure")
+
+    monkeypatch.setattr(engine.subprocess, "Popen", fail_spawn)
+    with pytest.raises(OSError, match="pre-spawn"):
+        run.turn("reader", 0, 1)
+    assert launched == [("run", run.seats["reader"]["config"])]
+
+
+def test_the_frozen_executor_carries_the_usage_module(setup):
+    """The engine records seat launches, so a record replayed by its own
+    frozen executor must be able to import the module that writes them."""
+    run = prepared(setup)
+    assert (run.root / "executor/src/quirework/core/usage.py").is_file()
+    assert (run.root / "executor/src/quirework/core/__init__.py").is_file()
+
+
 def test_relative_record_and_export_paths_survive_dispatch(setup, monkeypatch):
     prepared(setup)
     monkeypatch.chdir(setup[0])

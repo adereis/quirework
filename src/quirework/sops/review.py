@@ -36,6 +36,7 @@ import sys
 import time
 from pathlib import Path
 
+from quirework.core import usage as usage_records
 from quirework.providers import blind
 from quirework.sops import personas
 from quirework.providers import quota
@@ -927,6 +928,7 @@ def _turn(
     before = worktree_state()
     before["reviewed_hashes"] = reviewed_hashes(delta)
     started = time.time()
+    usage_records.seat("review", config)
     with (
         (turn_dir / "events.jsonl").open("xb") as out,
         (turn_dir / "stderr.log").open("xb") as err,

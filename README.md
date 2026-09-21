@@ -182,7 +182,7 @@ quirework provenance  Capture, organize, and search source history
 quirework sop         Find procedures and operate supervised workflows
 quirework dev         Run project checks
 quirework config      Inspect project configuration
-quirework usage       Report which commands and procedures get used
+quirework usage       Report which commands, procedures and seats get used
 ```
 
 You can also run the commands directly. Add `--help` at any level to

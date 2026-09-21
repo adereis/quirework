@@ -863,6 +863,29 @@ def test_a_research_seat_is_launched_with_the_web_and_marked_on_the_board(
     assert "(ana-pell)  [can search the web]" not in digest
 
 
+def test_a_room_turn_records_its_seat_before_the_process_starts(prepared, monkeypatch):
+    _, plan = room.load(prepared)
+    seat = next(s for s in plan["seats"] if s["id"] == "ana-pell")
+    monkeypatch.setattr(room.drivers, "command", lambda *a, **k: (["fixture"], b""))
+    monkeypatch.setattr(
+        room.drivers, "launch_context", lambda *a: ([], {}, prepared / "private")
+    )
+    launched = []
+    monkeypatch.setattr(
+        room.usage_records,
+        "seat",
+        lambda workflow, config, **kw: launched.append(workflow),
+    )
+
+    def fail_spawn(*a, **kw):
+        raise OSError("synthetic pre-spawn failure")
+
+    monkeypatch.setattr(room.subprocess, "Popen", fail_spawn)
+    with pytest.raises(OSError, match="pre-spawn"):
+        room._launch(prepared, plan, seat, 1, "Open.", None)
+    assert launched == ["room"]
+
+
 def test_a_research_seat_is_refused_where_it_cannot_be_enforced(plan, tmp_path):
     with pytest.raises(ValueError, match="agy cannot confine"):
         room.prepare(

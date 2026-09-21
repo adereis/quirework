@@ -23,6 +23,7 @@ import tempfile
 import time
 import uuid
 
+from quirework.core import usage as usage_records
 from quirework.providers import blind
 
 # Above every published ceiling on purpose; Codex clamps it down.
@@ -592,6 +593,14 @@ class Experiment:
                 raise RuntimeError(
                     "missing blind launcher paths: " + "; ".join(missing)
                 )
+            usage_records.seat(
+                "experiment",
+                {
+                    "harness": self.runner,
+                    "model": self.plan["model"],
+                    "effort": self.plan["effort"],
+                },
+            )
             blind.write_receipt(
                 self.record / "raw" / f"blind-{key}.json",
                 confined=True,

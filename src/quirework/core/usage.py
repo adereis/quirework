@@ -125,7 +125,7 @@ def record(command, argv=(), *, project):
     finally:
         entry = {
             "schema": SCHEMA,
-            "at": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
+            "at": _stamp(),
             "command": " ".join(key),
             "project": str(project.root),
             "status": outcome.status,
@@ -139,10 +139,47 @@ def record(command, argv=(), *, project):
             # was not drawn from `sops.root`, and dropping it is what lets
             # this file promise that a recorded name is a real procedure.
             entry["target"] = target
-        name = project.get("project.name")
-        if isinstance(name, str) and name.strip():
-            entry["name"] = name.strip()
-        append(entry, project=project)
+        append(_named(entry, project), project=project)
+
+
+def _stamp() -> str:
+    return datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+
+
+def _named(entry, project):
+    name = project.get("project.name")
+    if isinstance(name, str) and name.strip():
+        entry["name"] = name.strip()
+    return entry
+
+
+def seat(workflow, config, *, project=None):
+    """Record that a model seat was launched: through which harness, on
+    which model, at what effort, for which kind of workflow.
+
+    This answers a question the command count cannot: whether a harness or
+    a model is used at all, across every book. It records nothing about the
+    seat's assignment. No prompt, no material name, no persona and no seat
+    id reach the store, for the same reason command arguments never do; a
+    file that accumulated them would be a private corpus nobody agreed to
+    keep. A run stopped by a provider is still a launch, so the record is
+    made before the process starts and carries no outcome.
+    """
+    project = current_project() if project is None else project
+    if not enabled(project):
+        return
+    entry = {
+        "schema": SCHEMA,
+        "kind": "seat",
+        "at": _stamp(),
+        "project": str(project.root),
+        "workflow": workflow,
+        "harness": config["harness"],
+        "model": config["model"],
+        "effort": config.get("effort"),
+        "version": __version__,
+    }
+    append(_named(entry, project), project=project)
 
 
 def append(entry, *, project):
@@ -240,10 +277,20 @@ def when(text):
         raise ValueError(f"not a date or an age like 30d: {text!r}") from exc
 
 
+def _is_seat(entry) -> bool:
+    return entry.get("kind") == "seat"
+
+
 def summarize(rows):
-    """Counts by command, by procedure and by project, plus the span covered."""
+    """Counts by command, by procedure, by seat and by project, plus the span.
+
+    A record without a `kind` is a command; the field arrived with seat
+    records and older files never wrote it.
+    """
+    commands = [e for e in rows if not _is_seat(e)]
+    seats = [e for e in rows if _is_seat(e)]
     procedures = {}
-    for entry in rows:
+    for entry in commands:
         target = entry.get("target")
         if not target:
             continue
@@ -260,23 +307,57 @@ def summarize(rows):
         at = entry["at"]
         seen["first"] = at if seen["first"] is None else min(seen["first"], at)
         seen["last"] = at if seen["last"] is None else max(seen["last"], at)
+    pairs = {}
+    for entry in seats:
+        key = f"{entry['harness']} {entry['model']}"
+        seen = pairs.setdefault(
+            key,
+            {
+                "harness": entry["harness"],
+                "model": entry["model"],
+                "count": 0,
+                "first": None,
+                "last": None,
+                "workflows": {},
+                "efforts": {},
+                "projects": {},
+            },
+        )
+        seen["count"] += 1
+        at = entry["at"]
+        seen["first"] = at if seen["first"] is None else min(seen["first"], at)
+        seen["last"] = at if seen["last"] is None else max(seen["last"], at)
+        for field, value in (
+            ("workflows", entry.get("workflow")),
+            ("efforts", entry.get("effort")),
+            ("projects", entry["project"]),
+        ):
+            seen[field][value] = seen[field].get(value, 0) + 1
     names = {}
     for entry in rows:
         if entry.get("name"):
             names[entry["project"]] = entry["name"]
     return {
-        "events": len(rows),
+        "events": len(commands),
         "first": rows[0]["at"] if rows else None,
         "last": rows[-1]["at"] if rows else None,
-        "commands": dict(Counter(e["command"] for e in rows).most_common()),
+        "commands": dict(Counter(e["command"] for e in commands).most_common()),
         "procedures": dict(
             sorted(procedures.items(), key=lambda kv: (-kv[1]["count"], kv[0]))
         ),
+        "seats": {
+            "count": len(seats),
+            "harnesses": dict(Counter(e["harness"] for e in seats).most_common()),
+            "workflows": dict(Counter(e["workflow"] for e in seats).most_common()),
+            "pairs": dict(
+                sorted(pairs.items(), key=lambda kv: (-kv[1]["count"], kv[0]))
+            ),
+        },
         "projects": dict(Counter(e["project"] for e in rows).most_common()),
         "project_names": names,
         "months": dict(sorted(Counter(e["at"][:7] for e in rows).items())),
-        "failures": sum(1 for e in rows if e.get("status") not in (0, None)),
-        "errors": sum(1 for e in rows if e.get("status") is None),
+        "failures": sum(1 for e in commands if e.get("status") not in (0, None)),
+        "errors": sum(1 for e in commands if e.get("status") is None),
     }
 
 
@@ -336,7 +417,10 @@ def _show(project, options):
             print("Recording is off for this project.")
         return 0
     span = f"{report['first'][:10]} to {report['last'][:10]}"
-    print(f"{report['events']} command(s) recorded, {span}, in {where}.")
+    print(
+        f"{report['events']} command(s) and {report['seats']['count']} seat "
+        f"launch(es) recorded, {span}, in {where}."
+    )
     print("\nCommands")
     for name, count in list(report["commands"].items())[: options.limit]:
         print(f"  {count:>6}  {name}")
@@ -345,6 +429,11 @@ def _show(project, options):
         for name, seen in list(report["procedures"].items())[: options.limit]:
             window = f"{seen['first'][:10]} to {seen['last'][:10]}"
             print(f"  {seen['count']:>6}  {name:<28}  {window}")
+    if report["seats"]["count"]:
+        print("\nSeats")
+        for key, seen in list(report["seats"]["pairs"].items())[: options.limit]:
+            kinds = ", ".join(f"{k} {v}" for k, v in seen["workflows"].items())
+            print(f"  {seen['count']:>6}  {key:<40}  {kinds}")
     print("\nProjects")
     for path, count in list(report["projects"].items())[: options.limit]:
         label = report["project_names"].get(path, "")
@@ -390,6 +479,34 @@ def _sops(project, options):
     return 0
 
 
+def _seats(project, options):
+    rows, damaged = read(project, since=options.since, here=options.here)
+    report = summarize(rows)
+    pairs = list(report["seats"]["pairs"].items())[: options.limit]
+    if options.json:
+        print(json.dumps(dict(pairs), indent=2))
+        return 0
+    if not pairs:
+        print("No seat launches recorded.")
+        print(
+            "Rooms, workshops, reviews, runs and experiments record one line per\n"
+            "seat they launch, with its harness and model and nothing about its "
+            "assignment."
+        )
+        return 0
+    for key, seen in pairs:
+        window = f"{seen['first'][:10]} to {seen['last'][:10]}"
+        kinds = ", ".join(f"{k} {v}" for k, v in seen["workflows"].items())
+        print(f"  {seen['count']:>6}  {key:<40}  {window}  {kinds}")
+        for root, count in sorted(seen["projects"].items(), key=lambda kv: -kv[1]):
+            label = report["project_names"].get(root, "")
+            share = f"{count:>6}  " if len(seen["projects"]) > 1 else " " * 8
+            print(f"        {share}{shown(root)}  {label}".rstrip())
+    if damaged:
+        print(f"{damaged} unreadable record(s) skipped.", file=sys.stderr)
+    return 0
+
+
 def _log(project, options):
     rows, damaged = read(project, since=options.since, here=options.here)
     recent = rows[-options.limit :]
@@ -397,6 +514,12 @@ def _log(project, options):
         print(json.dumps(recent, indent=2))
         return 0
     for entry in recent:
+        if _is_seat(entry):
+            what = f"seat {entry['workflow']} {entry['harness']} {entry['model']}"
+            print(
+                f"  {entry['at']}  {what:<34}  {'':>8}  {'':<8}  {shown(entry['project'])}"
+            )
+            continue
         status = entry.get("status")
         mark = (
             "ok" if status == 0 else ("raised" if status is None else f"exit {status}")
@@ -451,6 +574,7 @@ def main(argv=None) -> int:
 
     shared("show", "summarize recorded usage", 20)
     shared("sops", "rank procedures by recorded reads", 40)
+    shared("seats", "rank harnesses and models by seats launched", 40)
     shared("log", "read the most recent records", 20)
     remove = verbs.add_parser(
         "prune", prog="quirework usage prune", help="remove old records"
@@ -466,7 +590,13 @@ def main(argv=None) -> int:
     )
     options = parser.parse_args(argv or ["show"])
     project = current_project()
-    handlers = {"show": _show, "sops": _sops, "log": _log, "prune": _prune}
+    handlers = {
+        "show": _show,
+        "sops": _sops,
+        "seats": _seats,
+        "log": _log,
+        "prune": _prune,
+    }
     return handlers[options.verb or "show"](project, options)
 
 

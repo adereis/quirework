@@ -33,6 +33,7 @@ from pathlib import Path
 from threading import Lock
 
 from quirework.project import current_project, submit
+from quirework.core import usage as usage_records
 from quirework.providers import blind
 from quirework.providers import quota
 from quirework.providers import models as drivers
@@ -1054,6 +1055,7 @@ def _launch(root, plan, seat, n, prompt, resume, *, timeout=None):
     jail, env, private = drivers.launch_context(config, work)
     jail += ["--ro-bind", str(work / "board"), str(work / "board")]
     (record / "prompt.md").write_text(prompt)
+    usage_records.seat("room", config)
     write(
         record / "launch.json",
         {

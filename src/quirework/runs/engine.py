@@ -24,6 +24,7 @@ from quirework.providers import models as workshop_drivers
 from quirework.sops import personas
 from quirework.project import current_project
 from quirework.project import submit
+from quirework.core import usage as usage_records
 from quirework.delivery import artifacts
 from quirework.providers import harness
 from quirework.sops import instruments
@@ -177,6 +178,8 @@ def freeze_executor(destination):
     needed = {
         "__init__.py",
         "project.py",
+        "core/__init__.py",
+        "core/usage.py",
         "sops/__init__.py",
         "sops/personas.py",
         "sops/instruments.py",
@@ -983,6 +986,7 @@ class Run:
                 read_roots=spec["policy"]["read_roots"],
             ),
         )
+        usage_records.seat("run", spec["config"])
         with (
             (record / "events.jsonl").open("wb") as out,
             (record / "stderr.log").open("wb") as err,

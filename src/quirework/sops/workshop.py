@@ -19,6 +19,7 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 from contextlib import contextmanager
 from pathlib import Path
 
+from quirework.core import usage as usage_records
 from quirework.providers import blind
 from quirework.sops import personas
 from quirework.providers import quota
@@ -722,6 +723,7 @@ def run_writer(root, writer, *, manual=False, timeout=None, resume=None):
         )
         state.update(status="running", started_at=time.time(), manual=manual)
         write_json(record / "state.json", state)
+        usage_records.seat("workshop", state["config"])
         try:
             if manual:
                 state["exit_code"] = _pty_run(jail + args, env, record)

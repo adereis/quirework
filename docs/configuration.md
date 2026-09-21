@@ -179,6 +179,16 @@ name, and only once the project has resolved it to a file under
 `sops.root`, because which procedure gets used is the question these
 records exist to answer.
 
+A second kind of record is one model seat launched: by a room, a
+workshop, a review, a run or an experiment. It carries the workflow, the
+harness, the model, the effort and the project, and nothing about the
+assignment, for the same reason arguments are kept out. It is written
+before the process starts, so a seat the provider refuses is still
+counted as the launch it was. `quirework usage seats` ranks harness and
+model pairs by launches, with the projects each ran in, which is how to
+learn whether a harness is used at all before deciding to keep
+supporting it.
+
 The store is per-user rather than per-project, which is the opposite of
 how run storage works and is the point: the comparison worth having is
 across the books one person writes, so the project root is a field in

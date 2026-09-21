@@ -127,6 +127,9 @@ COMMANDS = {
     ("usage", "sops"): Command(
         "core.usage", "Rank procedures by recorded reads", prefix=("sops",)
     ),
+    ("usage", "seats"): Command(
+        "core.usage", "Rank harnesses and models by seats launched", prefix=("seats",)
+    ),
     ("usage", "log"): Command(
         "core.usage", "Read the most recent records", prefix=("log",)
     ),

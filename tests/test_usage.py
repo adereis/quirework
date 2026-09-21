@@ -275,6 +275,93 @@ def test_a_procedure_report_names_the_books_it_was_read_in(tmp_path, capsys):
     assert lines[1].split()[0] == "1" and str(one.root)[-6:] in lines[1]
 
 
+def test_a_seat_launch_records_the_model_and_nothing_about_the_assignment(
+    tmp_path,
+):
+    """Which harness and model ran, for what kind of work: that is the whole
+    record. The prompt, the material and the seat's persona never enter it."""
+    project = project_with(tmp_path)
+    usage.seat(
+        "room",
+        {
+            "harness": "codex",
+            "model": "gpt-fixture",
+            "effort": "high",
+            "tools": "research",
+            "catalog_entry": {"secret": "not for the store"},
+        },
+        project=project,
+    )
+    (entry,) = records(project)
+    assert entry["kind"] == "seat"
+    assert entry["workflow"] == "room"
+    assert (entry["harness"], entry["model"], entry["effort"]) == (
+        "codex",
+        "gpt-fixture",
+        "high",
+    )
+    assert entry["project"] == str(project.root)
+    assert entry["name"] == "A Small Notebook"
+    assert set(entry) == {
+        "schema",
+        "kind",
+        "at",
+        "project",
+        "workflow",
+        "harness",
+        "model",
+        "effort",
+        "version",
+        "name",
+    }
+
+
+def test_a_seat_launch_honours_the_off_switch(tmp_path, monkeypatch):
+    project = project_with(tmp_path, usage={"enabled": False})
+    usage.seat("run", {"harness": "claude", "model": "m"}, project=project)
+    assert records(project) == []
+    monkeypatch.setenv("QUIREWORK_USAGE", "0")
+    usage.seat(
+        "run", {"harness": "claude", "model": "m"}, project=project_with(tmp_path / "b")
+    )
+    assert records(project) == []
+
+
+def test_seats_are_ranked_by_harness_and_model_and_kept_apart_from_commands(
+    tmp_path, capsys
+):
+    project = project_with(tmp_path, procedures=["revise"])
+    assert invoke(("sop", "show"), ["revise"], project=project) == 0
+    for workflow, harness, model in (
+        ("room", "codex", "gpt-a"),
+        ("room", "codex", "gpt-a"),
+        ("review", "claude", "opus"),
+    ):
+        usage.seat(workflow, {"harness": harness, "model": model}, project=project)
+    report = usage.summarize(records(project))
+    # Commands are counted without the seats and the seats without the
+    # commands; neither total borrows from the other.
+    assert report["events"] == 1
+    assert report["commands"] == {"sop show": 1}
+    assert report["seats"]["count"] == 3
+    assert list(report["seats"]["pairs"]) == ["codex gpt-a", "claude opus"]
+    assert report["seats"]["pairs"]["codex gpt-a"]["workflows"] == {"room": 2}
+    assert report["seats"]["harnesses"] == {"codex": 2, "claude": 1}
+    capsys.readouterr()
+    assert invoke(("usage", "seats"), [], project=project) == 0
+    out = capsys.readouterr().out
+    first, second = [line for line in out.splitlines() if line.startswith("  ")][:3:2]
+    assert first.split()[:3] == ["2", "codex", "gpt-a"] and "room 2" in first
+    assert second.split()[:3] == ["1", "claude", "opus"]
+    assert invoke(("usage", "show"), [], project=project) == 0
+    out = capsys.readouterr().out
+    assert "1 command(s) and 3 seat launch(es) recorded" in out
+    assert "\nSeats\n" in out
+    assert invoke(("usage", "log"), [], project=project) == 0
+    out = capsys.readouterr().out
+    assert "seat review claude opus" in out
+
+
 def test_the_default_store_is_shared_by_every_project_of_one_user(
     monkeypatch, tmp_path
 ):
