@@ -612,7 +612,7 @@ def collect(root, writer, *, external=None):
         return _collect(root, writer, external=external)
 
 
-def _pty_run(args, env, record):
+def _pty_run(args, env, record, bus=None):
     """Forward an interactive terminal while recording the actual child PID."""
     import errno
     import pty
@@ -628,8 +628,14 @@ def _pty_run(args, env, record):
     size = fcntl.ioctl(sys.stdin.fileno(), termios.TIOCGWINSZ, b"\0" * 8)
     fcntl.ioctl(slave, termios.TIOCSWINSZ, size)
     settings = termios.tcgetattr(sys.stdin)
-    proc = subprocess.Popen(
-        args, stdin=slave, stdout=slave, stderr=slave, env=env, start_new_session=True
+    proc = blind.popen(
+        args,
+        bus,
+        stdin=slave,
+        stdout=slave,
+        stderr=slave,
+        env=env,
+        start_new_session=True,
     )
     os.close(slave)
     state = read_json(record / "state.json")
@@ -705,74 +711,79 @@ def run_writer(root, writer, *, manual=False, timeout=None, resume=None):
             prompt = (
                 f"Read {work / 'START.md'} and complete the assignment it specifies."
             )
-        args, payload = drivers.command(
-            state["config"], work, prompt, manual=manual, resume=resume
-        )
-        jail, env, private = drivers.launch_context(state["config"], work)
-        _snapshot_driver(record)
-        (record / "prompt.md").write_text(prompt + "\n")
-        write_json(
-            record / "launch.json",
-            {
-                "argv": args,
-                "jail": jail,
-                "harness_version": blind.runner_version(state["config"]["harness"]),
-                "private_runtime": str(private),
-                "manual": manual,
-            },
-        )
-        state.update(status="running", started_at=time.time(), manual=manual)
-        write_json(record / "state.json", state)
-        usage_records.seat("workshop", state["config"])
-        try:
-            if manual:
-                state["exit_code"] = _pty_run(jail + args, env, record)
-            else:
-                with (
-                    (record / "events.jsonl").open("xb") as out,
-                    (record / "stderr.log").open("xb") as err,
+        # Open before the jail is built, since its argv names the proxy's
+        # socket, and closed only after the writer's process has exited.
+        with blind.session_bus([state["config"]["harness"]]) as bus:
+            args, payload = drivers.command(
+                state["config"], work, prompt, manual=manual, resume=resume
+            )
+            jail, env, private = drivers.launch_context(state["config"], work, bus)
+            _snapshot_driver(record)
+            (record / "prompt.md").write_text(prompt + "\n")
+            write_json(
+                record / "launch.json",
+                {
+                    "argv": args,
+                    "jail": jail,
+                    "harness_version": blind.runner_version(state["config"]["harness"]),
+                    "private_runtime": str(private),
+                    "manual": manual,
+                    "session_bus": bus.receipt() if bus else None,
+                },
+            )
+            state.update(status="running", started_at=time.time(), manual=manual)
+            write_json(record / "state.json", state)
+            usage_records.seat("workshop", state["config"])
+            try:
+                if manual:
+                    state["exit_code"] = _pty_run(jail + args, env, record, bus)
+                else:
+                    with (
+                        (record / "events.jsonl").open("xb") as out,
+                        (record / "stderr.log").open("xb") as err,
+                    ):
+                        proc = blind.popen(
+                            jail + args,
+                            bus,
+                            stdin=subprocess.PIPE,
+                            stdout=out,
+                            stderr=err,
+                            cwd=current_project().root,
+                            env=env,
+                            start_new_session=True,
+                        )
+                        state.update(
+                            pid=proc.pid, process_identity=process_identity(proc.pid)
+                        )
+                        write_json(record / "state.json", state)
+                        try:
+                            proc.communicate(payload, timeout=timeout)
+                        except subprocess.TimeoutExpired:
+                            # Killed, not abandoned: collection below archives
+                            # whatever prose exists and then reports the run as
+                            # failed, so a stalled writer costs one slot, not the
+                            # whole experiment.
+                            _terminate(proc)
+                            proc.communicate()
+                            state["timed_out_after"] = timeout
+                        state["exit_code"] = proc.returncode
+                state.update(ended_at=time.time())
+                state.pop("pid", None)
+                state.pop("process_identity", None)
+                write_json(record / "state.json", state)
+                return _collect(root, writer)
+            except BaseException as exc:
+                # Do not mark a still-running external process dead. Recovery
+                # inspects its identity and receipts instead of blindly retrying.
+                state = read_json(record / "state.json")
+                state["error"] = str(exc)
+                if state.get("ended_at") or (
+                    state.get("pid")
+                    and process_identity(state["pid"]) != state.get("process_identity")
                 ):
-                    proc = subprocess.Popen(
-                        jail + args,
-                        stdin=subprocess.PIPE,
-                        stdout=out,
-                        stderr=err,
-                        cwd=current_project().root,
-                        env=env,
-                        start_new_session=True,
-                    )
-                    state.update(
-                        pid=proc.pid, process_identity=process_identity(proc.pid)
-                    )
-                    write_json(record / "state.json", state)
-                    try:
-                        proc.communicate(payload, timeout=timeout)
-                    except subprocess.TimeoutExpired:
-                        # Killed, not abandoned: collection below archives
-                        # whatever prose exists and then reports the run as
-                        # failed, so a stalled writer costs one slot, not the
-                        # whole experiment.
-                        _terminate(proc)
-                        proc.communicate()
-                        state["timed_out_after"] = timeout
-                    state["exit_code"] = proc.returncode
-            state.update(ended_at=time.time())
-            state.pop("pid", None)
-            state.pop("process_identity", None)
-            write_json(record / "state.json", state)
-            return _collect(root, writer)
-        except BaseException as exc:
-            # Do not mark a still-running external process dead. Recovery
-            # inspects its identity and receipts instead of blindly retrying.
-            state = read_json(record / "state.json")
-            state["error"] = str(exc)
-            if state.get("ended_at") or (
-                state.get("pid")
-                and process_identity(state["pid"]) != state.get("process_identity")
-            ):
-                state["status"] = "failed"
-            write_json(record / "state.json", state)
-            raise
+                    state["status"] = "failed"
+                write_json(record / "state.json", state)
+                raise
 
 
 def launch_order(writers):

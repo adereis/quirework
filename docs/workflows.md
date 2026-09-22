@@ -480,11 +480,29 @@ Tool restrictions and filesystem enforcement are checked separately.
 Antigravity currently provides audited rather than enforced filesystem
 assurance; it cannot satisfy a requirement for enforced isolation.
 
-A confined seat sees the machine minus the operator's home, `/tmp`,
-`/var/tmp`, the project tree wherever it is checked out, and every
-network or automount filesystem. The exclusions are listed in the
-confinement receipt and by `sop blind check`. A reviewer that must see
-the repository is given it back read-only after that.
+A confined seat sees only what is bound into its jail. The system trees
+a runner needs (`/usr`, `/etc`, and `/opt`, `/var/lib`, `/sys`, `/nix` or
+`/snap` where present) are bound read-only. Nothing else of the machine
+exists inside, so the operator's home, network shares and removable
+media are simply absent. The home, `/tmp` and `/var/tmp` are empty, and
+the seat's own run directory, runner state and credentials are bound
+back. A reviewer that must see the repository is given it back
+read-only. The seat has its own process and IPC namespaces and a
+minimal `/dev`. `sop blind check` prints the root, and a confinement
+receipt lists it.
+
+The jail never contains the runtime directory `/run/user/<uid>`. Its
+session bus would let a seat ask `systemd --user` to start a process
+outside the jail. Antigravity keeps its login in the desktop keyring,
+which it reaches over that bus. An Antigravity seat therefore gets a
+bus socket from `xdg-dbus-proxy` that answers only for the secrets
+service. The receipt marks that as a red flag, because the secrets
+service can read every secret in the keyring. Without `xdg-dbus-proxy`
+an Antigravity seat is refused rather than run with less confinement.
+
+The jail does not cut off the network, because a seat needs it to reach
+its provider. Anything listening on the machine, such as a container
+socket or a local server, is reachable from inside.
 
 Compaction is always reported as a red flag. Completed answers remain
 available, but a failed run condition does not become a clean result.

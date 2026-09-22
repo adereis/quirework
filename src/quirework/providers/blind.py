@@ -48,6 +48,7 @@ import subprocess
 import sys
 import re
 import time
+from contextlib import contextmanager
 from dataclasses import dataclass
 from pathlib import Path
 from quirework.project import current_project
@@ -118,84 +119,344 @@ BWRAP = "bwrap"
 # are the ones nobody lists, a second checkout, `~/.gemini`, an old panel run.
 # `/tmp` goes too: it is a cross-seat channel and nothing blind needs it.
 BLANKED = ("$HOME", "/tmp", "/var/tmp")
+# The cap on each blanked tmpfs, so a runaway seat cannot fill the host's
+# memory. The run dir and the private runner homes are binds, not tmpfs, so
+# real output never counts against it.
+TMPFS_BYTES = 2 * 1024**3
 
-MOUNTS = "/proc/self/mounts"
-# Filesystems that never enter a jail, for two reasons that are each enough.
-# A network share is the operator's own or shared data, which a blind seat has
-# no business reaching. And bwrap applies mount flags recursively to every
-# submount of a bind, so one stale or slow share anywhere under `/` made the
-# whole root bind fail with "Unable to apply mount flags", killing every
-# jailed seat on the machine until the share came back.
-EXCLUDED_FSTYPES = frozenset(
-    {
-        "autofs",
-        "cifs",
-        "smb3",
-        "nfs",
-        "nfs4",
-        "afs",
-        "9p",
-        "davfs",
-        "ceph",
-        "glusterfs",
-    }
-)
+# The root is an allow-list too, and for the same reason as the home. It used
+# to be `--bind / /` minus a deny-list of network filesystem types, and every
+# repair after that followed from the shape: a stale CIFS share under `/`
+# failed the whole bind, so the root was enumerated around it; the mount
+# table could change between reading it and the jail's clone; and the bind
+# was read-write, so a user-writable path outside the blanked set (a mounted
+# NTFS volume, the runtime directory) was writable from a seat. Binding only
+# the system trees a CLI needs removes the class: the operator's home, shares
+# and removable media never exist inside, and there is no mount table to
+# read. A runner that needs a tree outside the list fails loudly at launch;
+# add the tree here, never bind `/`.
+#
+# A required tree that is missing fails the launch by name; an optional one
+# is bound when present. `/var/lib` rather than `/var`: on Silverblue
+# `/var/mnt` and `/var/home` are where media and homes live.
+REQUIRED_TREES = ("/usr", "/etc")
+OPTIONAL_TREES = ("/opt", "/var/lib", "/sys", "/nix", "/snap")
+# Merged-usr aliases: recreated as symlinks where the host has symlinks,
+# bound read-only where it still has real directories.
+USR_ALIASES = ("/bin", "/sbin", "/lib", "/lib32", "/lib64", "/libx32")
+# A private pid namespace also means a timeout kill of bwrap takes every
+# descendant with it, which `--die-with-parent` alone does not guarantee
+# for a runner's MCP helpers and git children.
+NAMESPACES = ("--unshare-pid", "--unshare-ipc", "--unshare-uts", "--unshare-cgroup-try")
+
+# `/run/user/<uid>` is never bound. The session bus there is a door out of
+# any sandbox: `systemd --user` starts a process on request, outside the
+# jail, so `systemd-run --user --pipe ls ~` from a seat with a shell listed
+# the operator's real home. A runner that must reach a bus name declares it
+# in `Runner.bus_names` and gets a socket from `xdg-dbus-proxy` filtered to
+# exactly those names, and the receipt reports the door.
+BUS_PROXY = "xdg-dbus-proxy"
+BUS_READY_SECONDS = 15
+BUS_RUNTIME_BYTES = 64 * 1024**2
 
 
-def excluded_mounts(path: str = MOUNTS) -> list[Path]:
-    """Mount points of network and automount filesystems, shallowest first."""
-    found: set[Path] = set()
-    try:
-        lines = Path(path).read_text().splitlines()
-    except OSError:
-        return []
-    for line in lines:
-        parts = line.split()
-        if len(parts) < 3:
-            continue
-        target, fstype = parts[1].replace("\\040", " "), parts[2]
-        if fstype in EXCLUDED_FSTYPES or fstype.startswith("fuse."):
-            found.add(Path(target))
-    return sorted(found, key=lambda p: (len(p.parts), str(p)))
+def resolver_paths(resolv=Path("/etc/resolv.conf"), root=Path("/")) -> list[Path]:
+    """Where the resolver file points when that is outside ``/etc``.
 
-
-def root_binds(excluded, root: Path = Path("/"), skip=()) -> list[tuple[str, ...]]:
-    """The binds that reassemble ``root`` without the excluded mount points.
-
-    One ``--bind / /`` when nothing under the root is excluded, which is what
-    the jail always did. With an exclusion, the directories on the path to it
-    are bound entry by entry and the excluded mount itself is left out, so
-    inside the jail there is simply no such directory. Symlinks at any level
-    are recreated as symlinks (Fedora's ``/bin -> usr/bin``), never bound
-    through. Sockets and other special files are bound as they are: the
-    session bus socket under ``/run/user/<uid>/`` is how Antigravity reaches
-    the keyring holding its token, and the whole-root bind always exposed it.
+    Fedora and Ubuntu link ``/etc/resolv.conf`` to systemd-resolved's stub
+    under ``/run``, which the allow-list does not bind. Without the target
+    nothing in the jail resolves a name, and the seat cannot reach its
+    provider. Only a target under ``/run`` is followed, where every resolver
+    manager keeps its file; a link anywhere else is refused by name rather
+    than bound, so a stray symlink cannot pull a private path into the jail.
+    A dangling link is skipped: the host has no resolver either.
     """
-    out: list[tuple[str, ...]] = []
-    excluded = [e for e in excluded if e != root]
-    if not any(root in e.parents for e in excluded):
-        return [("--bind", str(root), str(root))]
-    for child in sorted(root.iterdir()):
-        if child in skip or child in excluded:
-            continue
-        if child.is_symlink():
-            out.append(("--symlink", os.readlink(child), str(child)))
-        elif child.is_dir():
-            out += root_binds(excluded, child, skip)
-        elif child.is_file():
-            out.append(("--ro-bind", str(child), str(child)))
-        elif child.exists():
-            out.append(("--bind", str(child), str(child)))
+    resolv = Path(resolv)
+    if not resolv.is_symlink():
+        return []
+    target = resolv.resolve()
+    if root / "etc" in target.parents or not target.exists():
+        return []
+    if root / "run" not in target.parents:
+        raise BlindnessError(
+            f"{resolv} points at {target}, outside /etc and /run; the jail "
+            "binds only a resolver under /run. Point it at a file under /run "
+            "or make it a regular file"
+        )
+    return [target]
+
+
+def system_root(root=Path("/")) -> list[tuple[str, str, str]]:
+    """``(op, source, target)`` triples that build the read-only root.
+
+    Everything is bound at its own path, so ``/usr/bin/git`` is
+    ``/usr/bin/git`` inside as well. ``root`` exists for tests that build a
+    fake host tree.
+    """
+    out = []
+    for tree in REQUIRED_TREES:
+        path = root / tree.lstrip("/")
+        if not path.is_dir():
+            raise BlindnessError(
+                f"{path} is missing; the jail binds it read-only and cannot "
+                "run without it"
+            )
+        out.append(("--ro-bind", str(path), str(path)))
+    for tree in OPTIONAL_TREES:
+        path = root / tree.lstrip("/")
+        if path.is_dir() and not path.is_symlink():
+            out.append(("--ro-bind", str(path), str(path)))
+    for alias in USR_ALIASES:
+        path = root / alias.lstrip("/")
+        if path.is_symlink():
+            out.append(("--symlink", os.readlink(path), str(path)))
+        elif path.is_dir():
+            out.append(("--ro-bind", str(path), str(path)))
+    for target in resolver_paths(root / "etc/resolv.conf", root):
+        out.append(("--ro-bind", str(target), str(target)))
     return out
 
 
-def root_argv(excluded=None) -> list[str]:
-    """``bwrap``'s opening: the assembled root, then ``/dev`` and ``/proc``."""
-    excluded = excluded_mounts() if excluded is None else excluded
-    argv = [BWRAP]
-    for triple in root_binds(excluded, skip=(Path("/dev"), Path("/proc"))):
+def bound_trees(triples) -> list[Path]:
+    """The host paths a set of root triples makes visible."""
+    return [Path(source) for op, source, _ in triples if op != "--symlink"]
+
+
+def visible(path, trees) -> bool:
+    """Whether ``path`` lies inside one of the bound host trees."""
+    path = Path(path)
+    return any(path == tree or tree in path.parents for tree in trees)
+
+
+def root_argv(triples=None) -> list[str]:
+    """``bwrap``'s opening: namespaces, the read-only root, ``/dev``, ``/proc``.
+
+    ``--dev`` is bwrap's minimal device tree, not the host's: a seat needs
+    ``null``, ``urandom`` and a tty, never the operator's disks.
+    """
+    argv = [BWRAP, "--die-with-parent", *NAMESPACES]
+    for triple in system_root() if triples is None else triples:
         argv += list(triple)
-    return argv + ["--dev-bind", "/dev", "/dev", "--proc", "/proc"]
+    return argv + ["--dev", "/dev", "--proc", "/proc"]
+
+
+def offline_argv(home=None) -> list[str]:
+    """A wrapper that runs a runner with no network, for the free probes.
+
+    The same root the seats get, plus the operator's own home read-write,
+    because a probe answers whether a flag still exists in this installation,
+    not whether the operator's state is hidden: the runners live under the
+    home and would not start without it. Its one enforcement is
+    ``--unshare-net``, which is what makes a probe free by construction.
+    """
+    home = str(home or Path.home())
+    return root_argv() + ["--bind", home, home, "--tmpfs", "/tmp", "--unshare-net"]
+
+
+def root_receipt(triples) -> dict:
+    """What the jail's root is made of, for a confinement receipt."""
+    return {
+        "root_read_only": [str(t) for t in bound_trees(triples)],
+        "root_symlinks": [
+            f"{target} -> {link}" for op, link, target in triples if op == "--symlink"
+        ],
+        "namespaces": [
+            flag.removeprefix("--unshare-").removesuffix("-try") for flag in NAMESPACES
+        ],
+        "dev": "minimal",
+        "tmpfs_bytes": TMPFS_BYTES,
+    }
+
+
+def bus_proxy_missing() -> str | None:
+    """Why a filtered session bus cannot be built here, or None."""
+    if shutil.which(BUS_PROXY) is None:
+        return (
+            f"{BUS_PROXY} not found on PATH (Fedora: dnf install xdg-dbus-proxy; "
+            "Debian: apt install xdg-dbus-proxy); the jail never binds the raw "
+            "session bus"
+        )
+    return None
+
+
+def host_bus_address(environ=None) -> str:
+    """The operator's session bus, as the proxy will dial it."""
+    environ = os.environ if environ is None else environ
+    address = environ.get("DBUS_SESSION_BUS_ADDRESS")
+    if address:
+        return address
+    runtime = environ.get("XDG_RUNTIME_DIR")
+    if runtime and (Path(runtime) / "bus").exists():
+        return f"unix:path={runtime}/bus"
+    raise BlindnessError(
+        "no session bus: DBUS_SESSION_BUS_ADDRESS is unset and "
+        "$XDG_RUNTIME_DIR/bus does not exist; run from a desktop session"
+    )
+
+
+def bus_socket_dir(environ=None) -> Path:
+    """A fresh private directory for the proxy's socket.
+
+    Under the runtime directory when there is one, because socket paths are
+    limited to 107 bytes and that is the shortest private place there is;
+    under ``~/tmp`` otherwise, never ``/tmp``.
+    """
+    import tempfile
+
+    environ = os.environ if environ is None else environ
+    runtime = environ.get("XDG_RUNTIME_DIR")
+    base = Path(runtime) / "quirework" if runtime else Path.home() / "tmp"
+    base.mkdir(mode=0o700, parents=True, exist_ok=True)
+    return Path(tempfile.mkdtemp(prefix="bus.", dir=base))
+
+
+class Bus:
+    """A session bus filtered to named services, for one jail.
+
+    The proxy writes a byte to its ``--fd`` once it listens and exits when
+    every reader of that pipe is gone. bwrap holds the read end through
+    ``--sync-fd``, so the proxy lives exactly as long as the jail. The
+    launcher passes that descriptor to bwrap and then drops its own copy
+    (``release``); ``close`` reaps the proxy and its socket directory, and
+    is safe to call whether or not a jail ever started.
+    """
+
+    def __init__(self, names):
+        reason = bus_proxy_missing()
+        if reason:
+            raise BlindnessError(reason)
+        self.names = tuple(names)
+        address = host_bus_address()
+        self.directory = bus_socket_dir()
+        self.socket = self.directory / "bus"
+        if len(str(self.socket).encode()) > 107:
+            shutil.rmtree(self.directory, ignore_errors=True)
+            raise BlindnessError(
+                f"socket path {self.socket} exceeds 107 bytes; set "
+                "XDG_RUNTIME_DIR to a shorter directory"
+            )
+        import select
+
+        reader, writer = os.pipe()
+        argv = [BUS_PROXY, f"--fd={writer}", address, str(self.socket), "--filter"]
+        argv += [f"--talk={name}" for name in self.names]
+        try:
+            self.process = subprocess.Popen(
+                argv,
+                pass_fds=(writer,),
+                stdin=subprocess.DEVNULL,
+                stderr=subprocess.PIPE,
+            )
+        except OSError:
+            os.close(reader)
+            os.close(writer)
+            shutil.rmtree(self.directory, ignore_errors=True)
+            raise
+        os.close(writer)
+        ready, _, _ = select.select([reader], [], [], BUS_READY_SECONDS)
+        if not ready or os.read(reader, 1) == b"":
+            os.close(reader)
+            self.process.kill()
+            error = (self.process.communicate()[1] or b"").decode(errors="replace")
+            shutil.rmtree(self.directory, ignore_errors=True)
+            raise BlindnessError(
+                f"{BUS_PROXY} did not come up on {self.socket}"
+                + (f": {error.strip()}" if error.strip() else "")
+            )
+        self.fd: int | None = reader
+
+    @property
+    def pass_fds(self) -> tuple[int, ...]:
+        return () if self.fd is None else (self.fd,)
+
+    def argv(self) -> list[str]:
+        """The jail's side: a private runtime dir holding only the socket."""
+        runtime = Path(f"/run/user/{os.getuid()}")
+        if self.fd is None:
+            raise BlindnessError("the session bus was already released")
+        return [
+            "--size",
+            str(BUS_RUNTIME_BYTES),
+            "--tmpfs",
+            str(runtime),
+            "--ro-bind",
+            str(self.socket),
+            str(runtime / "bus"),
+            "--sync-fd",
+            str(self.fd),
+            "--setenv",
+            "XDG_RUNTIME_DIR",
+            str(runtime),
+            "--setenv",
+            "DBUS_SESSION_BUS_ADDRESS",
+            f"unix:path={runtime / 'bus'}",
+        ]
+
+    def receipt(self) -> dict:
+        return {"names": list(self.names), "proxy": BUS_PROXY, "filtered": True}
+
+    @staticmethod
+    def flag(receipt) -> str:
+        """The red flag a receipt carries when this door was opened.
+
+        A flag and not a failure: the runner cannot start without it. But the
+        secrets service answers for every secret in the operator's login
+        keyring, so a receipt that did not say so would claim a confinement
+        the jail did not have.
+        """
+        return (
+            "Session bus proxied into the jail for "
+            + ", ".join(receipt["names"])
+            + ": the operator's login keyring is readable by the seat."
+        )
+
+    def release(self) -> None:
+        """Drop this process's copy of the pipe once the jail holds it."""
+        if self.fd is not None:
+            os.close(self.fd)
+            self.fd = None
+
+    def close(self) -> None:
+        self.release()
+        try:
+            self.process.wait(timeout=BUS_READY_SECONDS)
+        except subprocess.TimeoutExpired:
+            self.process.kill()
+            self.process.wait()
+        self.process.stderr.close()
+        shutil.rmtree(self.directory, ignore_errors=True)
+
+
+def bus_names(runners) -> tuple[str, ...]:
+    """The bus names these runners need, in a stable order."""
+    return tuple(sorted({n for r in runners for n in RUNNERS[r].bus_names}))
+
+
+@contextmanager
+def session_bus(runners):
+    """The filtered bus a jail for ``runners`` needs, or None if it needs none."""
+    names = bus_names(runners)
+    if not names:
+        yield None
+        return
+    bus = Bus(names)
+    try:
+        yield bus
+    finally:
+        bus.close()
+
+
+def popen(argv, bus=None, **kwargs) -> subprocess.Popen:
+    """``subprocess.Popen`` for a jail, handing it the bus's pipe if it has one.
+
+    The pipe is released here, right after the jail holds it, so this
+    process's copy never keeps a proxy alive past the seat it served.
+    """
+    try:
+        return subprocess.Popen(argv, pass_fds=bus.pass_fds if bus else (), **kwargs)
+    finally:
+        if bus is not None:
+            bus.release()
 
 
 def _project_root() -> Path | None:
@@ -262,6 +523,9 @@ class Runner:
     probe: tuple[str, ...] = ("--version",)
     probes: tuple[Probe, ...] = ()  # free flag-liveness contract
     notes: str = ""
+    # Session-bus names the runner must reach to run at all. The jail never
+    # binds the raw bus; it proxies exactly these in (see `Bus`).
+    bus_names: tuple[str, ...] = ()
 
 
 # Each runner gets a PRIVATE, PER-RUN home bound over its real one. Three jobs
@@ -331,6 +595,10 @@ RUNNERS = {
             ),
         ),
         notes="~/.gemini/GEMINI.md (the global brief) replaced with the home",
+        # Its token lives in the login keyring, reached over the session bus.
+        # The proxy lets this one name through, which still exposes every
+        # secret the keyring holds, so the receipt flags it.
+        bus_names=("org.freedesktop.secrets",),
     ),
     "codex": Runner(
         "codex",
@@ -423,6 +691,8 @@ def runner_binds(names) -> tuple[list[Path], list[str]]:
         for c in RUNNERS[name].creds:
             if not _expand(c).exists():
                 missing.append(f"{name}: {c} not found")
+        if RUNNERS[name].bus_names and (reason := bus_proxy_missing()):
+            missing.append(f"{name}: {reason}")
     return paths, missing
 
 
@@ -575,6 +845,7 @@ def jail_argv(
     bind_credentials: bool = True,
     expose_run_dir: bool = True,
     project: Path | None = None,
+    bus: Bus | None = None,
 ) -> list[str]:
     """The bwrap argv that confines a seat to ``run_dir``.
 
@@ -594,19 +865,35 @@ def jail_argv(
     -- then appends its own binds and its own ``--chdir``. It owns the tail of
     the sequence, and the ordering rules above still apply to it: read-only
     binds first, the writable one last, so nothing shadows it.
+
+    ``bus`` is the filtered session bus from ``session_bus``, required when a
+    runner declares ``bus_names`` and refused otherwise, and the caller
+    launches through ``popen`` so the jail receives the proxy's pipe.
     """
+    needed = bus_names(runners)
+    if needed and (bus is None or bus.names != needed):
+        raise BlindnessError(
+            f"{', '.join(runners)} needs the session bus for {', '.join(needed)}; "
+            "open it with blind.session_bus and pass it to the jail"
+        )
+    if bus is not None and not needed:
+        raise BlindnessError("no runner in this jail needs a session bus")
     home = Path.home()
-    argv = root_argv()
+    triples = system_root()
+    trees = bound_trees(triples)
+    argv = root_argv(triples)
     blanked = [Path(str(home) if b == "$HOME" else b) for b in BLANKED]
     for target in blanked:
-        argv += ["--tmpfs", str(target)]
-    # A project checked out outside the blanked paths stayed reachable through
-    # the root bind, read-write, in a seat the docs called blind. Hide it the
-    # same way; a caller that stands a reviewer in the repository binds it
-    # back read-only after this, and a later bind wins.
+        argv += ["--size", str(TMPFS_BYTES), "--tmpfs", str(target)]
+    # A project inside a bound tree (say `/opt/src/book`) would otherwise be
+    # readable through that tree. One outside every bound tree does not exist
+    # in the jail and needs nothing. A caller that stands a reviewer in the
+    # repository binds it back read-only after this, and a later bind wins.
     project = _project_root() if project is None else project
-    if project is not None and not any(
-        project == b or b in project.parents for b in blanked
+    if (
+        project is not None
+        and visible(project, trees)
+        and not visible(project, blanked)
     ):
         argv += ["--tmpfs", str(project)]
     root = state_root(run_dir)
@@ -621,6 +908,8 @@ def jail_argv(
     binds, _ = runner_binds(runners)
     for p in binds + creds + [_expand(str(a)) for a in allow]:
         argv += ["--ro-bind", str(p), str(p)]
+    if bus is not None:
+        argv += bus.argv()
     if expose_run_dir:
         argv += ["--bind", str(run_dir), str(run_dir), "--chdir", str(run_dir)]
         # --chdir moves the process but not the shell variables it inherited,
@@ -662,7 +951,7 @@ def run_probe(name: str, probe: Probe) -> tuple[bool, str]:
     """
     argv = [name, *probe.args]
     if probe.offline and backend_error() is None:
-        argv = [*root_argv(), "--unshare-net", *argv]
+        argv = [*offline_argv(), *argv]
     try:
         r = subprocess.run(
             argv, capture_output=True, text=True, timeout=120, stdin=subprocess.DEVNULL
@@ -741,7 +1030,7 @@ def seat_dir() -> Path:
     return _SEAT_DIR
 
 
-def confine(cmd, run_dir: Path, runners=(), allow=()) -> list[str]:
+def confine(cmd, run_dir: Path, runners=(), allow=(), bus=None) -> list[str]:
     """``cmd`` wrapped in the jail, or ``BlindnessError`` if it cannot be.
 
     Raising is the point. A blind run that quietly proceeds unconfined
@@ -756,7 +1045,7 @@ def confine(cmd, run_dir: Path, runners=(), allow=()) -> list[str]:
             f"`quirework sop blind run --unconfined` if an unconfined seat is "
             f"genuinely acceptable, and say so in the write-up."
         )
-    return jail_argv(run_dir, allow=allow, runners=runners) + list(cmd)
+    return jail_argv(run_dir, allow=allow, runners=runners, bus=bus) + list(cmd)
 
 
 def detect_runners(cmd) -> list[str]:
@@ -772,7 +1061,15 @@ def detect_runners(cmd) -> list[str]:
 
 
 def write_receipt(
-    path: Path, *, confined: bool, cmd, run_dir: Path, runners, binds, reason: str = ""
+    path: Path,
+    *,
+    confined: bool,
+    cmd,
+    run_dir: Path,
+    runners,
+    binds,
+    reason: str = "",
+    bus: Bus | None = None,
 ) -> None:
     """Stamp what confined this run, **outside the run dir**.
 
@@ -791,7 +1088,8 @@ def write_receipt(
                 "run_dir": str(run_dir),
                 "runners": list(runners),
                 "blanked": [str(Path.home()) if b == "$HOME" else b for b in BLANKED],
-                "excluded_mounts": [str(m) for m in excluded_mounts()],
+                **(root_receipt(system_root()) if confined else {}),
+                "session_bus": bus.receipt() if bus else None,
                 "read_only_binds": [str(b) for b in binds],
                 "command": list(cmd),
             },
@@ -918,32 +1216,53 @@ def cmd_run(argv) -> int:
         return 3
 
     if a.unconfined:
-        binds, argv_full = [], list(cmd)
         print(
             "blind run: WARNING -- running UNCONFINED; the seat can reach "
             "the project tree.",
             file=sys.stderr,
         )
-    else:
-        binds, missing = runner_binds(runners)
-        for m in missing:
-            print(f"blind run: warning: {m}", file=sys.stderr)
-        argv_full = jail_argv(run_dir, allow=a.allow, runners=runners) + list(cmd)
+        if not a.dry_run:
+            write_receipt(
+                receipt,
+                confined=False,
+                cmd=cmd,
+                run_dir=run_dir,
+                runners=runners,
+                binds=[],
+                reason=err or "",
+            )
+        if a.dry_run:
+            print(" ".join(cmd))
+            return 0
+        return subprocess.run(list(cmd)).returncode
 
-    if a.dry_run:
-        print(" ".join(argv_full))
-        return 0
-
-    write_receipt(
-        receipt,
-        confined=not a.unconfined,
-        cmd=cmd,
-        run_dir=run_dir,
-        runners=runners,
-        binds=binds,
-        reason=err or "",
-    )
-    return subprocess.run(argv_full, cwd=None if a.unconfined else run_dir).returncode
+    binds, missing = runner_binds(runners)
+    for m in missing:
+        print(f"blind run: warning: {m}", file=sys.stderr)
+    with session_bus(runners) as bus:
+        argv_full = jail_argv(run_dir, allow=a.allow, runners=runners, bus=bus)
+        argv_full += list(cmd)
+        if a.dry_run:
+            print(" ".join(argv_full))
+            return 0
+        write_receipt(
+            receipt,
+            confined=True,
+            cmd=cmd,
+            run_dir=run_dir,
+            runners=runners,
+            binds=binds,
+            bus=bus,
+        )
+        proc = popen(argv_full, bus, cwd=run_dir)
+        try:
+            return proc.wait()
+        except BaseException:
+            # What `subprocess.run` does, so an interrupted run leaves no
+            # jail behind and the bus can be reaped on the way out.
+            proc.kill()
+            proc.wait()
+            raise
 
 
 def cmd_check(argv) -> int:
@@ -964,12 +1283,23 @@ def cmd_check(argv) -> int:
         [BWRAP, "--version"], capture_output=True, text=True
     ).stdout.strip()
     print(f"✓ backend: {ver}")
-    left_out = excluded_mounts()
-    if left_out:
-        print(
-            "  network and automount filesystems left out of every jail: "
-            + ", ".join(str(m) for m in left_out)
-        )
+    try:
+        trees = bound_trees(system_root())
+    except BlindnessError as exc:
+        print(f"✗ jail root: {exc}")
+        return 1
+    print(
+        "  root of every jail: "
+        + ", ".join(str(t) for t in trees)
+        + " read-only; nothing else of the host exists inside"
+    )
+    proxy = shutil.which(BUS_PROXY)
+    print(
+        f"  {BUS_PROXY}: {proxy}"
+        if proxy
+        else f"  {BUS_PROXY} missing: an agy seat cannot be confined "
+        "(Fedora: dnf install xdg-dbus-proxy)"
+    )
 
     root = ensure_neutral_cwd() / ".quirework-blind-check"
     seat, sibling = root / "seat", root / "other-seat"
@@ -1018,10 +1348,20 @@ def cmd_check(argv) -> int:
         for m in missing:
             print(f"✗ {name}: {m}")
             bad += 1
-        argv_full = jail_argv(seat, runners=[name]) + [name, *RUNNERS[name].probe]
         try:
-            r = subprocess.run(argv_full, capture_output=True, text=True, timeout=120)
-        except (subprocess.TimeoutExpired, OSError) as exc:
+            # The bus comes up exactly as it would for a seat, so a missing
+            # proxy or a dead session bus fails here rather than mid-run.
+            with session_bus([name]) as bus:
+                argv_full = jail_argv(seat, runners=[name], bus=bus)
+                argv_full += [name, *RUNNERS[name].probe]
+                r = subprocess.run(
+                    argv_full,
+                    capture_output=True,
+                    text=True,
+                    timeout=120,
+                    pass_fds=bus.pass_fds if bus else (),
+                )
+        except (subprocess.TimeoutExpired, OSError, BlindnessError) as exc:
             print(f"✗ {name}: probe failed to run ({exc})")
             bad += 1
             continue
@@ -1043,6 +1383,9 @@ def cmd_check(argv) -> int:
         "the global CLAUDE.md": Path.home() / ".claude/CLAUDE.md",
         "the global GEMINI.md": Path.home() / ".gemini/GEMINI.md",
         "a sibling seat's run dir": sibling,
+        # The session bus is a door out of any sandbox: `systemd --user`
+        # starts processes on request outside the jail.
+        "the runtime directory and its session bus": Path(f"/run/user/{os.getuid()}"),
     }
     for label, path in unreachable.items():
         r = subprocess.run(
@@ -1233,15 +1576,19 @@ def canary_once(
         )
         return out
     try:
-        r = subprocess.run(
-            confine(CANARY_ARGV[name](prompt, model), run_dir, runners=[name]),
-            capture_output=True,
-            text=True,
-            timeout=timeout,
-            stdin=subprocess.DEVNULL,
-            cwd=str(run_dir),
-        )
-    except (subprocess.TimeoutExpired, OSError) as exc:
+        with session_bus([name]) as bus:
+            r = subprocess.run(
+                confine(
+                    CANARY_ARGV[name](prompt, model), run_dir, runners=[name], bus=bus
+                ),
+                capture_output=True,
+                text=True,
+                timeout=timeout,
+                stdin=subprocess.DEVNULL,
+                cwd=str(run_dir),
+                pass_fds=bus.pass_fds if bus else (),
+            )
+    except (subprocess.TimeoutExpired, OSError, BlindnessError) as exc:
         out["inconclusive"] = True
         out["problems"].append(f"seat did not run ({exc})")
         return out

@@ -2,6 +2,7 @@
 
 import fnmatch
 import json
+from contextlib import nullcontext
 from pathlib import Path
 
 import pytest
@@ -870,6 +871,9 @@ def test_a_room_turn_records_its_seat_before_the_process_starts(prepared, monkey
     monkeypatch.setattr(
         room.drivers, "launch_context", lambda *a: ([], {}, prepared / "private")
     )
+    # The jail is stubbed, so its bus is too: the fixture's seats run on agy,
+    # and a unit test must never start a proxy on the operator's own bus.
+    monkeypatch.setattr(room.blind, "session_bus", lambda runners: nullcontext())
     launched = []
     monkeypatch.setattr(
         room.usage_records,

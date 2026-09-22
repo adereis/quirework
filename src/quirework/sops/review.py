@@ -483,7 +483,7 @@ def command(config, mode, session_id, report_dir):
     _fail(f"unknown harness: {harness}")
 
 
-def launch_context(config, record, report_dir, *, jailed=True, probe=False):
+def launch_context(config, record, report_dir, *, jailed=True, probe=False, bus=None):
     """Environment and jail for a reviewer standing in the repository.
 
     Returns ``(argv_prefix, env, private, report_path)``. ``report_path`` is
@@ -554,6 +554,7 @@ def launch_context(config, record, report_dir, *, jailed=True, probe=False):
         runners=[harness],
         bind_credentials=harness != "claude",
         expose_run_dir=False,
+        bus=bus,
     )
     if harness == "claude":
         runtime = private / "runtime-config.json"
@@ -888,68 +889,75 @@ def _turn(
         turn_dir.mkdir(parents=True, exist_ok=True)
         report_dir.mkdir(parents=True, exist_ok=True)
 
-    prefix, env, private, report_path = launch_context(
-        config, record, report_dir, jailed=jailed, probe=dry_run
-    )
-    if mode == "continue":
-        # No brief, no delta, no persona frame: all three are already in the
-        # session. Re-sending them is how a continuation turns back into a
-        # restart, which is the thing this path exists to avoid.
-        prompt = quota.continuation(
-            CONTINUE_NOTE.format(report=report_path / "report.md")
+    # The bus a runner such as agy needs is opened around the whole launch:
+    # the jail's argv names its socket, and the proxy must outlive the
+    # reviewer's process and no longer.
+    with blind.session_bus([config["harness"]] if jailed else []) as bus:
+        prefix, env, private, report_path = launch_context(
+            config, record, report_dir, jailed=jailed, probe=dry_run, bus=bus
         )
-    else:
-        prompt = compose(
-            brief_text, delta, report_path / "report.md", persona=persona, kind=kind
+        if mode == "continue":
+            # No brief, no delta, no persona frame: all three are already in the
+            # session. Re-sending them is how a continuation turns back into a
+            # restart, which is the thing this path exists to avoid.
+            prompt = quota.continuation(
+                CONTINUE_NOTE.format(report=report_path / "report.md")
+            )
+        else:
+            prompt = compose(
+                brief_text, delta, report_path / "report.md", persona=persona, kind=kind
+            )
+        args, _ = command(
+            config, "resume" if mode == "continue" else mode, session_id, report_dir
         )
-    args, _ = command(
-        config, "resume" if mode == "continue" else mode, session_id, report_dir
-    )
-    if dry_run:
-        return {"run": name, "mode": mode, "argv": prefix + args, "prompt": prompt}
+        if dry_run:
+            return {"run": name, "mode": mode, "argv": prefix + args, "prompt": prompt}
 
-    (turn_dir / "prompt.md").write_text(prompt)
-    write_json(
-        turn_dir / "launch.json",
-        {
-            "argv": args,
-            "jail": prefix,
-            "mode": mode,
-            "jailed": jailed,
-            "resumed_from": session_id
-            if mode in ("resume", "fork", "continue")
-            else None,
-            "parent_turn": parent if mode in ("resume", "fork", "continue") else None,
-            "private_runtime": str(private) if private else None,
-            "report_mount": str(report_path),
-            "persona_sha256": persona["sha256"] if persona else None,
-        },
-    )
-    before = worktree_state()
-    before["reviewed_hashes"] = reviewed_hashes(delta)
-    started = time.time()
-    usage_records.seat("review", config)
-    with (
-        (turn_dir / "events.jsonl").open("xb") as out,
-        (turn_dir / "stderr.log").open("xb") as err,
-    ):
-        proc = subprocess.Popen(
-            prefix + args,
-            stdin=subprocess.PIPE,
-            stdout=out,
-            stderr=err,
-            cwd=str(current_project().root),
-            env=env,
-            start_new_session=True,
+        (turn_dir / "prompt.md").write_text(prompt)
+        write_json(
+            turn_dir / "launch.json",
+            {
+                "argv": args,
+                "jail": prefix,
+                "mode": mode,
+                "jailed": jailed,
+                "resumed_from": session_id
+                if mode in ("resume", "fork", "continue")
+                else None,
+                "parent_turn": parent
+                if mode in ("resume", "fork", "continue")
+                else None,
+                "private_runtime": str(private) if private else None,
+                "report_mount": str(report_path),
+                "persona_sha256": persona["sha256"] if persona else None,
+            },
         )
-        try:
-            proc.communicate(prompt.encode(), timeout=timeout)
-        except subprocess.TimeoutExpired:
-            # Killed, not abandoned: whatever the reviewer had already written
-            # to its report is the point of the write-as-you-go rule, and it
-            # is collected below exactly as a completed turn's would be.
-            drivers._terminate(proc)
-            proc.communicate()
+        before = worktree_state()
+        before["reviewed_hashes"] = reviewed_hashes(delta)
+        started = time.time()
+        usage_records.seat("review", config)
+        with (
+            (turn_dir / "events.jsonl").open("xb") as out,
+            (turn_dir / "stderr.log").open("xb") as err,
+        ):
+            proc = blind.popen(
+                prefix + args,
+                bus,
+                stdin=subprocess.PIPE,
+                stdout=out,
+                stderr=err,
+                cwd=str(current_project().root),
+                env=env,
+                start_new_session=True,
+            )
+            try:
+                proc.communicate(prompt.encode(), timeout=timeout)
+            except subprocess.TimeoutExpired:
+                # Killed, not abandoned: whatever the reviewer had already written
+                # to its report is the point of the write-as-you-go rule, and it
+                # is collected below exactly as a completed turn's would be.
+                drivers._terminate(proc)
+                proc.communicate()
     after = worktree_state()
     after["reviewed_hashes"] = reviewed_hashes(delta)
     return _collect(

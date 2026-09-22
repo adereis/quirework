@@ -1051,63 +1051,68 @@ def _launch(root, plan, seat, n, prompt, resume, *, timeout=None):
     work, config = root / "seats" / name, seat_config(plan, seat)
     record = root / "records" / name / f"r{n:03d}"
     record.mkdir(parents=True, exist_ok=True)
-    args, payload = drivers.command(config, work, prompt, resume=resume)
-    jail, env, private = drivers.launch_context(config, work)
-    jail += ["--ro-bind", str(work / "board"), str(work / "board")]
-    (record / "prompt.md").write_text(prompt)
-    usage_records.seat("room", config)
-    write(
-        record / "launch.json",
-        {
-            "argv": args,
-            "jail": jail,
-            "resumed": resume,
-            "harness_version": blind.runner_version(config["harness"]),
-            "private_runtime": str(private),
-            "window_assurance": drivers.window_assurance(config["harness"]),
-        },
-    )
-    with slot(config["harness"]):
-        event(root, round=n, seat=name, event="launching", resumed=resume)
-        started = time.time()
-        with (
-            (record / "events.jsonl").open("xb") as out,
-            (record / "stderr.log").open("xb") as err,
-        ):
-            proc = subprocess.Popen(
-                jail + args,
-                stdin=subprocess.PIPE,
-                stdout=out,
-                stderr=err,
-                cwd=current_project().root,
-                env=env,
-                start_new_session=True,
-            )
+    # Open before the jail is built, since its argv names the proxy's socket,
+    # and closed only after the seat's process has exited.
+    with blind.session_bus([config["harness"]]) as bus:
+        args, payload = drivers.command(config, work, prompt, resume=resume)
+        jail, env, private = drivers.launch_context(config, work, bus)
+        jail += ["--ro-bind", str(work / "board"), str(work / "board")]
+        (record / "prompt.md").write_text(prompt)
+        usage_records.seat("room", config)
+        write(
+            record / "launch.json",
+            {
+                "argv": args,
+                "jail": jail,
+                "resumed": resume,
+                "harness_version": blind.runner_version(config["harness"]),
+                "private_runtime": str(private),
+                "window_assurance": drivers.window_assurance(config["harness"]),
+                "session_bus": bus.receipt() if bus else None,
+            },
+        )
+        with slot(config["harness"]):
+            event(root, round=n, seat=name, event="launching", resumed=resume)
+            started = time.time()
+            with (
+                (record / "events.jsonl").open("xb") as out,
+                (record / "stderr.log").open("xb") as err,
+            ):
+                proc = blind.popen(
+                    jail + args,
+                    bus,
+                    stdin=subprocess.PIPE,
+                    stdout=out,
+                    stderr=err,
+                    cwd=current_project().root,
+                    env=env,
+                    start_new_session=True,
+                )
+                event(
+                    root,
+                    round=n,
+                    seat=name,
+                    event="running",
+                    pid=proc.pid,
+                    process_identity=process_identity(proc.pid),
+                )
+                timed_out = False
+                try:
+                    proc.communicate(payload, timeout=timeout)
+                except subprocess.TimeoutExpired:
+                    _terminate(proc)
+                    proc.communicate()
+                    timed_out = True
+            code, seconds = proc.returncode, round(time.time() - started, 2)
             event(
                 root,
                 round=n,
                 seat=name,
-                event="running",
-                pid=proc.pid,
-                process_identity=process_identity(proc.pid),
+                event="exited",
+                code=code,
+                seconds=seconds,
+                timed_out=timed_out,
             )
-            timed_out = False
-            try:
-                proc.communicate(payload, timeout=timeout)
-            except subprocess.TimeoutExpired:
-                _terminate(proc)
-                proc.communicate()
-                timed_out = True
-        code, seconds = proc.returncode, round(time.time() - started, 2)
-        event(
-            root,
-            round=n,
-            seat=name,
-            event="exited",
-            code=code,
-            seconds=seconds,
-            timed_out=timed_out,
-        )
     try:
         got = drivers.receipt(config, record, private, resumed=resume)
         status, detail = "answered", None
@@ -1132,6 +1137,7 @@ def _launch(root, plan, seat, n, prompt, resume, *, timeout=None):
             "compaction_markers": compacted,
             "quota_stop": stop["phase"] if stop else None,
             "quota_scope": stop.get("scope") if stop else None,
+            "red_flags": [blind.Bus.flag(bus.receipt())] if bus else [],
         },
     )
     if compacted:

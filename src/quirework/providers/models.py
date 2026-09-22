@@ -306,8 +306,13 @@ def command(config, workspace, prompt, *, manual=False, resume=None):
     raise ValueError(f"unknown harness: {harness}")
 
 
-def launch_context(config, workspace):
-    """Use private runtime state and a read-only packet in the shared jail."""
+def launch_context(config, workspace, bus=None):
+    """Use private runtime state and a read-only packet in the shared jail.
+
+    ``bus`` is the filtered session bus a runner such as agy needs, opened by
+    the caller with ``blind.session_bus`` so it outlives this call and is
+    handed to the process through ``blind.popen``.
+    """
     harness = config["harness"]
     if error := blind.backend_error():
         raise RuntimeError(error)
@@ -348,7 +353,7 @@ def launch_context(config, workspace):
             )
         env["CLAUDE_CODE_OAUTH_TOKEN"] = oauth["accessToken"]
     jail = blind.jail_argv(
-        workspace, runners=[harness], bind_credentials=harness != "claude"
+        workspace, runners=[harness], bind_credentials=harness != "claude", bus=bus
     )
     private = blind.state_root(workspace) / harness
     if harness == "claude":

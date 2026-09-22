@@ -934,94 +934,104 @@ class Run:
             if mode == "fork"
             else str(uuid.uuid4())
         )
-        args, payload, rendered = harness.command(
-            spec["config"], spec["policy"], mode, sid, prompt, images, files
-        )
-        jail, env, _ = harness.launch_context(
-            spec["config"], spec["policy"], self.workspace(seat)
-        )
-        record = self.record(seat, turn["id"])
-        record.mkdir(parents=True, exist_ok=True)
-        if (record / "events.jsonl").exists():
-            raise RuntimeError(
-                "unbanked event file exists; reconcile it before submission"
+        # A runner such as agy reaches its keyring over a filtered session
+        # bus. It is opened before the jail is built, because the argv names
+        # its socket, and closed once the process has exited.
+        with blind.session_bus([spec["config"]["harness"]]) as bus:
+            args, payload, rendered = harness.command(
+                spec["config"], spec["policy"], mode, sid, prompt, images, files
             )
-        (record / "prompt.txt").write_text(rendered)
-        request_sha = hashlib.sha256(payload + json.dumps(args).encode()).hexdigest()
-        state["pending"] = dict(
-            turn=turn["id"],
-            mode=mode,
-            parent_id=sid,
-            phase="launch-intent",
-            request_sha256=request_sha,
-            created_at=time.time(),
-            # Where the native session stood before this submission. A refused
-            # turn still appends its user message (and the refusal itself) to
-            # the session, so resuming without rewinding would show the reader
-            # a duplicate reveal and a quota notice in its own voice. Captured
-            # for every turn because the refusal is only visible afterwards.
-            resume_point=session_marks(
-                harness.session_paths(
-                    spec["config"]["harness"], self.private(seat), sid
+            jail, env, _ = harness.launch_context(
+                spec["config"], spec["policy"], self.workspace(seat), bus
+            )
+            record = self.record(seat, turn["id"])
+            record.mkdir(parents=True, exist_ok=True)
+            if (record / "events.jsonl").exists():
+                raise RuntimeError(
+                    "unbanked event file exists; reconcile it before submission"
                 )
-            ),
-            quota_continuation=continuation.get("scope") if resuming else None,
-            outputs_before=continuation["outputs_before"]
-            if resuming
-            else {
-                output: digest(self.workspace(seat) / relative(output))
-                for output in turn["outputs"]
-                if (self.workspace(seat) / relative(output)).is_file()
-            },
-        )
-        self.save(seat, state)
-        write(
-            record / "launch.json",
-            dict(
-                argv=args,
-                delivery=turn["materials"],
-                filesystem=harness.CAPABILITIES[spec["config"]["harness"]][
-                    "filesystem"
-                ],
-                read_roots=spec["policy"]["read_roots"],
-            ),
-        )
-        usage_records.seat("run", spec["config"])
-        with (
-            (record / "events.jsonl").open("wb") as out,
-            (record / "stderr.log").open("wb") as err,
-        ):
-            try:
-                proc = subprocess.Popen(
-                    jail + args,
-                    stdin=subprocess.PIPE,
-                    stdout=out,
-                    stderr=err,
-                    env=env,
-                    cwd=self.root,
-                    start_new_session=True,
-                )
-            except OSError:
-                state["pending"]["phase"] = "not-submitted"
-                self.save(seat, state)
-                raise
-            state["pending"].update(
-                phase="process-started",
-                pid=proc.pid,
-                process_identity=process_identity(proc.pid),
+            (record / "prompt.txt").write_text(rendered)
+            request_sha = hashlib.sha256(
+                payload + json.dumps(args).encode()
+            ).hexdigest()
+            state["pending"] = dict(
+                turn=turn["id"],
+                mode=mode,
+                parent_id=sid,
+                phase="launch-intent",
+                request_sha256=request_sha,
+                created_at=time.time(),
+                # Where the native session stood before this submission. A refused
+                # turn still appends its user message (and the refusal itself) to
+                # the session, so resuming without rewinding would show the reader
+                # a duplicate reveal and a quota notice in its own voice. Captured
+                # for every turn because the refusal is only visible afterwards.
+                resume_point=session_marks(
+                    harness.session_paths(
+                        spec["config"]["harness"], self.private(seat), sid
+                    )
+                ),
+                quota_continuation=continuation.get("scope") if resuming else None,
+                outputs_before=continuation["outputs_before"]
+                if resuming
+                else {
+                    output: digest(self.workspace(seat) / relative(output))
+                    for output in turn["outputs"]
+                    if (self.workspace(seat) / relative(output)).is_file()
+                },
             )
             self.save(seat, state)
-            try:
-                proc.communicate(payload, timeout=timeout)
-            except subprocess.TimeoutExpired:
-                os.killpg(proc.pid, signal.SIGTERM)
+            write(
+                record / "launch.json",
+                dict(
+                    argv=args,
+                    delivery=turn["materials"],
+                    filesystem=harness.CAPABILITIES[spec["config"]["harness"]][
+                        "filesystem"
+                    ],
+                    read_roots=spec["policy"]["read_roots"],
+                    session_bus=bus.receipt() if bus else None,
+                ),
+            )
+            usage_records.seat("run", spec["config"])
+            with (
+                (record / "events.jsonl").open("wb") as out,
+                (record / "stderr.log").open("wb") as err,
+            ):
                 try:
-                    proc.wait(timeout=5)
+                    proc = blind.popen(
+                        jail + args,
+                        bus,
+                        stdin=subprocess.PIPE,
+                        stdout=out,
+                        stderr=err,
+                        env=env,
+                        cwd=self.root,
+                        start_new_session=True,
+                    )
+                except OSError:
+                    state["pending"]["phase"] = "not-submitted"
+                    self.save(seat, state)
+                    raise
+                state["pending"].update(
+                    phase="process-started",
+                    pid=proc.pid,
+                    process_identity=process_identity(proc.pid),
+                )
+                self.save(seat, state)
+                try:
+                    proc.communicate(payload, timeout=timeout)
                 except subprocess.TimeoutExpired:
-                    os.killpg(proc.pid, signal.SIGKILL)
-                    proc.wait()
-            state["pending"].update(phase="receipt-pending", exit_code=proc.returncode)
-            self.save(seat, state)
+                    os.killpg(proc.pid, signal.SIGTERM)
+                    try:
+                        proc.wait(timeout=5)
+                    except subprocess.TimeoutExpired:
+                        os.killpg(proc.pid, signal.SIGKILL)
+                        proc.wait()
+                state["pending"].update(
+                    phase="receipt-pending", exit_code=proc.returncode
+                )
+                self.save(seat, state)
         stop = harness.quota_stop(spec["config"]["harness"], record)
         if stop:
             raise QuotaPaused(stop)

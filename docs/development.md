@@ -27,6 +27,26 @@ unless that project explicitly selects it. The execution and provider
 layers do not import book workflows. Executor snapshots include their
 runtime dependencies without copying publishing code or book content.
 
+## The jail
+
+`providers.blind` confines every seat with bubblewrap, and it is an
+allow-list all the way down. The home is blanked and a list of paths is
+bound back. The root is the same: a fixed set of system trees bound
+read-only at their own paths, and nothing else. Do not reintroduce a
+whole-root bind or a deny-list of filesystem types. Every earlier
+repair to the root followed from that shape: a stale network share
+failed the bind, the mount table changed under the jail, and a
+read-write root left writable paths behind the blanked set. A runner
+that needs a tree outside the list fails at launch; add the tree to
+`OPTIONAL_TREES`, do not bind `/`.
+
+`/run/user/<uid>` is never bound, because the session bus there lets
+`systemd --user` start a process outside any sandbox. A runner that
+must reach a bus name declares it in `Runner.bus_names`. The caller
+then opens `blind.session_bus` around the launch, passes it to the
+jail, and starts the process with `blind.popen`, which hands bwrap the
+proxy's pipe. The proxy lives exactly as long as the jail.
+
 ## Configuration lifetime
 
 A `Project` is immutable. Public entry points select it explicitly.

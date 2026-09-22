@@ -284,7 +284,7 @@ def command(config, policy, mode, sid, prompt, images, files):
     return args, payload.encode(), prompt
 
 
-def launch_context(config, policy, workspace):
+def launch_context(config, policy, workspace, bus=None):
     name = config["harness"]
     if error := blind.backend_error():
         raise RuntimeError(error)
@@ -292,7 +292,9 @@ def launch_context(config, policy, workspace):
     if missing:
         raise RuntimeError("missing harness prerequisites: " + "; ".join(missing))
     env = environment(name)
-    jail = blind.jail_argv(workspace, runners=[name], bind_credentials=name != "claude")
+    jail = blind.jail_argv(
+        workspace, runners=[name], bind_credentials=name != "claude", bus=bus
+    )
     jail[jail.index("--chdir") + 1] = str(VIRTUAL)
     jail += ["--bind", str(workspace), str(VIRTUAL), "--setenv", "PWD", str(VIRTUAL)]
     for name_ in ("materials", "library"):
@@ -501,6 +503,7 @@ def receipt(config, policy, record, private, established=None):
         if compactions
         else []
     )
+    red_flags += bus_flags(record)
     minimum = policy.get("minimum_context_window", 0)
     if minimum and (window is None or window < minimum):
         raise RuntimeError("required effective context window is not evidenced")
@@ -568,6 +571,13 @@ def receipt(config, policy, record, private, established=None):
         rollout=str(paths[0]),
         answer=answer,
     )
+
+
+def bus_flags(record):
+    """The red flag for a session bus proxied into this turn's jail, if any."""
+    launch = record / "launch.json"
+    bus = read(launch).get("session_bus") if launch.exists() else None
+    return [blind.Bus.flag(bus)] if bus else []
 
 
 def session_paths(name, private, sid):

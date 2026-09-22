@@ -166,7 +166,8 @@ all extras. Copy `.envrc.example` to `.envrc` to use direnv.
 
 The core and command discovery use the Python standard library. Model
 runs use separately installed Codex, Claude Code, or Antigravity CLIs.
-Enforced filesystem isolation uses bubblewrap on Linux. PDF and SVG
+Enforced filesystem isolation uses bubblewrap on Linux, and an
+Antigravity seat also needs `xdg-dbus-proxy`. PDF and SVG
 operations use Poppler and librsvg when the selected operation needs
 those formats. Missing required dependencies produce an error.
 
