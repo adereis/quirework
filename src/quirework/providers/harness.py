@@ -412,11 +412,7 @@ def receipt(config, policy, record, private, established=None):
             raise RuntimeError("missing or mixed Claude model identity")
         model = models.pop()
         expected = established or config["model"]
-        if expected in ("opus", "claude-opus"):
-            matches = model.startswith("claude-opus-")
-        else:
-            matches = workshop_drivers._model_matches(expected, model)
-        if not matches:
+        if not workshop_drivers._model_matches(expected, model):
             raise RuntimeError(f"Claude model drift: {model}, expected {expected}")
         usage = result.get("modelUsage", {})
         if not usage.get(model, {}).get("outputTokens"):

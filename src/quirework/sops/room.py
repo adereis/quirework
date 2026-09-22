@@ -1370,7 +1370,7 @@ def status(root):
             "rounds": state.get("rounds", {}),
             "posts": posts,
             "drafting": outbox.stat().st_size if outbox.exists() else 0,
-            "served": f"{seat['config']['harness']}/{seat['config'].get('model')}",
+            "served": f"{seat['config']['harness']}/{drivers.model_text(seat['config'])}",
             # A seat that opened its session after round one heard the room
             # before it spoke, so its first post is a reply and not an opening
             # position. Round one is the only independent evidence a room

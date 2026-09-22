@@ -9,8 +9,10 @@ title = "Read a fictional note"
 id = "reader"
 # Native transport. Select a provider installed and configured locally.
 harness = "codex"
-# An explicit example of an inexpensive model, not an inferred default.
-model = "gpt-5.6-luna"
+# An inexpensive model, named by family: preparation resolves it to the
+# newest version the Codex catalog lists and freezes that. A version such
+# as "gpt-5.6-luna" pins the seat instead.
+model = "luna"
 # Low effort keeps this synthetic test small; real work chooses its own.
 effort = "low"
 

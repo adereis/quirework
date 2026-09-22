@@ -192,3 +192,135 @@ def test_codex_resume_drops_flags_its_subcommand_rejects(tmp_path):
     assert "-s" not in resumed and "-C" not in resumed
     assert 'sandbox_mode="workspace-write"' in resumed
     assert resumed[:4] == ["codex", "exec", "resume", "a-session-id"]
+
+
+def test_family_resolution_rules():
+    slugs = [
+        "gpt-5.5",
+        "gpt-5.4-terra",
+        "gpt-5.10-terra",
+        "gpt-6-terra-mini",
+        "gemini-3.8-flash",
+        "gemini-3.1-pro",
+        "claude-haiku-4-5-20251001",
+    ]
+    pick = d.newest_in_family
+    # Versions compare as numbers, so 5.10 is newer than 5.4, and the
+    # plainest member wins: the newer gpt-6-terra-mini is not `terra`.
+    assert pick("terra", slugs) == "gpt-5.10-terra"
+    assert pick("terra-mini", slugs) == "gpt-6-terra-mini"
+    assert pick("Gemini-Pro", slugs) == "gemini-3.1-pro"
+    assert pick("haiku", slugs) == "claude-haiku-4-5-20251001"
+    assert pick("nova", slugs) is None
+    with pytest.raises(
+        ValueError, match=r"more than one family \(gemini-flash, gemini-pro\)"
+    ):
+        pick("gemini", slugs)
+    assert d.is_family("gemini-pro") and not d.is_family("gpt-5.6-terra")
+    # A served id satisfies a family when it carries every family word.
+    # `fable` failed here once, because only three aliases were known.
+    assert d._model_matches("fable", "claude-fable-5-1")
+    assert d._model_matches("opus", "claude-opus-5-5")
+    assert not d._model_matches("opus", "claude-sonnet-5")
+    assert d._model_matches("claude-opus-5-5", "claude-opus-5-5-20260901")
+    assert not d._model_matches("claude-opus-5", "claude-opus-5-5")
+    assert not d._model_matches("opus", None)
+
+
+def _installed(monkeypatch):
+    monkeypatch.setattr(d.shutil, "which", lambda name: f"/usr/bin/{name}")
+
+
+def test_a_codex_family_resolves_to_its_newest_listed_version(tmp_path, monkeypatch):
+    """A plan says `terra`; a Terra released tomorrow needs no code change."""
+    from pathlib import Path
+
+    _installed(monkeypatch)
+    monkeypatch.setattr(Path, "home", lambda: tmp_path)
+    levels = [{"effort": e} for e in ("low", "medium", "high")]
+    catalog = tmp_path / ".codex/models_cache.json"
+    catalog.parent.mkdir()
+    catalog.write_text(
+        json.dumps(
+            {
+                "models": [
+                    {"slug": "gpt-5.5", "supported_reasoning_levels": levels},
+                    {
+                        "slug": "gpt-5.6-terra",
+                        "max_context_window": 872000,
+                        "supported_reasoning_levels": levels,
+                    },
+                    {"slug": "gpt-5.4-terra", "supported_reasoning_levels": levels},
+                    {"slug": "gpt-6-astra", "supported_reasoning_levels": levels},
+                    # Codex's own internals are hidden, never a family's answer.
+                    {
+                        "slug": "gpt-7-terra",
+                        "visibility": "hide",
+                        "supported_reasoning_levels": levels,
+                    },
+                ]
+            }
+        )
+    )
+    got = d.resolve("codex", "Terra", "high")
+    assert got["model"] == "gpt-5.6-terra"
+    assert got["requested_model"] == "Terra"
+    assert got["max_context_window"] == 872000
+    assert d.model_text(got) == "gpt-5.6-terra (from Terra)"
+    assert d.resolve("codex", "astra", "low")["model"] == "gpt-6-astra"
+    # An exact slug pins, and prints as itself.
+    pinned = d.resolve("codex", "gpt-5.4-terra", "low")
+    assert pinned["model"] == "gpt-5.4-terra"
+    assert d.model_text(pinned) == "gpt-5.4-terra"
+    with pytest.raises(ValueError, match="families gpt, gpt-astra, gpt-terra"):
+        d.resolve("codex", "nova", "low")
+    catalog.unlink()
+    with pytest.raises(ValueError, match="needed to resolve the family 'terra'"):
+        d.resolve("codex", "terra", "low")
+
+
+def test_an_agy_family_resolves_at_the_seat_effort(monkeypatch):
+    import subprocess
+
+    _installed(monkeypatch)
+    listing = (
+        "Fetching available models...\n"
+        "gemini-3.8-flash-high\tGemini 3.8 Flash (High)\n"
+        "gemini-3.8-flash-low\tGemini 3.8 Flash (Low)\n"
+        "gemini-3.7-flash-low\tGemini 3.7 Flash (Low)\n"
+        "gemini-3.1-pro-high\tGemini 3.1 Pro (High)\n"
+        "gemini-3.1-pro-low\tGemini 3.1 Pro (Low)\n"
+    )
+    monkeypatch.setattr(
+        d.subprocess,
+        "run",
+        lambda *a, **k: subprocess.CompletedProcess(a, 0, stdout=listing, stderr=""),
+    )
+    assert d.resolve("agy", "flash", "low")["model"] == "gemini-3.8-flash-low"
+    assert d.resolve("agy", "gemini-pro", "high")["model"] == "gemini-3.1-pro-high"
+    # Pro has no medium; the refusal names the efforts it has.
+    with pytest.raises(
+        ValueError, match="gemini-3.1-pro at efforts high, low, not 'medium'"
+    ):
+        d.resolve("agy", "gemini-pro", "medium")
+    with pytest.raises(ValueError, match=r"more than one family"):
+        d.resolve("agy", "gemini", "low")
+    with pytest.raises(ValueError, match="families gemini-flash, gemini-pro"):
+        d.resolve("agy", "gemini-ultra", "low")
+
+
+def test_claude_shorthand_resolves_without_a_version_list(monkeypatch):
+    """`opus-5.5` is what a person says; `claude-opus-5-5` is what the CLI takes."""
+    _installed(monkeypatch)
+    for said, taken in (
+        ("opus-5.5", "claude-opus-5-5"),
+        ("Opus-5", "claude-opus-5"),
+        ("claude-opus", "opus"),
+        ("Fable", "fable"),
+        ("claude-unreleased-9", "claude-unreleased-9"),
+    ):
+        assert d.resolve("claude", said, "high")["model"] == taken, said
+    # Neither an alias nor a Claude version: refused here, not at launch.
+    for bogus in ("opus5", "gpt-5", "terra"):
+        with pytest.raises(ValueError, match="not a name Claude Code accepts"):
+            d.resolve("claude", bogus, "high")

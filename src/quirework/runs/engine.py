@@ -1140,6 +1140,7 @@ class Run:
                 name: dict(
                     mode=s["mode"],
                     model=s["config"]["model"],
+                    requested_model=s["config"].get("requested_model"),
                     persona=personas.identity(s.get("persona")),
                     instrument={k: s["instrument"].get(k) for k in ("id", "revision")}
                     if s.get("instrument")

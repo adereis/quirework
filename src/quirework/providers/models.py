@@ -31,12 +31,109 @@ def json_rows(path):
     ]
 
 
+# A plan names a model family (`opus`, `terra`, `gemini-pro`) and preparation
+# picks the newest member the harness's own catalog lists, so a release needs
+# no change here and a plan written today picks up next month's model. The
+# resolved id is frozen with the family recorded beside it; a name with a
+# version number in it pins instead. Keep no list of model versions in this
+# module: where a harness has no catalog, as Claude Code has none, its own
+# alias passes through and the receipt verifies what was served.
+CLAUDE_ALIASES = ("fable", "opus", "sonnet", "haiku")
+AGY_EFFORTS = ("low", "medium", "high")
+
+
+def _tokens(name):
+    return [t for t in re.split(r"[-_\s]+", str(name).strip().lower()) if t]
+
+
+def _words(name):
+    """The family words of a model name: every token that is not a version."""
+    return [t for t in _tokens(name) if not t[0].isdigit()]
+
+
+def _version(name):
+    return tuple(
+        int(n) for t in _tokens(name) if t[0].isdigit() for n in re.findall(r"\d+", t)
+    )
+
+
+def is_family(name):
+    """Whether a model name names a family rather than a version: no digit."""
+    return bool(_tokens(name)) and not re.search(r"\d", str(name))
+
+
+def families(slugs):
+    """The family names a catalog offers, for a refusal to list."""
+    return sorted({"-".join(_words(s)) for s in slugs if _words(s)})
+
+
+def newest_in_family(family, slugs):
+    """The newest catalog slug in ``family``, or None when nothing matches.
+
+    A slug is in the family when every family word is one of its words.
+    Among those, the members with the fewest words win, so ``terra`` means
+    ``gpt-5.6-terra`` and not a later ``gpt-6-terra-mini``. Two different
+    word sets left tied are ambiguous, as ``gemini`` is between Flash and
+    Pro, and the refusal names both. Inside the family the highest version
+    wins, compared as numbers, so 5.10 is newer than 5.4.
+    """
+    wanted = set(_words(family))
+    members = [s for s in slugs if wanted <= set(_words(s))]
+    if not members:
+        return None
+    fewest = min(len(_words(s)) for s in members)
+    members = [s for s in members if len(_words(s)) == fewest]
+    shapes = families(members)
+    if len(shapes) > 1:
+        raise ValueError(
+            f"model {family!r} names more than one family ({', '.join(shapes)}); "
+            "name one of them"
+        )
+    return max(members, key=lambda s: (_version(s), s))
+
+
+def model_text(config):
+    """A seat's model as status prints it: the id, and the family it came from."""
+    asked = config.get("requested_model")
+    model = config.get("model")
+    if asked and model and str(asked).strip().lower() != model:
+        return f"{model} (from {asked})"
+    return model
+
+
+def resolve_claude(model):
+    """What a person calls a Claude model, as Claude Code accepts it.
+
+    ``opus-5.5`` is what a person says and ``claude-opus-5-5`` is what the
+    CLI takes: Claude ids spell versions with dashes, never dots. A family
+    alias passes through, because the CLI resolves it to its latest model
+    and the receipt records which one answered. Anything that is neither
+    is refused here rather than at launch, where it would come back as
+    ``unrecognized_model`` after the jail was already built.
+    """
+    text = str(model).strip().lower()
+    if not text:
+        raise ValueError("claude model must not be empty")
+    bare = text.removeprefix("claude-").replace(".", "-")
+    if bare in CLAUDE_ALIASES:
+        return bare
+    if not is_family(bare) and (
+        text.startswith("claude-") or bare.split("-")[0] in CLAUDE_ALIASES
+    ):
+        return f"claude-{bare}"
+    raise ValueError(
+        f"claude model {model!r} is not a name Claude Code accepts. Use a family "
+        f"alias ({', '.join(CLAUDE_ALIASES)}), which the CLI resolves to its "
+        "latest model, or a version such as opus-5.5 or claude-opus-5-5."
+    )
+
+
 def resolve(harness, requested, effort, resolved_model=None):
     if harness not in HARNESSES:
         raise ValueError(f"unknown harness: {harness}")
     if not shutil.which(harness):
         raise ValueError(f"harness not installed: {harness}")
-    model = resolved_model or requested
+    model = str(resolved_model or requested).strip().lower()
     evidence = {"requested_model": requested, "requested_effort": effort}
     if harness == "codex":
         model = re.sub(r"^(gpt-\d+)-(\d+)", r"\1.\2", model)
@@ -46,11 +143,28 @@ def resolve(harness, requested, effort, resolved_model=None):
         if not cache.exists():
             raise ValueError(
                 "Codex model catalog missing; refresh it with codex debug models"
+                + (
+                    f" (needed to resolve the family {model!r})"
+                    if is_family(model)
+                    else ""
+                )
             )
         models = read_json(cache).get("models", [])
         item = next((m for m in models if m.get("slug") == model), None)
+        # Hidden entries are Codex's own internals; a family never lands on one.
+        listed = [
+            m["slug"] for m in models if m.get("slug") and m.get("visibility") != "hide"
+        ]
+        if item is None and is_family(model):
+            slug = newest_in_family(model, listed)
+            item = next((m for m in models if m.get("slug") == slug), None)
         if item is None:
-            raise ValueError(f"Codex catalog does not contain {model!r}")
+            raise ValueError(
+                f"Codex catalog does not contain {model!r}; it offers the "
+                f"families {', '.join(families(listed))}, which resolve to "
+                "their newest version, or an exact slug"
+            )
+        model = item["slug"]
         levels = [r["effort"] for r in item.get("supported_reasoning_levels", [])]
         if effort not in levels:
             raise ValueError(f"{model} supports {levels}, not {effort!r}")
@@ -75,6 +189,10 @@ def resolve(harness, requested, effort, resolved_model=None):
             )
         }
     elif harness == "agy":
+        if effort not in AGY_EFFORTS:
+            raise ValueError(
+                "agy supports low, medium, high; explicitly map the requested effort"
+            )
         p = subprocess.run(
             ["agy", "models"], capture_output=True, text=True, timeout=45, check=False
         )
@@ -85,27 +203,41 @@ def resolve(harness, requested, effort, resolved_model=None):
             for line in p.stdout.splitlines()
             if line.startswith(("gemini-", "claude-", "gpt-"))
         ]
-        if effort not in ("low", "medium", "high"):
-            raise ValueError(
-                "agy supports low, medium, high; explicitly map the requested effort"
-            )
+        # A slug carries its effort as a suffix (`gemini-3.1-pro-high`); a
+        # family is resolved on the model with the suffix taken off, and the
+        # seat's effort then completes the slug.
+        suffix = re.compile(r"-(" + "|".join(AGY_EFFORTS) + r")$")
+        bases = sorted({suffix.sub("", s) for s in available})
+        if model not in available and is_family(model):
+            model = newest_in_family(model, bases) or model
         if model not in available and f"{model}-{effort}" in available:
             model = f"{model}-{effort}"
         if model not in available:
+            offered = sorted(
+                m.group(1)
+                for s in available
+                if (m := suffix.search(s)) and suffix.sub("", s) == model
+            )
+            if offered:
+                raise ValueError(
+                    f"agy offers {model} at efforts {', '.join(offered)}, "
+                    f"not {effort!r}"
+                )
             raise ValueError(
-                f"agy model unavailable: {model!r}; available: {available}"
+                f"agy model unavailable: {model!r}; it offers the families "
+                f"{', '.join(families(bases))}, which resolve to their newest "
+                "version, or an exact slug from `agy models`"
             )
         evidence["catalog_entry"] = model
     else:
-        # Model ids are lowercase; an editor writing the author's spelling
-        # ("Opus-5") must not reach the CLI as a different string.
-        model = model.lower()
-        if model not in ("haiku", "sonnet", "opus") and not model.startswith("claude-"):
-            model = "claude-" + model
+        model = resolve_claude(model)
         if effort not in ("low", "medium", "high", "xhigh", "max"):
             raise ValueError(f"invalid Claude effort: {effort}")
         evidence["catalog_entry"] = (
-            "explicit model; verify served identity after launch"
+            "family alias; the CLI picks its latest, and the receipt records "
+            "the version served"
+            if model in CLAUDE_ALIASES
+            else "explicit model; verify served identity after launch"
         )
     evidence.update(harness=harness, model=model, effort=effort)
     return evidence
@@ -371,12 +503,19 @@ def launch_context(config, workspace, bus=None):
 
 
 def _model_matches(expected, actual):
-    if expected in ("haiku", "sonnet", "opus"):
-        return bool(
-            actual and re.fullmatch(r"claude-" + expected + r"-[a-z0-9.-]+", actual)
-        )
+    """Whether the served model id satisfies the requested one.
+
+    A family is satisfied by any served id carrying every family word, so
+    ``fable`` accepts ``claude-fable-5-1``. That once failed every fable seat
+    after it had spent its quota, because only opus, sonnet and haiku were
+    known here. A version must match exactly, or with a date suffix.
+    """
+    if not actual:
+        return False
+    if is_family(expected):
+        return set(_words(expected)) <= set(_words(actual))
     return actual == expected or bool(
-        actual and re.fullmatch(re.escape(expected) + r"-\d{8}", actual)
+        re.fullmatch(re.escape(expected) + r"-\d{8}", actual)
     )
 
 

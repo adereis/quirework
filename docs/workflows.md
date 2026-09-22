@@ -109,7 +109,7 @@ A minimal plan contains explicit seats and ordered turns:
   "seats": [{
     "id": "reader",
     "harness": "codex",
-    "model": "gpt-5.6-luna",
+    "model": "luna",
     "effort": "low",
     "policy": {"tools": "none", "filesystem": "enforced"},
     "turns": [{
@@ -121,11 +121,21 @@ A minimal plan contains explicit seats and ordered turns:
 }
 ```
 
-The model is an explicit choice. `quirework sop models list PROVIDER`
-and `resolve PROVIDER MODEL --effort LEVEL` inspect available
-information without starting a model session. Unsupported capabilities
-fail during preparation. A native model alias remains explicit; the
-receipt records the model actually served.
+The model is an explicit choice, and it is best named by family:
+`opus`, `fable`, `sonnet`, `terra`, `sol`, `luna`, `gemini-pro`,
+`flash`. Preparation resolves a family to the newest version that
+harness's own catalog lists and freezes it, so a plan written today
+picks up next month's release without an edit. For example, `luna`
+prepares as `gpt-5.6-luna` today, and every turn of that run uses it.
+A version such as `opus-5.5` or `gpt-5.6-luna` pins the seat instead.
+A name no catalog can place is refused, and the refusal lists the
+families that exist. Claude Code keeps no local catalog, so a Claude
+family passes to the CLI as its own alias and the receipt records the
+version that answered.
+
+`quirework sop models list PROVIDER` and `resolve PROVIDER MODEL
+--effort LEVEL` inspect available information without starting a model
+session. Unsupported capabilities fail during preparation.
 
 `quirework book plan` compiles rendered book packets, comparisons, and
 bundles. `quirework sop panel` compiles a declared panel. These helpers
