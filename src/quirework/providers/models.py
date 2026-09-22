@@ -339,6 +339,10 @@ def command(config, workspace, prompt, *, manual=False, resume=None):
     is not.
     """
     harness, model, effort = (config[k] for k in ("harness", "model", "effort"))
+    # A resumed session names the version it began on, never the family: an
+    # alias on resume follows a release, so the seat would change model
+    # between turns while its receipt still read as the same seat.
+    model = config.get("model_pinned") or model
     research = config.get("tools", "write") == "research"
     if resume and manual:
         raise ValueError("resume the writer automatically or relaunch it by hand")
@@ -754,7 +758,8 @@ def receipt(config, record, private, *, manual=False, resumed=None):
             if r.get("type") == "assistant"
             and r.get("message", {}).get("model") not in (None, "<synthetic>")
         }
-        if len(models) != 1 or not _model_matches(config["model"], next(iter(models))):
+        expected = config.get("model_pinned") or config["model"]
+        if len(models) != 1 or not _model_matches(expected, next(iter(models))):
             raise RuntimeError(f"Claude served model mismatch: {models}")
         actual = models.pop()
         # Effort is selected by the CLI. Do not claim a served-effort receipt
@@ -836,6 +841,11 @@ def receipt(config, record, private, *, manual=False, resumed=None):
         "model": actual,
         "resumed_from": resumed,
         "selected_model": config["model"],
+        **(
+            {"model_pinned": config["model_pinned"]}
+            if config.get("model_pinned")
+            else {}
+        ),
         "model_evidence": (
             "harness init" if harness == "agy" else "assistant/turn context"
         )

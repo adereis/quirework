@@ -103,6 +103,8 @@ def environment(harness):
 
 def command(config, policy, mode, sid, prompt, images, files):
     name, model, effort = (config[k] for k in ("harness", "model", "effort"))
+    # See engine.pinned_config: a resumed session keeps its served version.
+    model = config.get("model_pinned") or model
     if files:
         prompt += "\nUse only the supplied paths. For a PDF or image, inspect its pages/images; do not extract its text.\n"
     if images and name == "agy":
@@ -228,10 +230,12 @@ def command(config, policy, mode, sid, prompt, images, files):
                 policy["system_prompt"],
                 "--exclude-dynamic-system-prompt-sections",
             ]
+        # Every launch names the model: a resume without it runs the CLI's
+        # default, and a resume with the family alone runs the newest one.
         if mode == "start":
             args += ["--model", model, "--session-id", sid]
         else:
-            args += ["--resume", sid]
+            args += ["--resume", sid, "--model", model]
             if mode == "fork":
                 args += ["--fork-session"]
         content = [dict(type="text", text=prompt)]
@@ -411,7 +415,7 @@ def receipt(config, policy, record, private, established=None):
         if len(models) != 1:
             raise RuntimeError("missing or mixed Claude model identity")
         model = models.pop()
-        expected = established or config["model"]
+        expected = established or config.get("model_pinned") or config["model"]
         if not workshop_drivers._model_matches(expected, model):
             raise RuntimeError(f"Claude model drift: {model}, expected {expected}")
         usage = result.get("modelUsage", {})

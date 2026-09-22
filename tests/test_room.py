@@ -890,6 +890,63 @@ def test_a_room_turn_records_its_seat_before_the_process_starts(prepared, monkey
     assert launched == ["room"]
 
 
+def test_a_release_between_rounds_does_not_switch_a_seat_model(prepared, monkeypatch):
+    """`opus` is resolved by the CLI; round two must keep round one's Opus."""
+    from quirework.project import current_project
+
+    # The launch stands in the project root, which the fixture never makes.
+    current_project().root.mkdir(exist_ok=True)
+    _, plan = room.load(prepared)
+    seat = next(s for s in plan["seats"] if s["id"] == "ana-pell")
+    seat = {**seat, "config": {**seat["config"], "harness": "claude", "model": "opus"}}
+    sent = []
+    # Round one is served the Opus of the day; then a newer one ships, and an
+    # unpinned resume would land on it.
+    newest = iter(["claude-opus-5-20260601", "claude-opus-6-20270101"])
+
+    def command(config, work, prompt, *, resume=None):
+        sent.append(config)
+        return ["true"], b""
+
+    def receipt(config, record, private, *, resumed=None):
+        model = config.get("model_pinned") or next(newest)
+        return {
+            "session_id": "s-1",
+            "model": model,
+            **(
+                {"model_pinned": config["model_pinned"]}
+                if config.get("model_pinned")
+                else {}
+            ),
+        }
+
+    monkeypatch.setattr(room.drivers, "command", command)
+    monkeypatch.setattr(room.drivers, "receipt", receipt)
+    monkeypatch.setattr(
+        room.drivers, "launch_context", lambda *a: ([], {}, prepared / "private")
+    )
+    monkeypatch.setattr(room.blind, "session_bus", lambda runners: nullcontext())
+    # Nothing is jailed here: the argv is the stubbed one plus the board bind,
+    # and the process only has to exit cleanly.
+    monkeypatch.setattr(
+        room.blind,
+        "popen",
+        lambda argv, bus, **kw: room.subprocess.Popen(["true"], **kw),
+    )
+    assert room._launch(prepared, plan, seat, 1, "Open.", None) == "answered"
+    assert "model_pinned" not in sent[0], "a first turn has nothing to keep"
+    state = read(room.state_path(prepared, "ana-pell"))
+    assert state["model_served"] == "claude-opus-5-20260601"
+    assert room._launch(prepared, plan, seat, 2, "Again.", "s-1") == "answered"
+    assert sent[1]["model_pinned"] == "claude-opus-5-20260601"
+    got = read(prepared / "records/ana-pell/r002/receipt.json")
+    assert got["model"] == got["model_pinned"] == "claude-opus-5-20260601"
+    # A seat whose plan already names the served version needs no pin.
+    exact = {**seat, "config": {**seat["config"], "model": "claude-opus-5-20260601"}}
+    room._launch(prepared, plan, exact, 3, "Once more.", "s-1")
+    assert "model_pinned" not in sent[2]
+
+
 def test_a_research_seat_is_refused_where_it_cannot_be_enforced(plan, tmp_path):
     with pytest.raises(ValueError, match="agy cannot confine"):
         room.prepare(

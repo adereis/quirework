@@ -244,17 +244,20 @@ def test_codex_prompt_is_stdin_and_images_precede_json():
     assert not any("1000000" in s for s in argv)
 
 
-def test_claude_model_only_on_start_codex_every_turn():
-    for runner in ("claude", "codex"):
+def test_every_turn_names_its_model():
+    """A Claude resume without `--model` runs the CLI's default model.
+
+    It used to be passed on start only. The receipt then refused the turn
+    whenever the default differed from the seat's model, and a family alias
+    would have followed a release mid-session.
+    """
+    for runner, flag in (("claude", "--model"), ("codex", "-m")):
         config = dict(harness=runner, model="fixture-model", effort="high")
         for mode in ("start", "resume", "fork"):
             argv, _, _ = harness.command(
                 config, engine.policy({}), mode, "sid", "Hello", [], []
             )
-            if runner == "codex":
-                assert "-m" in argv
-            else:
-                assert ("--model" in argv) == (mode == "start")
+            assert argv[argv.index(flag) + 1] == "fixture-model"
 
 
 def test_a_worker_thread_runs_under_the_callers_project(setup, monkeypatch):
@@ -741,3 +744,26 @@ def test_a_bad_referenced_image_count_is_refused_before_launch(setup, value):
     path.write_text(json.dumps(plan))
     with pytest.raises(ValueError, match="referenced_images"):
         engine.prepare(path, root / "record", resolve=False)
+
+
+def test_a_resumed_claude_turn_names_the_version_it_began_on():
+    """A Claude seat stores `opus`; a resume must not follow a release."""
+    config = {"harness": "claude", "model": "opus", "effort": "high"}
+    policy = engine.policy({})
+    for mode in ("resume", "fork"):
+        pinned = engine.pinned_config(config, "claude-opus-5-20260601")
+        args, _, _ = harness.command(pinned, policy, mode, "s-1", "p", [], [])
+        at = args.index("--resume")
+        assert args[at : at + 4] == [
+            "--resume",
+            "s-1",
+            "--model",
+            pinned["model_pinned"],
+        ]
+    # Unpinned, a resume still names the model rather than the CLI default.
+    args, _, _ = harness.command(config, policy, "resume", "s-1", "p", [], [])
+    assert args[args.index("--model") + 1] == "opus"
+    # A seat whose plan names the served version exactly needs no pin.
+    exact = {**config, "model": "claude-opus-5-20260601"}
+    assert engine.pinned_config(exact, "claude-opus-5-20260601") is exact
+    assert engine.pinned_config(config, None) is config

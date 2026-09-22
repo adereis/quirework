@@ -645,13 +645,18 @@ class Run:
             "process_identity"
         ):
             raise RuntimeError("submitted process is still alive; do not resubmit")
+        # The pin travels in the pending record, so a turn collected later,
+        # by another process, is checked against the version it was sent to.
+        config = pinned_config(spec["config"], pending.get("model_pinned"))
         receipt = harness.receipt(
-            spec["config"],
+            config,
             spec["policy"],
             record,
             self.private(seat),
             state.get("served_model"),
         )
+        if config.get("model_pinned"):
+            receipt["model_pinned"] = config["model_pinned"]
         sid = receipt["session_id"]
         if pending["mode"] == "resume" and sid != state["session_id"]:
             raise RuntimeError("resume created a different session")
@@ -938,8 +943,16 @@ class Run:
         # bus. It is opened before the jail is built, because the argv names
         # its socket, and closed once the process has exited.
         with blind.session_bus([spec["config"]["harness"]]) as bus:
+            config = pinned_config(
+                spec["config"],
+                state.get("served_model")
+                if mode == "resume"
+                else self.state(spec["parent"]["seat"]).get("served_model")
+                if mode == "fork"
+                else None,
+            )
             args, payload, rendered = harness.command(
-                spec["config"], spec["policy"], mode, sid, prompt, images, files
+                config, spec["policy"], mode, sid, prompt, images, files
             )
             jail, env, _ = harness.launch_context(
                 spec["config"], spec["policy"], self.workspace(seat), bus
@@ -958,6 +971,7 @@ class Run:
                 turn=turn["id"],
                 mode=mode,
                 parent_id=sid,
+                model_pinned=config.get("model_pinned"),
                 phase="launch-intent",
                 request_sha256=request_sha,
                 created_at=time.time(),
@@ -1234,6 +1248,20 @@ class Run:
                 }
         write(destination / "receipt.json", public)
         return str(destination)
+
+
+def pinned_config(config, served):
+    """``config`` with its model pinned to ``served`` when that adds anything.
+
+    A Claude seat stores its family alias, because Claude Code has no local
+    catalog to resolve it against, and a resume that named the alias would
+    run whatever is newest now. A resumed or forked session therefore names
+    the version its history was served on. Codex and Antigravity seats run
+    a frozen exact id already, so a pin there would claim nothing new.
+    """
+    if not served or served == config["model"]:
+        return config
+    return {**config, "model_pinned": served}
 
 
 def frozen_dispatch(root, args):

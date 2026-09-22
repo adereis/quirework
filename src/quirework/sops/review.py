@@ -369,6 +369,8 @@ def command(config, mode, session_id, report_dir):
     a diff cannot be reinterpreted on the way in.
     """
     harness, model, effort = (config[k] for k in ("harness", "model", "effort"))
+    # A resumed session names the version it began on; see `_turn`.
+    model = config.get("model_pinned") or model
     if mode == "fork" and harness == "agy":
         _fail("agy exposes no native fork; resume the session or start a new run")
     if mode in ("resume", "fork") and not session_id:
@@ -644,7 +646,7 @@ def _answer(harness, config, rows, private):
             and r.get("message", {}).get("model") not in (None, "<synthetic>")
         }
         if len(served) != 1 or not drivers._model_matches(
-            config["model"], next(iter(served))
+            config.get("model_pinned") or config["model"], next(iter(served))
         ):
             _fail(f"claude served model mismatch: {served}")
         out["model"] = served.pop()
@@ -868,6 +870,16 @@ def _turn(
             f"{name} has no recorded session id to {mode}"
             + (f" at turn {from_turn}" if from_turn else "")
         )
+    # A Claude reviewer stores its family alias, and a resume naming the
+    # alias runs whatever is newest now. Name the version the parent turn was
+    # served instead, so a release between turns cannot switch the reviewer
+    # mid-conversation. An exact id in the plan needs no pin.
+    served = next(
+        (t.get("model") for t in reversed(state["turns"]) if t["turn"] == parent),
+        None,
+    )
+    if mode in ("resume", "fork", "continue") and served and served != config["model"]:
+        config = {**config, "model_pinned": served}
 
     turn = _next_turn(record)
     turn_dir = record / "turns" / turn
@@ -973,6 +985,7 @@ def _turn(
         delta=delta,
         report_dir=report_dir,
         expect_session=session_id,
+        model_pinned=config.get("model_pinned"),
     )
 
 
@@ -990,11 +1003,14 @@ def _collect(
     delta=None,
     report_dir=None,
     expect_session=None,
+    model_pinned=None,
 ):
     """Bank the turn: the reviewer's words to the run, everything else here."""
     record = store_dir_for(name, store)
     state = read_json(record / "run.json")
     config = state["config"]
+    if model_pinned:
+        config = {**config, "model_pinned": model_pinned}
     harness = config["harness"]
     turn_dir = record / "turns" / turn
     private = (blind.state_root(record) / harness) if jailed else None
@@ -1107,6 +1123,7 @@ def _collect(
         "session_id": receipt["session_id"],
         "model": receipt["model"],
         "selected_model": config["model"],
+        **({"model_pinned": model_pinned} if model_pinned else {}),
         "model_evidence": (
             "harness turn context"
             if receipt["model"]

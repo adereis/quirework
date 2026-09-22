@@ -131,7 +131,10 @@ A version such as `opus-5.5` or `gpt-5.6-luna` pins the seat instead.
 A name no catalog can place is refused, and the refusal lists the
 families that exist. Claude Code keeps no local catalog, so a Claude
 family passes to the CLI as its own alias and the receipt records the
-version that answered.
+version that answered. Every later turn of that session is pinned to
+the version that answered first, and its receipt shows the pin as
+`model_pinned`. An Opus released between a room's second and third
+rounds therefore does not change who is speaking.
 
 `quirework sop models list PROVIDER` and `resolve PROVIDER MODEL
 --effort LEVEL` inspect available information without starting a model

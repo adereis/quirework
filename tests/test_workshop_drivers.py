@@ -324,3 +324,18 @@ def test_claude_shorthand_resolves_without_a_version_list(monkeypatch):
     for bogus in ("opus5", "gpt-5", "terra"):
         with pytest.raises(ValueError, match="not a name Claude Code accepts"):
             d.resolve("claude", bogus, "high")
+
+
+def test_a_resumed_reviewer_and_writer_name_the_pinned_version(tmp_path):
+    from quirework.sops import review
+
+    config = {
+        "harness": "claude",
+        "model": "opus",
+        "effort": "high",
+        "model_pinned": "claude-opus-5-20260601",
+    }
+    args, _ = review.command(config, "resume", "s-1", tmp_path)
+    assert args[args.index("--model") + 1] == "claude-opus-5-20260601"
+    args, _ = d.command(config, tmp_path, "carry on", resume="s-1")
+    assert args[args.index("--model") + 1] == "claude-opus-5-20260601"

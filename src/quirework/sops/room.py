@@ -1051,6 +1051,14 @@ def _launch(root, plan, seat, n, prompt, resume, *, timeout=None):
     work, config = root / "seats" / name, seat_config(plan, seat)
     record = root / "records" / name / f"r{n:03d}"
     record.mkdir(parents=True, exist_ok=True)
+    # A family such as `opus` means whatever is newest when the CLI runs, so
+    # a resumed session names the version its first answer was served on. A
+    # release between rounds would otherwise switch the seat's model while
+    # the room reads it as the same voice. A seat whose plan already names
+    # that exact version needs no pin, and claiming one would add nothing.
+    pinned = read(state_path(root, name)).get("model_served") if resume else None
+    if pinned and pinned != config["model"]:
+        config = {**config, "model_pinned": pinned}
     # Open before the jail is built, since its argv names the proxy's socket,
     # and closed only after the seat's process has exited.
     with blind.session_bus([config["harness"]]) as bus:
@@ -1145,6 +1153,8 @@ def _launch(root, plan, seat, n, prompt, resume, *, timeout=None):
     state = read(state_path(root, name))
     if got.get("session_id"):
         state["session_id"] = got["session_id"]
+    if status == "answered" and got.get("model") and not state.get("model_served"):
+        state["model_served"] = got["model"]
     state["rounds"][str(n)] = {
         "status": status,
         "seconds": seconds,
