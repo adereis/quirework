@@ -1462,14 +1462,17 @@ def main(argv=None):
             "report is still banked",
         )
 
-    p = sub.add_parser("run")
+    p = sub.add_parser("run", help="open a review run and take its first turn")
     p.add_argument("scope")
     common(p, needs_delta=True)
-    p = sub.add_parser("prompt")
+    p = sub.add_parser("prompt", help="print the composed prompt; launch nothing")
     p.add_argument("scope")
     common(p, needs_delta=True)
-    for action in ("resume", "fork"):
-        p = sub.add_parser(action)
+    for action, text in (
+        ("resume", "hand the same reviewer the new commits"),
+        ("fork", "branch the session to press a disagreement"),
+    ):
+        p = sub.add_parser(action, help=text)
         p.add_argument("run")
         p.add_argument(
             "--from",
@@ -1483,16 +1486,16 @@ def main(argv=None):
         common(p, needs_delta=False)
     # `continue` takes no brief and no range: a quota continuation re-sends
     # nothing, because everything it would re-send is already in the session.
-    p = sub.add_parser("continue")
+    p = sub.add_parser("continue", help="continue a turn a provider quota cut")
     p.add_argument("run")
     p.add_argument("--from", dest="from_turn", default=None, metavar="TURN")
     p.add_argument("--store", default=None)
     p.add_argument("--no-jail", dest="jailed", action="store_false")
     p.add_argument("--timeout", type=float, default=None)
-    p = sub.add_parser("status")
+    p = sub.add_parser("status", help="collected turns and saved progress")
     p.add_argument("run", nargs="?")
     p.add_argument("--store", default=None)
-    p = sub.add_parser("audit")
+    p = sub.add_parser("audit", help="reviewable commits that carry no review")
     p.add_argument(
         "--since",
         default=None,

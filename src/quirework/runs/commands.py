@@ -16,10 +16,12 @@ def main(argv=None):
     argv = list(sys.argv[1:] if argv is None else argv)
     parser = argparse.ArgumentParser(prog="quirework sop runs", description=__doc__)
     sub = parser.add_subparsers(dest="action", required=True)
-    p = sub.add_parser("prepare")
+    p = sub.add_parser(
+        "prepare", help="freeze a plan, its inputs and the executor into a record"
+    )
     p.add_argument("plan")
     p.add_argument("record")
-    p = sub.add_parser("start")
+    p = sub.add_parser("start", help="run the selected seats' turns in order")
     p.add_argument("record")
     p.add_argument("seats", nargs="*")
     p.add_argument("--jobs", type=int, default=1)
@@ -32,12 +34,16 @@ def main(argv=None):
         help="seconds to wait out a provider quota refusal and "
         "resume the same session (0 to stop instead)",
     )
-    for name in ("inspect", "verify", "collect"):
-        p = sub.add_parser(name)
+    for name, text in (
+        ("inspect", "show each seat's model, policy, progress and red flags"),
+        ("verify", "check that the frozen plan, inputs and evidence are unchanged"),
+        ("collect", "bank what a submitted turn left, without buying a new answer"),
+    ):
+        p = sub.add_parser(name, help=text)
         p.add_argument("record")
         if name == "inspect":
             p.add_argument("--prompts", action="store_true")
-    p = sub.add_parser("export")
+    p = sub.add_parser("export", help="copy answers and curated receipts out")
     p.add_argument("record")
     p.add_argument("destination")
     p.add_argument(
@@ -46,25 +52,31 @@ def main(argv=None):
         help="release the seats that finished; the receipt records "
         "each seat's completeness",
     )
-    p = sub.add_parser("retry")
+    p = sub.add_parser(
+        "retry", help="resubmit a turn after a provable rejection without an answer"
+    )
     p.add_argument("record")
     p.add_argument("seat")
     p.add_argument("turn")
-    p = sub.add_parser("import")
+    p = sub.add_parser(
+        "import", help="record an answer made outside the run, with its provenance"
+    )
     p.add_argument("record")
     p.add_argument("seat")
     p.add_argument("turn")
     p.add_argument("answer")
     p.add_argument("--provenance", required=True)
-    p = sub.add_parser("observe")
+    p = sub.add_parser("observe", help="report red flags and policy violations")
     p.add_argument("record")
-    p = sub.add_parser("check-coverage")
+    p = sub.add_parser(
+        "check-coverage", help="check a ledger against the population it covers"
+    )
     p.add_argument("population")
     p.add_argument("ledger")
     p.add_argument("--partial", action="store_true")
     p.add_argument("--status", action="append")
     p.add_argument("--require", action="append", default=[])
-    p = sub.add_parser("capabilities")
+    p = sub.add_parser("capabilities", help="what each harness can provide")
     args = parser.parse_args(argv)
     try:
         if args.action == "observe":

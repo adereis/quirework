@@ -462,8 +462,12 @@ def main(argv=None):
         description="Compile declared book materials into run plans.",
     )
     sub = p.add_subparsers(dest="kind", required=True)
-    for kind in ("read", "selfdriven", "bundle"):
-        child = sub.add_parser(kind)
+    for kind, text in (
+        ("read", "a reader plan over a prepared book packet"),
+        ("selfdriven", "a one-turn plan for a seat that reads a mounted book"),
+        ("bundle", "a plan over the whole-book text and page artifact"),
+    ):
+        child = sub.add_parser(kind, help=text)
         child.add_argument("source")
         child.add_argument("output")
         child.add_argument("--persona")

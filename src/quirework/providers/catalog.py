@@ -11,9 +11,11 @@ from .models import resolve
 def main(argv=None):
     p = argparse.ArgumentParser(prog="quirework sop models", description=__doc__)
     sub = p.add_subparsers(dest="command", required=True)
-    listing = sub.add_parser("list")
+    listing = sub.add_parser("list", help="print what a provider's catalog offers")
     listing.add_argument("provider", choices=("codex", "claude", "agy"))
-    query = sub.add_parser("resolve")
+    query = sub.add_parser(
+        "resolve", help="resolve a model name or family as preparation would"
+    )
     query.add_argument("provider", choices=("codex", "claude", "agy"))
     query.add_argument("model")
     query.add_argument("--effort", required=True)

@@ -310,12 +310,14 @@ def markdown(data, root=None):
 def main(argv=None):
     parser = argparse.ArgumentParser(prog="quirework sop", description=__doc__)
     sub = parser.add_subparsers(dest="action", required=True)
-    p = sub.add_parser("list")
+    p = sub.add_parser("list", help="list the project's procedures")
     p.add_argument("--json", action="store_true")
-    p = sub.add_parser("explain")
+    p = sub.add_parser(
+        "explain", help="a procedure's reading order, tools and follow-ups"
+    )
     p.add_argument("name")
     p.add_argument("--json", action="store_true")
-    p = sub.add_parser("catalog")
+    p = sub.add_parser("catalog", help="check or write the generated catalog")
     options = p.add_mutually_exclusive_group()
     options.add_argument("--check", action="store_true")
     options.add_argument("--write", action="store_true")

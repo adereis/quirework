@@ -261,11 +261,11 @@ def check(*, root=None, base=None):
 def main(argv=None):
     parser = argparse.ArgumentParser(description=__doc__)
     sub = parser.add_subparsers(dest="action")
-    sub.add_parser("list")
-    p = sub.add_parser("show")
+    sub.add_parser("list", help="every persona id with its label and description")
+    p = sub.add_parser("show", help="print one persona's prompt")
     p.add_argument("persona")
     p.add_argument("--json", action="store_true")
-    p = sub.add_parser("check")
+    p = sub.add_parser("check", help="validate every persona profile")
     p.add_argument("--base", default="HEAD")
     args = parser.parse_args(argv)
     try:

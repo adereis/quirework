@@ -32,3 +32,22 @@ def test_package_has_no_static_dependency_on_a_consumer():
         for node in ast.walk(ast.parse(path.read_text())):
             if isinstance(node, ast.ImportFrom):
                 assert not (node.module or "").startswith("book_project"), path
+
+
+def test_every_subcommand_says_what_it_does():
+    """argparse lists a subcommand's purpose only when it was given `help`.
+
+    Without it the verb still works and still appears in the terse
+    `{prepare,start,...}` line, which is why the omission survives: it is
+    invisible to the author and total to a reader who only has `--help`.
+    """
+    root = Path(quirework.__file__).parent
+    bare = [
+        f"{path.relative_to(root)}:{node.lineno}"
+        for path in sorted(root.rglob("*.py"))
+        for node in ast.walk(ast.parse(path.read_text()))
+        if isinstance(node, ast.Call)
+        and getattr(node.func, "attr", "") == "add_parser"
+        and not any(k.arg == "help" for k in node.keywords)
+    ]
+    assert bare == []

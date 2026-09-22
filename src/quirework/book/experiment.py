@@ -955,7 +955,7 @@ def prepare(args):
 def main(argv=None):
     parser = argparse.ArgumentParser(prog="quirework book compare", description=__doc__)
     sub = parser.add_subparsers(dest="action", required=True)
-    prep = sub.add_parser("prepare")
+    prep = sub.add_parser("prepare", help="stage a forked reader comparison")
     prep.add_argument("--record-dir", type=Path, required=True)
     prep.add_argument("--runner", choices=("codex", "claude"), required=True)
     prep.add_argument("--model", required=True)
@@ -970,8 +970,11 @@ def main(argv=None):
     prep.add_argument("--candidate-source", type=Path, action="append")
     prep.add_argument("--candidate-patch", type=Path)
     prep.add_argument("--hypothesis", type=Path)
-    for name in ("run", "inspect"):
-        action = sub.add_parser(name)
+    for name, text in (
+        ("run", "run the prepared arms"),
+        ("inspect", "each arm's progress and receipts"),
+    ):
+        action = sub.add_parser(name, help=text)
         action.add_argument("record_dir", type=Path)
         if name == "run":
             action.add_argument(

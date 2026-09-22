@@ -1256,10 +1256,12 @@ def report_table(data):
 def main(argv=None):
     parser = argparse.ArgumentParser(description=__doc__)
     sub = parser.add_subparsers(dest="action", required=True)
-    p = sub.add_parser("prepare", description=prepare.__doc__)
+    p = sub.add_parser(
+        "prepare", help="stage a writing experiment", description=prepare.__doc__
+    )
     p.add_argument("plan")
     p.add_argument("destination")
-    p = sub.add_parser("run")
+    p = sub.add_parser("run", help="run the prepared writers")
     p.add_argument("experiment")
     p.add_argument("writers", nargs="*")
     p.add_argument(
@@ -1274,7 +1276,11 @@ def main(argv=None):
         type=float,
         help="seconds before a writer is killed; its partial prose is kept",
     )
-    p = sub.add_parser("roster", description=roster.__doc__)
+    p = sub.add_parser(
+        "roster",
+        help="the default seats, optionally resolved",
+        description=roster.__doc__,
+    )
     p.add_argument(
         "--check", action="store_true", help="resolve each seat against the catalogs"
     )
@@ -1283,12 +1289,16 @@ def main(argv=None):
         help="resolve this plan's writers instead of the default roster; "
         "departing from the roster is normal and its seats need checking too",
     )
-    p = sub.add_parser("inspect")
+    p = sub.add_parser("inspect", help="each writer's status and model")
     p.add_argument("experiment")
     p.add_argument(
         "--full", action="store_true", help="include full model-resolution evidence"
     )
-    p = sub.add_parser("report", description=report.__doc__)
+    p = sub.add_parser(
+        "report",
+        help="each writer's cost beside its output",
+        description=report.__doc__,
+    )
     p.add_argument("experiment")
     p.add_argument("--table", action="store_true", help="markdown instead of JSON")
     p.add_argument(
@@ -1301,7 +1311,11 @@ def main(argv=None):
     p.add_argument(
         "--no-sizes", dest="sizes", action="store_false", help="always withhold them"
     )
-    p = sub.add_parser("anonymize", description=anonymize.__doc__)
+    p = sub.add_parser(
+        "anonymize",
+        help="shuffle collected drafts under sealed letters",
+        description=anonymize.__doc__,
+    )
     p.add_argument("experiment")
     p.add_argument(
         "--output", default=None, help="default: the plan's first declared output"
@@ -1313,18 +1327,19 @@ def main(argv=None):
     )
     p.add_argument("--seed", type=int, default=None)
 
-    p = sub.add_parser("collect")
+    p = sub.add_parser("collect", help="bank a writer's draft and receipt")
     p.add_argument("experiment")
     p.add_argument("writer")
     p.add_argument(
         "--external",
         help="JSON file with session_id, model, provenance, optional transcript",
     )
-    p = sub.add_parser("manual")
+    p = sub.add_parser("manual", help="run a writer interactively in a terminal")
     p.add_argument("experiment")
     p.add_argument("writer")
     p = sub.add_parser(
         "resume",
+        help="continue a writer a provider quota stopped",
         description="Continue a writer a provider quota limit stopped, in its "
         "own session. Not a retry: the session keeps the reading, the "
         "reasoning and the draft, and the writer is told only that it was "
@@ -1333,7 +1348,7 @@ def main(argv=None):
     p.add_argument("experiment")
     p.add_argument("writer")
     p.add_argument("--timeout", type=float, default=None)
-    p = sub.add_parser("retry")
+    p = sub.add_parser("retry", help="stage a fresh writer in place of a failed one")
     p.add_argument("experiment")
     p.add_argument("writer")
     p.add_argument("new_id")
