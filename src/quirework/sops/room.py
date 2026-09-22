@@ -1145,6 +1145,7 @@ def _launch(root, plan, seat, n, prompt, resume, *, timeout=None):
             "compaction_markers": compacted,
             "quota_stop": stop["phase"] if stop else None,
             "quota_scope": stop.get("scope") if stop else None,
+            "quota_resets_at": stop.get("resets_at") if stop else None,
             "red_flags": [blind.Bus.flag(bus.receipt())] if bus else [],
         },
     )
@@ -1366,6 +1367,7 @@ def status(root):
                 rows.append(json.loads(line))
             except json.JSONDecodeError:
                 continue
+    allowed = budget(root, plan)
     seats = {}
     for seat in plan["seats"]:
         state = read(state_path(root, seat["id"]))
@@ -1373,14 +1375,37 @@ def status(root):
             p.name for p in (root / "board" / "posts" / seat["id"]).glob("r*.md")
         )
         outbox = root / "seats" / seat["id"] / "outbox" / "post.md"
+        receipts = {
+            int(path.parent.name[1:]): read(path)
+            for path in (root / "records" / seat["id"]).glob(
+                "r[0-9][0-9][0-9]/receipt.json"
+            )
+        }
         seats[seat["id"]] = {
             "label": label(seat),
             "status": state.get("status"),
             "session_id": state.get("session_id"),
             "rounds": state.get("rounds", {}),
+            # The rounds this seat speaks in. It listens through the others, so
+            # they are not turns it owes, and counting them would report a
+            # phase seat as permanently behind. Read over the budget rather
+            # than the declared count, so an extended room counts its own.
+            "acting_rounds": [
+                n for n in range(1, allowed + 1) if seat["id"] in acting(plan, n)
+            ],
             "posts": posts,
             "drafting": outbox.stat().st_size if outbox.exists() else 0,
             "served": f"{seat['config']['harness']}/{drivers.model_text(seat['config'])}",
+            "red_flags": {
+                n: got["red_flags"]
+                for n, got in sorted(receipts.items())
+                if got.get("red_flags")
+            },
+            "quota_resets_at": {
+                n: got["quota_resets_at"]
+                for n, got in receipts.items()
+                if got.get("quota_resets_at")
+            },
             # A seat that opened its session after round one heard the room
             # before it spoke, so its first post is a reply and not an opening
             # position. Round one is the only independent evidence a room
@@ -1398,6 +1423,23 @@ def status(root):
             ),
         }
     published = sorted(p.name for p in (root / "board" / "rounds").glob("r*"))
+    # The latest signal carries the whole measured series, so the approach to
+    # convergence can be shown without recomputing anything from the board.
+    signal = (
+        read(root / "board" / "rounds" / published[-1] / "convergence.json")
+        if published
+        and (root / "board" / "rounds" / published[-1] / "convergence.json").exists()
+        else None
+    )
+    # A phased room is not asked whether it converged, so the measured
+    # signal must not end it early here either; `run_until` has the same rule.
+    converged = bool(signal and signal["converged"] and not plan.get("phases"))
+    held = [r for r in rows if r.get("event") == "round-held"]
+    still_held = (
+        held[-1]
+        if held and f"r{held[-1].get('round', 0):03d}" not in published
+        else None
+    )
     # An operator writes `chair/r<NNN>.md` before opening round NNN and has
     # nothing else to confirm it will be picked up, or to notice one left over
     # from a round that has already run.
@@ -1406,13 +1448,20 @@ def status(root):
         "delivered": [r for r in spoken if f"{r}" in {p for p in published}],
         "queued": [r for r in spoken if r not in {p for p in published}],
     }
-    return {
+    value = {
         "room": str(root),
         "title": plan.get("title"),
-        "rounds": budget(root, plan),
+        "rounds": allowed,
+        "declared_rounds": plan["rounds"],
         "published_rounds": published,
+        "convergence": signal,
+        "converged": converged,
+        "held": still_held,
         "chair": chair,
         "seats": seats,
+        "red_flags": sum(
+            len(flags) for one in seats.values() for flags in one["red_flags"].values()
+        ),
         # Read from the trail rather than from every receipt: the trail is
         # already open, and a red flag an operator has to go looking for is
         # one they will find after deciding the room went fine.
@@ -1423,6 +1472,75 @@ def status(root):
         ],
         "last_events": rows[-8:],
     }
+    value["next"] = next_step(value)
+    return value
+
+
+def next_step(value):
+    """The one command to type next.
+
+    Every other room command ends by naming the one that follows it; status
+    read the room and stopped, so a prepared room and a finished one ended
+    the same way and neither said what to do. The branches mirror
+    `run_until`'s stop rule and `continue_seat`'s refusals, so a reader is
+    never sent to a command the room would refuse.
+    """
+    room, command = shown(value["room"]), "quirework sop room"
+    held = value["held"]
+    if held:
+        number, waiting = held.get("round"), held.get("waiting_on") or []
+        first = waiting[0] if waiting else "SEAT"
+        more = f" (and {len(waiting) - 1} more)" if len(waiting) > 1 else ""
+        return (
+            f"{command} continue {room} {number} {first}{more} once the window "
+            f"resets, then {command} promote {room} {number}"
+        )
+    published = value["published_rounds"]
+    if len(published) < value["rounds"] and not value["converged"]:
+        return f"{command} rounds {room}"
+    last = int(published[-1][1:]) if published else 1
+    if value["converged"] and len(published) < value["rounds"]:
+        # `rounds` would stop again at once, so say both halves: the room
+        # thinks it is done, and running past that is the operator's call.
+        return (
+            f"{command} board {room} {last}; the room converged, and "
+            f"{command} rounds {room} runs past it"
+        )
+    return f"{command} board {room} {last}"
+
+
+def _spans(numbers):
+    """[1, 2, 3, 5] -> "1-3, 5", because a Python list repr is not a notation."""
+    spans = []
+    for n in sorted(numbers):
+        if spans and n == spans[-1][1] + 1:
+            spans[-1][1] = n
+        else:
+            spans.append([n, n])
+    return ", ".join(str(a) if a == b else f"{a}-{b}" for a, b in spans)
+
+
+def _seat_summary(seat):
+    """A seat's record across the room, not just how its last turn ended.
+
+    The seat's state keeps one `status`, overwritten every turn, so a seat
+    that answered twenty rounds and failed the twenty-first used to read
+    `failed`, which looks like a verdict on the seat.
+    """
+    rounds = seat["rounds"]
+    expected = len(seat["acting_rounds"]) or len(rounds)
+    plural = "" if expected == 1 else "s"
+    if not rounds:
+        return f"not started, {expected} round{plural} to speak in"
+    done = sum(1 for v in rounds.values() if v.get("status") == "answered")
+    trouble = [
+        f"r{int(n):03d} {v.get('status')}"
+        for n, v in sorted(rounds.items(), key=lambda i: int(i[0]))
+        if v.get("status") != "answered"
+    ]
+    return f"answered {done} of {expected} round{plural}" + "".join(
+        f", {t}" for t in trouble
+    )
 
 
 def usage(root):
@@ -1497,24 +1615,70 @@ def _render_usage(value):
     return "\n".join(lines)
 
 
+NOVELTY_SHOWN = 6
+
+
 def _render(value):
-    published = ", ".join(value["published_rounds"]) or "none"
-    lines = [
-        value["title"],
-        f"  {shown(value['room'])}",
-        f"  rounds published: {published} of {value['rounds']}",
-        "",
-    ]
-    width = max(len(v["label"]) for v in value["seats"].values())
-    for number, seat in enumerate(value["seats"].values(), 1):
-        drafting = f"  drafting {seat['drafting']}B" if seat["drafting"] else ""
+    published, allowed = value["published_rounds"], value["rounds"]
+    rounds = f"  rounds: {len(published)} of {allowed} published"
+    if published:
+        rounds += f" ({_spans(int(r[1:]) for r in published)})"
+    if allowed != value["declared_rounds"]:
+        rounds += f"; budget raised from the {value['declared_rounds']} declared"
+    lines = [value["title"], f"  {shown(value['room'])}", rounds]
+    series = (value.get("convergence") or {}).get("series") or []
+    if len(series) > 1:
+        # Novelty is the room's own stop rule. Printing it only once it has
+        # fired hides the approach, which is the part worth watching. A lone
+        # round is left out: with nothing to differ from it is always 100%.
+        shown_series = series[-NOVELTY_SHOWN:]
+        measured = ", ".join(
+            f"r{s['round']:03d} "
+            + ("-" if s["novelty"] is None else f"{s['novelty']:.0f}%")
+            for s in shown_series
+        )
+        signal = value["convergence"]
+        fired = (
+            f" (converged at round {signal['round']} on {signal['reason']})"
+            if value["converged"]
+            else ""
+        )
+        more = "..., " if len(series) > len(shown_series) else ""
+        lines.append(f"  novelty: {more}{measured}{fired}")
+    if value.get("red_flags"):
+        lines.append(f"  red flags: {value['red_flags']} (marked ! below)")
+    if value.get("held"):
+        number = value["held"].get("round")
+        waiting = value["held"].get("waiting_on") or []
+        resets = sorted(
+            {
+                when
+                for name in waiting
+                for n, when in value["seats"]
+                .get(name, {})
+                .get("quota_resets_at", {})
+                .items()
+                if n == number
+            }
+        )
         lines.append(
-            f"  {number}. {seat['label']:<{width}}  {seat['served']:<28}"
-            f"{seat['status'] or 'prepared':<10}"
-            f"  posts: {len(seat['posts'])}{drafting}"
+            f"  HELD: round {number} waiting on {', '.join(waiting)} "
+            f"(provider quota{f'; resets {resets[0]}' if resets else ''})"
+        )
+    lines.append("")
+    width = max(len(v["label"]) for v in value["seats"].values())
+    served = max(len(v["served"]) for v in value["seats"].values())
+    for number, seat in enumerate(value["seats"].values(), 1):
+        drafting = f", drafting {seat['drafting']}B" if seat["drafting"] else ""
+        lines.append(
+            f"  {number}. {seat['label']:<{width}}  {seat['served']:<{served}}  "
+            f"{_seat_summary(seat)}; posts: {len(seat['posts'])}{drafting}"
         )
         if (joined := seat.get("joined_late")) and joined > 1:
             lines.append(f"     joined in round {joined}; it has no opening position")
+        for n, flags in seat.get("red_flags", {}).items():
+            for flag in flags:
+                lines.append(f"     ! r{n:03d}: {flag}")
     chair = value.get("chair") or {}
     if chair.get("queued"):
         lines += ["", f"  chair note queued for {', '.join(chair['queued'])}"]
@@ -1545,6 +1709,7 @@ def _render(value):
             lines.append(
                 f"    {when}  {who:<18} {row.get('event', '?'):<16} {' '.join(parts)}"
             )
+    lines += ["", f"next: {value['next']}"]
     return "\n".join(lines)
 
 
@@ -1811,6 +1976,32 @@ def follow(root, seat, *, thinking=True, poll=1.0, width=88):
         time.sleep(poll)
 
 
+STATUS_HELP = """\
+Read a room without disturbing it: no lock, no session, no writes, so it
+is safe while a round runs. A worked example, line by line:
+
+  Lighthouse proposal                      the room's title
+    ~/rooms/lighthouse                     where it lives
+    rounds: 3 of 6 published (1-3)         published rounds against the budget
+    novelty: r001 100%, r002 71%, r003 58% the stop rule, measured per round
+    red flags: 1 (marked ! below)          count of the ! lines further down
+    HELD: round 4 waiting on bo-larke (provider quota; resets 14:20Z)
+
+    1. Ana Pell  claude/opus                       answered 3 of 3 rounds; posts: 3
+    2. Bo Larke  codex/gpt-5.6-terra (from terra)  answered 3 of 4 rounds, r004 quota; posts: 3
+       ! r002: Session bus proxied into the jail for ...
+
+  next: quirework sop room continue ~/rooms/lighthouse 4 bo-larke once ...
+
+Novelty is the share of words a seat has not used before; two quiet rounds
+stop an unphased room, and a lone round is not shown because it is always
+100%. A seat counts only the rounds its phase lets it speak in, so a seat
+resting through a drafting phase is not behind. A red flag is a fact about
+how a turn ran (a door the jail had to open, a compaction), not a judgment
+of what the seat wrote. The last line names the command to run next.
+"""
+
+
 def main(argv=None):
     parser = argparse.ArgumentParser(prog="quirework sop room", description=__doc__)
     sub = parser.add_subparsers(dest="command", required=True)
@@ -1851,7 +2042,12 @@ def main(argv=None):
     more.add_argument("root")
     more.add_argument("rounds", type=int)
 
-    view = sub.add_parser("status", help="read a room without disturbing it")
+    view = sub.add_parser(
+        "status",
+        help="read a room without disturbing it",
+        description=STATUS_HELP,
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+    )
     view.add_argument("root")
     view.add_argument("--json", action="store_true")
 

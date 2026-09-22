@@ -218,6 +218,19 @@ rotated by round number. It never summarizes. The staged packet and the
 standing assignment are frozen and checked before every turn; the board
 is not, because it is the one thing that is meant to change.
 
+`quirework sop room status ROOM` reads the records and changes nothing.
+Its header counts published rounds against the budget. It shows the
+room's novelty for the last six rounds once there are two to compare,
+and counts the red flags marked `!` below it. Each seat then reports how
+many of the rounds its phase lets it speak in it has answered. A seat
+resting through a drafting phase is therefore not reported as behind.
+The last line names the command to run next: `rounds` while the budget
+lasts, `continue` and `promote` for a round held on a provider quota,
+and `board` once the room is done. An assistant driving the room reports
+that line rather than deriving its own, and does not run it unasked,
+because `rounds` and `continue` spend the user's provider quota.
+`status --help` reads a worked example line by line.
+
 `quirework sop room usage ROOM` reads the seats' own receipts and says
 what each one spent. Every harness reports usage in its own shape and
 only Claude quotes a price, so the command names the harnesses it cannot

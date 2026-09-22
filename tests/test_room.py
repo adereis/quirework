@@ -1285,7 +1285,100 @@ def test_the_cli_can_still_read_a_room_after_every_branch(prepared, capsys):
     `main` for the whole body, so every other command's call to the
     module-level function raises UnboundLocalError. Shipped once."""
     room.main(["status", str(prepared)])
-    assert "rounds published" in capsys.readouterr().out
+    assert "rounds: 0 of 3 published" in capsys.readouterr().out
+
+
+def test_status_names_the_command_to_type_next_at_every_stage(prepared):
+    where = shown(prepared)
+    text = room._render(room.status(prepared))
+    assert "not started, 3 rounds to speak in" in text
+    assert text.endswith(f"next: quirework sop room rounds {where}")
+    # Every post is mostly new words, so the room never converges.
+    fresh = iter(
+        "lantern harbour cellar orchard meadow quarry beacon pantry thistle "
+        "granary spindle ferryman lattice bramble cistern tinder gable "
+        "wicket furrow sextant ledger hollow cobble tiller".split()
+    )
+    for n in (1, 2, 3):
+        for seat in ("ana-pell", "bo-larke"):
+            post(prepared, seat, " ".join(next(fresh) for _ in range(4)) + ".")
+        room.promote(prepared, n)
+    text = room._render(room.status(prepared))
+    assert "rounds: 3 of 3 published (1-3)" in text
+    assert "novelty: r001 100%, r002" in text
+    assert text.endswith(f"next: quirework sop room board {where} 3")
+    room.extend(prepared, 5)
+    text = room._render(room.status(prepared))
+    assert "rounds: 3 of 5 published (1-3); budget raised from the 3 declared" in text
+    assert text.endswith(f"next: quirework sop room rounds {where}")
+    # Two rounds of restating stop the room, and an extended budget does not
+    # change that; the operator is told how to run past it.
+    for n in (4, 5):
+        post(prepared, "ana-pell", "lantern harbour cellar orchard.")
+        post(prepared, "bo-larke", "meadow quarry beacon pantry.")
+        room.promote(prepared, n)
+    room.extend(prepared, 6)
+    value = room.status(prepared)
+    assert value["converged"]
+    assert "(converged at round 5 on novelty)" in room._render(value)
+    assert value["next"] == (
+        f"quirework sop room board {where} 5; the room converged, and "
+        f"quirework sop room rounds {where} runs past it"
+    )
+
+
+def test_a_held_round_names_its_seats_and_their_reset(prepared):
+    record = prepared / "records" / "ana-pell" / "r001"
+    record.mkdir(parents=True)
+    write(
+        record / "receipt.json",
+        {"quota_stop": "refused", "quota_resets_at": "14:20Z", "red_flags": []},
+    )
+    room.event(
+        prepared, round=1, event="round-held", waiting_on=["ana-pell", "bo-larke"]
+    )
+    text = room._render(room.status(prepared))
+    assert (
+        "HELD: round 1 waiting on ana-pell, bo-larke (provider quota; resets 14:20Z)"
+        in text
+    )
+    where = shown(prepared)
+    assert text.endswith(
+        f"next: quirework sop room continue {where} 1 ana-pell (and 1 more) once "
+        f"the window resets, then quirework sop room promote {where} 1"
+    )
+
+
+def test_red_flags_are_counted_and_shown_under_their_seat(prepared):
+    record = prepared / "records" / "bo-larke" / "r001"
+    record.mkdir(parents=True)
+    write(
+        record / "receipt.json", {"red_flags": ["Session bus proxied into the jail."]}
+    )
+    text = room._render(room.status(prepared))
+    assert "red flags: 1 (marked ! below)" in text
+    assert "     ! r001: Session bus proxied into the jail." in text
+
+
+def test_round_numbers_collapse_instead_of_printing_a_python_list():
+    assert room._spans([1]) == "1"
+    assert room._spans([1, 2, 3, 5]) == "1-3, 5"
+    assert room._spans([4, 2, 1]) == "1-2, 4"
+
+
+def test_a_seat_reports_every_round_not_only_its_last_turn():
+    seat = {
+        "acting_rounds": [1, 2, 3],
+        "rounds": {
+            "1": {"status": "answered"},
+            "2": {"status": "answered"},
+            "3": {"status": "failed"},
+        },
+    }
+    assert room._seat_summary(seat) == "answered 2 of 3 rounds, r003 failed"
+    assert room._seat_summary({"acting_rounds": [2], "rounds": {}}) == (
+        "not started, 1 round to speak in"
+    )
 
 
 def test_the_operator_sees_models_and_the_room_never_does(prepared):
