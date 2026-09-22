@@ -95,3 +95,75 @@ def test_disk_is_counted_once_per_inode(tmp_path):
     for n in range(9):
         os.link(original, original.parent / f"link-{n}.jsonl")
     assert blind._bytes(home) == pytest.approx(once, rel=0.01)
+
+
+def test_excluded_mounts_reads_fstypes_and_escaped_paths(tmp_path):
+    table = tmp_path / "mounts"
+    table.write_text(
+        "rootfs / ext4 rw 0 0\n"
+        "/etc/auto.nas /nas autofs rw 0 0\n"
+        "//srv/home /nas/me cifs rw 0 0\n"
+        "srv:/x /mnt/share\\040two nfs4 rw 0 0\n"
+        "gvfsd /run/user/1000/gvfs fuse.gvfsd-fuse rw 0 0\n"
+        "tmpfs /tmp tmpfs rw 0 0\n"
+    )
+    from pathlib import Path
+
+    assert blind.excluded_mounts(table) == [
+        Path("/nas"),
+        Path("/mnt/share two"),
+        Path("/nas/me"),
+        Path("/run/user/1000/gvfs"),
+    ]
+    assert blind.excluded_mounts(tmp_path / "absent") == []
+
+
+def test_root_binds_leave_out_excluded_mounts_and_keep_special_files(tmp_path):
+    import socket
+
+    fake = tmp_path / "root"
+    for name in ("usr", "etc", "mnt/share two", "mnt/other", "nas/me", "home"):
+        (fake / name).mkdir(parents=True)
+    (fake / "bin").symlink_to("usr/bin")
+    (fake / "vmlinuz").write_text("")
+    listener = socket.socket(socket.AF_UNIX)
+    listener.bind(str(fake / "mnt/bus"))
+    try:
+        binds = blind.root_binds([fake / "nas", fake / "mnt/share two"], fake)
+    finally:
+        listener.close()
+    targets = [b[1] for b in binds]
+    assert str(fake / "nas") not in targets
+    assert str(fake / "mnt/share two") not in targets
+    assert ("--bind", str(fake / "mnt/other"), str(fake / "mnt/other")) in binds
+    assert ("--bind", str(fake / "mnt"), str(fake / "mnt")) not in binds
+    assert ("--bind", str(fake / "usr"), str(fake / "usr")) in binds
+    assert ("--symlink", "usr/bin", str(fake / "bin")) in binds
+    assert ("--ro-bind", str(fake / "vmlinuz"), str(fake / "vmlinuz")) in binds
+    assert ("--bind", str(fake / "mnt/bus"), str(fake / "mnt/bus")) in binds
+    # Nothing excluded: the whole root in one bind, as the jail always did.
+    assert blind.root_binds([], fake) == [("--bind", str(fake), str(fake))]
+
+
+def test_jail_assembles_the_root_and_hides_an_outside_project(tmp_path, monkeypatch):
+    from pathlib import Path
+
+    run_dir = tmp_path / "seat"
+    run_dir.mkdir()
+    monkeypatch.setattr(blind, "excluded_mounts", lambda path=None: [])
+    argv = blind.jail_argv(run_dir, project=tmp_path / "project")
+    assert argv[:4] == [blind.BWRAP, "--bind", "/", "/"]
+    # The project sits under the home here, which is already blanked.
+    assert "--tmpfs" in argv and str(tmp_path / "project") not in argv
+    outside = Path("/srv/checkout")
+    argv = blind.jail_argv(run_dir, project=outside)
+    assert argv[argv.index(str(outside)) - 1] == "--tmpfs"
+    assert argv.index(str(outside)) < argv.index(str(run_dir))
+    # An excluded share: the root is assembled entry by entry instead.
+    monkeypatch.setattr(
+        blind, "excluded_mounts", lambda path=None: [Path("/no-such-share")]
+    )
+    argv = blind.jail_argv(run_dir, project=None)
+    assert argv[1:4] != ["--bind", "/", "/"]
+    assert ("--bind", "/usr", "/usr") in zip(argv, argv[1:], argv[2:])
+    assert "--dev-bind" in argv and "--proc" in argv

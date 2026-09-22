@@ -119,6 +119,99 @@ BWRAP = "bwrap"
 # `/tmp` goes too: it is a cross-seat channel and nothing blind needs it.
 BLANKED = ("$HOME", "/tmp", "/var/tmp")
 
+MOUNTS = "/proc/self/mounts"
+# Filesystems that never enter a jail, for two reasons that are each enough.
+# A network share is the operator's own or shared data, which a blind seat has
+# no business reaching. And bwrap applies mount flags recursively to every
+# submount of a bind, so one stale or slow share anywhere under `/` made the
+# whole root bind fail with "Unable to apply mount flags", killing every
+# jailed seat on the machine until the share came back.
+EXCLUDED_FSTYPES = frozenset(
+    {
+        "autofs",
+        "cifs",
+        "smb3",
+        "nfs",
+        "nfs4",
+        "afs",
+        "9p",
+        "davfs",
+        "ceph",
+        "glusterfs",
+    }
+)
+
+
+def excluded_mounts(path: str = MOUNTS) -> list[Path]:
+    """Mount points of network and automount filesystems, shallowest first."""
+    found: set[Path] = set()
+    try:
+        lines = Path(path).read_text().splitlines()
+    except OSError:
+        return []
+    for line in lines:
+        parts = line.split()
+        if len(parts) < 3:
+            continue
+        target, fstype = parts[1].replace("\\040", " "), parts[2]
+        if fstype in EXCLUDED_FSTYPES or fstype.startswith("fuse."):
+            found.add(Path(target))
+    return sorted(found, key=lambda p: (len(p.parts), str(p)))
+
+
+def root_binds(excluded, root: Path = Path("/"), skip=()) -> list[tuple[str, ...]]:
+    """The binds that reassemble ``root`` without the excluded mount points.
+
+    One ``--bind / /`` when nothing under the root is excluded, which is what
+    the jail always did. With an exclusion, the directories on the path to it
+    are bound entry by entry and the excluded mount itself is left out, so
+    inside the jail there is simply no such directory. Symlinks at any level
+    are recreated as symlinks (Fedora's ``/bin -> usr/bin``), never bound
+    through. Sockets and other special files are bound as they are: the
+    session bus socket under ``/run/user/<uid>/`` is how Antigravity reaches
+    the keyring holding its token, and the whole-root bind always exposed it.
+    """
+    out: list[tuple[str, ...]] = []
+    excluded = [e for e in excluded if e != root]
+    if not any(root in e.parents for e in excluded):
+        return [("--bind", str(root), str(root))]
+    for child in sorted(root.iterdir()):
+        if child in skip or child in excluded:
+            continue
+        if child.is_symlink():
+            out.append(("--symlink", os.readlink(child), str(child)))
+        elif child.is_dir():
+            out += root_binds(excluded, child, skip)
+        elif child.is_file():
+            out.append(("--ro-bind", str(child), str(child)))
+        elif child.exists():
+            out.append(("--bind", str(child), str(child)))
+    return out
+
+
+def root_argv(excluded=None) -> list[str]:
+    """``bwrap``'s opening: the assembled root, then ``/dev`` and ``/proc``."""
+    excluded = excluded_mounts() if excluded is None else excluded
+    argv = [BWRAP]
+    for triple in root_binds(excluded, skip=(Path("/dev"), Path("/proc"))):
+        argv += list(triple)
+    return argv + ["--dev-bind", "/dev", "/dev", "--proc", "/proc"]
+
+
+def _project_root() -> Path | None:
+    """The selected project's root, or None when no project is selected.
+
+    The jail hides it when it lies outside the blanked paths; a caller that
+    wants it visible binds it back read-only afterwards, as the review driver
+    does. Tests and probes run without a project and hide nothing extra.
+    """
+    from quirework.project import ConfigurationError
+
+    try:
+        return Path(current_project().root).resolve()
+    except ConfigurationError:
+        return None
+
 
 @dataclass(frozen=True)
 class Probe:
@@ -481,6 +574,7 @@ def jail_argv(
     env=None,
     bind_credentials: bool = True,
     expose_run_dir: bool = True,
+    project: Path | None = None,
 ) -> list[str]:
     """The bwrap argv that confines a seat to ``run_dir``.
 
@@ -502,9 +596,19 @@ def jail_argv(
     binds first, the writable one last, so nothing shadows it.
     """
     home = Path.home()
-    argv = [BWRAP, "--bind", "/", "/", "--dev-bind", "/dev", "/dev", "--proc", "/proc"]
-    for target in BLANKED:
-        argv += ["--tmpfs", str(home) if target == "$HOME" else target]
+    argv = root_argv()
+    blanked = [Path(str(home) if b == "$HOME" else b) for b in BLANKED]
+    for target in blanked:
+        argv += ["--tmpfs", str(target)]
+    # A project checked out outside the blanked paths stayed reachable through
+    # the root bind, read-write, in a seat the docs called blind. Hide it the
+    # same way; a caller that stands a reviewer in the repository binds it
+    # back read-only after this, and a later bind wins.
+    project = _project_root() if project is None else project
+    if project is not None and not any(
+        project == b or b in project.parents for b in blanked
+    ):
+        argv += ["--tmpfs", str(project)]
     root = state_root(run_dir)
     creds: list[Path] = []
     for name in runners:
@@ -558,19 +662,7 @@ def run_probe(name: str, probe: Probe) -> tuple[bool, str]:
     """
     argv = [name, *probe.args]
     if probe.offline and backend_error() is None:
-        argv = [
-            BWRAP,
-            "--bind",
-            "/",
-            "/",
-            "--dev-bind",
-            "/dev",
-            "/dev",
-            "--proc",
-            "/proc",
-            "--unshare-net",
-            *argv,
-        ]
+        argv = [*root_argv(), "--unshare-net", *argv]
     try:
         r = subprocess.run(
             argv, capture_output=True, text=True, timeout=120, stdin=subprocess.DEVNULL
@@ -699,6 +791,7 @@ def write_receipt(
                 "run_dir": str(run_dir),
                 "runners": list(runners),
                 "blanked": [str(Path.home()) if b == "$HOME" else b for b in BLANKED],
+                "excluded_mounts": [str(m) for m in excluded_mounts()],
                 "read_only_binds": [str(b) for b in binds],
                 "command": list(cmd),
             },
@@ -871,6 +964,12 @@ def cmd_check(argv) -> int:
         [BWRAP, "--version"], capture_output=True, text=True
     ).stdout.strip()
     print(f"✓ backend: {ver}")
+    left_out = excluded_mounts()
+    if left_out:
+        print(
+            "  network and automount filesystems left out of every jail: "
+            + ", ".join(str(m) for m in left_out)
+        )
 
     root = ensure_neutral_cwd() / ".quirework-blind-check"
     seat, sibling = root / "seat", root / "other-seat"

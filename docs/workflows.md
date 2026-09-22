@@ -480,6 +480,12 @@ Tool restrictions and filesystem enforcement are checked separately.
 Antigravity currently provides audited rather than enforced filesystem
 assurance; it cannot satisfy a requirement for enforced isolation.
 
+A confined seat sees the machine minus the operator's home, `/tmp`,
+`/var/tmp`, the project tree wherever it is checked out, and every
+network or automount filesystem. The exclusions are listed in the
+confinement receipt and by `sop blind check`. A reviewer that must see
+the repository is given it back read-only after that.
+
 Compaction is always reported as a red flag. Completed answers remain
 available, but a failed run condition does not become a clean result.
 Export copies answers and curated receipts. It does not publish them or
