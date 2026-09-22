@@ -398,9 +398,16 @@ def prepare(plan_path, destination, *, resolve_models=True):
     profiles = plan_path.parent / supplied.get("profiles_dir", "profiles")
     seats = []
     for item in supplied["seats"]:
-        profile = personas.validate(
-            personas.parse((profiles / f"{item['persona']}.json").read_text())
-        )
+        source = profiles / f"{item['persona']}.json"
+        if not source.is_file():
+            # A persona id is not guessable, and an assistant writing a plan
+            # will invent one. Name the ones that exist so the fix is a copy.
+            offered = sorted(p.stem for p in profiles.glob("*.json"))
+            raise ValueError(
+                f"seat {item['id']!r}: no persona {item['persona']!r} in "
+                f"{shown(profiles)}; it has {', '.join(offered) or 'none'}"
+            )
+        profile = personas.validate(personas.parse(source.read_text()))
         # A seat may name its own model. Everything downstream already takes a
         # config rather than reading the room's, so a mixed room needs no
         # special case beyond resolving each seat separately.

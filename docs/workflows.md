@@ -231,6 +231,14 @@ that line rather than deriving its own, and does not run it unasked,
 because `rounds` and `continue` spend the user's provider quota.
 `status --help` reads a worked example line by line.
 
+A round takes minutes, because every seat answers in turn. Start
+`rounds` in the background rather than in the foreground, and follow it
+with `watch` or `follow`. The operator can then report progress and
+write a chair note for the next round while this one runs. A seat's
+persona names a profile in the plan's `profiles` directory. Read the
+names there rather than guessing one: `prepare` refuses a missing one
+and lists the profiles that exist.
+
 `quirework sop room usage ROOM` reads the seats' own receipts and says
 what each one spent. Every harness reports usage in its own shape and
 only Claude quotes a price, so the command names the harnesses it cannot
@@ -472,6 +480,12 @@ reviewer the project guide, the spec, the marks, a brief, and a concrete
 Git delta. By default, the reviewer sees the repository read-only. Its
 private home does not carry the operator's saved conclusions. An
 unjailed fallback is disclosed in the run record.
+
+A range `A..B` covers the commits after `A`, not `A` itself. To review
+the last three commits, pass `HEAD~3..HEAD`, not `HEAD~2..HEAD`. Before
+the reviewer starts, `review run` prints the commits the range covers
+and names the base it leaves out. Read that list before waiting on the
+review.
 
 The reviewer must not be the model that made the edit. That requirement
 makes a cross-harness check straightforward: a Codex edit can go to

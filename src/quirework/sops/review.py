@@ -284,7 +284,29 @@ def resolve_range(spec):
     commits = [line for line in p.stdout.splitlines() if line.strip()]
     if not commits:
         _fail(f"{spec!r} covers no commits; there is nothing to review")
-    return {"spec": spec, "kind": "range", "commits": commits}
+    delta = {"spec": spec, "kind": "range", "commits": commits}
+    # `A..B` excludes `A`, so the commit a person names first is the one
+    # review does not read. Recording it lets the run say so up front. A
+    # three-dot range has no single base, so none is claimed for it.
+    left = spec.split("..", 1)[0]
+    if "..." not in spec:
+        base = git("rev-parse", "--verify", f"{left or 'HEAD'}^{{commit}}").strip()
+        if base:
+            delta["base"] = base
+    return delta
+
+
+def describe_range(delta):
+    """The lines that show an operator what a range review will read."""
+    if delta.get("kind") != "range":
+        return []
+    lines = [f"range {delta['spec']}: {len(delta['commits'])} commit(s)"]
+    for line in delta["commits"]:
+        sha, _, subject = line.partition(" ")
+        lines.append(f"  {sha[:9]} {subject}")
+    if delta.get("base"):
+        lines.append(f"  base, not reviewed: {delta['base'][:9]}")
+    return lines
 
 
 # The frame is what every review carries; the brief names the range and any
@@ -775,6 +797,10 @@ def start(
         if not selected:
             _fail("review path list is empty")
         delta["paths"] = selected
+    # Printed before the reviewer starts, because a range one commit short is
+    # found otherwise only by a reviewer who notices and says so.
+    for line in describe_range(delta):
+        print(f"review: {line}", file=sys.stderr)
     record = store_dir_for(name, store)
     if not dry_run:
         run.mkdir(parents=True)

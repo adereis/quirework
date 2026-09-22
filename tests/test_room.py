@@ -947,6 +947,16 @@ def test_a_release_between_rounds_does_not_switch_a_seat_model(prepared, monkeyp
     assert "model_pinned" not in sent[2]
 
 
+def test_an_unknown_persona_is_refused_with_the_ones_that_exist(plan, tmp_path):
+    spec = read(plan)
+    spec["seats"][0]["persona"] = "ana-pel"
+    write(plan, spec)
+    with pytest.raises(
+        ValueError, match="no persona 'ana-pel'.*has ana-pell, bo-larke"
+    ):
+        room.prepare(plan, tmp_path / "room", resolve_models=False)
+
+
 def test_a_research_seat_is_refused_where_it_cannot_be_enforced(plan, tmp_path):
     with pytest.raises(ValueError, match="agy cannot confine"):
         room.prepare(
