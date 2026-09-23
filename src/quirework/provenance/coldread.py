@@ -1411,7 +1411,11 @@ def cmd_triage(args):
     review_only = "--review-list" in args
     show_all = "--all" in args
     if not show_all:
-        untracked = set(_untracked_cc() + _untracked_agy() + _untracked_codex())
+        # Keyed like the rows below, which hold each session's reference.
+        untracked = {
+            str(source_reference(p, current_project()))
+            for p in _untracked_cc() | _untracked_agy() | _untracked_codex()
+        }
     rows = []
     for p in sorted(
         current_project()
