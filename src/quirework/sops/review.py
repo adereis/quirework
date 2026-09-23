@@ -72,7 +72,7 @@ def _options():
         .data("sops.review_policy", {})
         .get(
             "frame",
-            "Review the supplied material. Report findings with evidence.\n\n{brief}\n\n{delta}\n\nWrite the report to {report}.",
+            "Review the supplied material. Report findings with evidence. Put anything noticed outside the delta in a separate section, as a lead rather than a finding.\n\n{brief}\n\n{delta}\n\nWrite the report to {report}.",
         )
     )
     PROCEDURE_FRAME = (
@@ -80,7 +80,7 @@ def _options():
         .data("sops.review_policy", {})
         .get(
             "procedure_frame",
-            "Review the supplied changes and their procedures. Report concrete findings.\n\n{brief}\n\n{delta}\n\nWrite the report to {report}.",
+            "Review the supplied changes and their procedures. Report concrete findings. Put anything noticed outside the delta in a separate section, as a lead rather than a finding.\n\n{brief}\n\n{delta}\n\nWrite the report to {report}.",
         )
     )
     project = current_project()
@@ -1212,23 +1212,106 @@ def _collect(
             )
         if len(moved) > 8:
             print(f"  … and {len(moved) - 8} more", file=sys.stderr)
-    return {
-        k: entry[k]
-        for k in (
-            "turn",
-            "status",
-            "error",
-            "session_id",
-            "model",
-            "report",
-            "findings",
-            "progress",
-            "seconds",
-            "find_only",
-            "workspace",
-            "moved_in_scope",
+    return (
+        {
+            k: entry[k]
+            for k in (
+                "turn",
+                "status",
+                "error",
+                "session_id",
+                "model",
+                "report",
+                "findings",
+                "progress",
+                "seconds",
+                "find_only",
+                "workspace",
+                "moved_in_scope",
+            )
+        }
+        | {"run": name}
+        | handoff(entry, name, harness, record)
+    )
+
+
+def handoff(entry, name, harness, record):
+    """Where the report is, what the receipt already proved, what to do next.
+
+    Without this the operator re-derives all three from the record: lists
+    directories to find the banked report, parses the event stream to
+    confirm there was no compaction, and looks up the trailer format. The
+    checks are ones `_answer` has already enforced for a completed turn, so
+    stating them here repeats a verdict rather than inventing one. A check
+    the harness did not supply is said to be missing, never implied.
+    """
+    root = current_project().root
+    report = None
+    if entry.get("report"):
+        path = run_dir_for(name) / entry["report"]
+        try:
+            report = str(path.relative_to(root))
+        except ValueError:
+            report = str(path)
+    status = entry["status"]
+    checks = []
+    if status == "completed":
+        if entry.get("model") and harness == "codex":
+            checks.append(
+                f"model {entry['model']} at effort {entry['effort']}, as the "
+                "harness turn context recorded them"
+            )
+        elif entry.get("model"):
+            checks.append(
+                f"served model {entry['model']}, as the harness reported it; "
+                f"effort {entry['effort']} was requested, not confirmed"
+            )
+        else:
+            checks.append(
+                f"model {entry['selected_model']} by explicit selection only; "
+                "the harness returned no served receipt"
+            )
+        checks.append("no compaction: a compacted turn cannot complete")
+    checks.append(
+        ("find-only" if entry["find_only"] else "FIND-ONLY NOT ESTABLISHED")
+        + f" (workspace: {entry['workspace']})"
+    )
+    turn_dir = record / "turns" / entry["turn"]
+    if status == "completed":
+        step = (
+            f"Read {report} and verify every finding against the current files "
+            "before acting on it."
+            if report
+            else "The reviewer wrote no report; read its final message in "
+            f"{turn_dir / 'events.jsonl'}."
         )
-    } | {"run": name}
+        if entry["workspace"] == "reviewed-files-moved":
+            step += " The files under review changed during the run."
+        model = entry.get("model") or entry["selected_model"]
+        step += (
+            f" A commit that uses a finding ends its trailer block with "
+            f"`Reviewed-by: {model} ({name})`."
+        )
+    elif status == "quota-stopped" and entry.get("session_id"):
+        step = f"quirework sop review continue {name}" + (
+            f" (the quota resets {entry['quota_resets_at']})"
+            if entry.get("quota_resets_at")
+            else ""
+        )
+    elif status == "quota-refused":
+        step = (
+            "Nothing was generated, so there is nothing to continue; launch a "
+            "replacement run once the quota resets"
+            + (f" ({entry['quota_resets_at']})" if entry.get("quota_resets_at") else "")
+            + "."
+        )
+    else:
+        step = (
+            f"Inspect {turn_dir / 'events.jsonl'} and {turn_dir / 'stderr.log'}"
+            + (f"; the report so far is banked at {report}" if report else "")
+            + ". Do not launch a duplicate before reading them."
+        )
+    return {"report_path": report, "checks": checks, "next": step}
 
 
 # Where an edit is reviewable: the book, the spec and the companions that
@@ -1394,6 +1477,15 @@ Cross-model editorial review of a delta. Procedure: docs/workflows.md.
   quirework sop review prompt SCOPE --range A..B --brief FILE --model M
       Print the composed prompt and argv, launch nothing.
 
+--model takes a family (opus, terra, gemini-pro), resolved to the newest the
+harness's own catalog lists, or a version that pins. Without --harness, a Claude
+name goes to claude and anything else to codex; agy is always named, with an
+explicit --effort of low, medium or high. --effort defaults to xhigh.
+
+Every turn prints where its report was banked, the receipt checks it already
+passed (served model and effort, no compaction, find-only), and the next step,
+including the Reviewed-by: trailer a commit using a finding carries.
+
 New runs accept --persona ID (default: the configured project persona), --kind
 consistency|procedure, and --paths-file FILE for explicit target paths including
 new files. The persona is frozen; resume and fork cannot select another one.
@@ -1435,8 +1527,20 @@ def main(argv=None):
             default=None,
             help="git range A..B, or HEAD for the working tree",
         )
-        p.add_argument("--harness", default="codex", choices=drivers.HARNESSES)
-        p.add_argument("--model", default=None)
+        p.add_argument(
+            "--harness",
+            default=None,
+            choices=drivers.HARNESSES,
+            help="default: claude for a Claude name (opus, fable, claude-...), "
+            "otherwise codex; agy is never inferred",
+        )
+        p.add_argument(
+            "--model",
+            default=None,
+            help="a family (e.g. opus, terra, gemini-pro), resolved to the "
+            "newest the harness catalog lists, or a pinned version; required, "
+            "and never the model that made the edit",
+        )
         if needs_delta:
             p.add_argument("--persona", default="default")
             p.add_argument(
@@ -1446,7 +1550,11 @@ def main(argv=None):
                 "--paths-file",
                 help="newline-separated target paths, including new files",
             )
-        p.add_argument("--effort", default="xhigh")
+        p.add_argument(
+            "--effort",
+            default="xhigh",
+            help="default xhigh; agy accepts only low, medium or high",
+        )
         p.add_argument("--store", default=None)
         p.add_argument(
             "--no-jail",
@@ -1523,7 +1631,7 @@ def main(argv=None):
                 args.scope,
                 range_spec=args.range_spec,
                 brief=args.brief,
-                harness=args.harness,
+                harness=args.harness or drivers.harness_for(args.model),
                 model=args.model,
                 effort=args.effort,
                 store=args.store,

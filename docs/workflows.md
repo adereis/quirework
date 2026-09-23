@@ -489,7 +489,28 @@ review.
 
 The reviewer must not be the model that made the edit. That requirement
 makes a cross-harness check straightforward: a Codex edit can go to
-Claude, or a Claude edit can go to Codex. After a repair,
+Claude, or a Claude edit can go to Codex. Name the reviewer the way a
+person does. `--model` takes a family such as `opus`, `terra` or
+`gemini-pro`, which resolves to the newest member the harness's own
+catalog lists, or a version that pins. Without `--harness`, a Claude
+name goes to Claude and anything else to Codex. Antigravity is always
+named, with an explicit effort, because its effort is part of its model
+id.
+
+Each turn ends by printing where its report was banked, the receipt
+checks it already passed and the next step. The checks are the served
+model and effort, no compaction and find-only. A check the harness did
+not supply is reported as missing. For a completed turn the next step
+is to verify the findings, and it gives the `Reviewed-by:` trailer a
+commit using one carries. For a quota stop it is the `continue`
+command, and for a failure it is the evidence to read before anything
+is launched again. The operator does not have to reconstruct any of
+this from the record.
+
+The reviewer is asked to put anything it notices outside the delta in
+its own section, as a lead rather than a finding. A defect older than
+the range is not the range's fault, and it is still worth the
+operator's look. After a repair,
 `quirework sop review resume` returns to the same reviewer and lets it
 inspect the new delta. Do not brief it with the argument that its first
 finding was wrong, because agreement after coaching is not independent

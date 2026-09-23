@@ -128,6 +128,22 @@ def resolve_claude(model):
     )
 
 
+def harness_for(model):
+    """The harness a model name belongs to when the operator names none.
+
+    Only Claude names can be recognized without a catalog: its family
+    aliases and its ``claude-`` ids. Everything else goes to Codex, whose
+    catalog then resolves the family or refuses it and lists the families
+    it offers. Antigravity is never inferred, because its effort is part of
+    the model id and has to be chosen rather than defaulted.
+    """
+    text = str(model).strip().lower()
+    bare = text.removeprefix("claude-").replace(".", "-")
+    if text.startswith("claude-") or bare.split("-")[0] in CLAUDE_ALIASES:
+        return "claude"
+    return "codex"
+
+
 def resolve(harness, requested, effort, resolved_model=None):
     if harness not in HARNESSES:
         raise ValueError(f"unknown harness: {harness}")
