@@ -7,6 +7,7 @@ only performs the declared turns, in order, preserving their evidence.
 import hashlib
 import json
 import os
+import re
 import shutil
 import signal
 import subprocess
@@ -27,9 +28,11 @@ from quirework.project import submit
 from quirework.core import usage as usage_records
 from quirework.delivery import artifacts
 from quirework.providers import harness
+from quirework.providers import reads
 from quirework.sops import instruments
 from quirework.runs.storage import digest
 from quirework.runs.storage import hashes
+from quirework.runs.storage import tree_digest
 from quirework.runs.storage import identifier
 from quirework.runs.storage import lock
 from quirework.runs.storage import process_identity
@@ -55,6 +58,11 @@ POLICY = dict(
     context_window=None,
     minimum_context_window=0,
     read_roots=[],
+    # A digest per mounted root (`storage.tree_digest`). A mounted read has
+    # no frozen copy of its material, so this is how the record names the
+    # bytes the seat was given: launch refuses if they have changed, and the
+    # receipt flags a change during the turn.
+    read_root_digests={},
 )
 # The provider serves a share of the ceiling, and rounds it. Assert we were
 # given essentially the whole window, not the much smaller session default,
@@ -140,6 +148,19 @@ def policy(value):
             raise ValueError(
                 "read_roots must name specific directories, not the entire home or filesystem"
             )
+    if not isinstance(p["read_root_digests"], dict):
+        raise ValueError("read_root_digests must map a read root to its digest")
+    digests = {}
+    for root, value in p["read_root_digests"].items():
+        resolved = str(Path(root).expanduser().resolve(strict=True))
+        if resolved not in p["read_roots"]:
+            raise ValueError(
+                f"read_root_digests names a path outside read_roots: {root}"
+            )
+        if not isinstance(value, str) or not re.fullmatch(r"[0-9a-f]{64}", value):
+            raise ValueError("read_root_digests values must be sha256 hex digests")
+        digests[resolved] = value
+    p["read_root_digests"] = digests
     return p
 
 
@@ -300,11 +321,28 @@ def prepare(plan_path, destination, *, resolve=True):
                     "metadata",
                     "addenda",
                     "referenced_images",
+                    "referenced_files",
                 }:
                     raise ValueError("unknown turn field")
                 referenced = turn.get("referenced_images", 0)
                 if type(referenced) is not int or referenced < 0:
                     raise ValueError("referenced_images must be a non-negative integer")
+                # The files a seat is to read in full, in reading order. Like
+                # the image count, it turns the native record into a check: a
+                # seat that skimmed or skipped would otherwise look the same.
+                texts = turn.get("referenced_files", [])
+                if not isinstance(texts, list) or any(
+                    not isinstance(t, str) for t in texts
+                ):
+                    raise ValueError("referenced_files must be a list of paths")
+                texts = [str(Path(t).expanduser().resolve(strict=True)) for t in texts]
+                for t in texts:
+                    if not Path(t).is_file() or not any(
+                        Path(t).is_relative_to(r) for r in p["read_roots"]
+                    ):
+                        raise ValueError(
+                            f"referenced_files must be files under read_roots: {t}"
+                        )
                 label = identifier(turn["id"])
                 if label in labels:
                     raise ValueError("duplicate turn id")
@@ -346,6 +384,7 @@ def prepare(plan_path, destination, *, resolve=True):
                         min_bytes=min_bytes,
                         outputs=outputs,
                         referenced_images=referenced,
+                        referenced_files=texts,
                         materials=items,
                         allow_unchanged_outputs=turn.get(
                             "allow_unchanged_outputs", False
@@ -729,6 +768,36 @@ class Run:
                         f"{opened} of {turn['referenced_images']}; visual verdicts "
                         "in this answer are not evidence."
                     )
+        if spec["policy"]["read_root_digests"]:
+            held = all(
+                tree_digest(root) == expected
+                for root, expected in spec["policy"]["read_root_digests"].items()
+            )
+            receipt["read_root_digests_held"] = held
+            if not held:
+                receipt.setdefault("red_flags", []).append(
+                    "Mounted material changed during the turn; the answer may "
+                    "describe bytes other than the ones the plan pinned."
+                )
+        if turn.get("referenced_files"):
+            fully, in_order, unproven = reads.coverage(
+                reads.file_reads(receipt["rollout"]), turn["referenced_files"]
+            )
+            total = len(turn["referenced_files"])
+            receipt["referenced_files_read"] = f"{fully}/{total}"
+            receipt["referenced_files_in_order"] = in_order
+            if unproven:
+                receipt.setdefault("red_flags", []).append(
+                    f"Not proven read in full: {fully} of {total} referenced "
+                    f"files ({', '.join(unproven[:5])}"
+                    + (", ..." if len(unproven) > 5 else "")
+                    + "). A read the record cannot parse also lands here, so "
+                    "check the native session before calling it skipped."
+                )
+            if not in_order:
+                receipt.setdefault("red_flags", []).append(
+                    "Referenced files were not first opened in the declared order."
+                )
         answers = record / "answers"
         answers.mkdir(exist_ok=True)
         target = answers / "answer.md"
@@ -958,6 +1027,20 @@ class Run:
                 spec["config"], spec["policy"], self.workspace(seat), bus
             )
             record = self.record(seat, turn["id"])
+            # Mounted material is the one input the record did not freeze, so
+            # check it is still the material the plan pinned before anything
+            # is submitted. A changed mount is refused rather than read: the
+            # seat would be reading a book nobody declared.
+            changed = [
+                root
+                for root, expected in spec["policy"]["read_root_digests"].items()
+                if tree_digest(root) != expected
+            ]
+            if changed:
+                raise RuntimeError(
+                    "mounted material changed since the plan pinned it: "
+                    + ", ".join(changed)
+                )
             record.mkdir(parents=True, exist_ok=True)
             if (record / "events.jsonl").exists():
                 raise RuntimeError(
@@ -1004,6 +1087,7 @@ class Run:
                         "filesystem"
                     ],
                     read_roots=spec["policy"]["read_roots"],
+                    read_root_digests=spec["policy"]["read_root_digests"],
                     session_bus=bus.receipt() if bus else None,
                 ),
             )

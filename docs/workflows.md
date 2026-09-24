@@ -454,6 +454,17 @@ reports `referenced_images_opened` and red-flags a shortfall. Any turn
 may declare it; a turn whose material is mounted rather than attached is
 where it earns its place.
 
+The text can fail silently too, and so can the mount. A turn may
+declare `referenced_files`, the files the seat is to read in full, in
+reading order, and the receipt reports `referenced_files_read` and
+`referenced_files_in_order` from the tool calls in the native session,
+counting line ranges so that a chapter printed in pieces still adds up.
+A read the parser cannot recognize is reported as not proven, never as
+done. A policy may declare `read_root_digests`, one digest per mounted
+root: launch refuses to submit if the bytes have changed since the plan
+pinned them, and the receipt flags a change during the turn. That is how
+a mounted read's record names the bytes it read without freezing them.
+
 A self-driven read needs its own instrument, not the printed-book one.
 A reader instrument opens by telling the seat what it has been handed,
 and a sentence promising attached pages is a lie told in the first line
