@@ -1271,11 +1271,26 @@ class Run:
             },
         )
 
-    def export(self, destination, partial=False):
+    def export(self, destination, partial=False, flat=False):
+        """Copy answers and a curated receipt out of the record.
+
+        The default keeps the record's shape, one directory per seat and
+        turn. ``flat`` writes one seat's files straight into
+        ``destination``, the shape an evidence directory usually wants: each
+        declared output under its own name, each other turn's answer as
+        ``NN-<turn>.md`` in turn order, and a receipt for that seat alone. A
+        turn's closing chat message is not one of its outputs, so a flat
+        export of a turn that declares outputs leaves it in the full export.
+        """
         self.verify()
         destination = Path(destination)
         if destination.exists():
             raise ValueError("export destination exists")
+        if flat and len(self.seats) != 1:
+            raise ValueError(
+                "a flat export takes a one-seat record: export the whole record "
+                "or give each seat its own"
+            )
         for name, spec in self.seats.items():
             state = self.state(name)
             # Seats are independent by design, so one seat stalled on a quota
@@ -1288,6 +1303,13 @@ class Run:
                     "cannot export an incomplete run as completed evidence; "
                     "pass partial to release the seats that did finish"
                 )
+        # Resolved before anything is written, so a collision leaves no
+        # half-made export behind.
+        flat_files = (
+            self._flat_files(next(iter(self.seats)), self.state(next(iter(self.seats))))
+            if flat
+            else {}
+        )
         destination.mkdir(parents=True)
         public = dict(
             id=self.plan["id"],
@@ -1323,16 +1345,46 @@ class Run:
                 complete=bool(state.get("complete")),
                 pending=(state.get("pending") or {}).get("turn"),
             )
+            for target, src in flat_files.items():
+                shutil.copyfile(src, destination / target)
             for label, done in state["done"].items():
-                src = self.record(name, label) / "answers"
-                dest = destination / name / label
-                shutil.copytree(src, dest)
+                if not flat:
+                    src = self.record(name, label) / "answers"
+                    dest = destination / name / label
+                    shutil.copytree(src, dest)
                 receipt = done["receipt"]
                 public["seats"][name][label] = {
                     k: v for k, v in receipt.items() if k not in ("rollout", "notices")
                 }
+        if flat:
+            (name,) = public["seats"]
+            public = {k: v for k, v in public.items() if k != "seats"} | {
+                "seat": name,
+                "turns": public["seats"][name],
+            }
         write(destination / "receipt.json", public)
         return str(destination)
+
+    def _flat_files(self, name, state):
+        """{file name in the flat export: its source}, refusing a collision
+        before anything is copied, so a partial flat export cannot happen."""
+        files = {}
+        for index, turn in enumerate(self.seats[name]["turns"], start=1):
+            if turn["id"] not in state["done"]:
+                continue
+            answers = self.record(name, turn["id"]) / "answers"
+            if turn["outputs"]:
+                pairs = [(Path(o).name, answers / relative(o)) for o in turn["outputs"]]
+            else:
+                pairs = [(f"{index:02d}-{turn['id']}.md", answers / "answer.md")]
+            for target, src in pairs:
+                if target in files or target == "receipt.json":
+                    raise ValueError(
+                        f"a flat export would write {target} twice; export the "
+                        "record's full shape instead"
+                    )
+                files[target] = src
+        return files
 
 
 def pinned_config(config, served):

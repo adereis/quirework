@@ -52,6 +52,12 @@ def main(argv=None):
         help="release the seats that finished; the receipt records "
         "each seat's completeness",
     )
+    p.add_argument(
+        "--flat",
+        action="store_true",
+        help="one seat's files straight into the destination, outputs under "
+        "their own names, with a receipt for that seat alone",
+    )
     p = sub.add_parser(
         "retry", help="resubmit a turn after a provable rejection without an answer"
     )
@@ -127,6 +133,10 @@ def main(argv=None):
                 forwarded += [args.destination]
                 if args.partial:
                     forwarded += ["--partial"]
+                # Forwarded only when chosen: a record frozen before this flag
+                # existed has no parser for it.
+                if args.flat:
+                    forwarded += ["--flat"]
             elif args.action == "inspect" and args.prompts:
                 forwarded += ["--prompts"]
             elif args.action == "retry":
@@ -171,7 +181,9 @@ def main(argv=None):
             elif args.action == "verify":
                 result = dict(integrity=run.verify(), **run.inspect())
             elif args.action == "export":
-                result = run.export(args.destination, partial=args.partial)
+                result = run.export(
+                    args.destination, partial=args.partial, flat=args.flat
+                )
             elif args.action == "collect":
                 result = {}
                 with lock(run.root / "run.lock"):

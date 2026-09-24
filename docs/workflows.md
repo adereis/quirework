@@ -580,6 +580,13 @@ existing evidence without buying a new answer. An explicit retry is
 allowed only after a provable terminal rejection without an answer.
 Earlier answers and rejected attempts remain immutable.
 
+`export` mirrors the record, one directory per seat and turn, with a
+receipt for all of them. `export --flat` writes a one-seat record
+straight into the destination instead: each declared output under its
+own name, each other turn's answer as `NN-<turn>.md`, and a receipt for
+that seat alone. It refuses a many-seat record, and a name two files
+would share, before writing anything.
+
 Native forks preserve their parent boundary and image ancestry. A
 provider without native forks cannot substitute a summary or replay.
 Tool restrictions and filesystem enforcement are checked separately.
