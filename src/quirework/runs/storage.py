@@ -73,6 +73,19 @@ def relative(value):
     return path
 
 
+def tree_digest(root):
+    """One digest over every file under ``root``: names and bytes both.
+
+    What a mounted read certifies. A seat that reads a directory in place
+    receives nothing the record froze, so the record can only say which
+    bytes it saw by naming them; this is that name. Symlinks are refused,
+    as they are for a frozen tree, because a link can change what it
+    points at without the tree changing at all.
+    """
+    listing = json.dumps(hashes(root), sort_keys=True).encode()
+    return hashlib.sha256(listing).hexdigest()
+
+
 def hashes(root):
     root = Path(root)
     if root.is_symlink():

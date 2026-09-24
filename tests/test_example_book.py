@@ -144,3 +144,23 @@ def test_a_self_driven_reader_gets_clean_text_and_real_figure_names(book, tmp_pa
     text = (out / "chapters" / "04-the-sidecar.md").read_text(encoding="utf-8")
     assert "figures/sidecar.png" in text
     assert "@bind" not in text and "{#sec-" not in text
+
+
+def test_a_prose_directory_names_its_book_beside_itself(book, tmp_path):
+    """A mounted read carries nothing the record froze, so the directory has
+    to say which book state it is. It cannot say so inside itself: a seat
+    mounts it and must find chapters and figures and nothing else. So the
+    provenance sits beside it, with a digest a plan can pin."""
+    import json
+
+    from quirework.book import panelkit
+    from quirework.runs.storage import tree_digest
+
+    out = tmp_path / "read"
+    assert panelkit.prose_dir(out) == 0
+    assert sorted(p.name for p in out.iterdir()) == ["chapters", "figures"]
+    record = json.loads(panelkit.manifest_path(out).read_text(encoding="utf-8"))
+    assert panelkit.manifest_path(out).parent == out.parent
+    assert record["digest"] == tree_digest(out)
+    assert record["source_sha"]
+    assert "chapters/04-the-sidecar.md" in record["files"]

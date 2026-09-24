@@ -428,8 +428,11 @@ the reader saw, and the cost is one launch per chapter.
 
 A self-driven read launches once. `quirework book packet --prose-dir
 DIR` writes the reader-facing projection of each chapter plus the
-figures under the names the chapter text references, and `quirework
-book plan selfdriven DIR PLAN --mount PATH` compiles the walk: the seat
+figures under the names the chapter text references. Its provenance
+goes beside the directory, never in it, because the directory is what
+the seat mounts: `DIR.manifest.json` records the book state, whether it
+had uncommitted edits, and a digest of every file. `quirework book plan
+selfdriven DIR PLAN --mount PATH` compiles the walk: the seat
 opens each chapter with its own tools, opens the figures that chapter
 references, and writes a reaction file before opening the next one. One
 session's prefix only grows, so most of its input is served from cache.

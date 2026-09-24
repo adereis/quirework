@@ -72,8 +72,7 @@ def _pypdf():
         import pypdf
     except ModuleNotFoundError:
         raise SystemExit(
-            "panel-kit: pypdf is required to slice the book "
-            "(`pip install -e '.[docs]'`)."
+            "packet: pypdf is required to slice the book (`pip install -e '.[docs]'`)."
         ) from None
     return pypdf
 
@@ -159,17 +158,17 @@ def plan_segments(
     listed = [i for i, r in enumerate(rows) if r.kind == "part" or r.listed]
     if len(listed) != len(starts):
         raise ValueError(
-            f"panel-kit: the book lists {len(listed)} entries but its "
+            f"packet: the book lists {len(listed)} entries but its "
             f"PDF outline has {len(starts)}"
         )
     if not listed:
-        raise ValueError("panel-kit: the book has no listed entries to slice on")
+        raise ValueError("packet: the book has no listed entries to slice on")
     page_of = dict(zip(listed, starts))
     head = listed[0]
     for r in rows[head + 1 :]:
         if r.kind == "chapter" and not r.listed:
             raise ValueError(
-                "panel-kit: an .unlisted page outside the front "
+                "packet: an .unlisted page outside the front "
                 f"matter has no segment to sit in: {r.title}"
             )
 
@@ -230,7 +229,7 @@ def plan_segments(
         this.end = nxt.start - 1
     segs[-1].end = total
     if segs[0].start != 1 or any(s.end < s.start for s in segs):
-        raise ValueError("panel-kit: the segment plan does not cover the book")
+        raise ValueError("packet: the segment plan does not cover the book")
     return segs
 
 
@@ -299,7 +298,7 @@ def build(out_dir: Path) -> int:
     quarto = _render.find_quarto()
     if not quarto:
         print(
-            "panel-kit: quarto not found. Install it (`pip install -e '.[docs]'`).",
+            "packet: quarto not found. Install it (`pip install -e '.[docs]'`).",
             file=sys.stderr,
         )
         return 127
@@ -320,7 +319,7 @@ def build(out_dir: Path) -> int:
         return rc
     book_pdfs = list((stage / "_site").glob("*.pdf"))
     if not book_pdfs:
-        print("panel-kit: whole-book render produced no PDF", file=sys.stderr)
+        print("packet: whole-book render produced no PDF", file=sys.stderr)
         return 1
     book_pdf = max(book_pdfs, key=lambda p: p.stat().st_mtime)
 
@@ -334,13 +333,13 @@ def build(out_dir: Path) -> int:
         for n, (a, b) in enumerate(zip(want, [t for t, _ in got])):
             if a != b:
                 print(
-                    f"panel-kit: the rendered outline diverges from the book's "
+                    f"packet: the rendered outline diverges from the book's "
                     f"reading order at entry {n + 1}: {a!r} vs {b!r}",
                     file=sys.stderr,
                 )
                 return 1
         print(
-            f"panel-kit: the book lists {len(want)} entries, its rendered outline "
+            f"packet: the book lists {len(want)} entries, its rendered outline "
             f"{len(got)}",
             file=sys.stderr,
         )
@@ -377,12 +376,12 @@ def build(out_dir: Path) -> int:
 
     dividers = [e["opens_part"] for e in entries if e["opens_part"]]
     print(
-        f"panel-kit: {_shown(out_dir)}/ -- book.pdf ({total} pp), "
+        f"packet: {_shown(out_dir)}/ -- book.pdf ({total} pp), "
         f"{len(entries)} segment PDF(s) sliced from it, manifest.json"
         + (" [dirty tree]" if dirty else "")
     )
     print(
-        f"panel-kit: {len(dividers)} Part divider(s) ride on the chapter they open "
+        f"packet: {len(dividers)} Part divider(s) ride on the chapter they open "
         f"({', '.join(dividers) or '-'})"
     )
     print("assemble a run dir out of it (`--run-dir`); never point a seat at build/.")
@@ -405,14 +404,12 @@ def assemble(kit_dir: Path, run_dir: Path, matter: bool = False) -> int:
     printed chapter `number` and the `book_pages` it was cut from."""
     manifest_path = kit_dir / "manifest.json"
     if not manifest_path.is_file():
-        print(
-            f"panel-kit: no kit at {_shown(kit_dir)}/ (build it first)", file=sys.stderr
-        )
+        print(f"packet: no kit at {_shown(kit_dir)}/ (build it first)", file=sys.stderr)
         return 1
     manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
     kept = [e for e in manifest["chapters"] if matter or e["kind"] == "chapter"]
     if not kept:
-        print("panel-kit: nothing to assemble", file=sys.stderr)
+        print("packet: nothing to assemble", file=sys.stderr)
         return 1
     entries = []
     for seq, entry in enumerate(kept, start=1):
@@ -421,7 +418,7 @@ def assemble(kit_dir: Path, run_dir: Path, matter: bool = False) -> int:
 
     if run_dir.exists() and any(run_dir.iterdir()):
         print(
-            f"panel-kit: {run_dir} is not empty -- a run dir is assembled fresh, "
+            f"packet: {run_dir} is not empty -- a run dir is assembled fresh, "
             "so name a new one rather than reusing a read's directory",
             file=sys.stderr,
         )
@@ -430,7 +427,7 @@ def assemble(kit_dir: Path, run_dir: Path, matter: bool = False) -> int:
     for src_rel, row in entries:
         src = kit_dir / src_rel
         if not src.is_file():
-            print(f"panel-kit: {src_rel} is missing from the kit", file=sys.stderr)
+            print(f"packet: {src_rel} is missing from the kit", file=sys.stderr)
             return 1
         shutil.copyfile(src, run_dir / row["file"])
 
@@ -446,7 +443,7 @@ def assemble(kit_dir: Path, run_dir: Path, matter: bool = False) -> int:
 
     pages = sum(r["pages"] for r in rows)
     print(
-        f"panel-kit: {run_dir}/ -- {len(rows)} segment(s), {pages} pp, "
+        f"packet: {run_dir}/ -- {len(rows)} segment(s), {pages} pp, "
         "manifest.json, no book.pdf" + (" [dirty tree]" if manifest["dirty"] else "")
     )
     print(
@@ -454,6 +451,29 @@ def assemble(kit_dir: Path, run_dir: Path, matter: bool = False) -> int:
         "prompt the SOP writes in, and nothing else."
     )
     return 0
+
+
+def _fail(message: str, code: int = 1) -> int:
+    """Report a fatal packet error after everything already printed.
+
+    Progress goes to stdout and errors to stderr, and stdout is buffered
+    when it is not a terminal, so without the flush an error would print
+    ahead of the progress lines that came before it and read as if the
+    build had gone on past it.
+    """
+    sys.stdout.flush()
+    print(f"packet: {message}", file=sys.stderr)
+    return code
+
+
+def manifest_path(out: Path) -> Path:
+    """Where a prose directory's provenance lives: beside it, never in it.
+
+    The directory itself is what a seat mounts, and it must hold its
+    chapters and figures and nothing else, so its record of which book it
+    came from sits one level up, where the seat is not given access.
+    """
+    return out.parent / f"{out.name}.manifest.json"
 
 
 def prose_dir(out: Path) -> int:
@@ -497,11 +517,7 @@ def prose_dir(out: Path) -> int:
         if r.kind == "chapter" and r.rel and (r.part is None or r.part in body_parts)
     ]
     if out.exists() and any(out.iterdir()):
-        print(
-            f"panel-kit: {_shown(out)} is not empty -- name a fresh directory",
-            file=sys.stderr,
-        )
-        return 1
+        return _fail(f"{_shown(out)} is not empty -- name a fresh directory")
     (out / "chapters").mkdir(parents=True, exist_ok=True)
     (out / "figures").mkdir(exist_ok=True)
     figures = 0
@@ -520,20 +536,17 @@ def prose_dir(out: Path) -> int:
             if target.exists():
                 continue
             if not original.is_file():
-                print(
-                    f"panel-kit: {_shown(source)} references {ref['source']}, "
-                    "which is not in the stage",
-                    file=sys.stderr,
+                return _fail(
+                    f"{_shown(source)} references {ref['source']}, "
+                    "which is not in the stage"
                 )
-                return 1
             if original.suffix.lower() == ".svg":
                 if not shutil.which("rsvg-convert"):
-                    print(
-                        "panel-kit: rsvg-convert not found (Fedora: sudo dnf "
+                    return _fail(
+                        "rsvg-convert not found (Fedora: sudo dnf "
                         "install librsvg2-tools)",
-                        file=sys.stderr,
+                        127,
                     )
-                    return 127
                 subprocess.run(
                     ["rsvg-convert", "-w", "1600", "-o", str(target), str(original)],
                     check=True,
@@ -544,17 +557,39 @@ def prose_dir(out: Path) -> int:
             else:
                 # The projection names every figure `.png`, so anything else
                 # would land under a name that misdescribes its bytes.
-                print(
-                    f"panel-kit: {ref['source']} is neither SVG nor PNG; convert "
-                    "it in the figure set rather than here",
-                    file=sys.stderr,
+                return _fail(
+                    f"{ref['source']} is neither SVG nor PNG; convert "
+                    "it in the figure set rather than here"
                 )
-                return 1
             figures += 1
-    print(
-        f"panel-kit: {_shown(out)}/ -- {len(rows)} chapter file(s), "
-        f"{figures} figure(s), no book.pdf"
+    # The provenance a mounted read cannot carry inside its own directory:
+    # which book state this is, whether it had uncommitted edits, and a digest
+    # of exactly these bytes, so a plan can pin what the seat will read and a
+    # later reader can check it.
+    from quirework.runs.storage import hashes, tree_digest
+
+    sha, dirty = _source_sha()
+    record = manifest_path(out)
+    record.write_text(
+        json.dumps(
+            {
+                "source_sha": sha,
+                "dirty": dirty,
+                "chapters": [p.name for p in sorted((out / "chapters").glob("*.md"))],
+                "files": hashes(out),
+                "digest": tree_digest(out),
+            },
+            indent=2,
+            ensure_ascii=False,
+        )
+        + "\n",
+        encoding="utf-8",
     )
+    print(
+        f"packet: {_shown(out)}/ -- {len(rows)} chapter file(s), "
+        f"{figures} figure(s), no book.pdf" + (" [dirty tree]" if dirty else "")
+    )
+    print(f"packet: provenance in {_shown(record)}")
     print(
         "airgap check: `ls -a` it -- chapters/, figures/, and nothing else. Mount "
         "it read-only at a path that does not name this project; a seat with a "
