@@ -102,6 +102,10 @@ the hook then runs that instead.
 .venv/bin/python -m pytest -m 'not live'
 ```
 
+The suite refuses to run against any Quirework but this checkout's. A
+shell with a consuming book's environment active would otherwise import
+the book's pinned copy, test it, and pass.
+
 Unit tests use fictional text and diagrams. They check project
 isolation, custom catalogs, formatting, artifact transforms, independent
 seats, interrupted receipts, forks, quota recovery, and immutable

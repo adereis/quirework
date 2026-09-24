@@ -32,6 +32,21 @@ def pytest_configure(config):
     import tempfile
     from pathlib import Path
 
+    import quirework
+
+    # A suite run with another project's environment active imports that
+    # project's copy of Quirework and tests it instead of this checkout, and
+    # passes. Nothing about a green run says which code it exercised, so
+    # refuse rather than report on the wrong tree.
+    checkout = Path(__file__).resolve().parents[1] / "src"
+    imported = Path(quirework.__file__).resolve()
+    if not imported.is_relative_to(checkout):
+        raise pytest.UsageError(
+            f"these tests would exercise the Quirework at {imported.parent}, "
+            f"not this checkout's {checkout}: run them with this checkout's own "
+            ".venv, or put its src first on PYTHONPATH"
+        )
+
     if config.option.basetemp is None:
         temporary = Path.home() / "tmp"
         temporary.mkdir(mode=0o700, exist_ok=True)
