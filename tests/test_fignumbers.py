@@ -201,3 +201,33 @@ def test_a_caption_wrapped_across_lines_is_still_one_embed():
     assert [m.group("name") for m in found] == ["sidecar"]
     assert fignumbers._FIGID.search(found[0].group("attrs"))
     assert "still runs without it." in found[0].group("cap")
+
+
+def test_a_long_caption_is_still_one_embed():
+    """A caption longer than the old 500-character bound must still parse.
+
+    At 500 a 518-character caption silently stopped being an embed: the
+    figure was never staged, `figures --check` counted one fewer and said
+    OK, and only the packet builder failed, on the reference.
+    """
+    from quirework.book import figures
+
+    cap = "word " * 150
+    text = f"![{cap.strip()}](illustrations/long.svg){{#fig-long}}\n"
+    assert len(cap) > 500
+    found = list(figures.EMBED.finditer(text))
+    assert [m.group("name") for m in found] == ["long"]
+
+
+def test_an_unparsed_gallery_reference_is_reported(tmp_path):
+    """A reference the embed pattern cannot parse is a loud problem, not a
+    figure that quietly disappears from the count."""
+    from quirework.book import figures
+
+    cap = "x" * (figures.CAPTION_MAX + 1)
+    (tmp_path / "ch.qmd").write_text(
+        f"![{cap}](illustrations/lost.svg)\n\n![ok](illustrations/kept.svg)\n",
+        encoding="utf-8",
+    )
+    assert figures.embedded_names(tmp_path) == {"kept"}
+    assert figures.unparsed_embeds(tmp_path) == ["ch.qmd: lost"]

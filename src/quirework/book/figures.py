@@ -69,12 +69,21 @@ RASTER_W = 1920  # 2x the 960px viewBox
 # one: when the two disagreed, a caption wrapped across two lines matched here
 # and not there, so the figure passed this check and then failed the numbering
 # cross-check with "the book numbers 0". DOTALL is what admits the wrapped
-# caption; the length bound keeps a stray "![" from swallowing a page.
+# caption; the length bound keeps a stray "![" from swallowing a page. The
+# bound is generous because a caption over it does not fail loudly here: it
+# simply stops being an embed, the figure is never staged, and `check` counts
+# one figure fewer. A 518-character caption did exactly that at 500.
+# `unparsed_embeds` is the guard: every gallery reference must also parse.
+CAPTION_MAX = 2000
 EMBED = re.compile(
-    rf"!\[(?P<cap>.{{0,500}}?)\]\({GALLERY}/(?P<name>[A-Za-z0-9][A-Za-z0-9_-]*)\.svg\)"
+    rf"!\[(?P<cap>.{{0,{CAPTION_MAX}}}?)\]\({GALLERY}/(?P<name>[A-Za-z0-9][A-Za-z0-9_-]*)\.svg\)"
     r"(?P<attrs>\{[^}]*\})?",
     re.DOTALL,
 )
+# Any gallery reference at all, however its caption is shaped. What this
+# finds and EMBED does not is a figure the book means to embed and the
+# scanner would silently drop.
+_REFERENCE = re.compile(rf"\]\({GALLERY}/(?P<name>[A-Za-z0-9][A-Za-z0-9_-]*)\.svg\)")
 _COMMENT = re.compile(r"<!--.*?-->", re.DOTALL)
 
 
@@ -127,6 +136,25 @@ def embedded_names(canonical: Path | None = None) -> set[str]:
         prose = _COMMENT.sub("", qmd.read_text(encoding="utf-8"))
         names.update(m.group("name") for m in EMBED.finditer(prose))
     return names
+
+
+def unparsed_embeds(canonical: Path | None = None) -> list[str]:
+    """Gallery references the embed pattern does not parse, as ``file: name``.
+
+    A reference that fails to parse is not an error to the scanner; it is
+    invisible, and an invisible figure is never staged and never checked.
+    The usual cause is a caption over ``CAPTION_MAX`` characters.
+    """
+    canonical = canonical or _settings().CANONICAL
+    out: list[str] = []
+    for qmd in sorted(canonical.glob("*.qmd")):
+        prose = _COMMENT.sub("", qmd.read_text(encoding="utf-8"))
+        parsed = [m.group("name") for m in EMBED.finditer(prose)]
+        referenced = [m.group("name") for m in _REFERENCE.finditer(prose)]
+        for name in referenced:
+            if parsed.count(name) < referenced.count(name):
+                out.append(f"{qmd.name}: {name}")
+    return out
 
 
 def resolve(name: str) -> Path:
@@ -324,6 +352,13 @@ def print_legibility(names: set[str]) -> list[str]:
 def check() -> int:
     names = embedded_names()
     problems: list[str] = []
+
+    for ref in unparsed_embeds():
+        problems.append(
+            f"{ref}: gallery reference the embed pattern does not parse "
+            f"(caption over {CAPTION_MAX} characters?); the figure would be "
+            "silently dropped"
+        )
 
     for name in sorted(names):
         src = resolve(name)
