@@ -436,7 +436,9 @@ the reader saw, and the cost is one launch per chapter.
 
 A self-driven read launches once. `quirework book packet --prose-dir
 DIR` writes the reader-facing projection of each chapter plus the
-figures under the names the chapter text references. Its provenance
+figures under the names the chapter text references. It prints no alt
+text: the seat opens the figures themselves, and a description beside
+each embed let a seat rate plates it never opened. Its provenance
 goes beside the directory, never in it, because the directory is what
 the seat mounts: `DIR.manifest.json` records the book state, whether it
 had uncommitted edits, and a digest of every file. `quirework book plan

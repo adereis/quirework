@@ -186,8 +186,12 @@ def prose(source, directory):
 def prose_images(source, directory):
     from quirework.delivery.text import clean_qmd
 
+    # The figures travel as images, so their alt text would only restate
+    # them in words, and a seat could rate a figure from that without ever
+    # looking at it. Text-only `prose` keeps it: there the description is
+    # the only account of the figure the seat gets.
     frozen = copy(source, directory / ("source" + source.suffix))
-    text, figures = clean_qmd(frozen.read_text())
+    text, figures = clean_qmd(frozen.read_text(), alt=False)
     dest = directory / "material.md"
     dest.write_text(text)
     result = [("text", dest)]

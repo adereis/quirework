@@ -523,7 +523,9 @@ def prose_dir(out: Path) -> int:
     figures = 0
     for i, row in enumerate(rows, start=1):
         source = stage / row.rel
-        text, refs = _text.clean_qmd(source.read_text(encoding="utf-8"))
+        # No alt text: the seat opens the figure files themselves, and a
+        # description beside each embed let one rate plates it never opened.
+        text, refs = _text.clean_qmd(source.read_text(encoding="utf-8"), alt=False)
         stem = Path(row.rel).stem
         (out / "chapters" / f"{i:02d}-{stem}.md").write_text(text, encoding="utf-8")
         for ref in refs:

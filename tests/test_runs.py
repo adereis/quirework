@@ -373,6 +373,22 @@ def test_prose_projection_removes_internal_comments_but_keeps_figure_description
     assert "The scene." in text and "A blue circle." in text
 
 
+def test_alt_text_is_dropped_where_the_image_itself_is_delivered():
+    """Beside an image, alt text only restates it in words, and a reader told
+    what a figure shows can rate it without opening it."""
+    from quirework.delivery.text import clean_qmd
+
+    chapter = (
+        "The scene.\n\n![A circle](illustrations/circle.svg)"
+        '{#fig-circle fig-alt="A blue circle."}\n'
+    )
+    with_images, figures = clean_qmd(chapter, alt=False)
+    assert "A blue circle." not in with_images
+    assert "![A circle](../figures/circle.png)" in with_images
+    assert figures[0]["alt"] == "A blue circle."
+    assert "A blue circle." in clean_qmd(chapter)[0]
+
+
 def test_retired_attempt_cannot_disappear(setup):
     run = prepared(setup)
     state = run.state("reader")

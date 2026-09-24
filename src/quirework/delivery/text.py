@@ -20,7 +20,14 @@ FIGURE = re.compile(
 )
 
 
-def clean_qmd(text: str) -> tuple[str, list[dict]]:
+def clean_qmd(text: str, alt: bool = True) -> tuple[str, list[dict]]:
+    """Reader-facing Markdown from a chapter source, and its figures.
+
+    ``alt`` prints each figure's alt text as a visible description under the
+    embed. Keep it where the reader gets no image, since it is then the only
+    account of the figure; drop it where the image is delivered, since there
+    it restates the picture and lets a reader rate one it never looked at.
+    """
     if text.startswith("---\n"):
         end = text.find("\n---\n", 4)
         if end < 0:
@@ -37,17 +44,18 @@ def clean_qmd(text: str) -> tuple[str, list[dict]]:
         alt_match = re.search(r'fig-alt="([^"]+)"', attrs)
         if not alt_match:
             raise RuntimeError(f"figure has no fig-alt: {name}")
-        alt = alt_match.group(1)
+        description = alt_match.group(1)
         png = Path(name).with_suffix(".png").name
         figures.append(
             {
                 "source": name,
                 "file": f"figures/{png}",
                 "caption": caption,
-                "alt": alt,
+                "alt": description,
             }
         )
-        return f"![{caption}](../figures/{png})\n\n*Figure description:* {alt}"
+        embed = f"![{caption}](../figures/{png})"
+        return f"{embed}\n\n*Figure description:* {description}" if alt else embed
 
     text = FIGURE.sub(replace_figure, text)
     text = ATTR_BLOCK.sub("", text)

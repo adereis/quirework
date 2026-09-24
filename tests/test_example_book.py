@@ -144,6 +144,7 @@ def test_a_self_driven_reader_gets_clean_text_and_real_figure_names(book, tmp_pa
     text = (out / "chapters" / "04-the-sidecar.md").read_text(encoding="utf-8")
     assert "figures/sidecar.png" in text
     assert "@bind" not in text and "{#sec-" not in text
+    assert "Figure description" not in text
 
 
 def test_a_prose_directory_names_its_book_beside_itself(book, tmp_path):
