@@ -257,6 +257,10 @@ returns transformed SVG text. `book.figure_checks` is a list of
 functions returning diagnostic strings. Extensions belong to the
 consumer's package and must be installed explicitly.
 
+`providers.codex.catalog` pins the Codex model catalog to a file,
+which is then used as given instead of asking `codex debug models`.
+Leave it unset unless a run must resolve against a frozen list.
+
 Provider account leases have a separate scope from project data. Use the
 same `providers.agy.account` identity for projects sharing an account.
 `providers.agy.state` can select an existing shared lease directory.

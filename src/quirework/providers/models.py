@@ -11,6 +11,7 @@ import os
 import re
 import shutil
 import subprocess
+import sys
 import time
 from pathlib import Path
 
@@ -144,6 +145,69 @@ def harness_for(model):
     return "codex"
 
 
+CODEX_CACHE = ".codex/models_cache.json"
+
+
+def _codex_live():
+    """``(models, None)`` from ``codex debug models``, or ``(None, why)``."""
+    try:
+        p = subprocess.run(
+            ["codex", "debug", "models"],
+            capture_output=True,
+            text=True,
+            timeout=90,
+            check=False,
+        )
+    except (OSError, subprocess.TimeoutExpired) as exc:
+        return None, str(exc)
+    if p.returncode:
+        return None, (p.stderr.strip() or f"exit status {p.returncode}")[-300:]
+    try:
+        return json.loads(p.stdout).get("models", []), None
+    except (json.JSONDecodeError, AttributeError) as exc:
+        return None, f"unreadable output: {exc}"
+
+
+def codex_catalog():
+    """Codex's model list, and a line saying where it was read.
+
+    A catalog the project configures as ``providers.codex.catalog`` is used
+    as given: that is a pinned choice. Otherwise Codex is asked, because the
+    file it keeps at ``~/.codex/models_cache.json`` is written only by a
+    real Codex session and can trail the provider by days. Resolved against
+    that file, an exact slug the provider already served was refused, and
+    its family resolved to the previous generation without a word: a model
+    substitution at launch. ``codex debug models`` refreshes when its copy
+    is stale and prints the result, though it does not write the file back.
+    The file is the fallback when Codex cannot be asked, and the source line
+    then says how old it is, because an old catalog is how a newer model
+    goes unseen.
+    """
+    project = current_project()
+    if project.get("providers.codex.catalog") is not None:
+        path = project.path("providers.codex.catalog")
+        if not path.exists():
+            raise ValueError(f"the configured Codex catalog {path} does not exist")
+        return read_json(path).get("models", []), f"{path} (configured)"
+    models, failure = _codex_live()
+    if models is not None:
+        return models, "codex debug models"
+    cache = Path.home() / CODEX_CACHE
+    if not cache.exists():
+        raise ValueError(
+            f"codex debug models failed ({failure}) and there is no cached "
+            f"catalog at {cache}; check that Codex is logged in with "
+            "`codex login status`"
+        )
+    data = read_json(cache)
+    source = (
+        f"{cache}, fetched {data.get('fetched_at') or 'at an unrecorded time'}, "
+        f"because codex debug models failed: {failure}"
+    )
+    print(f"models: resolving against {source}", file=sys.stderr)
+    return data.get("models", []), source
+
+
 def resolve(harness, requested, effort, resolved_model=None):
     if harness not in HARNESSES:
         raise ValueError(f"unknown harness: {harness}")
@@ -153,19 +217,8 @@ def resolve(harness, requested, effort, resolved_model=None):
     evidence = {"requested_model": requested, "requested_effort": effort}
     if harness == "codex":
         model = re.sub(r"^(gpt-\d+)-(\d+)", r"\1.\2", model)
-        cache = current_project().path(
-            "providers.codex.catalog", str(Path.home() / ".codex/models_cache.json")
-        )
-        if not cache.exists():
-            raise ValueError(
-                "Codex model catalog missing; refresh it with codex debug models"
-                + (
-                    f" (needed to resolve the family {model!r})"
-                    if is_family(model)
-                    else ""
-                )
-            )
-        models = read_json(cache).get("models", [])
+        models, source = codex_catalog()
+        evidence["catalog_source"] = source
         item = next((m for m in models if m.get("slug") == model), None)
         # Hidden entries are Codex's own internals; a family never lands on one.
         listed = [

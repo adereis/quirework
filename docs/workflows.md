@@ -140,6 +140,14 @@ rounds therefore does not change who is speaking.
 --effort LEVEL` inspect available information without starting a model
 session. Unsupported capabilities fail during preparation.
 
+Codex's catalog is what `codex debug models` prints, because the file
+Codex keeps at `~/.codex/models_cache.json` is written only by a real
+Codex session and can trail the provider by days. Resolved against that
+file, a model the provider already served was refused by name, and its
+family resolved to the previous generation. The file is used only when
+Codex cannot be asked, and the resolution then states how old it is.
+Every resolution records its `catalog_source`.
+
 `quirework book plan` compiles rendered book packets, comparisons, and
 bundles. `quirework sop panel` compiles a declared panel. These helpers
 live above the generic execution engine.

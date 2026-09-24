@@ -237,6 +237,8 @@ def test_a_codex_family_resolves_to_its_newest_listed_version(tmp_path, monkeypa
 
     _installed(monkeypatch)
     monkeypatch.setattr(Path, "home", lambda: tmp_path)
+    # Codex cannot be asked here, so the file it keeps is the catalog.
+    monkeypatch.setattr(d, "_codex_live", lambda: (None, "offline"))
     levels = [{"effort": e} for e in ("low", "medium", "high")]
     catalog = tmp_path / ".codex/models_cache.json"
     catalog.parent.mkdir()
@@ -274,9 +276,74 @@ def test_a_codex_family_resolves_to_its_newest_listed_version(tmp_path, monkeypa
     assert d.model_text(pinned) == "gpt-5.4-terra"
     with pytest.raises(ValueError, match="families gpt, gpt-astra, gpt-terra"):
         d.resolve("codex", "nova", "low")
+    assert "because codex debug models failed: offline" in got["catalog_source"]
     catalog.unlink()
-    with pytest.raises(ValueError, match="needed to resolve the family 'terra'"):
+    with pytest.raises(ValueError, match="codex login status"):
         d.resolve("codex", "terra", "low")
+
+
+def _levels():
+    return [{"effort": e} for e in ("low", "medium", "high", "xhigh")]
+
+
+def test_codex_is_asked_before_the_file_it_may_not_have_refreshed(
+    tmp_path, monkeypatch, capsys
+):
+    """The file lags the provider; resolving against it substituted a model."""
+    from pathlib import Path
+
+    _installed(monkeypatch)
+    monkeypatch.setattr(Path, "home", lambda: tmp_path)
+    stale = tmp_path / ".codex/models_cache.json"
+    stale.parent.mkdir()
+    stale.write_text(
+        json.dumps(
+            {
+                "fetched_at": "2026-01-01T00:00:00Z",
+                "models": [
+                    {"slug": "gpt-5.6-sol", "supported_reasoning_levels": _levels()}
+                ],
+            }
+        )
+    )
+    live = [
+        {"slug": "gpt-6-sol", "supported_reasoning_levels": _levels()},
+        {"slug": "gpt-5.6-sol", "supported_reasoning_levels": _levels()},
+    ]
+    monkeypatch.setattr(d, "_codex_live", lambda: (live, None))
+    got = d.resolve("codex", "sol", "xhigh")
+    assert got["model"] == "gpt-6-sol"
+    assert got["catalog_source"] == "codex debug models"
+    assert d.resolve("codex", "gpt-6-sol", "xhigh")["model"] == "gpt-6-sol"
+    # Only when Codex cannot be asked does the file answer, and it says how old
+    # it is, because an old catalog is how the newer model went unseen.
+    monkeypatch.setattr(d, "_codex_live", lambda: (None, "exit status 1"))
+    fallback = d.resolve("codex", "sol", "xhigh")
+    assert fallback["model"] == "gpt-5.6-sol"
+    assert "fetched 2026-01-01T00:00:00Z" in fallback["catalog_source"]
+    assert "resolving against" in capsys.readouterr().err
+
+
+def test_a_configured_codex_catalog_is_used_without_asking_codex(tmp_path, monkeypatch):
+    from quirework.project import Project, project_scope
+
+    _installed(monkeypatch)
+    pinned = tmp_path / "catalog.json"
+    pinned.write_text(
+        json.dumps(
+            {"models": [{"slug": "gpt-5.5", "supported_reasoning_levels": _levels()}]}
+        )
+    )
+
+    def never():
+        raise AssertionError("a configured catalog is a pinned choice")
+
+    monkeypatch.setattr(d, "_codex_live", never)
+    settings = {"providers": {"codex": {"catalog": str(pinned)}}}
+    with project_scope(Project.from_settings(tmp_path, settings)):
+        got = d.resolve("codex", "gpt-5.5", "high")
+    assert got["model"] == "gpt-5.5"
+    assert got["catalog_source"] == f"{pinned} (configured)"
 
 
 def test_an_agy_family_resolves_at_the_seat_effort(monkeypatch):

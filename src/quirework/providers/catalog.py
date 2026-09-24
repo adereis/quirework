@@ -3,9 +3,8 @@
 import argparse
 import json
 import subprocess
-from pathlib import Path
 from quirework.project import current_project
-from .models import resolve
+from .models import codex_catalog, resolve
 
 
 def main(argv=None):
@@ -23,11 +22,8 @@ def main(argv=None):
     if args.command == "resolve":
         result = resolve(args.provider, args.model, args.effort)
     elif args.provider == "codex":
-        path = current_project().path(
-            "providers.codex.catalog", str(Path.home() / ".codex/models_cache.json")
-        )
-        data = json.loads(path.read_text())
-        result = {"source": str(path), "models": data.get("models", [])}
+        models, source = codex_catalog()
+        result = {"source": source, "models": models}
     elif args.provider == "agy":
         value = subprocess.run(
             ["agy", "models"], capture_output=True, text=True, timeout=45, check=True
