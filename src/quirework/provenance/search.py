@@ -301,6 +301,7 @@ The semantic index is built and stored locally under private/; corpus text is
 never sent anywhere. It rebuilds itself when the corpus or the model changes.
 
 read one:  quirework provenance show <id>
+open a semantic hit's "turn N":  quirework provenance show <id> --turn N
 """
 
 FLAGS = ("--substr", "--regex", "--show", "--semantic", "--rebuild")

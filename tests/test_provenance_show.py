@@ -61,7 +61,7 @@ def test_a_bound_needs_no_turn_at_it(tmp_path):
     """--from 00:00:00 starts the day, though no turn was logged at midnight."""
     p = _session(tmp_path, ONE_MORNING)
     out = _render(p, role="human", frm="00:00:00", to="10:05:30")
-    assert _heads(out) == ["## Human · 2031-04-02 10:00:05", "## Human · 10:05:30"]
+    assert _heads(out) == ["## Human 1 · 2031-04-02 10:00:05", "## Human 2 · 10:05:30"]
     out = _render(p, frm="10:01", to="10:06")
     assert "Cut the second whistle." in out and "Done." in out
     assert "The kettle" not in out and "Open on the lamp." not in out
@@ -124,11 +124,11 @@ def test_a_time_that_could_name_two_days_prints_its_date(tmp_path):
     """Only 02:00:00 names one day of this session, so only it prints bare."""
     p = _session(tmp_path, OVER_TWO_DAYS)
     assert _heads(_render(p)) == [
-        "## Human · 2031-04-02 03:28:13",
+        "## Human 1 · 2031-04-02 03:28:13",
         "## Assistant · 2031-04-02 03:30:00",
-        "## Human · 2031-04-03 01:00:00",
+        "## Human 2 · 2031-04-03 01:00:00",
         "## Assistant · 02:00:00",
-        "## Human · 2031-04-03 12:00:00",
+        "## Human 3 · 2031-04-03 12:00:00",
         "## Assistant · 2031-04-04 00:11:28",
     ]
 
@@ -154,7 +154,7 @@ def three_hours_behind_utc(monkeypatch):
 def test_bounds_are_read_in_the_shown_zone(tmp_path, three_hours_behind_utc):
     p = _session(tmp_path, ONE_MORNING)
     local = show.render("cc", p, frm="07:00", to="07:00")
-    assert _heads(local) == ["## Human · 2031-04-02 07:00:05"]
+    assert _heads(local) == ["## Human 1 · 2031-04-02 07:00:05"]
     with pytest.raises(LookupError, match="no shown turn falls"):
         _render(p, frm="07:00", to="07:00")
 
@@ -247,7 +247,7 @@ def test_raw_labels_each_turn_by_who_wrote_it(tmp_path):
 def test_raw_human_turns_hold_only_the_authors_words(tmp_path):
     p = _jsonl(tmp_path, "0badc0de-0000-4000-8000-000000000001.jsonl", CC_WITH_HARNESS)
     human = _render(p, raw=True, role="human")
-    assert _heads(human) == ["## Human · 2031-04-02 10:00:00"]
+    assert _heads(human) == ["## Human 1 · 2031-04-02 10:00:00"]
     harness = _render(p, raw=True, role="harness")
     assert "Caveat:" in harness and "/clear" in harness
     assert "Tighten" not in harness
@@ -285,3 +285,268 @@ def test_agy_and_web_label_harness_text_in_the_human_slot(tmp_path):
     for reader, path in ((show.agy_records, agy), (show.web_records, web)):
         assert reader(path) == []
         assert [r[:2] for r in reader(path, raw=True)] == [("harness", notice)]
+
+
+def test_a_turn_opens_with_the_replies_up_to_the_next(tmp_path):
+    p = _session(tmp_path, ONE_MORNING)
+    one = _render(p, turn="1")
+    assert _heads(one) == [
+        "## Human 1 · 2031-04-02 10:00:05",
+        "## Assistant · 10:02:00",
+    ]
+    assert "· turn 1" in one.splitlines()[1]
+    assert len(_heads(_render(p, turn="1-2"))) == 4
+    assert _heads(_render(p, turn="2", role="assistant")) == ["## Assistant · 10:07:00"]
+
+
+def test_harness_and_agent_text_never_takes_a_turn_number(tmp_path):
+    p = _jsonl(tmp_path, "0badc0de-0000-4000-8000-000000000001.jsonl", CC_WITH_HARNESS)
+    raw = _render(p, raw=True, turn="1")
+    assert [h.split(" · ")[0] for h in _heads(raw)] == [
+        "## Human 1",
+        "## Harness context",
+        "## Harness context",
+        "## Agent prompt (machine-written)",
+        "## Assistant",
+    ]
+
+
+@pytest.mark.parametrize(
+    "turn, message",
+    [
+        ("3", "the author took 2 turns in this session"),
+        ("0", "counted from 1"),
+        ("2-1", "counted from 1"),
+        ("two", "not a turn number"),
+    ],
+)
+def test_a_turn_outside_the_session_is_refused(tmp_path, turn, message):
+    p = _session(tmp_path, ONE_MORNING)
+    with pytest.raises(LookupError, match=message):
+        _render(p, turn=turn)
+
+
+def test_a_turn_is_not_combined_with_a_time_window(tmp_path, capsys):
+    p = _session(tmp_path, ONE_MORNING)
+    assert show.main([str(p), "--turn", "1", "--from", "10:00"]) == 2
+    assert "drop --from/--to" in capsys.readouterr().err
+
+
+GEMINI_REVIEW = """# Google Gemini
+
+> Provenance note for a fictitious review.
+
+## You · #1
+
+Is the lighthouse chapter too long?
+
+## Gemini · #1
+
+## Pacing
+
+It runs long in the middle.
+
+## You · #2
+
+## Gemini · #2
+
+Nothing to answer.
+
+## You · #3
+
+Cut the storm, then?
+
+## Gemini · #3
+
+Yes.
+"""
+
+
+def test_a_gemini_review_opens_by_turn_as_search_counts_them(tmp_path):
+    """Search counts every `## You` section, the empty second one included."""
+    p = tmp_path / "gemini-fictitious-review.md"
+    p.write_text(GEMINI_REVIEW, encoding="utf-8")
+    one = show.render("gemini", p, turn="1")
+    assert "## Pacing" in one and "## You · #2" not in one
+    three = show.render("gemini", p, turn="3")
+    assert three.rstrip().endswith(
+        "## You · #3\n\nCut the storm, then?\n\n## Gemini · #3\n\nYes."
+    )
+    with pytest.raises(LookupError, match="took 3 turns"):
+        show.render("gemini", p, turn="4")
+
+
+def test_search_and_show_number_the_same_turns(tmp_path):
+    """A search hit's `turn N` is `## Human N` in show, for every source."""
+    from quirework.project import current_project
+    from quirework.provenance import humaninput
+
+    project = current_project()
+
+    def place(setting, default, name):
+        folder = project.path(setting, default)
+        folder.mkdir(parents=True, exist_ok=True)
+        return folder / name
+
+    cc = place(
+        "provenance.claude_sessions",
+        ".quirework/provenance/cc-sessions",
+        "0badc0de-0000-4000-8000-000000000001.jsonl",
+    )
+    cc.write_text(
+        "\n".join(
+            json.dumps(r)
+            for r in CC_WITH_HARNESS
+            + [
+                {
+                    "type": "user",
+                    "timestamp": "2031-04-02T10:05:00Z",
+                    "message": {"content": "Now the storm chapter."},
+                },
+            ]
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+    agy = place(
+        "provenance.agy_sessions",
+        ".quirework/provenance/agy-sessions",
+        "0badc0de-0000-4000-8000-000000000002.jsonl",
+    )
+    agy.write_text(
+        "\n".join(
+            json.dumps(r)
+            for r in [
+                {
+                    "type": "USER_INPUT",
+                    "step_index": 0,
+                    "created_at": "2031-04-02T11:00:00Z",
+                    "content": "<USER_REQUEST>[Request interrupted by user]</USER_REQUEST>",
+                },
+                {
+                    "type": "USER_INPUT",
+                    "step_index": 1,
+                    "created_at": "2031-04-02T11:01:00Z",
+                    "content": "<USER_REQUEST>Shorten the epigraph.</USER_REQUEST>",
+                },
+                {
+                    "type": "PLANNER_RESPONSE",
+                    "step_index": 2,
+                    "created_at": "2031-04-02T11:02:00Z",
+                    "content": "Shortened.",
+                },
+                {
+                    "type": "USER_INPUT",
+                    "step_index": 3,
+                    "created_at": "2031-04-02T11:03:00Z",
+                    "content": "<USER_REQUEST>And the title?</USER_REQUEST>",
+                },
+            ]
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+    codex = place(
+        "provenance.codex_sessions",
+        ".quirework/provenance/codex-sessions",
+        "0badc0de-0000-4000-8000-000000000003.jsonl",
+    )
+    codex.write_text(
+        "\n".join(
+            json.dumps(r)
+            for r in [
+                {
+                    "timestamp": "2031-04-02T12:00:00Z",
+                    "type": "session_meta",
+                    "payload": {
+                        "id": "fictitious",
+                        "cwd": "/book",
+                        "source": "cli",
+                        "timestamp": "2031-04-02T12:00:00Z",
+                    },
+                },
+                *(
+                    {
+                        "timestamp": stamp,
+                        "type": "response_item",
+                        "payload": {
+                            "type": "message",
+                            "role": role,
+                            "content": [
+                                {
+                                    "type": "input_text"
+                                    if role == "user"
+                                    else "output_text",
+                                    "text": text,
+                                }
+                            ],
+                        },
+                    }
+                    for role, text, stamp in [
+                        ("user", "Draft the storm.", "2031-04-02T12:01:00Z"),
+                        ("assistant", "Drafted.", "2031-04-02T12:02:00Z"),
+                        ("user", "Darker.", "2031-04-02T12:03:00Z"),
+                    ]
+                ),
+            ]
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+    web = place(
+        "provenance.conversations",
+        ".quirework/provenance/conversations",
+        "0badc0de-web.raw.json",
+    )
+    web.write_text(
+        json.dumps(
+            {
+                "chat_messages": [
+                    {
+                        "sender": "human",
+                        "created_at": "2031-04-02T13:00:00Z",
+                        "content": [
+                            {
+                                "type": "text",
+                                "text": "<system-reminder>x</system-reminder>",
+                            }
+                        ],
+                    },
+                    {
+                        "sender": "human",
+                        "created_at": "2031-04-02T13:01:00Z",
+                        "content": [{"type": "text", "text": "Is the ending earned?"}],
+                    },
+                ]
+            }
+        ),
+        encoding="utf-8",
+    )
+    gemini = place(
+        "provenance.conversations",
+        ".quirework/provenance/conversations",
+        "gemini-fictitious-review.md",
+    )
+    gemini.write_text(GEMINI_REVIEW, encoding="utf-8")
+
+    paths = {"cc": cc, "agy": agy, "codex": codex, "web": web, "gemini": gemini}
+    hits = humaninput.all_turns()
+    assert {t["source"] for t in hits} == set(paths)
+    for t in hits:
+        path = paths[t["source"]]
+        for raw in (False, True):
+            if t["source"] == "gemini":
+                out = show.render("gemini", path, turn=str(t["ordinal"]), raw=raw)
+                assert f"## You · #{t['ordinal']}" in out and t["text"] in out
+                continue
+            out = show.render(
+                t["source"],
+                path,
+                turn=str(t["ordinal"]),
+                role="human",
+                raw=raw,
+                utc=True,
+            )
+            (head,) = _heads(out)
+            assert head.startswith(f"## Human {t['ordinal']} · ")
+            assert t["text"] in out

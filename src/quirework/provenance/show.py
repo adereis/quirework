@@ -15,6 +15,7 @@ retire.)
     quirework provenance show 31cf63ed --raw          # keep harness text, labeled as such
     quirework provenance show 31cf63ed --utc          # stamp turns in UTC, not local time
     quirework provenance show 31cf63ed --from 15:47 --to 15:52   # turns in a time window
+    quirework provenance show 31cf63ed --turn 14      # the author's turn 14 and its replies
     quirework provenance show c00a7331                # a claude.ai web dialogue (both speakers)
 
 The id is the short id search prints (an 8-hex prefix, or the full ``gemini-…``
@@ -39,6 +40,12 @@ a session logged over more than a day can be running at one time on two days;
 there a typed time asks for its date, and the transcript prints the date on
 every turn whose time alone would be ambiguous.
 
+The author's turns are numbered from 1, as ``quirework provenance search``
+numbers them, so a hit's ``turn 14`` is ``## Human 14`` here and ``--turn 14``
+opens it with the replies that follow, up to the author's next turn. A time
+can be shared by turns logged in the same second and shifts with the zone; the
+number does neither, and --role and --raw leave it alone.
+
 (``--thinking`` is wired but usually inert. A thinking block's *text* is only
 persisted when the session ran against a **direct API** (Vertex, or an Anthropic
 API key); **subscription**-authenticated Claude Code sessions record the block
@@ -54,6 +61,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import re
 import sys
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
@@ -204,8 +212,6 @@ def agy_records(path, *, thinking=False, raw=False, **_):
 
     ``ts`` is the record's ISO-8601 ``created_at`` (or ``None`` if absent).
     """
-    import re as _re
-
     out = []
     with open(path, encoding="utf-8", errors="replace") as fh:
         for line in fh:
@@ -220,9 +226,7 @@ def agy_records(path, *, thinking=False, raw=False, **_):
             ts = o.get("created_at")
             if typ == "USER_INPUT":
                 c = o.get("content") or ""
-                m = _re.search(
-                    r"<USER_REQUEST>\s*(.*?)\s*</USER_REQUEST>", c, _re.DOTALL
-                )
+                m = re.search(r"<USER_REQUEST>\s*(.*?)\s*</USER_REQUEST>", c, re.DOTALL)
                 turn = _human_slot(m.group(1) if m else c, raw)
                 if turn:
                     out.append((*turn, ts))
@@ -443,7 +447,7 @@ def _span_line(dts, date, model, nturns, utc):
 
 
 def _stamp_rows(shown, utc, session):
-    """Attach each turn's displayed stamp: ``(role, text, dt, stamp)``.
+    """``(role, text, dt, stamp, number)`` rows from ``(role, text, dt, number)``.
 
     The date is printed when it rolls over from the prior turn, and wherever
     the time alone could fall on another day of ``session`` too, which happens
@@ -453,7 +457,7 @@ def _stamp_rows(shown, utc, session):
     the same stamp however the window is cut.
     """
     rows, prev_day = [], None
-    for r, text, dt in shown:
+    for r, text, dt, number in shown:
         stamp = ""
         if dt is not None:
             loc = _local(dt, utc)
@@ -464,7 +468,7 @@ def _stamp_rows(shown, utc, session):
             )
             stamp = loc.strftime("%H:%M:%S" if bare else "%Y-%m-%d %H:%M:%S")
             prev_day = day
-        rows.append((r, text, dt, stamp))
+        rows.append((r, text, dt, stamp, number))
     return rows
 
 
@@ -574,11 +578,59 @@ def _window(rows, frm, to, utc, session):
     return kept, sum(1 for row in rows if row[2] is None)
 
 
+def _turn_range(spec, count):
+    """``(first, last)`` author-turn numbers named by ``--turn N`` or ``N-M``.
+
+    Raises ``LookupError`` unless the numbers are a range within the
+    ``count`` turns the author took in the session.
+    """
+    m = re.fullmatch(r"\s*(\d+)\s*(?:-\s*(\d+)\s*)?", spec)
+    if not m:
+        raise LookupError(f"--turn {spec!r} is not a turn number; write N or N-M")
+    first, last = int(m.group(1)), int(m.group(2) or m.group(1))
+    if first < 1 or last < first:
+        raise LookupError(f"--turn {spec!r} is not a range of turns counted from 1")
+    if last > count:
+        took = f"{count} turn{'' if count == 1 else 's'}" if count else "no turns"
+        raise LookupError(f"--turn {spec!r}: the author took {took} in this session")
+    return first, last
+
+
+# A gemini review's speaker lines; its replies carry `## ` headings of their own.
+_GEMINI_SPEAKER = re.compile(r"^##\s+(You|Gemini)\s+·")
+
+
+def _gemini_turns(body, spec):
+    """The lines of a pre-rendered gemini review from ``--turn`` ``spec``.
+
+    The author's turns are its ``## You`` sections, numbered as ``search``
+    numbers them: every section counts, even one with nothing left to say.
+    """
+    lines = body.splitlines()
+    starts = [i for i, line in enumerate(lines) if _GEMINI_SPEAKER.match(line)]
+    yours = [i for i in starts if _GEMINI_SPEAKER.match(lines[i]).group(1) == "You"]
+    first, last = _turn_range(spec, len(yours))
+    end = yours[last] if last < len(yours) else len(lines)
+    return "\n".join(lines[yours[first - 1] : end]).rstrip()
+
+
 def render(
-    kind, path, *, role="all", thinking=False, raw=False, utc=False, frm=None, to=None
+    kind,
+    path,
+    *,
+    role="all",
+    thinking=False,
+    raw=False,
+    utc=False,
+    frm=None,
+    to=None,
+    turn=None,
 ):
     """The full transcript as one string."""
+    if turn and (frm or to):
+        raise LookupError("--turn names turns by number; drop --from/--to")
     sid, title, date, model = _header(kind, path)
+    scope = f"turn{'s' * ('-' in turn)} {turn.strip()}" if turn else None
 
     if kind == "gemini":
         if frm or to:
@@ -587,9 +639,12 @@ def render(
                 "reviews are pre-rendered and carry none"
             )
         # The gemini .md is already a rendered transcript; pass it through.
-        lines = [f"# {sid} — {title}  ({date})", f"<source: {path.name}>", ""]
-        lines.append(Path(path).read_text(encoding="utf-8", errors="replace").rstrip())
-        return "\n".join(lines) + "\n"
+        body = Path(path).read_text(encoding="utf-8", errors="replace").rstrip()
+        head = f"# {sid} — {title}  ({date})"
+        if turn:
+            body = _gemini_turns(body, turn)
+            head += f" · {scope}"
+        return "\n".join([head, f"<source: {path.name}>", "", body]) + "\n"
 
     recfn = {
         "cc": cc_records,
@@ -597,19 +652,27 @@ def render(
         "codex": codex_records,
         "web": web_records,
     }[kind]
-    records = [
-        (r, text, _parse_ts(ts))
-        for r, text, ts in recfn(path, thinking=thinking, raw=raw)
-    ]
+    # Each turn carries the number of the author's latest turn at or before
+    # it: their own on an author's turn, and theirs on the replies that follow.
+    # Counted over the whole session before --role, it is search's numbering.
+    records, number = [], 0
+    for r, text, ts in recfn(path, thinking=thinking, raw=raw):
+        number += r == "human"
+        records.append((r, text, _parse_ts(ts), number))
     shown = [rec for rec in records if role == "all" or rec[0] == role]
     # A bare time picks its day from the whole session, never from the shown
     # turns, so --role cannot change what a time means or how it is printed.
-    logged = [dt for _, _, dt in records if dt]
+    logged = [rec[2] for rec in records if rec[2]]
     session = (min(logged), max(logged)) if logged else None
     rows = _stamp_rows(shown, utc, session)
     if frm or to:
         rows, unstamped = _window(rows, frm, to, utc, session)
-    dts = [dt for _, _, dt, _ in rows if dt]
+    if turn:
+        first, last = _turn_range(turn, number)
+        rows = [row for row in rows if first <= row[4] <= last]
+        if not rows:
+            raise LookupError(f"--turn {turn!r} holds no {role} turn")
+    dts = [row[2] for row in rows if row[2]]
 
     span = _span_line(dts, date, model, len(rows), utc)
     if frm or to:
@@ -617,10 +680,12 @@ def render(
         if unstamped:
             noun = "turn" if unstamped == 1 else "turns"
             span += f" ({unstamped} {noun} with no time left out)"
+    if turn:
+        span += f" · {scope}"
     lines = [f"# {sid} — {title}", span, f"<source: {path.name}>", ""]
-    for r, text, _dt, stamp in rows:
-        head = f"## {ROLE_LABEL[r]}" + (f" · {stamp}" if stamp else "")
-        lines.append(head)
+    for r, text, _dt, stamp, n in rows:
+        label = f"{ROLE_LABEL[r]} {n}" if r == "human" else ROLE_LABEL[r]
+        lines.append(f"## {label}" + (f" · {stamp}" if stamp else ""))
         lines.append("")
         lines.append(text)
         lines.append("")
@@ -681,6 +746,14 @@ def main(argv=None):
         "whole last unit: --to 15:52 keeps a turn at 15:52:59",
     )
     ap.add_argument(
+        "--turn",
+        metavar="N[-M]",
+        default=None,
+        help="show the author's turn N, numbered from 1 as search numbers "
+        "it, with the replies up to their next turn; N-M shows a run of "
+        "them. Not combined with --from/--to",
+    )
+    ap.add_argument(
         "--out", type=Path, default=None, help="write to a file instead of stdout"
     )
     args = ap.parse_args(argv)
@@ -701,6 +774,7 @@ def main(argv=None):
             utc=args.utc,
             frm=args.frm,
             to=args.to,
+            turn=args.turn,
         )
     except LookupError as e:
         print(str(e), file=sys.stderr)
