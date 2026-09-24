@@ -593,7 +593,7 @@ def launch_context(config, record, report_dir, *, jailed=True, probe=False, bus=
     # after jail_argv's own binds, and the chdir last, because bwrap applies
     # operations in sequence and the working directory is the repository, not
     # the record.
-    jail += ["--ro-bind", str(current_project().root), str(current_project().root)]
+    jail += repository_binds()
     jail += ["--bind", str(report_dir), JAILED_REPORT]
     jail += [
         "--chdir",
@@ -603,6 +603,104 @@ def launch_context(config, record, report_dir, *, jailed=True, probe=False, bus=
         str(current_project().root),
     ]
     return jail, env, private, Path(JAILED_REPORT)
+
+
+def git_dirs():
+    """The repository's git directories that lie outside the checkout.
+
+    In an ordinary checkout `.git` is inside the root, and binding the root
+    carries it. A linked worktree's `.git` is a *file* naming
+    `<main>/.git/worktrees/<name>`, which names the shared `<main>/.git` in
+    turn, and neither is under the worktree. A jail that bound only the root
+    handed the reviewer a checkout whose history did not exist: no log, no
+    commit bodies, no diff, so a delta review became a read of final text,
+    and a worktree is the ordinary way to run a review beside ongoing work.
+    Git is asked rather than `.git` parsed, which also covers
+    `--separate-git-dir` and submodules. A directory nested in another is
+    carried by the outer one, so the worktree's own directory collapses into
+    the shared one and one bind serves both.
+    """
+    root = Path(current_project().root).resolve()
+    listed = git(
+        "rev-parse", "--path-format=absolute", "--git-dir", "--git-common-dir"
+    ).split("\n")
+    found = []
+    for line in filter(None, (x.strip() for x in listed)):
+        path = Path(line).resolve()
+        if path == root or root in path.parents:
+            continue
+        if any(path == d or d in path.parents for d in found):
+            continue
+        found = [d for d in found if path not in d.parents] + [path]
+    return found
+
+
+def repository_binds():
+    """The repository and its history, read-only, at their real paths.
+
+    The shared git directory holds every branch's refs and the other
+    worktrees' bookkeeping as well as this one's. A reviewer in an ordinary
+    checkout already sees all of that through `.git`, so a worktree's
+    reviewer gains nothing a clone's would not have, and read-only keeps the
+    find-only guarantee: it can read history, never write a ref or an index.
+    """
+    root = str(current_project().root)
+    argv = ["--ro-bind", root, root]
+    for path in git_dirs():
+        argv += ["--ro-bind", str(path), str(path)]
+    return argv
+
+
+def preflight(delta, record, env):
+    """Prove, inside a jail built like the reviewer's, that git reads the delta.
+
+    Run before a model is paid for, because the failure it catches is quiet:
+    a reviewer that cannot run `git log` does not stop, it reviews what it
+    can see and says so in a line the operator may not read until the run is
+    over. The jail here carries no runner, so it needs no credentials and
+    creates nothing, which lets `review prompt` run it too; its repository
+    binds are the reviewer's own, from the same function, so passing here
+    means the reviewer can read the same commits. A range must list exactly
+    the commits the host listed; a working-tree review must see the host's
+    HEAD.
+    """
+    root = str(current_project().root)
+    jail = blind.jail_argv(record, expose_run_dir=False) + repository_binds()
+    jail += ["--chdir", root]
+    if delta.get("kind") == "range":
+        probe = ["git", "--no-optional-locks", "log", "--format=%H", delta["spec"]]
+        expected = [c.split(" ", 1)[0] for c in delta["commits"]]
+    else:
+        probe = ["git", "--no-optional-locks", "rev-parse", "HEAD"]
+        expected = [git("rev-parse", "HEAD").strip()]
+    try:
+        p = subprocess.run(
+            jail + probe,
+            capture_output=True,
+            text=True,
+            timeout=120,
+            env=env,
+            check=False,
+        )
+    except (OSError, subprocess.TimeoutExpired) as exc:
+        _fail(f"the review jail's git preflight could not run: {exc}")
+    seen = p.stdout.split()
+    if p.returncode or seen != expected:
+        why = (
+            p.stderr.strip()[:300]
+            if p.returncode
+            else f"it read {len(seen)} commit(s) where the host reads {len(expected)}"
+        )
+        _fail(
+            "inside the review jail, git cannot read the delta: "
+            f"{why}. A reviewer launched now would see the final text but "
+            "not the history it was asked to review. Nothing was launched; "
+            "--no-jail runs outside the jail and is recorded as jailed=false."
+        )
+    return {
+        "git_dirs": [str(d) for d in git_dirs()],
+        "commits_readable": len(seen) if delta.get("kind") == "range" else None,
+    }
 
 
 def _answer(harness, config, rows, private):
@@ -934,6 +1032,13 @@ def _turn(
         prefix, env, private, report_path = launch_context(
             config, record, report_dir, jailed=jailed, probe=dry_run, bus=bus
         )
+        history = preflight(delta, record, env) if jailed else None
+        if history and history["commits_readable"] is not None:
+            print(
+                f"review: inside the jail git reads all "
+                f"{history['commits_readable']} commit(s) of the range",
+                file=sys.stderr,
+            )
         if mode == "continue":
             # No brief, no delta, no persona frame: all three are already in the
             # session. Re-sending them is how a continuation turns back into a
@@ -949,7 +1054,13 @@ def _turn(
             config, "resume" if mode == "continue" else mode, session_id, report_dir
         )
         if dry_run:
-            return {"run": name, "mode": mode, "argv": prefix + args, "prompt": prompt}
+            return {
+                "run": name,
+                "mode": mode,
+                "argv": prefix + args,
+                "prompt": prompt,
+                "history": history,
+            }
 
         (turn_dir / "prompt.md").write_text(prompt)
         write_json(
@@ -967,6 +1078,7 @@ def _turn(
                 else None,
                 "private_runtime": str(private) if private else None,
                 "report_mount": str(report_path),
+                "history": history,
                 "persona_sha256": persona["sha256"] if persona else None,
             },
         )
@@ -1648,6 +1760,9 @@ def main(argv=None):
                 print(result["prompt"])
                 print("\n--- argv ---")
                 print(json.dumps(result["argv"], indent=2))
+                if result["history"]:
+                    print("\n--- history inside the jail ---")
+                    print(json.dumps(result["history"], indent=2))
                 return 0
         elif args.action in ("resume", "fork"):
             name = resolve_run(args.run, args.store)

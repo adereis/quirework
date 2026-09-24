@@ -477,7 +477,12 @@ before presenting a change as complete.
 The judgment layer asks whether a coherent edit is actually coherent
 with the rest of the book. `quirework sop review` gives an independent
 reviewer the project guide, the spec, the marks, a brief, and a concrete
-Git delta. By default, the reviewer sees the repository read-only. Its
+Git delta. By default, the reviewer sees the repository read-only,
+history included. A linked worktree keeps its git directory in the main
+checkout, so the jail binds that directory too. Before a model is
+launched, the same jail must read every commit of the range, or nothing
+launches: a reviewer that cannot run `git log` does not stop, it
+reviews the final text and says so in a line that is easy to miss. Its
 private home does not carry the operator's saved conclusions. An
 unjailed fallback is disclosed in the run record.
 
