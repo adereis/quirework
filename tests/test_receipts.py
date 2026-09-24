@@ -18,7 +18,9 @@ POLICY = dict(
 CONFIG = dict(harness="claude", model="fixture-model", effort="high")
 
 
-def claude_record(tmp_path, *, efforts=("high", "high"), billing=None):
+def claude_record(
+    tmp_path, *, efforts=("high", "high"), billing=None, served="fixture-model"
+):
     record = tmp_path / "attempt"
     record.mkdir()
     stream = [
@@ -31,7 +33,7 @@ def claude_record(tmp_path, *, efforts=("high", "high"), billing=None):
         ),
         dict(
             type="assistant",
-            message=dict(model="fixture-model", content=[dict(type="text", text="Hi")]),
+            message=dict(model=served, content=[dict(type="text", text="Hi")]),
         ),
         dict(
             type="result",
@@ -112,3 +114,12 @@ def test_codex_billing_names_the_credential_kind_and_never_the_key(
 def test_the_seat_does_not_find_itself_in_a_directory_named_for_the_tool():
     assert "quirework" not in str(harness.VIRTUAL)
     assert not str(harness.VIRTUAL).startswith(str(harness.Path.home()))
+
+
+def test_usage_keyed_by_the_undated_version_still_counts(tmp_path):
+    """A served id may carry a date the usage table leaves off. That is the
+    same model, and an answered turn must not be refused for it."""
+    record, private = claude_record(tmp_path, served="fixture-model-20250101")
+    receipt = harness.receipt(CONFIG, POLICY, record, private)
+    assert receipt["model"] == "fixture-model-20250101"
+    assert receipt["cost_usd"] == 0.25

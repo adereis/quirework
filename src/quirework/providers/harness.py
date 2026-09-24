@@ -446,7 +446,15 @@ def receipt(config, policy, record, private, established=None):
         if not workshop_drivers._model_matches(expected, model):
             raise RuntimeError(f"Claude model drift: {model}, expected {expected}")
         usage = result.get("modelUsage", {})
-        if not usage.get(model, {}).get("outputTokens"):
+        # The messages carry the served id, which may be dated
+        # (`...-4-5-20251001`), while the usage table may key the same model
+        # by its undated version. Match them the way a request is matched to
+        # what served it, or an answered turn is refused for want of usage.
+        served = usage.get(model) or next(
+            (v for k, v in usage.items() if workshop_drivers._model_matches(k, model)),
+            {},
+        )
+        if not served.get("outputTokens"):
             raise RuntimeError("Claude lacks served-model usage evidence")
         for row in stream:
             if row.get("type") == "assistant":
