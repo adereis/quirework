@@ -12,7 +12,7 @@ retire.)
     quirework provenance search kettle --show         # find the session, then:
     quirework provenance show 31cf63ed --thinking     # include the assistant's thinking
     quirework provenance show 31cf63ed --role human   # only the human's turns
-    quirework provenance show 31cf63ed --raw          # keep harness wrappers + meta/sidechain
+    quirework provenance show 31cf63ed --raw          # keep harness text, labeled as such
     quirework provenance show 31cf63ed --utc          # stamp turns in UTC, not local time
     quirework provenance show 31cf63ed --from 15:47 --to 15:52   # turns in a time window
     quirework provenance show c00a7331                # a claude.ai web dialogue (both speakers)
@@ -72,18 +72,22 @@ ROLE_LABEL = {
 }
 
 
-def _clean(text, raw):
-    """Strip harness wrappers from a human turn; '' if nothing prose survives.
+def _human_slot(text, raw):
+    """``(role, text)`` for a message logged in the human's slot, or ``None``.
 
-    With ``raw`` the text is returned untouched (slash-commands, system
-    reminders and all), for when you want the session exactly as logged.
+    The harness writes into that slot too: slash-command wrappers, system
+    reminders, interrupt notices. A message with the author's prose in it is
+    ``human``, with its wrappers stripped. One with none is dropped, or with
+    ``raw`` kept as ``harness``, so it never reads as the author's words. With
+    ``raw`` every message keeps its text exactly as logged.
     """
-    if raw:
-        return text or ""
-    cleaned = FLT.strip_wrappers(text or "")
-    if not cleaned or cleaned.startswith(HARNESS):
-        return ""
-    return cleaned
+    text = (text or "").strip()
+    cleaned = FLT.strip_wrappers(text)
+    if cleaned and not cleaned.startswith(HARNESS):
+        return "human", text if raw else cleaned
+    if raw and text:
+        return "harness", text
+    return None
 
 
 # --------------------------------------------------------------------------- #
@@ -96,9 +100,11 @@ def cc_records(path, *, thinking=False, raw=False):
     Assistant messages collapse their content blocks into one turn: ``text``
     blocks as prose, ``thinking`` blocks (only with ``thinking``) prefixed and
     set off, ``tool_use`` blocks dropped. Human turns are the string-content
-    messages; list content is a tool-result echo and is skipped. ``isMeta`` /
-    ``isSidechain`` (harness injections, subagent side-threads) are dropped
-    unless ``raw``.
+    messages; list content is a tool-result echo and is skipped. ``isMeta``
+    (harness injections) and ``isSidechain`` (subagent side-threads) records
+    are dropped unless ``raw``, which keeps them under the role of whoever
+    wrote them: a meta record is ``harness``, and a side-thread's prompt is
+    ``agent``, the task the parent handed its subagent.
     """
     out = []
     with open(path, encoding="utf-8", errors="replace") as fh:
@@ -120,9 +126,15 @@ def cc_records(path, *, thinking=False, raw=False):
             if typ == "user":
                 if not isinstance(content, str):  # list content = tool_result echo
                     continue
-                text = _clean(content, raw).strip()
-                if text:
-                    out.append(("human", text, ts))
+                if o.get("isSidechain") or o.get("isMeta"):
+                    # Reached only with raw; neither was typed by the author.
+                    role = "agent" if o.get("isSidechain") else "harness"
+                    if content.strip():
+                        out.append((role, content.strip(), ts))
+                    continue
+                turn = _human_slot(content, raw)
+                if turn:
+                    out.append((*turn, ts))
                 continue
             # assistant: merge this message's blocks into one turn
             if isinstance(content, str):
@@ -165,10 +177,15 @@ def web_records(path, *, thinking=False, raw=False, **_):
         txt = " ".join(
             b.get("text", "") for b in blocks if b.get("type") == "text"
         ) or m.get("text", "")
-        txt = (_clean(txt, raw) if role == "human" else (txt or "")).strip()
+        if role == "human":
+            turn = _human_slot(txt, raw)
+            if turn:
+                out.append((*turn, m.get("created_at")))
+            continue
+        txt = (txt or "").strip()
         # Web captures DO persist thinking text (unlike most cc sessions), so
         # this is the source where --thinking actually recovers content.
-        if thinking and role == "assistant":
+        if thinking:
             th = "\n\n".join(
                 (b.get("thinking") or b.get("text") or "").strip()
                 for b in blocks
@@ -206,13 +223,9 @@ def agy_records(path, *, thinking=False, raw=False, **_):
                 m = _re.search(
                     r"<USER_REQUEST>\s*(.*?)\s*</USER_REQUEST>", c, _re.DOTALL
                 )
-                text = (m.group(1) if m else c).strip()
-                if not raw:
-                    text = FLT.strip_wrappers(text)
-                    if not text or text.startswith(HARNESS):
-                        continue
-                if text:
-                    out.append(("human", text, ts))
+                turn = _human_slot(m.group(1) if m else c, raw)
+                if turn:
+                    out.append((*turn, ts))
             elif typ == "PLANNER_RESPONSE":
                 parts = []
                 if thinking and o.get("thinking"):
@@ -622,9 +635,12 @@ def main(argv=None):
     ap.add_argument("session", help="short id, full id, gemini-… name, or path")
     ap.add_argument(
         "--role",
-        choices=["all", "human", "assistant", "agent"],
+        choices=["all", "human", "assistant", "agent", "harness"],
         default="all",
-        help="restrict to one speaker (default: all)",
+        help="restrict to one writer (default: all): human is the author; "
+        "assistant is the model's reply; agent is a task one model wrote "
+        "for a subagent; harness is text the tool injected, shown only "
+        "with --raw",
     )
     ap.add_argument(
         "--thinking",
@@ -637,7 +653,9 @@ def main(argv=None):
     ap.add_argument(
         "--raw",
         action="store_true",
-        help="keep harness wrappers and meta/sidechain turns",
+        help="keep the session as logged: harness wrappers stay on human "
+        "turns, and injected text and subagent threads appear under the "
+        "harness and agent roles",
     )
     ap.add_argument(
         "--utc",

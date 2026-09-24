@@ -185,3 +185,103 @@ def test_a_log_with_no_times_refuses_a_window_but_still_renders(tmp_path):
     assert "Undated aside." in _render(p)
     with pytest.raises(LookupError, match="need per-turn timestamps"):
         _render(p, frm="10:00")
+
+
+def _jsonl(tmp_path, name, records):
+    p = tmp_path / name
+    p.write_text("\n".join(json.dumps(r) for r in records) + "\n", encoding="utf-8")
+    return p
+
+
+CC_WITH_HARNESS = [
+    {
+        "type": "user",
+        "timestamp": "2031-04-02T10:00:00Z",
+        "message": {
+            "content": "<system-reminder>Be terse.</system-reminder>\n"
+            "Tighten the kettle scene."
+        },
+    },
+    {
+        "type": "user",
+        "isMeta": True,
+        "timestamp": "2031-04-02T10:00:01Z",
+        "message": {"content": "Caveat: output of local commands follows."},
+    },
+    {
+        "type": "user",
+        "timestamp": "2031-04-02T10:00:02Z",
+        "message": {"content": "<command-name>/clear</command-name>"},
+    },
+    {
+        "type": "user",
+        "isSidechain": True,
+        "timestamp": "2031-04-02T10:00:03Z",
+        "message": {"content": "Check chapter 3 for continuity."},
+    },
+    {
+        "type": "assistant",
+        "timestamp": "2031-04-02T10:00:04Z",
+        "message": {"content": [{"type": "text", "text": "Tightened."}]},
+    },
+]
+
+
+def test_raw_labels_each_turn_by_who_wrote_it(tmp_path):
+    p = _jsonl(tmp_path, "0badc0de-0000-4000-8000-000000000001.jsonl", CC_WITH_HARNESS)
+    raw = [(role, text) for role, text, _ in show.cc_records(p, raw=True)]
+    assert raw == [
+        ("human", CC_WITH_HARNESS[0]["message"]["content"]),
+        ("harness", "Caveat: output of local commands follows."),
+        ("harness", "<command-name>/clear</command-name>"),
+        ("agent", "Check chapter 3 for continuity."),
+        ("assistant", "Tightened."),
+    ]
+    clean = [(role, text) for role, text, _ in show.cc_records(p)]
+    assert clean == [
+        ("human", "Tighten the kettle scene."),
+        ("assistant", "Tightened."),
+    ]
+
+
+def test_raw_human_turns_hold_only_the_authors_words(tmp_path):
+    p = _jsonl(tmp_path, "0badc0de-0000-4000-8000-000000000001.jsonl", CC_WITH_HARNESS)
+    human = _render(p, raw=True, role="human")
+    assert _heads(human) == ["## Human · 2031-04-02 10:00:00"]
+    harness = _render(p, raw=True, role="harness")
+    assert "Caveat:" in harness and "/clear" in harness
+    assert "Tighten" not in harness
+
+
+def test_agy_and_web_label_harness_text_in_the_human_slot(tmp_path):
+    notice = "[Request interrupted by user]"
+    agy = _jsonl(
+        tmp_path,
+        "agy.jsonl",
+        [
+            {
+                "type": "USER_INPUT",
+                "step_index": 0,
+                "content": f"<USER_REQUEST>{notice}</USER_REQUEST>",
+                "created_at": "2031-04-02T10:00:00Z",
+            }
+        ],
+    )
+    web = tmp_path / "web.raw.json"
+    web.write_text(
+        json.dumps(
+            {
+                "chat_messages": [
+                    {
+                        "sender": "human",
+                        "content": [{"type": "text", "text": notice}],
+                        "created_at": "2031-04-02T10:00:00Z",
+                    }
+                ]
+            }
+        ),
+        encoding="utf-8",
+    )
+    for reader, path in ((show.agy_records, agy), (show.web_records, web)):
+        assert reader(path) == []
+        assert [r[:2] for r in reader(path, raw=True)] == [("harness", notice)]
