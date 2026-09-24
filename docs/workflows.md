@@ -439,7 +439,12 @@ session's prefix only grows, so most of its input is served from cache.
 
 The two are not interchangeable, and the differences belong in the
 charter. The self-driven material is mounted rather than frozen, so the
-bytes live outside the record and have to be pinned beside it. The seat
+bytes live outside the record. `plan selfdriven` names them instead: it
+takes the book state from the packet's manifest, pins a digest of the
+mount that launch checks again, lists the chapters as the turn's
+`referenced_files`, and refuses a mount that is not an exact copy of the
+packet it came from. A packet built without a manifest still gets its
+bytes pinned, with a warning that the book state is unknown. The seat
 also sees its own surroundings, which is why the mount is named
 neutrally and nothing else lives beside it: a seat with a shell looks
 around before it reads, and the first thing a measured one did was

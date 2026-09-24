@@ -1,5 +1,7 @@
 """Small preparation helpers over existing artifact formats, not a renderer."""
 
+import json
+import sys
 from pathlib import Path
 from quirework.project import current_project
 
@@ -62,6 +64,7 @@ def book(
     delivery="pages",
     persona=None,
     instrument=None,
+    tier=None,
 ):
     kit = Path(kit).expanduser().resolve()
     # The argument is the packet directory, not one of its PDFs, and a packet
@@ -134,6 +137,7 @@ def book(
                 scope="book",
                 policy=policy,
                 turns=turns,
+                **({"tier": tier} if tier is not None else {}),
             )
         ],
     )
@@ -157,6 +161,7 @@ def selfdriven(
     wrap_ask=None,
     mount=None,
     withhold_wrap=False,
+    tier=None,
 ):
     """A ONE-TURN plan for a seat that reads a mounted book with its own tools.
 
@@ -194,6 +199,7 @@ def selfdriven(
     seat, preset, instrument = _resolve_reader(seat, instrument, "self-driven")
     mount = Path(mount).expanduser().resolve() if mount else source
     _check_mount(mount)
+    source_record, pinned = _pin_material(source, mount)
 
     from quirework.sops import instruments as _instruments
     from quirework.sops import personas as _personas
@@ -292,6 +298,7 @@ Each reaction file contains exactly these headings and nothing else:
             outputs=outputs,
             materials=[],
             referenced_images=len(figures),
+            referenced_files=[str(mount / "chapters" / c.name) for c in chapters],
             metadata=dict(instrument=instrument, ask=ask),
         )
     ]
@@ -307,8 +314,8 @@ Each reaction file contains exactly these headings and nothing else:
             )
         )
     plan = dict(
-        title=f"{seat} read, self-driven",
-        source={},
+        title=f"{seat} read, self-driven: {model} at {effort}",
+        source=source_record,
         metadata=dict(instrument=instrument, delivery="self-driven-files"),
         seats=[
             dict(
@@ -322,8 +329,10 @@ Each reaction file contains exactly these headings and nothing else:
                     filesystem="audited" if harness == "agy" else "enforced",
                     allow_compaction=False,
                     read_roots=[str(mount)],
+                    read_root_digests={str(mount): pinned},
                 ),
                 turns=turns,
+                **({"tier": tier} if tier is not None else {}),
             )
         ],
     )
@@ -331,6 +340,43 @@ Each reaction file contains exactly these headings and nothing else:
         raise ValueError("plan output exists")
     write(output, plan)
     return str(output)
+
+
+def _pin_material(source, mount):
+    """(source record, mount digest) for a self-driven plan.
+
+    The record freezes nothing the seat reads, so the plan names it instead:
+    the book state from the packet's manifest, and a digest of the mounted
+    bytes that launch checks again before anything is submitted. The mount
+    may be a copy of the packet placed at a neutral path; it must then be an
+    exact copy, or the plan would pin one book and describe another.
+    """
+    from quirework.book.panelkit import manifest_path
+    from quirework.runs.storage import tree_digest
+
+    pinned = tree_digest(mount)
+    record = manifest_path(source)
+    if not record.is_file():
+        print(
+            f"plan: no provenance beside {source} ({record.name}); the plan "
+            "pins the mounted bytes but cannot say which book state they are. "
+            "Rebuild with `quirework book packet --prose-dir` to record it.",
+            file=sys.stderr,
+        )
+        return {}, pinned
+    manifest = json.loads(record.read_text(encoding="utf-8"))
+    built = manifest.get("digest")
+    if built and tree_digest(source) != built:
+        raise ValueError(
+            f"{source} has changed since the packet built it; rebuild it rather "
+            "than plan a read of bytes no manifest describes"
+        )
+    if built and pinned != built:
+        raise ValueError(
+            f"the mount {mount} is not an exact copy of {source}; copy the "
+            "packet again or mount the packet directory itself"
+        )
+    return {k: manifest.get(k) for k in ("source_sha", "dirty")}, pinned
 
 
 def _check_mount(mount):
@@ -481,6 +527,11 @@ def main(argv=None):
         if kind in ("read", "selfdriven"):
             child.add_argument("--seat", help="configured reader preset")
             child.add_argument("--instrument", help="explicit question instrument")
+            child.add_argument(
+                "--tier",
+                choices=("cheap", "premium", "standard"),
+                help="spend-order tier for this seat",
+            )
         if kind == "read":
             child.add_argument("--delivery", choices=("pages", "file"), default="pages")
         if kind == "selfdriven":
@@ -514,6 +565,7 @@ def main(argv=None):
             seat=args.seat,
             delivery=args.delivery,
             instrument=args.instrument,
+            tier=args.tier,
             **common,
         )
     elif args.kind == "selfdriven":
@@ -526,6 +578,7 @@ def main(argv=None):
             wrap_ask=args.wrap_ask,
             mount=args.mount,
             withhold_wrap=args.withhold_wrap,
+            tier=args.tier,
             **common,
         )
     elif args.kind == "bundle":

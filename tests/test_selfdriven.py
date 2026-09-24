@@ -229,3 +229,81 @@ def test_a_preset_can_name_the_asks_when_the_instrument_declares_no_sequence(
     turns = json.loads((tmp_path / "plan.json").read_text())["seats"][0]["turns"]
     assert "Open the chapter yourself" in turns[0]["prompt"]
     assert turns[0]["metadata"]["ask"] == "first"
+
+
+def with_manifest(source, **fields):
+    from quirework.book.panelkit import manifest_path
+    from quirework.runs.storage import tree_digest
+
+    record = dict(source_sha="abc1234", dirty=False, digest=tree_digest(source))
+    record.update(fields)
+    manifest_path(source).write_text(json.dumps(record))
+
+
+def test_the_plan_names_its_book_and_pins_the_mounted_bytes(book, tmp_path):
+    """The record freezes nothing a self-driven seat reads, so the plan has to
+    say which book state it is and name the exact bytes, which launch checks
+    again before anything is submitted."""
+    from quirework.runs.storage import tree_digest
+
+    with_manifest(book)
+    selfdriven(
+        book,
+        tmp_path / "plan.json",
+        harness="codex",
+        model="fixture-model",
+        effort="high",
+        tier="cheap",
+    )
+    plan = json.loads((tmp_path / "plan.json").read_text())
+    seat = plan["seats"][0]
+    assert plan["source"] == {"source_sha": "abc1234", "dirty": False}
+    assert seat["policy"]["read_root_digests"] == {str(book): tree_digest(book)}
+    assert seat["turns"][0]["referenced_files"] == [
+        str(book / "chapters" / "01-opening.md"),
+        str(book / "chapters" / "02-later.md"),
+    ]
+    assert "fixture-model" in plan["title"] and "high" in plan["title"]
+    assert seat["tier"] == "cheap"
+
+
+def test_a_mount_that_is_not_an_exact_copy_is_refused(book, tmp_path):
+    import shutil
+
+    with_manifest(book)
+    copy = tmp_path / ".elsewhere" / "book"
+    shutil.copytree(book, copy)
+    (copy / "chapters" / "02-later.md").write_text("A different ending.\n")
+    with pytest.raises(ValueError, match="not an exact copy"):
+        selfdriven(book, tmp_path / "plan.json", harness="codex", model="m", mount=copy)
+
+
+def test_a_packet_edited_after_it_was_built_is_refused(book, tmp_path):
+    with_manifest(book)
+    (book / "chapters" / "01-opening.md").write_text("Rewritten after the build.\n")
+    with pytest.raises(ValueError, match="changed since the packet built it"):
+        selfdriven(book, tmp_path / "plan.json", harness="codex", model="m")
+
+
+def test_without_provenance_the_bytes_are_still_pinned_and_it_says_so(
+    book, tmp_path, capsys
+):
+    from quirework.runs.storage import tree_digest
+
+    seat = plan_for(book, tmp_path / "plan.json")
+    assert seat["policy"]["read_root_digests"] == {str(book): tree_digest(book)}
+    assert "cannot say which book state" in capsys.readouterr().err
+
+
+def test_the_engine_accepts_what_the_planner_declares(book, tmp_path):
+    """The pinned digest and the reading list are only worth declaring if the
+    run engine takes them as they are written."""
+    from quirework.runs import engine
+
+    with_manifest(book)
+    selfdriven(book, tmp_path / "plan.json", harness="codex", model="fixture-model")
+    engine.prepare(tmp_path / "plan.json", tmp_path / "record", resolve=False)
+    frozen = json.loads((tmp_path / "record" / "plan.json").read_text())
+    seat = frozen["seats"][0]
+    assert seat["policy"]["read_root_digests"]
+    assert len(seat["turns"][0]["referenced_files"]) == 2
