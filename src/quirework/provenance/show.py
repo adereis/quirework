@@ -26,8 +26,8 @@ local CLI sessions (Claude Code, Antigravity, and Codex), claude.ai
 Every turn carries the timestamp the raw log recorded for it (already present in
 the stored transcripts — cc ``timestamp``, agy/web ``created_at`` — so nothing
 needed re-capturing), and the header states the session's span and duration.
-Times render in the machine's local zone by default; ``--utc`` keeps them as
-logged. The already-rendered ``gemini-*.md`` reviews carry no per-turn stamps,
+Times render in the machine's local zone by default; ``--utc`` renders them
+in UTC. The already-rendered ``gemini-*.md`` reviews carry no per-turn stamps,
 so those pass through unstamped.
 
 ``--from`` and ``--to`` bound a time window and keep the turns logged inside
@@ -39,6 +39,13 @@ crosses midnight it takes the day the session was running at that time. Only
 a session logged over more than a day can be running at one time on two days;
 there a typed time asks for its date, and the transcript prints the date on
 every turn whose time alone would be ambiguous.
+
+A bound is read in the zone the transcript is shown in, so a time copied from
+another machine's transcript can name a different moment here. A bound that
+ends in its own zone cannot: ``--from 16:45:26Z`` and ``--from
+'2026-09-16 13:45:26-03:00'`` mean one moment everywhere, and a log's own
+stamp, such as ``2026-09-16T16:45:26.123Z``, is read as the millisecond it
+names.
 
 The author's turns are numbered from 1, as ``quirework provenance search``
 numbers them, so a hit's ``turn 14`` is ``## Human 14`` here and ``--turn 14``
@@ -63,7 +70,7 @@ import argparse
 import json
 import re
 import sys
-from datetime import datetime, timedelta, timezone
+from datetime import date, datetime, time, timedelta, timezone
 from pathlib import Path
 
 from quirework.project import current_project
@@ -424,12 +431,12 @@ def _fmt_dur(seconds):
     return f"{s}s"
 
 
-def _local(dt, utc):
-    """``dt`` in UTC (``utc``) or the machine's local zone."""
-    return dt if utc else dt.astimezone()
+def _local(dt, tz):
+    """``dt`` in the zone ``tz``, or the machine's local zone when it is ``None``."""
+    return dt.astimezone(tz)
 
 
-def _span_line(dts, date, model, nturns, utc):
+def _span_line(dts, date, model, nturns, tz):
     """The header meta line: time span + duration + model + turn count.
 
     Falls back to the bare ``(date)`` the catalog scan found when no turn
@@ -438,15 +445,15 @@ def _span_line(dts, date, model, nturns, utc):
     tail = f"{model} · {nturns} turns"
     if not dts:
         return f"({date}) · {tail}"
-    lo, hi = _local(min(dts), utc), _local(max(dts), utc)
-    tz = lo.strftime("%Z") or ("UTC" if utc else "local")
+    lo, hi = _local(min(dts), tz), _local(max(dts), tz)
+    zone = lo.strftime("%Z") or ("UTC" if tz else "local")
     start = lo.strftime("%Y-%m-%d %H:%M")
     end = hi.strftime("%H:%M" if lo.date() == hi.date() else "%Y-%m-%d %H:%M")
     dur = _fmt_dur((hi - lo).total_seconds())
-    return f"{start} → {end} {tz} · {dur} · {tail}"
+    return f"{start} → {end} {zone} · {dur} · {tail}"
 
 
-def _stamp_rows(shown, utc, session):
+def _stamp_rows(shown, tz, session):
     """``(role, text, dt, stamp, number)`` rows from ``(role, text, dt, number)``.
 
     The date is printed when it rolls over from the prior turn, and wherever
@@ -460,11 +467,11 @@ def _stamp_rows(shown, utc, session):
     for r, text, dt, number in shown:
         stamp = ""
         if dt is not None:
-            loc = _local(dt, utc)
+            loc = _local(dt, tz)
             day = loc.strftime("%Y-%m-%d")
             clock = loc.time().replace(microsecond=0)
             bare = (
-                day == prev_day and len(_bare_spans(clock, _SECOND, utc, session)) == 1
+                day == prev_day and len(_bare_spans(clock, _SECOND, tz, session)) == 1
             )
             stamp = loc.strftime("%H:%M:%S" if bare else "%Y-%m-%d %H:%M:%S")
             prev_day = day
@@ -474,74 +481,103 @@ def _stamp_rows(shown, utc, session):
 
 _SECOND = timedelta(seconds=1)
 
-# A mark's written forms, each with the stretch of time it covers.
-_MARK_FORMS = (
-    ("%Y-%m-%d %H:%M:%S", True, _SECOND),
-    ("%Y-%m-%d %H:%M", True, timedelta(minutes=1)),
-    ("%Y-%m-%d", True, timedelta(days=1)),
-    ("%H:%M:%S", False, _SECOND),
-    ("%H:%M", False, timedelta(minutes=1)),
+# A mark: a date, a time, or a date and a time; a time may name its zone.
+_MARK = re.compile(
+    r"(?:(?P<date>\d{4}-\d{2}-\d{2})(?:[ T](?=\d)|$))?"
+    r"(?:(?P<hour>\d{1,2}):(?P<minute>\d{2})"
+    r"(?::(?P<second>\d{2})(?:\.(?P<fraction>\d{1,6}))?)?"
+    r"(?P<zone>Z|[+-]\d{2}:?\d{2})?)?"
 )
 
 
-def _zoned(naive, utc):
-    """A wall-clock ``naive`` datetime, read in the zone the stamps are shown in."""
-    return naive.replace(tzinfo=timezone.utc) if utc else naive.astimezone()
+def _offset(zone):
+    """The fixed zone a mark names: ``Z`` or ``+HH:MM`` / ``-HHMM``."""
+    if zone == "Z":
+        return timezone.utc
+    sign = -1 if zone[0] == "-" else 1
+    digits = zone[1:].replace(":", "")
+    return timezone(sign * timedelta(hours=int(digits[:2]), minutes=int(digits[2:])))
 
 
-def _days(session, utc):
-    """The calendar days, in the shown zone, that ``session`` was logged on."""
-    first, last = (_local(dt, utc).date() for dt in session)
+def _zoned(naive, tz):
+    """A wall-clock ``naive`` datetime read in ``tz``, or in the machine's zone."""
+    return naive.astimezone() if tz is None else naive.replace(tzinfo=tz)
+
+
+def _days(session, tz):
+    """The calendar days, in ``tz``, that ``session`` was logged on."""
+    first, last = (_local(dt, tz).date() for dt in session)
     return [first + timedelta(days=n) for n in range((last - first).days + 1)]
 
 
-def _bare_spans(clock, unit, utc, session):
+def _bare_spans(clock, unit, tz, session):
     """``(day, start, end)`` for each day a time without a date could name.
 
     ``session`` is the ``(first, last)`` instants the whole session was logged
-    at. A session on one day offers that day. Across midnight, a day qualifies
-    only if the session was running at ``clock`` on it, so more than one
-    qualifies only in a session logged over more than a day.
+    at, and days are counted in ``tz``. A session on one day offers that day.
+    Across midnight, a day qualifies only if the session was running at
+    ``clock`` on it, so more than one qualifies only in a session logged over
+    more than a day.
     """
     spans = []
-    for day in _days(session, utc):
+    for day in _days(session, tz):
         start = datetime.combine(day, clock)
-        spans.append((day, _zoned(start, utc), _zoned(start + unit, utc)))
+        spans.append((day, _zoned(start, tz), _zoned(start + unit, tz)))
     if len(spans) > 1:
         spans = [(d, s, e) for d, s, e in spans if s <= session[1] and e > session[0]]
     return spans
 
 
-def _mark_span(flag, mark, utc, session):
+def _mark_span(flag, mark, tz, session):
     """``(start, end)``: the aware instants a ``--from`` / ``--to`` mark covers.
 
     A mark covers the whole unit it is written to, so ``15:52`` is the minute
-    up to ``15:52:59`` and ``2026-09-16`` is the day. It is read in the zone the
-    stamps are shown in. A bare time takes its date from ``session`` as
-    ``_bare_spans`` describes. Raises ``LookupError`` when the mark is not a
-    time, or when a bare time fits no single day.
+    up to ``15:52:59``, ``2026-09-16`` is the day, and a log's own stamp such
+    as ``2026-09-16T15:52:10.123Z`` is its millisecond. It is read in ``tz``,
+    the zone the stamps are shown in, unless it names its own with ``Z`` or
+    ``+HH:MM``; then it means the same moment on any machine. A bare time takes
+    its date from ``session`` as ``_bare_spans`` describes, counting days in
+    the mark's zone. Raises ``LookupError`` when the mark is not a time, or
+    when a bare time fits no single day.
     """
-    text = mark.strip().replace("T", " ")
-    for fmt, dated, unit in _MARK_FORMS:
-        try:
-            parsed = datetime.strptime(text, fmt)
-        except ValueError:
-            continue
-        break
-    else:
-        raise LookupError(
-            f"{flag} {mark!r} is not a time; write HH:MM[:SS], "
-            "optionally after a date as 'YYYY-MM-DD HH:MM[:SS]'"
+    m = _MARK.fullmatch(mark.strip())
+    try:
+        if not m or not (m["date"] or m["hour"]):
+            raise ValueError
+        day = date.fromisoformat(m["date"]) if m["date"] else None
+        fraction = m["fraction"] or ""
+        clock = time(
+            int(m["hour"] or 0),
+            int(m["minute"] or 0),
+            int(m["second"] or 0),
+            int(fraction.ljust(6, "0")),
         )
-    if dated:
-        return _zoned(parsed, utc), _zoned(parsed + unit, utc)
+        if m["zone"]:
+            tz = _offset(m["zone"])
+    except ValueError:
+        raise LookupError(
+            f"{flag} {mark!r} is not a time; write HH:MM[:SS], optionally "
+            "after a date as 'YYYY-MM-DD HH:MM[:SS]' and before a zone as "
+            "Z or +HH:MM"
+        ) from None
+    if fraction:
+        unit = timedelta(microseconds=10 ** (6 - len(fraction)))
+    elif m["second"]:
+        unit = _SECOND
+    elif m["hour"]:
+        unit = timedelta(minutes=1)
+    else:
+        unit = timedelta(days=1)
+    if day:
+        start = datetime.combine(day, clock)
+        return _zoned(start, tz), _zoned(start + unit, tz)
 
-    spans = _bare_spans(parsed.time(), unit, utc, session)
+    spans = _bare_spans(clock, unit, tz, session)
     if len(spans) != 1:
         # None qualifies when the session was not running at that time on any
         # of its days; then each of them is as good a guess as the other.
-        days = [d for d, _, _ in spans] or _days(session, utc)
-        first, last = (_local(dt, utc) for dt in session)
+        days = [d for d, _, _ in spans] or _days(session, tz)
+        first, last = (_local(dt, tz) for dt in session)
         options = " or ".join(f"'{d:%Y-%m-%d} {mark.strip()}'" for d in days)
         raise LookupError(
             f"{flag} {mark!r} could fall on more than one day of a session "
@@ -551,7 +587,7 @@ def _mark_span(flag, mark, utc, session):
     return spans[0][1:]
 
 
-def _window(rows, frm, to, utc, session):
+def _window(rows, frm, to, tz, session):
     """The ``rows`` whose logged time falls between ``--from`` and ``--to``.
 
     Both bounds are inclusive. Returns ``(kept, unstamped)``, where
@@ -561,8 +597,8 @@ def _window(rows, frm, to, utc, session):
     """
     if session is None:
         raise LookupError("--from/--to need per-turn timestamps; this log has none")
-    lo = _mark_span("--from", frm, utc, session)[0] if frm else None
-    hi = _mark_span("--to", to, utc, session)[1] if to else None
+    lo = _mark_span("--from", frm, tz, session)[0] if frm else None
+    hi = _mark_span("--to", to, tz, session)[1] if to else None
     if lo is not None and hi is not None and lo >= hi:
         raise LookupError(f"--from {frm!r} falls after --to {to!r} (empty range)")
     kept = [
@@ -664,9 +700,10 @@ def render(
     # turns, so --role cannot change what a time means or how it is printed.
     logged = [rec[2] for rec in records if rec[2]]
     session = (min(logged), max(logged)) if logged else None
-    rows = _stamp_rows(shown, utc, session)
+    tz = timezone.utc if utc else None
+    rows = _stamp_rows(shown, tz, session)
     if frm or to:
-        rows, unstamped = _window(rows, frm, to, utc, session)
+        rows, unstamped = _window(rows, frm, to, tz, session)
     if turn:
         first, last = _turn_range(turn, number)
         rows = [row for row in rows if first <= row[4] <= last]
@@ -674,7 +711,7 @@ def render(
             raise LookupError(f"--turn {turn!r} holds no {role} turn")
     dts = [row[2] for row in rows if row[2]]
 
-    span = _span_line(dts, date, model, len(rows), utc)
+    span = _span_line(dts, date, model, len(rows), tz)
     if frm or to:
         span += " · slice"
         if unstamped:
@@ -725,7 +762,7 @@ def main(argv=None):
     ap.add_argument(
         "--utc",
         action="store_true",
-        help="stamp turns in UTC as logged (default: machine local time)",
+        help="stamp turns in UTC (default: the machine's local zone)",
     )
     ap.add_argument(
         "--from",
@@ -735,7 +772,9 @@ def main(argv=None):
         help="show only turns logged at or after TIME: HH:MM[:SS], or "
         "'YYYY-MM-DD HH:MM[:SS]' when the session crosses midnight. TIME "
         "is read in the zone the turns are stamped in, so pair it with "
-        "the same --utc setting",
+        "the same --utc setting, unless it ends in its own zone as Z or "
+        "+HH:MM (as in --from 16:45:26Z); then it means the same moment "
+        "on any machine",
     )
     ap.add_argument(
         "--to",

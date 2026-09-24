@@ -550,3 +550,45 @@ def test_search_and_show_number_the_same_turns(tmp_path):
             (head,) = _heads(out)
             assert head.startswith(f"## Human {t['ordinal']} · ")
             assert t["text"] in out
+
+
+def test_a_bound_that_names_its_zone_means_one_moment(tmp_path, three_hours_behind_utc):
+    p = _session(tmp_path, ONE_MORNING)
+    local = ["## Human 1 · 2031-04-02 07:00:05"]
+    assert _heads(show.render("cc", p, frm="10:00Z", to="10:00Z")) == local
+    offset = show.render("cc", p, frm="2031-04-02 12:00+02:00", to="12:00+0200")
+    assert _heads(offset) == local
+    in_utc = ["## Human 1 · 2031-04-02 10:00:05"]
+    assert _heads(_render(p, frm="07:00-03:00", to="07:00-03:00")) == in_utc
+
+
+def test_a_logged_stamp_is_read_as_its_millisecond(tmp_path):
+    p = _session(tmp_path, ONE_MORNING)
+    stamp = ONE_MORNING[1][2]
+    assert _heads(_render(p, frm=stamp, to=stamp)) == ["## Assistant · 10:02:00"]
+    with pytest.raises(LookupError, match="no shown turn falls"):
+        _render(p, frm="10:02:00.8Z", to="10:02:00.8Z")
+
+
+def test_a_bare_time_with_a_zone_counts_days_in_that_zone(
+    tmp_path, three_hours_behind_utc
+):
+    """Locally the session sits on one evening; in UTC it crosses midnight."""
+    p = _session(tmp_path, ACROSS_MIDNIGHT)
+    out = show.render("cc", p, frm="00:00Z")
+    assert "And the epigraph?" in out and "Late pass" not in out
+
+
+@pytest.mark.parametrize(
+    "mark", ["10:00+25:00", "25:00Z", "10:00 Z", "Z", "2031-04-02Z", "2031-04-02T"]
+)
+def test_a_malformed_bound_is_refused(tmp_path, mark):
+    with pytest.raises(LookupError, match="is not a time"):
+        _render(_session(tmp_path, ONE_MORNING), frm=mark)
+
+
+def test_utc_shows_a_logged_offset_in_utc(tmp_path):
+    p = _session(tmp_path, [("human", "Offset stamp.", "2031-04-02T12:00:05+02:00")])
+    out = _render(p)
+    assert _heads(out) == ["## Human 1 · 2031-04-02 10:00:05"]
+    assert " UTC · " in out.splitlines()[1]
