@@ -507,7 +507,12 @@ checks it already passed and the next step. The checks are the served
 model and effort, no compaction and find-only. A check the harness did
 not supply is reported as missing. For a completed turn the next step
 is to verify the findings, and it gives the `Reviewed-by:` trailer a
-commit using one carries. For a quota stop it is the `continue`
+commit using one carries. A turn can complete without finishing: the
+harness completing means the process ended with an answer, not that the
+answer covers the delta. When the reviewer's own report ends at a
+`STATUS:` other than `complete`, the checks say the review is not
+finished and the next step says so before anything else. For a quota
+stop it is the `continue`
 command, and for a failure it is the evidence to read before anything
 is launched again. The operator does not have to reconstruct any of
 this from the record.

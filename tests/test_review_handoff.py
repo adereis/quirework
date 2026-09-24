@@ -89,3 +89,35 @@ def test_a_failed_turn_points_at_its_evidence_and_refuses_a_duplicate(project):
     assert out["checks"] == [
         "FIND-ONLY NOT ESTABLISHED (workspace: unjailed-and-moved)"
     ]
+
+
+def test_a_report_that_says_it_stopped_short_is_not_passed_off_as_done(project):
+    # The harness finished cleanly; the reviewer's own report did not.
+    out = review.handoff(
+        entry(report_status="partial", progress="PROGRESS: commits 0/3"),
+        RUN,
+        "codex",
+        project / "state",
+    )
+    assert out["checks"][2] == (
+        "REVIEW NOT FINISHED: the report ends at STATUS: partial "
+        "(PROGRESS: commits 0/3)"
+    )
+    assert out["next"].startswith("The reviewer's own report says it did not")
+    assert f"quirework sop review resume {RUN}" in out["next"]
+    # The findings it did bank are still to be verified, with the trailer.
+    assert f"`Reviewed-by: demo-model ({RUN})`" in out["next"]
+
+
+@pytest.mark.parametrize(
+    "body, stated, flagged",
+    [
+        ("STATUS: partial\n...\nSTATUS: complete\n", "complete", False),
+        ("STATUS: **Complete.**\n", "**Complete.**", False),
+        ("STATUS: partial\nPROGRESS: 2/9\n", "partial", True),
+        ("A report with no status line.\n", None, False),
+    ],
+)
+def test_only_the_last_status_line_counts(body, stated, flagged):
+    assert review._report_status(body) == stated
+    assert review._unfinished(stated) is flagged

@@ -1218,6 +1218,7 @@ def _collect(
         len(set(finding_ids)) if finding_ids else len(re.findall(r"(?m)^\d+\.\s", body))
     )
     progress = re.findall(r"(?m)^\s*PROGRESS:.*$", body)
+    report_status = _report_status(body)
     moved = _moved_paths(before, after)
     delta = delta or state.get("delta")
     reviewed = set(delta_paths(delta))
@@ -1272,6 +1273,7 @@ def _collect(
         "report": out_name if body.strip() else None,
         "findings": findings,
         "progress": progress[-1:] and progress[-1] or None,
+        "report_status": report_status,
         "usage": receipt["usage"],
         "native_transcripts": receipt["native_transcripts"],
         "seconds": round(time.time() - started, 1),
@@ -1314,6 +1316,12 @@ def _collect(
                 ],
             },
         )
+    if status == "completed" and _unfinished(report_status):
+        print(
+            f"review: turn {turn}: the report ends at STATUS: {report_status}; "
+            "the reviewer did not finish the review it was given",
+            file=sys.stderr,
+        )
     if verdict["workspace"] != "unchanged":
         # Never quietly, and never louder than the evidence warrants.
         print(f"review: turn {turn}: {verdict['note']}", file=sys.stderr)
@@ -1336,6 +1344,7 @@ def _collect(
                 "report",
                 "findings",
                 "progress",
+                "report_status",
                 "seconds",
                 "find_only",
                 "workspace",
@@ -1345,6 +1354,29 @@ def _collect(
         | {"run": name}
         | handoff(entry, name, harness, record)
     )
+
+
+def _report_status(body):
+    """The last `STATUS:` line the reviewer wrote, or None if it wrote none."""
+    found = re.findall(r"(?m)^\s*STATUS:[ \t]*(.*)$", body or "")
+    if not found:
+        return None
+    return found[-1].strip() or None
+
+
+def _unfinished(report_status):
+    """Whether the reviewer's own status says the declared review is not done.
+
+    The harness's `completed` means the process ended cleanly with an answer,
+    not that the answer covers what was asked. A reviewer that could not
+    read the delta ended cleanly too, with `STATUS: partial` and a scope
+    limitation on its first lines, and it was banked like any finished
+    review. `complete` is the word the continuation note asks for; a report
+    with no status line makes no claim either way and is not flagged.
+    """
+    if not report_status:
+        return False
+    return report_status.lower().strip(" .*`") not in ("complete", "completed")
 
 
 def handoff(entry, name, harness, record):
@@ -1384,6 +1416,13 @@ def handoff(entry, name, harness, record):
                 "the harness returned no served receipt"
             )
         checks.append("no compaction: a compacted turn cannot complete")
+    unfinished = status == "completed" and _unfinished(entry.get("report_status"))
+    if unfinished:
+        checks.append(
+            f"REVIEW NOT FINISHED: the report ends at STATUS: "
+            f"{entry['report_status']}"
+            + (f" ({entry['progress'].strip()})" if entry.get("progress") else "")
+        )
     checks.append(
         ("find-only" if entry["find_only"] else "FIND-ONLY NOT ESTABLISHED")
         + f" (workspace: {entry['workspace']})"
@@ -1397,6 +1436,15 @@ def handoff(entry, name, harness, record):
             else "The reviewer wrote no report; read its final message in "
             f"{turn_dir / 'events.jsonl'}."
         )
+        if unfinished:
+            step = (
+                "The reviewer's own report says it did not finish the review "
+                "it was given. Read its opening for the reason before counting "
+                "its findings as the answer: a blocked reviewer needs the cause "
+                "fixed and a new turn, and one that stopped short can be asked "
+                f"to finish with `quirework sop review resume {name} --brief "
+                "FILE`. " + step
+            )
         if entry["workspace"] == "reviewed-files-moved":
             step += " The files under review changed during the run."
         model = entry.get("model") or entry["selected_model"]
@@ -1489,12 +1537,11 @@ def _uncollected_turns(record, state):
             continue
         report = folder / "report" / "report.md"
         body = report.read_text() if report.exists() else ""
-        statuses = re.findall(r"(?m)^STATUS:[ \t]*(.*)$", body)
         progress = re.findall(r"(?m)^PROGRESS:.*$", body)
         pending.append(
             {
                 "turn": folder.name,
-                "report_status": statuses[-1] if statuses else None,
+                "report_status": _report_status(body),
                 "progress": progress[-1] if progress else None,
                 "report_path": str(report),
                 "events_path": str(folder / "events.jsonl"),
@@ -1539,6 +1586,7 @@ def status(name=None, store=None):
                     "quota_resets_at",
                     "findings",
                     "progress",
+                    "report_status",
                     "find_only",
                     "report",
                 )
