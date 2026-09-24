@@ -1088,6 +1088,7 @@ class Run:
                     ],
                     read_roots=spec["policy"]["read_roots"],
                     read_root_digests=spec["policy"]["read_root_digests"],
+                    billing=harness.billing(spec["config"]["harness"]),
                     session_bus=bus.receipt() if bus else None,
                 ),
             )

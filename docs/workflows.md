@@ -85,6 +85,14 @@ filesystem exposure, model, and effort per seat. Preparation rejects a
 capability the selected harness cannot provide. The resulting receipt
 records the boundary that was actually enforced or audited.
 
+A receipt says where each claim comes from. `effort_evidence` reads
+"native turn context" for Codex and "native session" for Claude, whose
+session records each answer's effort; a drift from the requested effort
+is refused rather than banked. `billing` names the kind of credential a
+seat ran on, never the credential: a Claude seat's `cost_usd` is a
+list-price equivalent under a subscription, and a Codex seat on an API
+key is metered spend that its receipt does not price.
+
 ## Rooms, workshops, and reviews
 
 Each book owns the exact procedure and its editorial rules. Quirework

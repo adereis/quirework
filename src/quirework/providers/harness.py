@@ -31,7 +31,11 @@ CAPABILITIES = {
         images=False, files=True, resume=True, fork=False, filesystem="audited"
     ),
 }
-VIRTUAL = Path.home() / "tmp/quirework-run-seat"
+# Where a seat finds itself. It sits in the jail's private /tmp, so the path
+# a seat reads back from `pwd` names neither this tool nor the operator's
+# home: a seat with a shell looks around before it reads, and a directory
+# called after the tool that runs it is a thread worth pulling.
+VIRTUAL = Path("/tmp/work")
 FALLBACK = "Falling back from WebSockets to HTTPS transport."
 
 
@@ -288,6 +292,28 @@ def command(config, policy, mode, sid, prompt, images, files):
     return args, payload.encode(), prompt
 
 
+def billing(harness):
+    """How a seat on this harness is paid for, from the credential's kind.
+
+    Only the kind is read, never the secret. It matters because the two
+    kinds cost differently and only one is priced here: a Claude receipt's
+    cost is a list-price equivalent under a subscription, and a Codex seat
+    on an API key is metered spend that no receipt prices.
+    """
+    if harness == "claude":
+        return "subscription (OAuth); cost_usd is a list-price equivalent"
+    if harness == "codex":
+        try:
+            mode = read(Path.home() / ".codex/auth.json").get("auth_mode")
+        except (OSError, ValueError):
+            mode = None
+        if mode == "apikey":
+            return "API key: metered spend, not priced by this receipt"
+        if mode == "chatgpt":
+            return "ChatGPT plan quota"
+    return "unknown"
+
+
 def launch_context(config, policy, workspace, bus=None):
     name = config["harness"]
     if error := blind.backend_error():
@@ -321,6 +347,7 @@ def receipt(config, policy, record, private, established=None):
     stream = rows(record / "events.jsonl")
     notices = []
     calls = []
+    efforts = set()
     if name == "codex":
         ids = {r["thread_id"] for r in stream if r.get("type") == "thread.started"}
         complete = [r for r in stream if r.get("type") == "turn.completed"]
@@ -434,7 +461,34 @@ def receipt(config, policy, record, private, established=None):
         native = rows(paths[0])
         window = None
         parent = None
-        peak = None
+        # The session states each answer's effort and token use, so both
+        # are read from it rather than taken on trust from the launch
+        # arguments. An older CLI that records no effort falls back to the
+        # arguments and the receipt says so.
+        efforts = {
+            r["effort"]
+            for r in native
+            if r.get("type") == "assistant" and r.get("effort")
+        }
+        if efforts and efforts != {config["effort"]}:
+            raise RuntimeError(
+                f"Claude effort drift: {sorted(efforts)}, expected {config['effort']}"
+            )
+        peak = max(
+            (
+                sum(
+                    (r["message"].get("usage") or {}).get(k, 0) or 0
+                    for k in (
+                        "input_tokens",
+                        "cache_read_input_tokens",
+                        "cache_creation_input_tokens",
+                    )
+                )
+                for r in native
+                if r.get("type") == "assistant" and isinstance(r.get("message"), dict)
+            ),
+            default=None,
+        )
         init = [
             r
             for r in stream
@@ -551,11 +605,26 @@ def receipt(config, policy, record, private, established=None):
                         raise RuntimeError(
                             "agy accessed a path outside the declared material"
                         )
+    try:
+        launched = read(record / "launch.json")
+    except (OSError, ValueError):
+        launched = {}
+    cost = (
+        round(sum(u.get("costUSD", 0) or 0 for u in (usage or {}).values()), 4)
+        if name == "claude"
+        else None
+    )
     return dict(
         session_id=sid,
         model=model,
         effort=config["effort"],
-        effort_evidence="native turn context" if name == "codex" else "CLI selection",
+        effort_evidence="native turn context"
+        if name == "codex"
+        else "native session"
+        if name == "claude" and efforts
+        else "CLI selection",
+        billing=launched.get("billing", "unknown"),
+        cost_usd=cost,
         filesystem=CAPABILITIES[name]["filesystem"],
         tool_calls=len(calls),
         allow_compaction=policy["allow_compaction"],
