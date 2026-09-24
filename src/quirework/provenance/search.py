@@ -10,8 +10,11 @@ Claude Code, Gemini, and Codex). Matching that distinction matters: a book is
 text repeat that vocabulary on every page; a raw grep drowns in them, while the
 human-turn search returns the handful of sessions where the author raised it.
 
-Hits are reported *through* the catalog's metadata (date, title, highlight ★),
-so a fistful of opaque session ids reads as named, dated rows.
+Hits are reported *through* the catalog's metadata (title, highlight ★), so a
+fistful of opaque session ids reads as named, dated rows. A row's date is the
+one ``quirework provenance show`` heads the session with: the day its first
+turn was logged, in the machine's local zone, or in UTC with ``--utc``. So a
+session begun late in the evening carries the same day in both commands.
 
 Live search, no persistent index: at corpus scale (tens of MB) a scan over the
 filtered stream is instant, and there is no second index to keep in sync -- the
@@ -39,6 +42,7 @@ import sys
 from quirework.project import current_project
 from quirework.provenance import humaninput as HI
 from quirework.provenance import catalog as CAT
+from quirework.provenance import show as SHOW
 
 
 def _settings():
@@ -142,7 +146,20 @@ def _title_date(source, path):
     return CAT._web_scan(path)
 
 
-def search(keywords, substr=False, regex=False, turns=None, highlights=None):
+def _session_date(source, path, file, utc, stamps=(), undated="?"):
+    """The day ``show`` heads a session with, in the zone it shows it in.
+
+    ``path`` is the resolved session and ``file`` the log its turns came from,
+    beside it. A log that is not on disk falls back to the earliest of
+    ``stamps``, and a session with no time at all to ``undated``.
+    """
+    log = path.parent / file
+    start = SHOW.session_start(source, log) if log.exists() else None
+    start = start or min(stamps, default=None)
+    return SHOW.shown_date(start, utc) if start else undated
+
+
+def search(keywords, substr=False, regex=False, turns=None, highlights=None, utc=False):
     """Return (hits, n_searched). ``turns``/``highlights`` injectable for tests."""
     pats = _compile(keywords, substr, regex)
     hl = (
@@ -175,7 +192,7 @@ def search(keywords, substr=False, regex=False, turns=None, highlights=None):
             continue
         sid, path, era = _resolve(source, file)
         meta = _title_date(source, path)
-        date = min(s["ts"]).strftime("%Y-%m-%d") if s["ts"] else meta["date"]
+        date = _session_date(source, path, file, utc, s["ts"], meta["date"])
         hits.append(
             {
                 "id": sid,
@@ -194,7 +211,7 @@ def search(keywords, substr=False, regex=False, turns=None, highlights=None):
 
 
 def semantic_search(
-    text, top=12, rebuild=False, index=None, backend=None, highlights=None
+    text, top=12, rebuild=False, index=None, backend=None, highlights=None, utc=False
 ):
     """Meaning-ranked counterpart to ``search()``, in the same hit shape.
 
@@ -226,7 +243,7 @@ def semantic_search(
             {
                 "id": sid,
                 "era": era,
-                "date": meta["date"],
+                "date": _session_date(source, path, file, utc, undated=meta["date"]),
                 "title": meta["title"],
                 "star": sid in hl or CAT._short_id(sid) in hl,
                 "score": s["score"],
@@ -268,8 +285,8 @@ def _print_hits(hits, semantic, show):
                 print(f"        {kw}: {h['snippets'][kw]}")
 
 
-USAGE = """usage: quirework provenance search KEYWORD [KEYWORD ...] [--substr|--regex] [--show]
-       quirework provenance search --semantic QUERY [--top N] [--rebuild] [--show]
+USAGE = """usage: quirework provenance search KEYWORD [KEYWORD ...] [--substr|--regex] [--show] [--utc]
+       quirework provenance search --semantic QUERY [--top N] [--rebuild] [--show] [--utc]
 
 Find which sessions the *human* raised something in. Both modes read the human's
 own turns only -- not the assistant's words, not injected document context -- so
@@ -290,6 +307,7 @@ options:
   --top N     how many sessions to return (default 12)      [semantic]
   --rebuild   force a rebuild of the embedding index        [semantic]
   --show      keyword: print matching snippets; semantic: the whole window
+  --utc       date sessions in UTC, as show --utc does (default: local zone)
 
 examples:
   quirework provenance search kettle whistle        OR across keywords, whole-word
@@ -304,7 +322,7 @@ read one:  quirework provenance show <id>
 open a semantic hit's "turn N":  quirework provenance show <id> --turn N
 """
 
-FLAGS = ("--substr", "--regex", "--show", "--semantic", "--rebuild")
+FLAGS = ("--substr", "--regex", "--show", "--semantic", "--rebuild", "--utc")
 DEFAULT_TOP = 12
 
 
@@ -346,7 +364,9 @@ def _parse(argv):
 
 def _run_keyword(kws, o):
     try:
-        hits, n_searched = search(kws, substr=o["substr"], regex=o["regex"])
+        hits, n_searched = search(
+            kws, substr=o["substr"], regex=o["regex"], utc=o["utc"]
+        )
     except re.error as e:
         print(f"search: bad regular expression: {e}", file=sys.stderr)
         return 2
@@ -389,7 +409,9 @@ def _run_semantic(q, o):
         )
         return 2
     try:
-        hits, n_windows = semantic_search(q, top=o["top"], rebuild=o["rebuild"])
+        hits, n_windows = semantic_search(
+            q, top=o["top"], rebuild=o["rebuild"], utc=o["utc"]
+        )
     except SEM.BackendUnavailable as e:
         print(f"search: {e}", file=sys.stderr)
         return 2

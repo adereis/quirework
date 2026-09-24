@@ -1,6 +1,5 @@
 import json
 import re
-import time
 
 import pytest
 
@@ -140,15 +139,6 @@ def test_every_printed_stamp_works_as_a_bound(tmp_path, turns, role):
     for head in _heads(_render(p, role=role)):
         stamp = head.split(" · ", 1)[1]
         assert _heads(_render(p, role=role, frm=stamp, to=stamp)) == [head]
-
-
-@pytest.fixture
-def three_hours_behind_utc(monkeypatch):
-    monkeypatch.setenv("TZ", "Etc/GMT+3")
-    time.tzset()
-    yield
-    monkeypatch.undo()
-    time.tzset()
 
 
 def test_bounds_are_read_in_the_shown_zone(tmp_path, three_hours_behind_utc):

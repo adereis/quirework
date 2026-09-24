@@ -260,6 +260,14 @@ def codex_records(path, *, thinking=False, raw=False, **_):
     return CODEX_FLT.records(path, thinking=thinking, raw=raw)
 
 
+_READERS = {
+    "cc": cc_records,
+    "agy": agy_records,
+    "codex": codex_records,
+    "web": web_records,
+}
+
+
 # --------------------------------------------------------------------------- #
 # resolution: short id / full id / path  ->  (kind, path)
 # --------------------------------------------------------------------------- #
@@ -434,6 +442,22 @@ def _fmt_dur(seconds):
 def _local(dt, tz):
     """``dt`` in the zone ``tz``, or the machine's local zone when it is ``None``."""
     return dt.astimezone(tz)
+
+
+def session_start(kind, path):
+    """When a session's first turn was logged, as the transcript header gives it.
+
+    ``None`` for a pre-rendered gemini review, or a log that records no times.
+    """
+    if kind not in _READERS:
+        return None
+    dts = [dt for dt in (_parse_ts(ts) for _, _, ts in _READERS[kind](path)) if dt]
+    return min(dts) if dts else None
+
+
+def shown_date(dt, utc=False):
+    """``dt``'s calendar date in the zone a transcript is shown in."""
+    return _local(dt, timezone.utc if utc else None).strftime("%Y-%m-%d")
 
 
 def _span_line(dts, date, model, nturns, tz):
@@ -682,17 +706,11 @@ def render(
             head += f" · {scope}"
         return "\n".join([head, f"<source: {path.name}>", "", body]) + "\n"
 
-    recfn = {
-        "cc": cc_records,
-        "agy": agy_records,
-        "codex": codex_records,
-        "web": web_records,
-    }[kind]
     # Each turn carries the number of the author's latest turn at or before
     # it: their own on an author's turn, and theirs on the replies that follow.
     # Counted over the whole session before --role, it is search's numbering.
     records, number = [], 0
-    for r, text, ts in recfn(path, thinking=thinking, raw=raw):
+    for r, text, ts in _READERS[kind](path, thinking=thinking, raw=raw):
         number += r == "human"
         records.append((r, text, _parse_ts(ts), number))
     shown = [rec for rec in records if role == "all" or rec[0] == role]

@@ -1,5 +1,6 @@
 """Isolated synthetic projects for Quirework unit tests."""
 
+import time
 from types import SimpleNamespace
 import pytest
 from quirework.project import Project, project_scope
@@ -24,6 +25,16 @@ def patch_setting(monkeypatch, module, accessor, key, value):
 def isolated_project(tmp_path):
     with project_scope(Project.from_settings(tmp_path / "project", {})):
         yield
+
+
+@pytest.fixture
+def three_hours_behind_utc(monkeypatch):
+    """Put the machine's local zone at UTC-3, which keeps no daylight saving."""
+    monkeypatch.setenv("TZ", "Etc/GMT+3")
+    time.tzset()
+    yield
+    monkeypatch.undo()
+    time.tzset()
 
 
 def pytest_configure(config):
