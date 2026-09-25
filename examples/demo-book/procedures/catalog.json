@@ -10,6 +10,11 @@
       "id": "editions",
       "label": "Editions",
       "question": "Who is this book being retold for?"
+    },
+    {
+      "id": "history",
+      "label": "History",
+      "question": "Where did this commitment come from?"
     }
   ],
   "entries": {
@@ -22,6 +27,7 @@
         "quirework book notes --primer",
         "quirework book chapters --check",
         "quirework book notes --check",
+        "quirework book trail --check",
         "quirework book figures --check",
         "quirework config check"
       ],
@@ -46,6 +52,23 @@
       ],
       "mechanics": [
         "quirework book variant build manager"
+      ],
+      "followups": [],
+      "note": ""
+    },
+    "backfill-a-trail": {
+      "family": "history",
+      "kind": "procedure",
+      "skill": true,
+      "requires": [],
+      "mechanics": [
+        "quirework book trail",
+        "quirework book trail suggest SLUG",
+        "quirework provenance search",
+        "quirework provenance show",
+        "quirework book trail add",
+        "quirework book trail --check",
+        "quirework book notes --check"
       ],
       "followups": [],
       "note": ""

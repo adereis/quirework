@@ -9,6 +9,9 @@ quarto = "manuscript/_quarto.yml"
 chapters = "manuscript/sections"
 build = "build"
 spec = "manuscript/sections/_spec.md"
+# Where each spec section came from: pointers into the sessions in logs/,
+# kept beside them rather than in the spec, which states only what holds.
+spec_trail = "logs/spec-trail.md"
 figures = "manuscript/sections/illustrations"
 figure_checks = ["cvc_checks.figures:check_style"]
 variant_policy = "config/variant-policy.toml"

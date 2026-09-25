@@ -25,6 +25,14 @@ Who is this book being retold for?
 | [variant-common](../variant-common.md) (protocol) | shared voice rules for every derived edition | None |
 | [variant-manager](../variant-manager.md) | Produce the manager edition of Chapter and Verse Control for a reader who has not read the book and has four minutes. | [variant-common](../variant-common.md) |
 
+## History
+
+Where did this commitment come from?
+
+| Procedure | Purpose | Required SOP reading |
+|---|---|---|
+| [backfill-a-trail](../workflows/backfill-a-trail.md) | Point each spec section of Chapter and Verse Control at the turns in logs/ that shaped it, one section at a time. | None |
+
 ## Execution notes
 
 

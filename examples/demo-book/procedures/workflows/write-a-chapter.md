@@ -15,14 +15,25 @@ When a chapter's content changes enough to add or drop a commitment it
 expresses, update its `@bind` lines in its sidecar to match, and say so.
 A `@bind` that used to be true and no longer is is worse than none.
 
+Before changing what a commitment says, read how it got there:
+`quirework book trail --chapter NAME` for every section the chapter
+binds, then `quirework book trail SLUG` for the one you are touching.
+The trail points at the author's own turns, oldest first. It is context,
+never a ruling: what the human asks today wins. When the human's words
+in this session change what a spec section holds, add a breadcrumb for
+that turn with
+`quirework book trail add SLUG --kind KIND --find "words they typed" --note "..."`,
+and say so.
+
 Before calling the work done, run the gates in this order and fix
 whatever they report:
 
 1. `quirework book chapters --check`
 2. `quirework book notes --check`
-3. `quirework book figures --check`
-4. `quirework config check`
+3. `quirework book trail --check`
+4. `quirework book figures --check`
+5. `quirework config check`
 
-All four have to pass. None of them reads the prose for whether it is
+All five have to pass. None of them reads the prose for whether it is
 any good; that judgment is the human's, and the primer is how you stay
 inside it.
