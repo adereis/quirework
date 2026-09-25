@@ -175,10 +175,19 @@ def test_a_plan_hands_out_every_session_oldest_first_with_no_tools(book, tmp_pat
     plan = json.loads((tmp_path / "packets" / "plan.json").read_text())
     assert (done["seats"], done["sessions"]) == (1, 2)
     seat = plan["seats"][0]
-    assert seat["policy"] == {"tools": "none"} and seat["tier"] == "cheap"
+    assert seat["policy"] == {"tools": "none", "filesystem": "enforced"}
+    assert seat["tier"] == "cheap"
     assert seat["metadata"]["trail_read"]["sessions"] == [MORNING, EVENING]
     sources = [m["source"] for m in seat["turns"][0]["materials"]]
     assert sources == ["menu.md", f"packets/{MORNING}.md", f"packets/{EVENING}.md"]
+
+
+def test_an_agy_seat_is_audited_because_agy_cannot_enforce(book, tmp_path):
+    backfill.plan(
+        tmp_path / "packets", harness="agy", model="gemini-pro", effort="high"
+    )
+    plan = json.loads((tmp_path / "packets" / "plan.json").read_text())
+    assert plan["seats"][0]["policy"] == {"tools": "none", "filesystem": "audited"}
 
 
 def test_a_small_budget_gives_each_session_its_own_seat(book, tmp_path):

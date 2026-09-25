@@ -382,7 +382,12 @@ def plan(
             "model": model,
             "effort": effort,
             "tier": tier,
-            "policy": {"tools": "none"},
+            # agy audits file access and cannot enforce isolation; the seat
+            # has no tools either way, and its receipt says which it was.
+            "policy": {
+                "tools": "none",
+                "filesystem": "audited" if harness == "agy" else "enforced",
+            },
             "metadata": {
                 "trail_read": {
                     "sessions": [sid for sid, _, _ in batch],
