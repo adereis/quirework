@@ -74,6 +74,18 @@ def test_the_provenance_index_matches_the_captured_corpus(book):
     assert run(book, "provenance catalog", "--check") == 0
 
 
+def test_every_breadcrumb_leads_to_the_turn_it_names(book):
+    """The spec's trail points into the committed session by logged time.
+
+    A breadcrumb is a pointer, never a copy, so following each one is the
+    only proof it still names one of the author's turns. A change to how a
+    session is read, or to which messages count as the author's, would
+    move the turns out from under the pointers, and this is the one real
+    trail in the repository that would notice.
+    """
+    assert run(book, "book trail", "--check") == 0
+
+
 def test_the_personas_and_the_instrument_validate(book):
     assert run(book, "sop personas", "check") == 0
 
