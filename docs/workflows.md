@@ -24,7 +24,9 @@ Most work follows the same loop even when the SOP changes:
 3. The companion runs `quirework book notes --primer` to load the spec,
    bindings, guidance, and open work.
 4. The companion retrieves only the prose, sources, and prior human
-   decisions the task needs.
+   decisions the task needs. Where the book keeps a spec trail,
+   `quirework book trail SLUG` leads from a commitment to the author's
+   own turns that shaped it.
 5. The companion writes, researches, or prepares a controlled model run.
 6. The companion analyzes the returned evidence against the spec and the
    human's request.
@@ -41,6 +43,18 @@ The spec also gives outside model work a reference point. A workshop
 draft or blind review can reveal a problem. It cannot silently redefine
 the book's position. The companion must reconcile the finding with the
 spec before it proposes an edit.
+
+A spec trail records where that center came from. It is kept in two
+ways, and they are separate tasks. While the spec is being edited, the
+companion that heard the author adds a breadcrumb for each turn that
+changed a section, because it is the one reader that knows which words
+did it. Backfill is the other task: walking a spec that grew before it
+had a trail, section by section, through `book trail suggest SLUG` and
+provenance search, and deciding which turns shaped it. That decision
+needs the judgment of a strong model, so a book gives backfill a
+procedure of its own. Capturing and curating sessions is different work,
+mechanical enough for a small model, and a book's ingest procedure may
+name backfill as a follow-up without ever running it.
 
 ## Procedures and skills
 

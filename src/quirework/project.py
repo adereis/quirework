@@ -282,6 +282,20 @@ class Project:
                     raise ConfigurationError(
                         f"configured {kind} is missing: {self.path(key)}"
                     )
+            if self.get("book.spec_trail") is not None:
+                # The trail mirrors the spec's sections, so it means nothing
+                # without one. The file itself may not exist yet: the first
+                # breadcrumb creates it.
+                if self.get("book.spec") is None:
+                    raise ConfigurationError(
+                        "book.spec_trail follows the spec's sections; configure "
+                        "book.spec too, or remove book.spec_trail"
+                    )
+                trail = self.path("book.spec_trail")
+                if trail.is_dir():
+                    raise ConfigurationError(
+                        f"book.spec_trail names a directory, not a file: {trail}"
+                    )
             if (
                 self.get("book.figures") is not None
                 and not self.path("book.figures").is_dir()

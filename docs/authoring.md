@@ -53,6 +53,7 @@ without the ones below it.
 | Private material | ignored sources and records that must not publish | project policy |
 | Procedures | the playbooks an AI companion follows, with personas and questions | `sop list`, `sop explain`, `sop skills` |
 | Provenance | the sessions the book was written in | `provenance search`, `provenance metrics` |
+| Spec trail | pointers from each spec section to the turns that shaped it | `book trail` |
 
 ## 1. The manuscript
 
@@ -170,6 +171,84 @@ citations, commit hashes, and any phrasing about what a section used to
 say. The reason is not tidiness. A dated ruling in a spec reads as
 authority to the next session, which then works around the section
 instead of proposing a change to it.
+
+### The spec's trail
+
+How a section got here still matters to whoever changes it next. The
+words you used in June and the sharper ones from last week tell the
+story of an idea, and an agent about to edit it should read them. The
+trail keeps that story outside the spec, in a sidecar of its own:
+
+```toml
+[book]
+spec = "manuscript/sections/_spec.md"
+spec_trail = "private/spec-trail.md"
+```
+
+The sidecar mirrors the spec's headings. Under each one it lists
+breadcrumbs. A breadcrumb says which conversation, and when in it, you
+shaped that section:
+
+```markdown
+## Cooling is not the reverse of boiling {#cooling-asymmetry}
+
+- 2031-04-02T10:09:12Z · correct · claude-code 0badc0de-…-000000000001
+
+  Refuses speed as the difference and keeps the route.
+```
+
+A breadcrumb is a pointer, not a copy. The session stays the only source
+of truth, so your words are read from it whenever the trail is read. The
+pointer is the time the harness logged your turn, in UTC, because anyone
+can find that moment: in the captured corpus, in the harness's own
+transcript, or in the web conversation, with or without Quirework. The
+kind says what the turn did to the section: `seed`, `sharpen`, `correct`
+(refused a wording the agent proposed), `reverse` (moved off an earlier
+position), `accept` (took a wording the agent drafted) or `probe` (tried
+something without settling it).
+
+The trail quotes the private corpus by reference, so keep it with the
+private material. It is context, never authority: the spec states what
+the book holds now, and a request made now outranks anything on the
+trail. Leave `spec_trail` unset and the feature is off.
+
+Reading is one command per depth. `book notes --primer` counts each
+section's breadcrumbs. `book trail --chapter opening` lists, one line
+each, the trails of the sections a chapter binds.
+`book trail cooling-asymmetry` reads one section's trail oldest first,
+and prints the `provenance show … --turn N` that opens each turn with
+the reply it drew.
+
+Writing happens while the spec is edited. When your words in the current
+conversation change what a section holds, the agent adds a breadcrumb:
+
+```bash
+quirework book trail add cooling-asymmetry --kind correct \
+  --find "a route, not a speed" --note "Refuses speed as the difference."
+```
+
+`--find` takes words you typed. It looks for them in the corpus and then
+in this project's live Claude Code and Codex transcripts, so a turn from
+the conversation still going on can be pointed at before it is captured.
+`--session ID --turn N` takes the number `provenance search` printed. An
+`--excerpt` is optional: it highlights words in a long turn where they
+would otherwise be buried, and it must be words the turn holds.
+
+The judgment is the agent's, and it should err toward including. Add a
+breadcrumb for every turn that seeds, sharpens, corrects, reverses,
+accepts or probes what a section holds, since a reader can skip one but
+cannot recover a turn nobody pointed at. Point at your turn, not the
+reply. Never delete a breadcrumb because you moved on: add a `reverse`,
+because the earlier position is part of the story. Delete one only when
+it was wrong about which section the turn shaped.
+
+`book notes --check` fails a trail heading that names a section the spec
+no longer has, so a renamed section takes its trail along in the same
+edit. `book trail --check` follows every breadcrumb to your turn. It
+fails a pointer that leads to no turn, and one into a session that
+curation removed. It only warns about a session not captured yet, which
+is what pointing at a live conversation costs until that session is
+captured.
 
 ## 3. Marks
 

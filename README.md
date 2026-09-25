@@ -93,8 +93,8 @@ change with it.
 
 The annotations live in a sidecar beside each chapter rather than in the
 prose, so the rendered book never carries them and reflowing a paragraph
-never disturbs them. `book notes --check` gates ten invariants: a mark
-left in the prose, a sidecar that no longer mirrors its chapter, a
+never disturbs them. `book notes --check` gates eleven invariants: a
+mark left in the prose, a sidecar that no longer mirrors its chapter, a
 binding that names a commitment the spec does not declare, a reading
 order that disagrees with the files on disk. `book quotes` checks that a
 phrase quoted in metadata still exists in the book.
@@ -114,6 +114,14 @@ from their local stores, and web conversations too. `provenance search`
 then reads the human's own turns, by keyword or by meaning; the semantic
 index is built and stored locally, so corpus text never leaves the
 machine.
+
+`book trail` connects that record to the spec without putting any of it
+in the spec. A trail sidecar, kept beside the private corpus, points
+each spec section at the conversations where the author seeded,
+sharpened or reversed it: a session and the time a turn was logged, not
+a copy of the words. A companion about to change a commitment reads the
+author's own turns, oldest first, and opens as much of each conversation
+as it needs.
 
 On top of that corpus it measures things about the making. `metrics`
 estimates the division of labor between the human and the AI, with its

@@ -26,6 +26,9 @@ figures = "manuscript/sections/illustrations"
 build = "build"
 # Optional semantic register if your book uses annotation bindings.
 # spec = "manuscript/sections/_spec.md"
+# With a spec, point each section at the conversations that shaped it.
+# The sidecar points into the private corpus, so it stays private too.
+# spec_trail = "private/spec-trail.md"
 # Optional book-wide annotations used by the red-pen review copy.
 # review_notes = "manuscript/sections/_review-notes.md"
 # Reader-facing documents that cite the spec or quote the canon.

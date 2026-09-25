@@ -40,6 +40,16 @@ project uses those features. Annotation bindings resolve
 against the configured semantic register; a book need not adopt another
 project's claims or vocabulary.
 
+`book.spec_trail` names the spec's trail sidecar, which points each spec
+section at the conversations that shaped it. It requires `book.spec`,
+and the file need not exist yet: the first `book trail add` creates it,
+readable by its owner only. Put it with the private material, since it
+points into the private corpus, or in `quirework.local.toml` where the
+corpus lives somewhere else on each machine. Leaving it unset turns the
+trail off: no command reads or writes one, and the primer shows no
+counts. The [authoring guide](authoring.md#the-specs-trail) says what a
+breadcrumb holds and when one is added.
+
 `project.scratchpad` and `project.private` document the two non-publishing
 spaces. `book.noncanonical_roots` tells checks which working paths have no
 authority. `book.companion_dirs` names reader-facing documents outside the
@@ -106,6 +116,13 @@ not establish an evaluation of this project's corpus.
 The catalog retains the existing tracked-source curation convention.
 Search reads human-authored turns; provider metadata is not proof of
 which model authored a historical turn.
+
+A spec trail reads sessions only where provenance is enabled. There,
+`book trail add --find` also reads this project's live Claude Code and
+Codex transcripts, from the same locations capture sweeps, and never
+writes to them. That is how a turn in a conversation still going on is
+pointed at before the session is captured. Without provenance, a trail
+can still be kept by hand and read as pointers.
 
 Derived caches default to a project-specific directory under the XDG
 cache directory. Run storage defaults to a project-specific directory

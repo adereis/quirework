@@ -268,6 +268,31 @@ _READERS = {
 }
 
 
+def author_turns(kind, path):
+    """``(number, logged, text)`` for each of the author's turns in a session.
+
+    Numbered as ``render`` numbers them, and so as search does. ``logged`` is
+    the aware instant the log recorded, or ``None`` where it recorded none: a
+    pre-rendered gemini review never does, and its ``## You`` sections are the
+    turns, each counted even when empty.
+    """
+    if kind == "gemini":
+        lines = Path(path).read_text(encoding="utf-8", errors="replace").splitlines()
+        starts = [i for i, line in enumerate(lines) if _GEMINI_SPEAKER.match(line)]
+        ends = dict(zip(starts, starts[1:] + [len(lines)]))
+        yours = [i for i in starts if _GEMINI_SPEAKER.match(lines[i]).group(1) == "You"]
+        return [
+            (n, None, "\n".join(lines[i + 1 : ends[i]]).strip())
+            for n, i in enumerate(yours, 1)
+        ]
+    turns, number = [], 0
+    for role, text, ts in _READERS[kind](path):
+        if role == "human":
+            number += 1
+            turns.append((number, _parse_ts(ts), text))
+    return turns
+
+
 # --------------------------------------------------------------------------- #
 # resolution: short id / full id / path  ->  (kind, path)
 # --------------------------------------------------------------------------- #
@@ -333,44 +358,36 @@ def _candidates(idarg):
             return [("web", p)]
         if name.endswith(".md"):
             return [("gemini", p)]
-    found = []
-    for f in sorted(
-        current_project()
-        .path("provenance.claude_sessions", ".quirework/provenance/cc-sessions")
-        .glob("*.jsonl")
-    ):
-        if f.stem == idarg or f.stem.startswith(idarg):
-            found.append(("cc", f))
-    for f in sorted(
-        current_project()
-        .path("provenance.agy_sessions", ".quirework/provenance/agy-sessions")
-        .glob("*.jsonl")
-    ):
-        if f.stem == idarg or f.stem.startswith(idarg):
-            found.append(("agy", f))
-    for f in sorted(
-        current_project()
-        .path("provenance.codex_sessions", ".quirework/provenance/codex-sessions")
-        .glob("*.jsonl")
-    ):
-        if f.stem == idarg or f.stem.startswith(idarg):
-            found.append(("codex", f))
-    for f in sorted(
-        current_project()
-        .path("provenance.conversations", ".quirework/provenance/conversations")
-        .glob("*.raw.json")
-    ):
-        base = f.name[: -len(".raw.json")]
-        if base == idarg or base.startswith(idarg):
-            found.append(("web", f))
-    for f in sorted(
-        current_project()
-        .path("provenance.conversations", ".quirework/provenance/conversations")
-        .glob("gemini-*.md")
-    ):
-        if f.stem == idarg or f.stem.startswith(idarg):
-            found.append(("gemini", f))
-    return found
+    return [
+        (kind, path)
+        for kind, path in sessions()
+        if session_id(kind, path).startswith(idarg)
+    ]
+
+
+def sessions():
+    """Every session in the corpus as ``(kind, path)``, family by family."""
+    project = current_project()
+    families = (
+        ("cc", "provenance.claude_sessions", "cc-sessions", "*.jsonl"),
+        ("agy", "provenance.agy_sessions", "agy-sessions", "*.jsonl"),
+        ("codex", "provenance.codex_sessions", "codex-sessions", "*.jsonl"),
+        ("web", "provenance.conversations", "conversations", "*.raw.json"),
+        ("gemini", "provenance.conversations", "conversations", "gemini-*.md"),
+    )
+    return [
+        (kind, f)
+        for kind, key, default, pattern in families
+        for f in sorted(
+            project.path(key, f".quirework/provenance/{default}").glob(pattern)
+        )
+    ]
+
+
+def session_id(kind, path):
+    """The full id a session is known by: its file name without the suffix."""
+    name = Path(path).name
+    return name[: -len(".raw.json")] if kind == "web" else Path(path).stem
 
 
 def resolve(idarg):

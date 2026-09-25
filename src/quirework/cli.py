@@ -43,6 +43,9 @@ COMMANDS = {
     ("book", "quotes"): Command(
         "book.quotes", "Check quotations in annotations", "book"
     ),
+    ("book", "trail"): Command(
+        "book.trail", "Point spec sections at the sessions that shaped them", "book"
+    ),
     ("book", "redpen"): Command(
         "book.redpen", "Create and read review documents", "book"
     ),

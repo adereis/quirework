@@ -562,9 +562,21 @@ def _print_spec_toc(docs: Path | None = None) -> None:
         f"spec — {_rel(_spec_path(docs))} "
         f"({len(sections)} section(s); read it before the marks):"
     )
+    # Where a trail is kept, each section says how many breadcrumbs lead back
+    # to the conversations that shaped it. Counting reads only the sidecar, so
+    # the primer stays as cheap as it was; following them is `book trail`.
+    from quirework.book import trail
+
+    held = trail.counts()
     for slug, title, _ in sections:
         anchor = f"#{slug}" if slug else "(no anchor)"
-        print(f"  {anchor:<26} {title}")
+        mark = f"  [trail ×{held[slug]}]" if held.get(slug) else ""
+        print(f"  {anchor:<26} {title}{mark}")
+    if trail.configured():
+        print(
+            f"  {len(held)} of {len(sections)} section(s) have a trail of the "
+            f"sessions that shaped them: quirework book trail SLUG"
+        )
 
 
 def _render_by_kind(annos: list[Annotation]) -> None:
@@ -914,7 +926,7 @@ def companion_check(
 
 def check(docs: Path | None = None) -> int:
     """Lint the split-metadata layout; replaces physical co-location as the
-    drift guard. Ten hard invariants (any failure → exit 1):
+    drift guard. Eleven hard invariants (any failure → exit 1):
 
       1. no canon `.qmd` carries an @-mark (marks live in sidecars);
       2. every `_marks/<stem>.md` has a sibling `<stem>.qmd` (no orphan sidecar);
@@ -942,6 +954,9 @@ def check(docs: Path | None = None) -> int:
          The dual of invariant 2: every listed file exists, and every chapter
          on disk is listed, so nothing renders nowhere and nothing is named
          that is not there.
+     11. where `book.spec_trail` is set, the trail sidecar parses and each of
+         its headings names a spec section. It points into the sessions that
+         shaped the spec, and `book trail --check` follows those pointers.
 
     Plus six advisories, printed but never fatal.
 
@@ -1038,6 +1053,15 @@ def check(docs: Path | None = None) -> int:
         else:
             spec_seen[slug] = title
     spec = set(spec_seen)
+
+    # 11. the trail sidecar, where the project keeps one, mirrors the spec. A
+    # renamed or retired section breaks its trail in the same edit that breaks
+    # its bindings, so the two are reported together. Following a breadcrumb
+    # into its session is `book trail --check`'s job: that reads the corpus.
+    if current_project().get("book.spec_trail") is not None:
+        from quirework.book import trail
+
+        problems.extend(trail.structure_problems(spec))
 
     # 5. every @bind slug resolves to a spec section. Duplicates across
     # chapters are the point: any number of chapters may express one section.
