@@ -612,3 +612,24 @@ def test_utc_shows_a_logged_offset_in_utc(tmp_path):
     out = _render(p)
     assert _heads(out) == ["## Human 1 · 2031-04-02 10:00:05"]
     assert " UTC · " in out.splitlines()[1]
+
+
+def test_each_author_turn_comes_with_the_reply_it_answered(tmp_path):
+    p = _session(tmp_path, ONE_MORNING)
+    rows = show.exchanges("cc", p)
+    assert [(n, text, reply) for n, _, text, reply in rows] == [
+        (1, "The kettle scene drags.", ""),
+        (2, "Done. Now the lighthouse.", "Cut the second whistle."),
+    ]
+    assert show.author_turns("cc", p) == [(n, t, x) for n, t, x, _ in rows]
+
+
+def test_a_gemini_turn_answers_the_review_section_before_it(tmp_path):
+    p = tmp_path / "gemini-fictitious-review.md"
+    p.write_text(GEMINI_REVIEW, encoding="utf-8")
+    rows = show.exchanges("gemini", p)
+    assert [n for n, *_ in rows] == [1, 2, 3], (
+        "the empty turn is counted, as search does"
+    )
+    assert rows[2][3].startswith("Nothing to answer.")
+    assert rows[1][3].startswith("## Pacing")

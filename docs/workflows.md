@@ -49,12 +49,15 @@ ways, and they are separate tasks. While the spec is being edited, the
 companion that heard the author adds a breadcrumb for each turn that
 changed a section, because it is the one reader that knows which words
 did it. Backfill is the other task: walking a spec that grew before it
-had a trail, section by section, through `book trail suggest SLUG` and
-provenance search, and deciding which turns shaped it. That decision
-needs the judgment of a strong model, so a book gives backfill a
-procedure of its own. Capturing and curating sessions is different work,
-mechanical enough for a small model, and a book's ingest procedure may
-name backfill as a follow-up without ever running it.
+had a trail and deciding which turns shaped each section. For a small
+corpus that is `book trail suggest SLUG` and provenance search, section
+by section. For a large one, `book trail backfill` has cheap readers
+flag every session once and leaves the decision, section by section, to
+a strong model. That decision needs the judgment of a strong model, so a
+book gives backfill a procedure of its own. Capturing and curating
+sessions is different work, mechanical enough for a small model, and a
+book's ingest procedure may name backfill as a follow-up without ever
+running it.
 
 ## Procedures and skills
 

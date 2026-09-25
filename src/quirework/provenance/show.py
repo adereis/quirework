@@ -278,21 +278,40 @@ def author_turns(kind, path):
     pre-rendered gemini review never does, and its ``## You`` sections are the
     turns, each counted even when empty.
     """
+    return [(n, logged, text) for n, logged, text, _ in exchanges(kind, path)]
+
+
+def exchanges(kind, path):
+    """``(number, logged, text, reply)``: each author turn and what it answered.
+
+    ``reply`` is the model's text between the author's previous turn and this
+    one, the reply the turn was answering, or empty where there was none. It
+    is the context a bare "yes, go" needs before it means anything. The turns
+    are exactly ``author_turns``'s, which is built from this.
+    """
     if kind == "gemini":
         lines = Path(path).read_text(encoding="utf-8", errors="replace").splitlines()
         starts = [i for i, line in enumerate(lines) if _GEMINI_SPEAKER.match(line)]
         ends = dict(zip(starts, starts[1:] + [len(lines)]))
-        yours = [i for i in starts if _GEMINI_SPEAKER.match(lines[i]).group(1) == "You"]
-        return [
-            (n, None, "\n".join(lines[i + 1 : ends[i]]).strip())
-            for n, i in enumerate(yours, 1)
-        ]
-    turns, number = [], 0
+        out, number, reply = [], 0, []
+        for i in starts:
+            body = "\n".join(lines[i + 1 : ends[i]]).strip()
+            if _GEMINI_SPEAKER.match(lines[i]).group(1) == "You":
+                number += 1
+                out.append((number, None, body, "\n\n".join(reply)))
+                reply = []
+            elif body:
+                reply.append(body)
+        return out
+    out, number, reply = [], 0, []
     for role, text, ts in _READERS[kind](path):
         if role == "human":
             number += 1
-            turns.append((number, _parse_ts(ts), text))
-    return turns
+            out.append((number, _parse_ts(ts), text, "\n\n".join(reply)))
+            reply = []
+        elif role == "assistant":
+            reply.append(text)
+    return out
 
 
 # --------------------------------------------------------------------------- #

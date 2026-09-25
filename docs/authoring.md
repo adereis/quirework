@@ -253,6 +253,45 @@ curation removed. It only warns about a session not captured yet, which
 is what pointing at a live conversation costs until that session is
 captured.
 
+### Backfilling a trail
+
+A spec that grew before it had a trail needs its history read, and a
+corpus of hundreds of sessions is too much for a strong model to read
+whole. `book trail backfill` splits the work by what it costs. A cheap
+model reads each session once and flags every turn of yours that might
+have shaped any section. A strong model then takes one section at a
+time, reads everything flagged for it oldest first, and decides.
+Reading a session costs the same whether it is read for one section or
+for all of them, which is why each session is read once, against the
+whole list.
+
+```toml
+[book]
+spec_trail = "private/spec-trail.md"
+spec_trail_leads = "private/spec-trail-leads"
+```
+
+`backfill plan` writes each session as a packet: your turns, numbered
+and stamped as `provenance show` gives them, each with the end of the
+reply it answered, so a bare "yes" can be read as the acceptance it
+was. It then writes a run plan that hands the packets to readers with
+no tools, one seat per batch, so no reader's context grows from one
+batch to the next. The run engine runs it, and resumes it after a quota
+stop. `backfill import RECORD` checks each flag against the corpus and
+keeps it in the ledger: a turn that is not yours, or a slug the spec
+does not have, is dropped and reported. A session whose reader did not
+say it finished is left for the next plan to hand out again.
+
+`backfill SLUG` lists a section's candidates oldest first: what each
+reader flagged, and the turns before the commits that changed the
+section. A candidate the strong model keeps becomes a breadcrumb through
+`trail add`; one it drops is recorded with
+`backfill reject SLUG --session ID --turn N --reason "…"`, so no later
+pass pays to read it again. Only that step drops a candidate. A flag is
+a lead, never a breadcrumb, and the ledger is as private as the trail:
+its reasons paraphrase your turns. `backfill status` says how many
+sessions are read and which sections have candidates left.
+
 ## 3. Marks
 
 Marks are HTML comments, and they live in a sidecar beside the prose

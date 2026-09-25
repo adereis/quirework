@@ -296,6 +296,19 @@ class Project:
                     raise ConfigurationError(
                         f"book.spec_trail names a directory, not a file: {trail}"
                     )
+            if self.get("book.spec_trail_leads") is not None:
+                # The backfill ledger holds leads for the trail's sections, so it
+                # means nothing without a trail. Its directory is made on first use.
+                if self.get("book.spec_trail") is None:
+                    raise ConfigurationError(
+                        "book.spec_trail_leads keeps leads for a spec trail; "
+                        "configure book.spec_trail too, or remove it"
+                    )
+                leads = self.path("book.spec_trail_leads")
+                if leads.exists() and not leads.is_dir():
+                    raise ConfigurationError(
+                        f"book.spec_trail_leads names a file, not a directory: {leads}"
+                    )
             if (
                 self.get("book.figures") is not None
                 and not self.path("book.figures").is_dir()

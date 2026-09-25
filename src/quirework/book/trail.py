@@ -1238,27 +1238,34 @@ def _quotes(body):
     return [b.strip().strip('"“”').strip() for b in blocks if b.strip()]
 
 
-def suggest(slug, *, utc=False):
-    """Candidate turns for a section's backfill, each with why it was suggested.
+@dataclass(frozen=True)
+class CommitLead:
+    """One commit that changed a section, and the author's turns it leads to.
 
-    The commits that changed the section lead to the sessions that made them,
-    found by the commit's subject in the session's own commit command or by
-    its session trailer, and to any author words the commit quoted. These are
-    leads for an agent to read, never breadcrumbs: nothing is written.
+    ``sessions`` holds ``(sid, family, turns)`` for each session that made the
+    commit, with the author's last three turns before it; ``how`` says how
+    that session was recognized. ``quotes`` holds ``(quote, turns)`` for each
+    passage the commit quoted, with the turns found holding it.
     """
-    titles = _spec_titles()
-    _known_slug(slug, titles)
-    corpus = Corpus()
+
+    sha: str
+    when: datetime
+    subject: str
+    how: str | None
+    sessions: tuple
+    quotes: tuple
+
+
+def suggest_leads(slug, corpus=None):
+    """``(leads, reason)``: the commits that changed a section, as data.
+
+    The commits lead to the sessions that made them, found by the commit's
+    subject in the session's own commit command or by its session trailer,
+    and to any author words the commit quoted. ``reason`` says why there is no
+    history to follow, when there is none. Nothing is written.
+    """
+    corpus = corpus or Corpus()
     commits, reason = _commits(slug)
-    on_trail = [c for s, c in load().crumbs() if s.slug == slug]
-    lines = [f"#{slug} — {titles[slug]}"]
-    if reason:
-        lines.append(f"no commit history to follow: {reason}.")
-    else:
-        lines.append(
-            f"{len(commits)} commit(s) changed this section, oldest first. These "
-            f"are leads, not breadcrumbs: read each turn before adding it."
-        )
     # Everything this section's history will look for, found in one pass: a
     # commit's subject as its own commit command wrote it into the log, its
     # session trailer, and a probe word for each passage it quoted.
@@ -1285,25 +1292,21 @@ def suggest(slug, *, utc=False):
         for variant in (quote, " ".join(quote.split()[:8]))
     ]
     probes = corpus.holding({_probe(q) for q in quotes} - {None})
-    zone = timezone.utc if utc else None
+    leads = []
     for sha, when, subject, body in commits:
         ask = asks[sha]
-        lines += ["", f"{when.astimezone(zone):%Y-%m-%d}  {sha[:8]}  {subject}"]
         made = set().union(*(made_by[n] for n in ask["subject"]))
         how = "by the commit's subject"
         if not made and ask["links"]:
             made = set().union(*(made_by[n] for n in ask["links"]))
             how = "by its session trailer"
+        sessions = []
         for sid in sorted(made):
             family, path = tools[sid]
             turns = corpus.turns(sid, family, path)
             before = [t for t in turns if t.logged is not None and t.logged <= when]
-            before = before[-3:]
-            lines.append(f"  made in {_HARNESS_OF[family]} {sid[:8]} ({how})")
-            for t in before:
-                lines.append("    " + _lead(t, on_trail, zone))
-        if not made:
-            lines.append("  made in: no captured session names this commit")
+            sessions.append((sid, family, tuple(before[-3:])))
+        found = []
         for quote in ask["quotes"]:
             hits = []
             for variant in (quote, " ".join(quote.split()[:8])):
@@ -1312,10 +1315,50 @@ def suggest(slug, *, utc=False):
                 hits = corpus.find(variant, within=within, live=False)
                 if hits:
                     break
+            found.append((quote, tuple(hits[:5])))
+        leads.append(
+            CommitLead(
+                sha, when, subject, how if made else None, tuple(sessions), tuple(found)
+            )
+        )
+    return leads, reason
+
+
+def suggest(slug, *, utc=False):
+    """Candidate turns for a section's backfill, each with why it was suggested.
+
+    ``suggest_leads`` as the lines an agent reads. These are leads for an
+    agent to read, never breadcrumbs: nothing is written.
+    """
+    titles = _spec_titles()
+    _known_slug(slug, titles)
+    leads, reason = suggest_leads(slug)
+    on_trail = [c for s, c in load().crumbs() if s.slug == slug]
+    lines = [f"#{slug} — {titles[slug]}"]
+    if reason:
+        lines.append(f"no commit history to follow: {reason}.")
+    else:
+        lines.append(
+            f"{len(leads)} commit(s) changed this section, oldest first. These "
+            f"are leads, not breadcrumbs: read each turn before adding it."
+        )
+    zone = timezone.utc if utc else None
+    for lead in leads:
+        lines += [
+            "",
+            f"{lead.when.astimezone(zone):%Y-%m-%d}  {lead.sha[:8]}  {lead.subject}",
+        ]
+        for sid, family, before in lead.sessions:
+            lines.append(f"  made in {_HARNESS_OF[family]} {sid[:8]} ({lead.how})")
+            for t in before:
+                lines.append("    " + _lead(t, on_trail, zone))
+        if not lead.sessions:
+            lines.append("  made in: no captured session names this commit")
+        for quote, hits in lead.quotes:
             label = _opening(quote, 60)
             if not hits:
                 lines.append(f"  quoted “{label}”: not found in the author's turns")
-            for t in hits[:5]:
+            for t in hits:
                 lines.append(f"  quoted “{label}”")
                 lines.append("    " + _lead(t, on_trail, zone))
     lines.append("")
@@ -1365,6 +1408,8 @@ writing:
 backfill:
   quirework book trail suggest SLUG         leads from the commits that
                                             changed the section
+  quirework book trail backfill             cheap readers flag, a strong
+                                            reader rules: see its help
 
 kinds, what the turn did to the section:
 """ + "\n".join(f"  {k:<8}  {v}" for k, v in KINDS.items())
@@ -1433,6 +1478,10 @@ def main(argv=None):
     argv = list(sys.argv[1:] if argv is None else argv)
     if argv and argv[0] == "add":
         return _add_main(argv[1:])
+    if argv and argv[0] == "backfill":
+        from quirework.book import backfill
+
+        return backfill.main(argv[1:])
     ap = argparse.ArgumentParser(
         prog="quirework book trail",
         description="Read, check and keep the spec's trail sidecar: pointers "

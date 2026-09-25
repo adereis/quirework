@@ -50,6 +50,13 @@ trail off: no command reads or writes one, and the primer shows no
 counts. The [authoring guide](authoring.md#the-specs-trail) says what a
 breadcrumb holds and when one is added.
 
+`book.spec_trail_leads` names the directory of the backfill ledger:
+what cheap readers flagged in each session, and what the ruling reader
+rejected. It requires `book.spec_trail`, and is created on first use.
+Keep it with the private material, since its reasons paraphrase the
+corpus. The packets a backfill plan writes hold corpus text, so they go
+outside the checkout or under `build/`, like run records.
+
 `project.scratchpad` and `project.private` document the two non-publishing
 spaces. `book.noncanonical_roots` tells checks which working paths have no
 authority. `book.companion_dirs` names reader-facing documents outside the

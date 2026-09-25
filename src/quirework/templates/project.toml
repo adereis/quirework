@@ -29,6 +29,8 @@ build = "build"
 # With a spec, point each section at the conversations that shaped it.
 # The sidecar points into the private corpus, so it stays private too.
 # spec_trail = "private/spec-trail.md"
+# Backfilling that trail from an existing corpus keeps a ledger of leads.
+# spec_trail_leads = "private/spec-trail-leads"
 # Optional book-wide annotations used by the red-pen review copy.
 # review_notes = "manuscript/sections/_review-notes.md"
 # Reader-facing documents that cite the spec or quote the canon.

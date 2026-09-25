@@ -160,6 +160,11 @@ def _classify_turn(text):
     return "TYPED", w, authored
 
 
+def classify(text):
+    """The class of one of the human's turns, as ``_classify_turn`` names it."""
+    return _classify_turn(text)[0]
+
+
 def _clean(text):
     """Strip harness wrappers; return prose, or '' if nothing authored survives."""
     cleaned = FLT.strip_wrappers(text or "")
