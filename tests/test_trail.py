@@ -404,6 +404,20 @@ def test_the_primer_counts_each_sections_breadcrumbs(book, capsys):
     assert "1 of 2 section(s) have a trail" in out
 
 
+def test_a_binding_says_when_its_section_has_a_trail(book, capsys):
+    """Following a binding is how a reader reaches a commitment."""
+    notes.main(["bind"])
+    assert "(kettle-signal)" in capsys.readouterr().out
+    notes.main(["bind"])
+    assert "[trail" not in capsys.readouterr().out, "no breadcrumbs, no marker"
+
+    trail.add("kettle-signal", "seed", session=SESSION, turn=1)
+    notes.main(["bind"])
+    assert "(kettle-signal)  [trail ×1]" in capsys.readouterr().out
+    notes.main(["bind", "--by", "chapter"])
+    assert "@bind(kettle-signal)  [trail ×1]" in capsys.readouterr().out
+
+
 def test_a_chapter_reads_the_trails_of_the_sections_it_binds(book):
     trail.add(
         "kettle-signal", "seed", session=SESSION, turn=1, note="The opening image."

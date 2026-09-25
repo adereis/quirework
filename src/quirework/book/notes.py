@@ -579,7 +579,24 @@ def _print_spec_toc(docs: Path | None = None) -> None:
         )
 
 
+def _trail_marker(a: Annotation, held: dict[str, int]) -> str:
+    """``  [trail ×N]`` after a binding whose section has breadcrumbs.
+
+    A binding is how a reader gets from prose to a commitment, so it is where
+    they should learn that the commitment's history can be read. A section
+    with no breadcrumbs carries no marker: the hint appears where there is
+    something to follow, and a trail still being filled never teaches a
+    reader to skip it.
+    """
+    if a.kind == "bind" and a.args and held.get(a.args[0]):
+        return f"  [trail ×{held[a.args[0]]}]"
+    return ""
+
+
 def _render_by_kind(annos: list[Annotation]) -> None:
+    from quirework.book import trail
+
+    held = trail.counts()
     by_kind: dict[str, list[Annotation]] = {}
     for a in annos:
         by_kind.setdefault(a.kind, []).append(a)
@@ -592,12 +609,15 @@ def _render_by_kind(annos: list[Annotation]) -> None:
             sec = f"  [{a.section}]" if a.section else ""
             # source, not file: the mark lives in the sidecar, and the sidecar's
             # name carries the chapter stem, so nothing is lost by naming it.
-            payload = f"{argstr}{a.body}".rstrip()
+            payload = f"{argstr}{a.body}".rstrip() + _trail_marker(a, held)
             print(f"  {a.source or a.file}:{a.line}{sec}\n    {payload}")
     print(f"\ntotal: {len(annos)} mark(s) across {len(by_kind)} kind(s)")
 
 
 def _render_by_chapter(annos: list[Annotation]) -> None:
+    from quirework.book import trail
+
+    held = trail.counts()
     by_file: dict[str, list[Annotation]] = {}
     for a in annos:
         by_file.setdefault(a.file, []).append(a)
@@ -616,6 +636,7 @@ def _render_by_chapter(annos: list[Annotation]) -> None:
         for a in items:
             argstr = f"({', '.join(a.args)})" if a.args else ""
             suffix = f"  {a.body}" if a.body else ""
+            suffix += _trail_marker(a, held)
             print(f"  L{a.line:<4} @{a.kind}{argstr}{suffix}")
     print(f"\ntotal: {len(annos)} mark(s) across {len(by_file)} chapter(s)")
 

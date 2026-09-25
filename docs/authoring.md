@@ -213,7 +213,10 @@ the book holds now, and a request made now outranks anything on the
 trail. Leave `spec_trail` unset and the feature is off.
 
 Reading is one command per depth. `book notes --primer` counts each
-section's breadcrumbs. `book trail --chapter opening` lists, one line
+section's breadcrumbs, and every listing of bindings marks a binding
+whose section has any, as `[trail ×2]`, so an agent following one from
+the prose learns there is a history to read. A section with none
+carries no marker. `book trail --chapter opening` lists, one line
 each, the trails of the sections a chapter binds.
 `book trail cooling-asymmetry` reads one section's trail oldest first,
 and prints the `provenance show … --turn N` that opens each turn with
