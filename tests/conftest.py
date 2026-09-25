@@ -73,6 +73,11 @@ def pytest_configure(config):
     # at the start of a session.
     state = Path(config.option.basetemp).parent / "quirework-state"
     os.environ["XDG_STATE_HOME"] = str(state)
+    # The cache tree has the same hole: a project's cache root sits under it,
+    # and a command that takes a lock or caches a digest there wrote into the
+    # contributor's real ~/.cache, keyed by a test directory that was already
+    # gone. The trail's write lock left forty of them before this line.
+    os.environ["XDG_CACHE_HOME"] = str(state.parent / "quirework-cache")
     # Relocating the store is not the same as not recording, and a test run is
     # not use of a command: a suite that dispatches `sop show` forty times to
     # check its exit status should leave no usage records anywhere. The tests
