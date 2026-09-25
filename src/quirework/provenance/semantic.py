@@ -26,13 +26,15 @@ third party's non-deterministic retriever. The index is a file in ``private/``
 that can be deleted and rebuilt.
 
 **It is a cache, so it maintains itself.** The index records the corpus
-fingerprint, a per-file size map, and the model that built it; a mismatch
-rebuilds rather than silently answering from stale or model-incompatible
-vectors. The rebuild is *incremental* -- embedding is the whole cost, and the
-corpus grows one session at a time, so a session whose file has not moved keeps
-its vectors and is never re-embedded. A model change is the exception that
-rebuilds everything, because vectors from two models are not comparable and
-mixing them would corrupt the ranking silently.
+fingerprint, a per-file size map, the model that built it and the version of
+the extraction that cut its windows; a mismatch rebuilds rather than silently
+answering from stale or model-incompatible vectors. The rebuild is
+*incremental* -- embedding is the whole cost, and the corpus grows one session
+at a time, so a session whose file has not moved keeps its vectors and is never
+re-embedded. A model change is the exception that rebuilds everything, because
+vectors from two models are not comparable and mixing them would corrupt the
+ranking silently. An extraction change rebuilds everything too: the files have
+not moved, so nothing else would notice that the turns they yield have.
 
 Three backends, in preference order; the first one installed wins, and
 ``QUIREWORK_EMBED`` (``fastembed``/``sentence-transformers``/``ollama``) forces
@@ -401,6 +403,7 @@ def build(backend=None, turns=None, verbose=True, previous=None):
         vecs=vecs,
         meta=np.array(json.dumps(meta)),
         model=np.array(be.id),
+        extraction=np.array(HI.EXTRACTION_VERSION),
         fingerprint=np.array(corpus_fingerprint()),
         sizes=np.array(json.dumps(sizes)),
     )
@@ -418,12 +421,26 @@ def load(backend=None, rebuild=False, verbose=True):
     Three paths, cheapest first: fingerprint matches, serve from disk with no
     corpus scan at all; corpus moved, scan and re-embed only the sessions that
     changed; model changed, rebuild from scratch because vectors from two models
-    are not comparable and mixing them would silently corrupt the ranking.
+    are not comparable and mixing them would silently corrupt the ranking. An
+    index cut by another version of the turn extraction is rebuilt from scratch
+    as well, since its files have not moved and the fingerprint cannot see it.
     """
+    from quirework.provenance import humaninput as HI
+
     be = backend or get_backend()
     if not rebuild and _settings().INDEX.exists():
         z = np.load(_settings().INDEX, allow_pickle=False)
         model = str(z["model"])
+        # An index older than the field was cut by the first extraction.
+        extraction = int(z["extraction"]) if "extraction" in z else 1
+        if extraction != HI.EXTRACTION_VERSION:
+            if verbose:
+                print(
+                    f"index was cut by turn extraction {extraction}, now "
+                    f"{HI.EXTRACTION_VERSION} — rebuilding…",
+                    file=sys.stderr,
+                )
+            return build(backend=be, verbose=verbose)
         if model == be.id:
             prev = {
                 "vecs": z["vecs"],

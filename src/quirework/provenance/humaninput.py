@@ -18,9 +18,11 @@ It reuses the same parsing/cleaning substrate as the rest of the toolchain:
   - cross-model Gemini reviews: conversations/gemini-*.md  (turn ordinals only)
 
 Two design points worth noting:
-  * harness noise (system-reminders, slash-command plumbing, shell I/O) is
-    stripped with ccfilter.strip_wrappers -- the SAME stripper the cold-read
-    uses -- so what survives is conversational prose, not bookkeeping;
+  * harness noise (system-reminders, slash-command plumbing, shell I/O, a
+    finished subagent's report) is stripped with ccfilter.strip_wrappers, and
+    the records the harness flags as its own are skipped with
+    ccfilter.harness_flagged -- the SAME rules the cold-read uses -- so what
+    survives is conversational prose, not bookkeeping;
   * each surviving turn is classified by its *authored residual* (the words the
     human composed, excluding quoted/fenced material) into TYPED / REVIEW /
     AMBIGUOUS / RELAY / STRUCTURED / TRIVIAL. This is purpose-built and the
@@ -61,6 +63,12 @@ from quirework.provenance.metrics import words
 from quirework.provenance.metrics import parse_ts
 from quirework.provenance.metrics import _features
 from quirework.provenance.metrics import HARNESS
+
+# Bump when what counts as one of the human's turns changes, so that a cache
+# built from these turns knows its windows are not the ones it would cut now.
+# 2: a background subagent's report and a compacted session's summary are no
+#    longer the human's turns.
+EXTRACTION_VERSION = 2
 
 # A turn this short (or a bare slash-command / one-word ack) is procedural, not
 # authored thought: "yes", "go on", "/clear", "perfect, commit it". Marked
@@ -229,7 +237,11 @@ def _cc_turns():
                 o = json.loads(line)
             except json.JSONDecodeError:
                 continue
-            if o.get("type") != "user" or o.get("isMeta") or o.get("isSidechain"):
+            if (
+                o.get("type") != "user"
+                or FLT.harness_flagged(o)
+                or o.get("isSidechain")
+            ):
                 continue
             c = (o.get("message") or {}).get("content")
             if not isinstance(c, str):  # list content = tool_result echoes

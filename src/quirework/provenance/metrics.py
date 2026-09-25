@@ -85,6 +85,7 @@ prose with the caveats kept. Follow the project's reporting procedure.
 import argparse, glob, json, re, subprocess
 
 from quirework.provenance import scope as SCOPE
+from quirework.provenance import ccfilter as FLT
 from quirework.provenance import codexfilter as CODEX_FLT
 from datetime import datetime, timezone
 from pathlib import Path
@@ -277,6 +278,7 @@ HARNESS = (
     "<command-message>",
     "[Request interrupted",
     "<system-reminder>",
+    "<task-notification>",
 )
 
 
@@ -325,7 +327,7 @@ def claude_code(acc, scope=None, making=None):
                 mode = o["permissionMode"]
             if t not in ("user", "assistant"):
                 continue
-            if o.get("isMeta") or o.get("isSidechain"):
+            if FLT.harness_flagged(o) or o.get("isSidechain"):
                 continue
             ts.append(parse_ts(o.get("timestamp")))
             c = (o.get("message") or {}).get("content")
@@ -662,7 +664,11 @@ def human_turns():
                 o = json.loads(line)
             except json.JSONDecodeError:
                 continue  # a torn line; every other corpus reader shrugs too
-            if o.get("type") != "user" or o.get("isMeta") or o.get("isSidechain"):
+            if (
+                o.get("type") != "user"
+                or FLT.harness_flagged(o)
+                or o.get("isSidechain")
+            ):
                 continue
             c = (o.get("message") or {}).get("content")
             if isinstance(c, str) and not c.lstrip().startswith(HARNESS):

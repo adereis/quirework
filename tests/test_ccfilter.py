@@ -108,6 +108,47 @@ def test_sidechain_meta_and_harness_turns_never_reach_the_analyst(tmp_path):
     assert stats["human_turns"] == 1 and stats["assistant_turns"] == 1
 
 
+def test_a_subagent_report_and_a_compaction_summary_are_not_the_human(tmp_path):
+    """v4: both are model-written text the harness logs in the human's slot.
+
+    A background subagent's findings arrive as a task notification, and a
+    compacted session resumes from a summary. Rendered as `### Human`, either
+    would credit the author with a model's analysis.
+    """
+    body, stats = ccfilter.filter_session(
+        _session(
+            tmp_path,
+            [
+                {"type": "user", "message": {"content": "Check the keeper's name."}},
+                {
+                    "type": "user",
+                    "origin": {"kind": "task-notification"},
+                    "message": {
+                        "content": "<task-notification>\n<status>completed</status>\n"
+                        "<result>The keeper is named twice in chapter 3.</result>\n"
+                        "</task-notification>"
+                    },
+                },
+                {
+                    "type": "user",
+                    "isCompactSummary": True,
+                    "message": {
+                        "content": "This session is being continued from a "
+                        "previous conversation. The keeper was renamed."
+                    },
+                },
+                {
+                    "type": "assistant",
+                    "message": {"content": [{"type": "text", "text": "Fixed."}]},
+                },
+            ],
+        )
+    )
+    assert "Check the keeper's name." in body and "Fixed." in body
+    assert "named twice" not in body and "being continued" not in body
+    assert stats["human_turns"] == 1
+
+
 # --------------------------------------------------------------------------- #
 # v3: human authorship the filter used to delete
 # --------------------------------------------------------------------------- #

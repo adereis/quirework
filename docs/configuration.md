@@ -117,6 +117,13 @@ The catalog retains the existing tracked-source curation convention.
 Search reads human-authored turns; provider metadata is not proof of
 which model authored a historical turn.
 
+A harness logs its own text in the human's slot too, and none of it
+counts as a turn of the author's: slash-command and system-reminder
+wrappers, the report a background subagent sends back, and the summary
+a compacted session resumes from. Search, show, the trail and the effort
+metrics apply the same rule, and `show --raw` labels that text
+`harness`.
+
 A spec trail reads sessions only where provenance is enabled. There,
 `book trail add --find` also reads this project's live Claude Code and
 Codex transcripts, from the same locations capture sweeps, and never

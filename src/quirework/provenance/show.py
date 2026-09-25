@@ -91,7 +91,8 @@ def _human_slot(text, raw):
     """``(role, text)`` for a message logged in the human's slot, or ``None``.
 
     The harness writes into that slot too: slash-command wrappers, system
-    reminders, interrupt notices. A message with the author's prose in it is
+    reminders, interrupt notices, and the report a background subagent sends
+    back when it finishes. A message with the author's prose in it is
     ``human``, with its wrappers stripped. One with none is dropped, or with
     ``raw`` kept as ``harness``, so it never reads as the author's words. With
     ``raw`` every message keeps its text exactly as logged.
@@ -115,10 +116,11 @@ def cc_records(path, *, thinking=False, raw=False):
     Assistant messages collapse their content blocks into one turn: ``text``
     blocks as prose, ``thinking`` blocks (only with ``thinking``) prefixed and
     set off, ``tool_use`` blocks dropped. Human turns are the string-content
-    messages; list content is a tool-result echo and is skipped. ``isMeta``
-    (harness injections) and ``isSidechain`` (subagent side-threads) records
+    messages; list content is a tool-result echo and is skipped. Records the
+    harness flags as its own (a meta injection, or the summary a compacted
+    session resumes from) and ``isSidechain`` (subagent side-threads) records
     are dropped unless ``raw``, which keeps them under the role of whoever
-    wrote them: a meta record is ``harness``, and a side-thread's prompt is
+    wrote them: a flagged record is ``harness``, and a side-thread's prompt is
     ``agent``, the task the parent handed its subagent.
     """
     out = []
@@ -134,14 +136,14 @@ def cc_records(path, *, thinking=False, raw=False):
             typ = o.get("type")
             if typ not in ("user", "assistant"):
                 continue
-            if not raw and (o.get("isMeta") or o.get("isSidechain")):
+            if not raw and (FLT.harness_flagged(o) or o.get("isSidechain")):
                 continue
             ts = o.get("timestamp")
             content = (o.get("message") or {}).get("content")
             if typ == "user":
                 if not isinstance(content, str):  # list content = tool_result echo
                     continue
-                if o.get("isSidechain") or o.get("isMeta"):
+                if o.get("isSidechain") or FLT.harness_flagged(o):
                     # Reached only with raw; neither was typed by the author.
                     role = "agent" if o.get("isSidechain") else "harness"
                     if content.strip():

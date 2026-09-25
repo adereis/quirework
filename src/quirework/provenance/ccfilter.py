@@ -53,7 +53,12 @@ import sys
 #         as the bare string "[AskUserQuestion]": no question, no options, no
 #         answer. The human's decision was invisible; now the AI's framing
 #         shows on the assistant side and the human's pick as a human turn.
-FILTER_VERSION = 3
+# v4: drop two kinds of model-written text the harness logs in the human's
+#     slot. A background subagent's report arrives as a <task-notification>
+#     message, and a compacted session resumes from a summary flagged
+#     isCompactSummary. Both rendered as "### Human", so a blind analyst read
+#     a subagent's findings and a model's summary as the author's own words.
+FILTER_VERSION = 4
 
 # Human-turn *content* the harness wrote, not the human (mirrors
 # metrics.HARNESS; duplicated because this module stays import-free so the
@@ -65,12 +70,14 @@ _HARNESS_PREFIXES = (
     "<command-message>",
     "[Request interrupted",
     "<system-reminder>",
+    "<task-notification>",
 )
 
 # Harness-injected wrappers removed wholesale: they carry CLAUDE.md/memory,
-# slash-command plumbing, and local shell I/O -- never human or AI authored
-# prose.
+# slash-command plumbing, local shell I/O, and the report a background subagent
+# sends back when it finishes -- never the author's prose, whoever wrote it.
 _WRAPPERS = [
+    "task-notification",
     "system-reminder",
     "command-message",
     "command-name",
@@ -150,6 +157,18 @@ def strip_wrappers(text):
     for rx in _WRAP_RE:
         text = rx.sub("", text)
     return text.strip()
+
+
+def harness_flagged(obj):
+    """Whether a Claude Code record is one the harness marks as its own.
+
+    ``isMeta`` marks an injection, and ``isCompactSummary`` the model-written
+    summary a compacted session resumes from. Both are logged in the human's
+    slot, and neither was typed by the author, whatever its text says. Every
+    reader of the human's turns asks this one question, so that a new flag is
+    learned in one place rather than by each reader in turn.
+    """
+    return bool(obj.get("isMeta") or obj.get("isCompactSummary"))
 
 
 def snippet(s, n=110):
@@ -607,7 +626,7 @@ def filter_session(path):
             kind = obj.get("type")
             if kind not in ("user", "assistant"):
                 continue  # mode/attachment/file-history-snapshot/... = bookkeeping
-            if obj.get("isMeta") or obj.get("isSidechain"):
+            if harness_flagged(obj) or obj.get("isSidechain"):
                 # Meta records and subagent side-threads are not the main
                 # dialogue; to a blind analyst they read as extra main-thread
                 # turns (the [Agent → ...] marker already shows the delegation).

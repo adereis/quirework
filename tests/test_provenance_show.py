@@ -183,6 +183,17 @@ def _jsonl(tmp_path, name, records):
     return p
 
 
+NOTIFICATION = (
+    "<task-notification>\n<task-id>f00d</task-id>\n<status>completed</status>\n"
+    '<summary>Agent "Check continuity" finished</summary>\n'
+    "<result>Chapter 3 names the keeper twice.</result>\n</task-notification>"
+)
+
+COMPACT_SUMMARY = (
+    "This session is being continued from a previous conversation that ran "
+    "out of context.\n\nThe author asked to tighten the kettle scene."
+)
+
 CC_WITH_HARNESS = [
     {
         "type": "user",
@@ -210,6 +221,20 @@ CC_WITH_HARNESS = [
         "message": {"content": "Check chapter 3 for continuity."},
     },
     {
+        # A background subagent's report, which the harness hands back in the
+        # human's slot. The words are a model's, however long they run.
+        "type": "user",
+        "origin": {"kind": "task-notification"},
+        "timestamp": "2031-04-02T10:00:03.200Z",
+        "message": {"content": NOTIFICATION},
+    },
+    {
+        "type": "user",
+        "isCompactSummary": True,
+        "timestamp": "2031-04-02T10:00:03.600Z",
+        "message": {"content": COMPACT_SUMMARY},
+    },
+    {
         "type": "assistant",
         "timestamp": "2031-04-02T10:00:04Z",
         "message": {"content": [{"type": "text", "text": "Tightened."}]},
@@ -225,6 +250,8 @@ def test_raw_labels_each_turn_by_who_wrote_it(tmp_path):
         ("harness", "Caveat: output of local commands follows."),
         ("harness", "<command-name>/clear</command-name>"),
         ("agent", "Check chapter 3 for continuity."),
+        ("harness", NOTIFICATION),
+        ("harness", COMPACT_SUMMARY),
         ("assistant", "Tightened."),
     ]
     clean = [(role, text) for role, text, _ in show.cc_records(p)]
@@ -240,6 +267,7 @@ def test_raw_human_turns_hold_only_the_authors_words(tmp_path):
     assert _heads(human) == ["## Human 1 · 2031-04-02 10:00:00"]
     harness = _render(p, raw=True, role="harness")
     assert "Caveat:" in harness and "/clear" in harness
+    assert "names the keeper twice" in harness and "being continued" in harness
     assert "Tighten" not in harness
 
 
@@ -297,6 +325,8 @@ def test_harness_and_agent_text_never_takes_a_turn_number(tmp_path):
         "## Harness context",
         "## Harness context",
         "## Agent prompt (machine-written)",
+        "## Harness context",
+        "## Harness context",
         "## Assistant",
     ]
 
