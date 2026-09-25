@@ -7,6 +7,7 @@ imports one goes through a real prepared record, never a hand-built stand-in.
 """
 
 import json
+from pathlib import Path
 
 import pytest
 
@@ -211,6 +212,30 @@ def test_only_an_agy_seat_expects_the_keyring_flag(book, tmp_path):
     codex = json.loads((tmp_path / "codex" / "plan.json").read_text())["seats"][0]
     assert agy["accept_red_flags"] == ["session-bus"]
     assert "accept_red_flags" not in codex
+
+
+def test_a_plan_without_out_takes_a_new_run_directory_each_time(book):
+    first = backfill.plan(None, harness="codex", model="luna", effort="low")
+    second = backfill.plan(
+        None, harness="codex", model="luna", effort="low", reread=True
+    )
+    one, two = Path(first["plan"]).parent.parent, Path(second["plan"]).parent.parent
+    assert one.parent == two.parent == book.state_root
+    assert two.name == one.name + "-2", "a second pass the same day never collides"
+    assert first["record"] == str(one / "record")
+
+
+def test_a_plan_summary_names_harnesses_and_the_whole_cost(book, tmp_path):
+    done = backfill.plan(
+        tmp_path / "packets", harness="codex", model="luna", effort="low"
+    )
+    assert done["harnesses"] == {"claude-code": 2}
+    assert done["undated"] == []
+    assert done["total_tokens"] > done["tokens"], "the menu goes to every seat"
+    lines = backfill.plan_lines(done)
+    assert lines[0] == "2 session(s) in 1 seat(s): 2 claude-code"
+    record = str(tmp_path / "record")
+    assert f"  quirework sop runs start {record}" in lines
 
 
 def test_a_small_budget_gives_each_session_its_own_seat(book, tmp_path):

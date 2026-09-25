@@ -277,7 +277,12 @@ reply it answered, so a bare "yes" can be read as the acceptance it
 was. It then writes a run plan that hands the packets to readers with
 no tools, one seat per batch, so no reader's context grows from one
 batch to the next. The run engine runs it, and resumes it after a quota
-stop. `backfill import RECORD` checks each flag against the corpus and
+stop. Without `--out`, the plan takes a new directory in the project's
+private state, named for the day and the model, with a suffix for a
+second pass the same day. It prints the sessions by harness, the whole
+cost including each seat's menu, any session without a start time
+(sorted first), and the prepare, start and import commands with their
+real paths. `backfill import RECORD` checks each flag against the corpus and
 keeps it in the ledger: a turn that is not yours, or a slug the spec
 does not have, is dropped and reported with its reason. A session whose
 reader did not say it finished is left for the next plan to hand out

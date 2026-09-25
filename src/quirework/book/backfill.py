@@ -293,6 +293,21 @@ def _kept(corpus):
 # --------------------------------------------------------------------------- #
 # a run plan
 # --------------------------------------------------------------------------- #
+def run_directory(model):
+    """A new run directory in the project's private state, named for today.
+
+    Packets and the run record hold corpus text, so they belong outside the
+    checkout; a second pass on the same day takes the next free suffix.
+    """
+    root = current_project().state_root
+    stem = f"trail-read-{date.today().isoformat()}-{re.sub(r'[^A-Za-z0-9.-]+', '-', model)}"
+    candidate, n = root / stem, 1
+    while candidate.exists():
+        n += 1
+        candidate = root / f"{stem}-{n}"
+    return candidate
+
+
 def plan(
     out,
     *,
@@ -312,13 +327,20 @@ def plan(
 
     Sessions are taken oldest first from the curated corpus, skipping any a
     current read already covers unless ``reread`` or named in ``sessions``.
+    A session with no start time, such as a timeless export, sorts first,
+    and the summary names it. ``out`` of ``None`` plans into a new
+    ``run_directory``, as ``RUN/packets``, beside which the record goes.
     Each seat gets one batch of packets up to ``budget`` estimated tokens,
     with the menu and any book ``materials`` in front, and no tools.
     """
     from quirework.provenance import scope as SCOPE
     from quirework.provenance import show
 
-    out = Path(out).expanduser().resolve()
+    out = (
+        run_directory(model) / "packets"
+        if out is None
+        else Path(out).expanduser().resolve()
+    )
     project = current_project()
     if out.is_relative_to(project.root) and not out.is_relative_to(
         project.path("book.build", "build")
@@ -348,12 +370,14 @@ def plan(
             if (reread or sid not in covered)
             and (scope is None or SCOPE.scope_of_id(sid) == scope)
         ]
-    dated = []
+    dated, undated = [], set()
     for sid in chosen:
         family, path = kept[sid]
         if not show.author_turns(family, path):
             continue
         start = show.session_start(family, path)
+        if start is None:
+            undated.add(sid)
         dated.append((start or datetime.min.replace(tzinfo=timezone.utc), sid))
     dated.sort()
     if limit is not None:
@@ -432,12 +456,51 @@ def plan(
         "seats": seats,
     }
     (out / "plan.json").write_text(json.dumps(document, indent=2) + "\n")
+    # What every seat is handed besides its packets, estimated as packets are.
+    fixed = (
+        len(INSTRUCTIONS)
+        + len((out / "menu.md").read_text(encoding="utf-8"))
+        + sum(Path(m["source"]).stat().st_size for m in extra)
+    ) // 4
+    packets = sum(t for batch in batches for _, _, t in batch)
+    harnesses = {}
+    for _, sid in dated:
+        name = trail._HARNESS_OF[kept[sid][0]]
+        harnesses[name] = harnesses.get(name, 0) + 1
     return {
         "plan": str(out / "plan.json"),
+        "record": str(out.parent / "record") if out.name == "packets" else None,
         "seats": len(seats),
         "sessions": len(dated),
-        "tokens": sum(t for batch in batches for _, _, t in batch),
+        "harnesses": harnesses,
+        "undated": [sid for _, sid in dated if sid in undated],
+        "tokens": packets,
+        "total_tokens": packets + fixed * len(seats),
     }
+
+
+def plan_lines(done):
+    """A plan's summary as printable lines, ending with the commands to run."""
+    lines = [
+        f"{done['sessions']} session(s) in {done['seats']} seat(s): "
+        + ", ".join(f"{n} {h}" for h, n in done["harnesses"].items()),
+        f"about {done['tokens']:,} tokens of packets, "
+        f"{done['total_tokens']:,} with each seat's menu and instructions",
+    ]
+    if done["undated"]:
+        lines.append(
+            f"{len(done['undated'])} session(s) have no start time and are "
+            "planned first: " + ", ".join(sid[:16] for sid in done["undated"])
+        )
+    record = done["record"] or "RECORD"
+    lines += [
+        f"plan: {done['plan']}",
+        "next:",
+        f"  quirework sop runs prepare {done['plan']} {record}",
+        f"  quirework sop runs start {record}",
+        f"  quirework book trail backfill import {record}",
+    ]
+    return lines
 
 
 # --------------------------------------------------------------------------- #
@@ -962,9 +1025,9 @@ USAGE = """\
 backfilling a trail from the corpus, in three steps:
 
   1. hand every session to a cheap reader, once:
-     quirework book trail backfill plan --out DIR --harness H --model M --effort E
-     quirework sop runs prepare DIR/plan.json RECORD && quirework sop runs start RECORD
-     quirework book trail backfill import RECORD   (holds a seat with an unexpected red flag)
+     quirework book trail backfill plan --harness H --model M --effort E [--out DIR]
+     then the prepare, start and import commands it prints; import holds a
+     seat whose receipt carries a red flag its plan did not accept
   2. rule on one section at a time, with a strong reader:
      quirework book trail backfill SLUG          the section's candidates, oldest first
      quirework book trail add SLUG ...           keep one as a breadcrumb
@@ -994,7 +1057,11 @@ def main(argv):
             return 0
         if command == "plan":
             ap = argparse.ArgumentParser(prog="quirework book trail backfill plan")
-            ap.add_argument("--out", required=True, help="a new directory for packets")
+            ap.add_argument(
+                "--out",
+                help="a new directory for packets (default: RUN/packets in a "
+                "new run directory in the project's private state)",
+            )
             ap.add_argument(
                 "--harness", required=True, choices=("claude", "codex", "agy")
             )
@@ -1044,10 +1111,7 @@ def main(argv):
                 reread=a.reread,
                 external=a.external,
             )
-            print(
-                f"{done['sessions']} session(s) in {done['seats']} seat(s), about "
-                f"{done['tokens']:,} tokens of packets: {done['plan']}"
-            )
+            print("\n".join(plan_lines(done)))
             return 0
         if command == "import":
             ap = argparse.ArgumentParser(prog="quirework book trail backfill import")
