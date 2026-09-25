@@ -425,6 +425,11 @@ def resolve(idarg):
 # --------------------------------------------------------------------------- #
 # rendering
 # --------------------------------------------------------------------------- #
+def session_title(kind, path):
+    """A session's title as its transcript header shows it, best-effort."""
+    return _header(kind, Path(path))[1]
+
+
 def _header(kind, path):
     """``(short_id, title, date, model)`` for the transcript header, best-effort."""
     if kind == "cc":

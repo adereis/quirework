@@ -294,8 +294,12 @@ flag reaches you rather than the ledger. An Antigravity plan accepts
 the keyring flag every Antigravity seat carries, because its readers
 have no tools; a record planned before that was possible takes
 `--accept session-bus`. Import then prints each seat's share of flagged
-turns and warns about a seat with many turns and almost no flags, the
-mark of a reader that wrote its done lines without reading. It ends
+turns and warns about a seat with many turns and almost no flags. A
+flag count cannot tell a reader that skipped from one whose sessions
+held nothing, so a reader closes each session with an `about` sentence
+on what it was, written from turns it had to read. A warned seat lists
+each session's title, which the reader never saw, beside that sentence,
+and a mismatch or a missing one is the mark of a skipped packet. It ends
 with the pass as a whole: sessions read, models, flags by confidence,
 and sessions with no flag. A session with no flag is not suspect by
 itself; a turn can matter only beside another session, such as the

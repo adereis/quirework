@@ -110,10 +110,13 @@ Rules:
 
 Answer with JSON lines and nothing else. One line per flagged turn:
 {"session": "<the id after '# Session'>", "turn": <its number>, "sections": [{"slug": "<slug>", "kind": "<kind>", "confidence": "high|medium|low", "reason": "<one short sentence>"}]}
-After a session's last flagged turn, one line saying you finished it:
-{"session": "<id>", "done": true}
+After a session's last flagged turn, one line saying you finished it, with
+one sentence, in your own words, on what the author and the model were doing
+across the whole session:
+{"session": "<id>", "done": true, "about": "<one sentence>"}
 Every session in the packets needs its done line, even one with nothing to
-flag.
+flag. The about sentence is how a later reader knows the session was read, so
+write it from the turns, not from the first one alone.
 """
 
 
@@ -551,6 +554,7 @@ def parse_answer(answer, sessions, corpus):
     ]
     flags = {sid: {} for sid in handed}
     finished = set()
+    about = {}
 
     def which(value):
         hits = [
@@ -567,6 +571,7 @@ def parse_answer(answer, sessions, corpus):
             continue
         if obj.get("done") is True:
             finished.add(sid)
+            about[sid] = " ".join(str(obj.get("about") or "").split())[:300] or None
             continue
         number = obj.get("turn")
         turn = turns[sid].get(number) if type(number) is int else None
@@ -602,6 +607,7 @@ def parse_answer(answer, sessions, corpus):
             "session": sid,
             "harness": trail._HARNESS_OF[handed[sid][0]],
             "turns": len(turns[sid]),
+            "about": about[sid],
             "candidates": [flags[sid][n] for n in sorted(flags[sid])],
         }
         for sid in finished
@@ -622,6 +628,7 @@ def import_run(record, accept=()):
     What an answer held that could not be checked is kept beside the reads,
     in the seat's own record, for audit.
     """
+    from quirework.provenance import show
     from quirework.runs.engine import ACCEPTABLE_FLAGS, Run, flag_code
 
     unknown = set(accept) - set(ACCEPTABLE_FLAGS)
@@ -650,6 +657,7 @@ def import_run(record, accept=()):
             "flagged": 0,
             "empty": [],
             "sections": [],
+            "sessions": [],
         }
         report.append(row)
         done = run.state(name)["done"].get("read")
@@ -671,7 +679,19 @@ def import_run(record, accept=()):
             encoding="utf-8"
         )
         reads, dropped = parse_answer(answer, meta["sessions"], corpus)
+        captured = corpus.captured()
         for sid, read in reads.items():
+            # What the operator checks a quiet seat against: the reader's own
+            # account of each session beside the title the reader never saw.
+            row["sessions"].append(
+                {
+                    "session": sid,
+                    "turns": read["turns"],
+                    "flagged": len(read["candidates"]),
+                    "about": read["about"],
+                    "title": show.session_title(*captured[sid]),
+                }
+            )
             row["turns"] += read["turns"]
             row["flagged"] += len(read["candidates"])
             if not read["candidates"]:
@@ -745,9 +765,15 @@ def import_lines(report):
             and row["flagged"] < DILIGENCE_RATE * row["turns"]
         ):
             lines.append(
-                f"    ! flagged under {DILIGENCE_RATE:.0%} of its turns: open its "
-                "answer and check it read the packets before trusting the pass"
+                f"    ! flagged under {DILIGENCE_RATE:.0%} of its turns: check that "
+                "each account below matches its session before trusting the pass"
             )
+            for s in row["sessions"]:
+                lines += [
+                    f"    {s['session'][:8]} · {s['turns']} turn(s), "
+                    f"{s['flagged']} flagged · {s['title']}",
+                    f"      about: {s['about'] or '(no about line)'}",
+                ]
     rows = [r for r in report if r["answered"] and not r["held"]]
     if not rows:
         return lines
@@ -770,6 +796,9 @@ def import_lines(report):
         f"  {sum(len(r['dropped']) for r in rows)} flag(s) dropped, "
         f"{len(empty)} session(s) with no flag",
     ]
+    bare = sum(1 for r in rows for s in r["sessions"] if not s["about"])
+    if bare:
+        lines.append(f"  {bare} done line(s) without an about sentence")
     return lines
 
 

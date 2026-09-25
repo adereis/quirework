@@ -342,6 +342,15 @@ def test_the_pass_summary_carries_the_numbers_a_ledger_commit_reports():
             "flagged": flagged,
             "empty": list(empty),
             "sections": [("kettle-signal", "high")] * flagged,
+            "sessions": [
+                {
+                    "session": seat + "-a",
+                    "turns": turns,
+                    "flagged": flagged,
+                    "about": None if flagged < 2 else "Tuning the kettle.",
+                    "title": f"{seat} title",
+                }
+            ],
         }
 
     lines = backfill.import_lines(
@@ -354,6 +363,24 @@ def test_the_pass_summary_carries_the_numbers_a_ledger_commit_reports():
     assert "1 session(s) with no flag" in text
     [warned] = [i for i, line in enumerate(lines) if "flagged under" in line]
     assert "read-002" in lines[warned - 2], "only the seat that read almost nothing"
+    assert "read-002 title" in lines[warned + 1], "each session beside its title"
+    assert lines[warned + 2].strip() == "about: (no about line)"
+    assert "read-001 title" not in text, "a seat that flagged is not listed"
+    assert "1 done line(s) without an about sentence" in text
+
+
+def test_a_done_line_keeps_the_readers_account_of_the_session(book, tmp_path):
+    about = {"session": MORNING, "done": True, "about": "  Shaping the kettle  "}
+    _read(tmp_path, [_lines(about, {"session": EVENING, "done": True})])
+    leads = book.path("book.spec_trail_leads") / "reads"
+    [morning] = (leads / MORNING).glob("*.json")
+    [evening] = (leads / EVENING).glob("*.json")
+    assert json.loads(morning.read_text())["about"] == "Shaping the kettle"
+    assert json.loads(evening.read_text())["about"] is None, "read, but unproven"
+
+
+def test_the_instructions_ask_for_an_account_of_each_session():
+    assert '"done": true, "about": "<one sentence>"' in backfill.INSTRUCTIONS
 
 
 def test_a_new_section_does_not_send_the_corpus_out_again(book, tmp_path):
