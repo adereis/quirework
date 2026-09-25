@@ -220,6 +220,26 @@ def freeze_executor(destination):
     return hashes(destination / "executor")
 
 
+# The red flags a plan may accept in advance, each with the seat policy that
+# makes it harmless. A seat's receipt still records an accepted flag; it
+# only stops counting against the seat's status. Compaction and every other
+# flag are never acceptable: a failed run condition does not become a clean
+# result by being declared.
+ACCEPTABLE_FLAGS = {
+    # agy reaches its login over a filtered session bus, so the keyring is
+    # inside the jail. A seat with no tools cannot ask it for anything.
+    "session-bus": (blind.Bus.FLAG_PREFIX, lambda policy: policy["tools"] == "none"),
+}
+
+
+def flag_code(text):
+    """The code a plan accepts ``text`` under, or ``None`` for any other flag."""
+    for code, (prefix, _) in ACCEPTABLE_FLAGS.items():
+        if text.startswith(prefix):
+            return code
+    return None
+
+
 def prepare(plan_path, destination, *, resolve=True):
     plan_path = Path(plan_path).resolve()
     destination = Path(destination).expanduser().resolve()
@@ -258,6 +278,7 @@ def prepare(plan_path, destination, *, resolve=True):
                 "scope",
                 "exposure",
                 "tier",
+                "accept_red_flags",
             }:
                 raise ValueError("unknown seat field")
             name = identifier(supplied["id"])
@@ -405,6 +426,17 @@ def prepare(plan_path, destination, *, resolve=True):
                 temporary / "inputs" / name / "library",
                 material_cache,
             )
+            accepted = supplied.get("accept_red_flags", [])
+            if not isinstance(accepted, list) or set(accepted) - set(ACCEPTABLE_FLAGS):
+                raise ValueError(
+                    f"accept_red_flags may name only {', '.join(ACCEPTABLE_FLAGS)}"
+                )
+            for code in accepted:
+                if not ACCEPTABLE_FLAGS[code][1](p):
+                    raise ValueError(
+                        f"a seat can accept the {code} flag only under the "
+                        "policy that makes it harmless"
+                    )
             if library and p["tools"] == "none":
                 raise ValueError(
                     "a reference library needs file tools; use turn text for no-tools delivery"
@@ -430,6 +462,7 @@ def prepare(plan_path, destination, *, resolve=True):
                     metadata=supplied.get("metadata", {}),
                     mode=mode,
                     tier=tier,
+                    accept_red_flags=sorted(set(accepted)),
                     parent=parent,
                     runner_version=blind.runner_version(config["harness"])
                     if resolve and mode == "auto"
@@ -478,6 +511,23 @@ class Run:
         if self.plan["schema"] != SCHEMA:
             raise ValueError("unsupported run schema")
         self.seats = {s["id"]: s for s in self.plan["seats"]}
+
+    def red_flags(self, name):
+        """``(open, accepted)``: a seat's red flags, split by what its plan accepts.
+
+        A record prepared before a plan could accept a flag declares none, so
+        every flag it holds stays open.
+        """
+        accepted = set(self.seats[name].get("accept_red_flags", ()))
+        flags = [
+            flag
+            for done in self.state(name)["done"].values()
+            for flag in done["receipt"].get("red_flags", [])
+        ]
+        return (
+            [f for f in flags if flag_code(f) not in accepted],
+            [f for f in flags if flag_code(f) in accepted],
+        )
 
     def verify(self):
         if (
@@ -1172,7 +1222,7 @@ class Run:
             state = self.state(name)
             state["complete"] = True
             self.save(name, state)
-            if any(done["receipt"].get("red_flags") for done in state["done"].values()):
+            if self.red_flags(name)[0]:
                 return "completed-with-red-flags"
             return "completed"
 
@@ -1261,11 +1311,8 @@ class Run:
                     declared_turns=len(s["turns"]),
                     complete=self.state(name).get("complete", False),
                     pending=self.state(name)["pending"],
-                    red_flags=[
-                        flag
-                        for done in self.state(name)["done"].values()
-                        for flag in done["receipt"].get("red_flags", [])
-                    ],
+                    red_flags=self.red_flags(name)[0],
+                    accepted_red_flags=self.red_flags(name)[1],
                 )
                 for name, s in self.seats.items()
             },

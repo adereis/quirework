@@ -632,6 +632,16 @@ service. The receipt marks that as a red flag, because the secrets
 service can read every secret in the keyring. Without `xdg-dbus-proxy`
 an Antigravity seat is refused rather than run with less confinement.
 
+A seat with no tools cannot ask the bus for anything, so its plan may
+accept that one flag in advance with `accept_red_flags: [session-bus]`.
+Preparation refuses the declaration on a seat with any tools, and
+refuses any other code: compaction and the rest are never acceptable.
+The receipt still records the flag. `inspect` lists it under
+`accepted_red_flags` rather than `red_flags`, and it no longer turns
+the seat's status into `completed-with-red-flags` or `start`'s exit
+into a failure. A record prepared before the field existed declares
+nothing, so every flag it holds stays open.
+
 The jail does not cut off the network, because a seat needs it to reach
 its provider. Anything listening on the machine, such as a container
 socket or a local server, is reachable from inside.

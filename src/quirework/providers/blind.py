@@ -321,6 +321,10 @@ class Bus:
     is safe to call whether or not a jail ever started.
     """
 
+    # Every flag this door raises starts with this, so a plan can name the
+    # flag it accepts without matching the service list that follows.
+    FLAG_PREFIX = "Session bus proxied into the jail for "
+
     def __init__(self, names):
         reason = bus_proxy_missing()
         if reason:
@@ -405,7 +409,7 @@ class Bus:
         the jail did not have.
         """
         return (
-            "Session bus proxied into the jail for "
+            Bus.FLAG_PREFIX
             + ", ".join(receipt["names"])
             + ": the operator's login keyring is readable by the seat."
         )

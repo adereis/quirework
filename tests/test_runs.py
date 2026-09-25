@@ -740,6 +740,87 @@ def test_compacted_result_is_banked_and_exported_with_warning(setup, monkeypatch
     ).read_text() == "An exploratory finding.\n"
 
 
+def _banked_with_flags(setup, monkeypatch, flags, **seat):
+    root, path, plan = setup
+    plan["seats"][0]["turns"] = plan["seats"][0]["turns"][:1]
+    plan["seats"][0].update(seat)
+    path.write_text(json.dumps(plan))
+    run = prepared(setup)
+    state = run.state("reader")
+    state["pending"] = dict(turn="first", mode="start", parent_id="sid", exit_code=0)
+    run.save("reader", state)
+    record = run.record("reader", "first")
+    record.mkdir(parents=True)
+    native = record / "source.jsonl"
+    native.write_text("{}\n")
+    monkeypatch.setattr(
+        harness,
+        "receipt",
+        lambda *args: dict(
+            session_id="sid",
+            model="fixture-model",
+            rollout=str(native),
+            answer="A plain finding.",
+            forked_from=None,
+            red_flags=list(flags),
+        ),
+    )
+    monkeypatch.setattr(harness, "history_image_hashes", lambda *args: [])
+    run.collect_turn("reader", 0)
+    return run
+
+
+KEYRING = (
+    "Session bus proxied into the jail for org.freedesktop.secrets: the "
+    "operator's login keyring is readable by the seat."
+)
+
+
+def test_a_declared_flag_is_kept_in_the_receipt_but_does_not_fail_the_seat(
+    setup, monkeypatch
+):
+    run = _banked_with_flags(
+        setup, monkeypatch, [KEYRING], accept_red_flags=["session-bus"]
+    )
+    assert run.run_seat("reader") == "completed"
+    seat = run.inspect()["seats"]["reader"]
+    assert seat["red_flags"] == [] and seat["accepted_red_flags"] == [KEYRING]
+    receipt = run.state("reader")["done"]["first"]["receipt"]
+    assert receipt["red_flags"] == [KEYRING], "the evidence is never rewritten"
+
+
+def test_accepting_one_flag_leaves_every_other_flag_open(setup, monkeypatch):
+    compaction = "Compaction occurred: preserve the result."
+    run = _banked_with_flags(
+        setup, monkeypatch, [KEYRING, compaction], accept_red_flags=["session-bus"]
+    )
+    assert run.run_seat("reader") == "completed-with-red-flags"
+    assert run.inspect()["seats"]["reader"]["red_flags"] == [compaction]
+
+
+def test_a_seat_that_declares_nothing_keeps_every_flag_open(setup, monkeypatch):
+    run = _banked_with_flags(setup, monkeypatch, [KEYRING])
+    assert run.run_seat("reader") == "completed-with-red-flags"
+
+
+@pytest.mark.parametrize(
+    "seat, why",
+    [
+        (dict(accept_red_flags=["compaction"]), "may name only"),
+        (
+            dict(accept_red_flags=["session-bus"], policy=dict(tools="read")),
+            "policy that makes it harmless",
+        ),
+    ],
+)
+def test_a_plan_accepts_only_a_flag_its_policy_makes_harmless(setup, seat, why):
+    root, path, plan = setup
+    plan["seats"][0].update(seat)
+    path.write_text(json.dumps(plan))
+    with pytest.raises(ValueError, match=why):
+        prepared(setup)
+
+
 def test_a_turn_declares_how_many_images_its_material_references(setup):
     """A seat that fetches its own figures is handed none, so `history_images` is
     0 by design and proves nothing. The declared count is what turns the ones it
