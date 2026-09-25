@@ -450,6 +450,11 @@ def test_no_tools_codex_session_uses_documented_prompt_control(tmp_path):
     assert "features.shell_tool=false" in args
     assert "features.apps=false" in args
     assert not any(value.startswith("base_instructions=") for value in args)
+    # Codex 0.156 ignores the old key, which left the image viewer on.
+    assert "features.view_image=false" in args
+    assert not any(value.startswith("tools.view_image") for value in args)
+    for feature in ("image_generation", "browser_use", "computer_use"):
+        assert f"features.{feature}=false" in args
 
 
 def test_bundled_templates_are_commented_and_parseable():

@@ -164,16 +164,24 @@ def command(config, policy, mode, sid, prompt, images, files):
                 + json.dumps(str(VIRTUAL / "system-prompt.md")),
             ]
         if policy["tools"] == "none":
-            args += [
-                "-c",
-                "features.shell_tool=false",
-                "-c",
-                "features.unified_exec=false",
-                "-c",
-                "features.apps=false",
-                "-c",
-                "tools.view_image=false",
-            ]
+            # Every tool feature the validated Codex offers is named off, not
+            # left to its default. 0.156 moved the image viewer from
+            # `tools.view_image` to a feature flag and ignored the old key, so
+            # a seat declared tool-free kept the viewer on; the launch refused
+            # only because Codex warned about the key. An unknown key here
+            # stops the run, which is how the next rename will be caught.
+            for feature in (
+                "shell_tool",
+                "unified_exec",
+                "apps",
+                "view_image",
+                "image_generation",
+                "browser_use",
+                "browser_use_external",
+                "in_app_browser",
+                "computer_use",
+            ):
+                args += ["-c", f"features.{feature}=false"]
         if policy.get("context_window"):
             args += ["-c", f"model_context_window={policy['context_window']}"]
             if not policy["allow_compaction"]:
