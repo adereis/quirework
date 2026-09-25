@@ -279,8 +279,22 @@ no tools, one seat per batch, so no reader's context grows from one
 batch to the next. The run engine runs it, and resumes it after a quota
 stop. `backfill import RECORD` checks each flag against the corpus and
 keeps it in the ledger: a turn that is not yours, or a slug the spec
-does not have, is dropped and reported. A session whose reader did not
-say it finished is left for the next plan to hand out again.
+does not have, is dropped and reported with its reason. A session whose
+reader did not say it finished is left for the next plan to hand out
+again.
+
+Import holds any seat whose receipt carries a red flag its plan did not
+accept, records nothing it read, and exits nonzero, so an unexpected
+flag reaches you rather than the ledger. An Antigravity plan accepts
+the keyring flag every Antigravity seat carries, because its readers
+have no tools; a record planned before that was possible takes
+`--accept session-bus`. Import then prints each seat's share of flagged
+turns and warns about a seat with many turns and almost no flags, the
+mark of a reader that wrote its done lines without reading. It ends
+with the pass as a whole: sessions read, models, flags by confidence,
+and sessions with no flag. A session with no flag is not suspect by
+itself; a turn can matter only beside another session, such as the
+unrelated thread in which a question is asked as a control.
 
 `backfill SLUG` lists a section's candidates oldest first: what each
 reader flagged, and the turns before the commits that changed the

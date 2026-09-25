@@ -54,6 +54,12 @@ TURN_HEAD = 4000
 TURN_TAIL = 1500
 GIST_CHARS = 280
 BATCH_TOKENS = 30000
+# A seat that flags almost nothing over many turns may have written its done
+# lines without reading. Seats in one real pass flagged 12% to 79% of their
+# author turns, by what the sessions were about, so the floor is absolute and
+# low: it catches a seat that skipped, not one that read tooling sessions.
+DILIGENCE_TURNS = 20
+DILIGENCE_RATE = 0.05
 
 CONFIDENCE = ("high", "medium", "low")
 READ_KINDS = (*trail.KINDS, "unsure")
@@ -388,6 +394,10 @@ def plan(
                 "tools": "none",
                 "filesystem": "audited" if harness == "agy" else "enforced",
             },
+            # agy keeps its login in the keyring, which every agy jail can
+            # reach; a seat with no tools cannot use it, so the flag is
+            # expected and only another one stops the import.
+            **({"accept_red_flags": ["session-bus"]} if harness == "agy" else {}),
             "metadata": {
                 "trail_read": {
                     "sessions": [sid for sid, _, _ in batch],
@@ -536,16 +546,24 @@ def parse_answer(answer, sessions, corpus):
     return reads, dropped
 
 
-def import_run(record):
+def import_run(record, accept=()):
     """Bring each finished seat's flags into the ledger; return one row per seat.
 
     The record is verified first, so a changed answer or input is refused. A
-    session whose done line is missing is not recorded as read: it is left for
-    a later plan to hand out again. What an answer held that could not be
-    checked is kept beside the reads, in the seat's own record, for audit.
+    seat with a red flag its plan did not accept is held, and nothing it
+    read is recorded: an unexpected flag is the author's call, not the
+    importer's. ``accept`` names flag codes to accept here instead, for a
+    record prepared before its plan could declare them, and only under the
+    same policy a plan would need. A session whose done line is missing is
+    not recorded as read: it is left for a later plan to hand out again.
+    What an answer held that could not be checked is kept beside the reads,
+    in the seat's own record, for audit.
     """
-    from quirework.runs.engine import Run
+    from quirework.runs.engine import ACCEPTABLE_FLAGS, Run, flag_code
 
+    unknown = set(accept) - set(ACCEPTABLE_FLAGS)
+    if unknown:
+        raise ValueError(f"no such flag code: {', '.join(sorted(unknown))}")
     run = Run(record)
     run.verify()
     corpus = trail.Corpus()
@@ -556,18 +574,50 @@ def import_run(record):
         meta = (seat.get("metadata") or {}).get("trail_read")
         if not meta:
             continue
-        row = {"seat": name, "read": 0, "unread": [], "dropped": 0, "answered": False}
+        row = {
+            "seat": name,
+            "read": 0,
+            "unread": [],
+            "dropped": [],
+            "answered": False,
+            "held": [],
+            "accepted": [],
+            "model": None,
+            "turns": 0,
+            "flagged": 0,
+            "empty": [],
+            "sections": [],
+        }
         report.append(row)
         done = run.state(name)["done"].get("read")
         if not done:
             continue
         row["answered"] = True
+        receipt = done["receipt"]
+        row["model"] = receipt.get("model")
+        open_flags, row["accepted"] = run.red_flags(name)
+        for flag in list(open_flags):
+            code = flag_code(flag)
+            if code in accept and ACCEPTABLE_FLAGS[code][1](seat["policy"]):
+                open_flags.remove(flag)
+                row["accepted"].append(flag)
+        if open_flags:
+            row["held"] = open_flags
+            continue
         answer = (run.record(name, "read") / "answers" / "answer.md").read_text(
             encoding="utf-8"
         )
-        receipt = done["receipt"]
         reads, dropped = parse_answer(answer, meta["sessions"], corpus)
         for sid, read in reads.items():
+            row["turns"] += read["turns"]
+            row["flagged"] += len(read["candidates"])
+            if not read["candidates"]:
+                row["empty"].append((sid, read["turns"]))
+            row["sections"] += [
+                (s["slug"], s["confidence"])
+                for c in read["candidates"]
+                for s in c["sections"]
+            ]
             target = root / "reads" / sid / f"{tag}-{name}.json"
             if target.exists():
                 continue
@@ -585,7 +635,7 @@ def import_run(record):
             _write_private(target, json.dumps(read, indent=2) + "\n")
         row["read"] = len(reads)
         row["unread"] = [sid for sid in meta["sessions"] if sid not in reads]
-        row["dropped"] = len(dropped)
+        row["dropped"] = dropped
         seat_record = {
             "run": run.plan["id"],
             "seat": name,
@@ -599,6 +649,65 @@ def import_run(record):
             json.dumps(seat_record, indent=2) + "\n",
         )
     return report
+
+
+def import_lines(report):
+    """The import's report as printable lines: each seat, then the whole pass.
+
+    The pass lines are the numbers a ledger commit reports, so the operator
+    copies them rather than recomputing them.
+    """
+    lines = []
+    for row in report:
+        name = row["seat"]
+        if not row["answered"]:
+            lines.append(f"  {name}: not answered yet")
+            continue
+        if row["held"]:
+            lines.append(
+                f"  {name}: HELD, nothing recorded; a red flag its plan did not accept:"
+            )
+            lines += [f"    ! {flag}" for flag in row["held"]]
+            continue
+        lines.append(
+            f"  {name}: {row['read']} session(s) read, "
+            f"{row['flagged']} of {row['turns']} author turn(s) flagged"
+        )
+        for sid in row["unread"]:
+            lines.append(f"    {sid[:8]}: no done line, so not recorded as read")
+        for drop in row["dropped"]:
+            lines.append(f"    dropped ({drop['why']}): {drop['line'][:100]}")
+        if (
+            row["turns"] >= DILIGENCE_TURNS
+            and row["flagged"] < DILIGENCE_RATE * row["turns"]
+        ):
+            lines.append(
+                f"    ! flagged under {DILIGENCE_RATE:.0%} of its turns: open its "
+                "answer and check it read the packets before trusting the pass"
+            )
+    rows = [r for r in report if r["answered"] and not r["held"]]
+    if not rows:
+        return lines
+    handed = sum(r["read"] + len(r["unread"]) for r in rows)
+    models = sorted({r["model"] or "unknown" for r in rows})
+    sections = [s for r in rows for s in r["sections"]]
+    confidence = {c: sum(1 for _, x in sections if x == c) for c in CONFIDENCE}
+    empty = [e for r in rows for e in r["empty"]]
+    held = [r for r in report if r["held"]]
+    lines += [
+        "pass:",
+        f"  {sum(r['read'] for r in rows)} of {handed} session(s) read in "
+        f"{len(rows)} seat(s) on {', '.join(models)}",
+        f"  red flags: {sum(len(r['accepted']) for r in rows)} accepted, "
+        f"{len(held)} seat(s) held",
+        f"  {len(sections):,} section flag(s) on {sum(r['flagged'] for r in rows):,} "
+        f"of {sum(r['turns'] for r in rows):,} author turn(s), "
+        f"{len({slug for slug, _ in sections})} section(s) "
+        f"({', '.join(f'{n} {c}' for c, n in confidence.items())})",
+        f"  {sum(len(r['dropped']) for r in rows)} flag(s) dropped, "
+        f"{len(empty)} session(s) with no flag",
+    ]
+    return lines
 
 
 # --------------------------------------------------------------------------- #
@@ -855,7 +964,7 @@ backfilling a trail from the corpus, in three steps:
   1. hand every session to a cheap reader, once:
      quirework book trail backfill plan --out DIR --harness H --model M --effort E
      quirework sop runs prepare DIR/plan.json RECORD && quirework sop runs start RECORD
-     quirework book trail backfill import RECORD
+     quirework book trail backfill import RECORD   (holds a seat with an unexpected red flag)
   2. rule on one section at a time, with a strong reader:
      quirework book trail backfill SLUG          the section's candidates, oldest first
      quirework book trail add SLUG ...           keep one as a breadcrumb
@@ -941,17 +1050,20 @@ def main(argv):
             )
             return 0
         if command == "import":
-            if len(rest) != 1:
-                raise ValueError("import takes one run record")
-            for row in import_run(rest[0]):
-                if not row["answered"]:
-                    print(f"  {row['seat']}: not answered yet")
-                    continue
-                note = f", {row['dropped']} flag(s) dropped" if row["dropped"] else ""
-                print(f"  {row['seat']}: {row['read']} session(s) read{note}")
-                for sid in row["unread"]:
-                    print(f"    {sid[:8]}: no done line, so not recorded as read")
-            return 0
+            ap = argparse.ArgumentParser(prog="quirework book trail backfill import")
+            ap.add_argument("record")
+            ap.add_argument(
+                "--accept",
+                action="append",
+                default=[],
+                metavar="CODE",
+                help="a red flag to accept for a record whose plan predates "
+                "declaring it (session-bus)",
+            )
+            a = ap.parse_args(rest)
+            report = import_run(a.record, accept=a.accept)
+            print("\n".join(import_lines(report)))
+            return 1 if any(row["held"] for row in report) else 0
         if command == "reject":
             ap = argparse.ArgumentParser(prog="quirework book trail backfill reject")
             ap.add_argument("slug")

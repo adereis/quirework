@@ -13,6 +13,7 @@ import pytest
 from quirework.book import backfill, trail
 from quirework.project import ConfigurationError, Project, project_scope
 from quirework.runs import engine
+from quirework.runs.storage import hashes, write
 
 SPEC = """# What the notebook holds
 
@@ -105,8 +106,11 @@ def book(tmp_path, monkeypatch):
         yield project
 
 
-def _read(tmp_path, answers, **options):
-    """Plan external seats, bank ``answers`` through the engine, import them."""
+def _read(tmp_path, answers, *, flags=(), accept=(), **options):
+    """Plan external seats, bank ``answers`` through the engine, import them.
+
+    ``flags`` are red flags the banked receipts carry, as a runner's would.
+    """
     out = tmp_path / "packets"
     backfill.plan(
         out, harness="claude", model="sonnet", effort="medium", external=True, **options
@@ -124,7 +128,17 @@ def _read(tmp_path, answers, **options):
             answer,
             {"session_id": seat, "model": "claude-sonnet-5", "source": "test"},
         )
-    return backfill.import_run(record)
+        if flags:
+            # Banked as the engine banks a runner's flag: the receipt file,
+            # the state's copy of it, and the record's hashes all agree.
+            state = run.state(seat)
+            done = state["done"]["read"]
+            done["receipt"]["red_flags"] = list(flags)
+            write(run.record(seat, "read") / "receipt.json", done["receipt"])
+            if done.get("record_hashes"):
+                done["record_hashes"] = hashes(run.record(seat, "read"))
+            run.save(seat, state)
+    return backfill.import_run(record, accept=accept)
 
 
 def _lines(*objects):
@@ -190,6 +204,15 @@ def test_an_agy_seat_is_audited_because_agy_cannot_enforce(book, tmp_path):
     assert plan["seats"][0]["policy"] == {"tools": "none", "filesystem": "audited"}
 
 
+def test_only_an_agy_seat_expects_the_keyring_flag(book, tmp_path):
+    backfill.plan(tmp_path / "agy", harness="agy", model="flash", effort="high")
+    backfill.plan(tmp_path / "codex", harness="codex", model="luna", effort="low")
+    agy = json.loads((tmp_path / "agy" / "plan.json").read_text())["seats"][0]
+    codex = json.loads((tmp_path / "codex" / "plan.json").read_text())["seats"][0]
+    assert agy["accept_red_flags"] == ["session-bus"]
+    assert "accept_red_flags" not in codex
+
+
 def test_a_small_budget_gives_each_session_its_own_seat(book, tmp_path):
     done = backfill.plan(
         tmp_path / "packets", harness="codex", model="luna", effort="low", budget=1
@@ -240,7 +263,7 @@ ANSWER = _lines(
 
 def test_a_finished_session_is_recorded_as_read_with_its_checked_flags(book, tmp_path):
     report = _read(tmp_path, ["```jsonl\n" + ANSWER + "```\n"])
-    assert report[0]["read"] == 1 and report[0]["dropped"] == 2
+    assert report[0]["read"] == 1 and len(report[0]["dropped"]) == 2
     assert report[0]["unread"] == [EVENING], "no done line, so not read"
     [path] = (book.path("book.spec_trail_leads") / "reads" / MORNING).glob("*.json")
     read = json.loads(path.read_text())
@@ -249,6 +272,63 @@ def test_a_finished_session_is_recorded_as_read_with_its_checked_flags(book, tmp
     assert first["logged"] == "2031-04-02T10:00:05.120000+00:00"
     assert [s["slug"] for s in third["sections"]] == ["cooling-asymmetry"]
     assert path.stat().st_mode & 0o077 == 0, "the ledger is its owner's alone"
+
+
+KEYRING = (
+    "Session bus proxied into the jail for org.freedesktop.secrets: the "
+    "operator's login keyring is readable by the seat."
+)
+
+
+def test_a_seat_with_an_unexpected_red_flag_is_held_and_records_nothing(book, tmp_path):
+    report = _read(tmp_path, [ANSWER], flags=["Compaction occurred: review it."])
+    assert report[0]["held"] == ["Compaction occurred: review it."]
+    assert report[0]["read"] == 0
+    assert not (book.path("book.spec_trail_leads") / "reads").exists() or not list(
+        (book.path("book.spec_trail_leads") / "reads").rglob("*.json")
+    )
+    assert "HELD" in "\n".join(backfill.import_lines(report))
+
+
+def test_an_older_record_imports_past_the_keyring_flag_only_when_told(book, tmp_path):
+    held = _read(tmp_path, [ANSWER], flags=[KEYRING])
+    assert held[0]["held"] == [KEYRING], "its plan could not declare the flag"
+    report = backfill.import_run(tmp_path / "record", accept=["session-bus"])
+    assert report[0]["read"] == 1 and report[0]["accepted"] == [KEYRING]
+
+
+def test_import_refuses_a_flag_code_it_does_not_know(book, tmp_path):
+    with pytest.raises(ValueError, match="no such flag code"):
+        _read(tmp_path, [ANSWER], accept=["compaction"])
+
+
+def test_the_pass_summary_carries_the_numbers_a_ledger_commit_reports():
+    def row(seat, turns, flagged, empty=()):
+        return {
+            "seat": seat,
+            "answered": True,
+            "held": [],
+            "accepted": ["keyring"],
+            "model": "fixture-flash",
+            "read": 2,
+            "unread": [],
+            "dropped": [{"line": "{}", "why": "not a spec section"}],
+            "turns": turns,
+            "flagged": flagged,
+            "empty": list(empty),
+            "sections": [("kettle-signal", "high")] * flagged,
+        }
+
+    lines = backfill.import_lines(
+        [row("read-001", 30, 9), row("read-002", 40, 1, [(EVENING, 12)])]
+    )
+    text = "\n".join(lines)
+    assert "dropped (not a spec section)" in text
+    assert "4 of 4 session(s) read in 2 seat(s) on fixture-flash" in text
+    assert "10 section flag(s) on 10 of 70 author turn(s)" in text
+    assert "1 session(s) with no flag" in text
+    [warned] = [i for i, line in enumerate(lines) if "flagged under" in line]
+    assert "read-002" in lines[warned - 2], "only the seat that read almost nothing"
 
 
 def test_a_new_section_does_not_send_the_corpus_out_again(book, tmp_path):
