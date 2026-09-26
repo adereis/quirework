@@ -16,6 +16,13 @@ Three suppressions keep the signal honest, and all three are mechanical:
 
 Matching runs per paragraph over whitespace-normalized text, not per
 line, because a term can straddle a hard line break.
+
+Retired phrases are the other half, and they gate. A term here is a
+candidate for judgment; a phrase the project has retired is a judgment
+already made, so none of the suppressions above apply to it. A gloss does
+not excuse it, a quotation still puts it in front of the reader, and a
+heading or table is as reader-facing as a paragraph. Every occurrence is
+reported, not the first, and only a settled keep (`allow`) excuses one.
 """
 
 from __future__ import annotations
@@ -103,8 +110,15 @@ def _options():
     EXCLUDE_NAMES = set(
         current_project().data("text.terminology", {}).get("exclude_names", set())
     )
+    RETIRED: dict[str, str] = (
+        current_project().data("text.terminology", {}).get("retired", {})
+    )
     return SimpleNamespace(
-        ALLOW=ALLOW, EXCLUDE_NAMES=EXCLUDE_NAMES, SCOPE_GLOB=SCOPE_GLOB, TERMS=TERMS
+        ALLOW=ALLOW,
+        EXCLUDE_NAMES=EXCLUDE_NAMES,
+        RETIRED=RETIRED,
+        SCOPE_GLOB=SCOPE_GLOB,
+        TERMS=TERMS,
     )
 
 
@@ -119,13 +133,15 @@ class Hit:
         self.hint = hint
 
 
-def _paragraphs(text: str) -> list[tuple[str, list[int]]]:
+def _paragraphs(text: str, *, visible: bool = False) -> list[tuple[str, list[int]]]:
     """Split into paragraphs of whitespace-normalized text.
 
     Returns (normalized_text, line_of_each_char). Blocks that are never
     reader-facing prose (HTML comments, fenced code, tables, headings)
     are dropped whole: a banner comment or a table row is not prose the
-    reader meets as an argument.
+    reader meets as an argument. With `visible`, headings and table rows
+    are kept, each as a paragraph of its own: the reader does not meet
+    them as argument, but does read them.
     """
     out: list[tuple[str, list[int]]] = []
     buf: list[tuple[str, int]] = []
@@ -178,6 +194,9 @@ def _paragraphs(text: str) -> list[tuple[str, list[int]]]:
         # Tables and headings are not argued prose.
         if stripped.startswith(("|", "#")):
             flush()
+            if visible:
+                buf.append((stripped, no))
+                flush()
             continue
 
         buf.append((stripped, no))
@@ -276,6 +295,34 @@ def scan_text(text: str, path: str) -> list[Hit]:
     return sorted(hits, key=lambda h: h.line)
 
 
+def _phrase(phrase: str) -> re.Pattern:
+    """A retired phrase as written, in any case, across any line break."""
+    body = r"\s+".join(re.escape(w) for w in phrase.split())
+    return re.compile(r"(?<!\w)" + body + r"(?!\w)", re.I)
+
+
+def scan_retired(text: str, path: str) -> list[Hit]:
+    """Every occurrence of a retired phrase that no settled keep excuses."""
+    allowed = [frag for p, frag, _ in _options().ALLOW if path.endswith(p)]
+    hits: list[Hit] = []
+    for para, lines in _paragraphs(text, visible=True):
+        # A code span cites a name; it is not the phrase being used.
+        code = [m.span() for m in re.finditer(r"`[^`]*`", para)]
+        for phrase, instead in _options().RETIRED.items():
+            for m in _phrase(phrase).finditer(para):
+                if _in_span(m.start(), code) or any(
+                    frag in para[max(0, m.start() - 250) : m.end() + 250]
+                    for frag in allowed
+                ):
+                    continue
+                lo = max(0, m.start() - 55)
+                hi = min(len(para), m.end() + 55)
+                hits.append(
+                    Hit(path, lines[m.start()], m.group(0), para[lo:hi], instead)
+                )
+    return sorted(hits, key=lambda h: h.line)
+
+
 def _targets(root: Path) -> list[Path]:
     found: list[Path] = []
     for sub, glob in _options().SCOPE_GLOB:
@@ -319,21 +366,36 @@ def _expand(paths: list[str]) -> tuple[list[Path], list[str]]:
     return list(dict.fromkeys(files)), missing
 
 
-def scan(root: Path | None = None, paths: list[str] | None = None) -> list[Hit]:
-    root = root or (lambda: current_project().root)()
+def _files(root: Path, paths: list[str] | None) -> list[tuple[Path, str]]:
     if paths:
         files, missing = _expand(paths)
         if missing:
             raise FileNotFoundError(", ".join(missing))
     else:
         files = _targets(root)
-    hits: list[Hit] = []
+    found = []
     for p in files:
         try:
             rel = str(p.resolve().relative_to(root))
         except ValueError:
             rel = str(p)
+        found.append((p, rel))
+    return found
+
+
+def scan(root: Path | None = None, paths: list[str] | None = None) -> list[Hit]:
+    root = root or (lambda: current_project().root)()
+    hits: list[Hit] = []
+    for p, rel in _files(root, paths):
         hits.extend(scan_text(p.read_text(encoding="utf-8"), rel))
+    return hits
+
+
+def retired(root: Path | None = None, paths: list[str] | None = None) -> list[Hit]:
+    root = root or (lambda: current_project().root)()
+    hits: list[Hit] = []
+    for p, rel in _files(root, paths):
+        hits.extend(scan_retired(p.read_text(encoding="utf-8"), rel))
     return hits
 
 
@@ -355,6 +417,29 @@ def report(hits: list[Hit], stream=sys.stderr) -> None:
     print(
         "\n  Each term needs the treatment declared by project policy. "
         "The author rules; do not batch-replace.",
+        file=stream,
+    )
+
+
+def report_retired(hits: list[Hit], stream=None) -> None:
+    stream = stream or sys.stderr
+    by_file: dict[str, list[Hit]] = {}
+    for h in hits:
+        by_file.setdefault(h.path, []).append(h)
+    print(
+        f"\nretired ({len(hits)} retired phrase(s) back in reader-facing prose; "
+        "gated):",
+        file=stream,
+    )
+    for path, items in by_file.items():
+        print(f"\n  {path}", file=stream)
+        for h in items:
+            print(f"    L{h.line:<4} {h.term}", file=stream)
+            print(f"          ...{h.window}...", file=stream)
+            print(f"          -> {h.hint}", file=stream)
+    print(
+        "\n  The project retired these. Replace each one, or record a settled "
+        "keep in `allow` for a use that has to stay.",
         file=stream,
     )
 
@@ -386,7 +471,8 @@ def main(argv: list[str] | None = None) -> int:
         action="store_true",
         help="exit non-zero if any bare term is found (the "
         "pre-commit hook runs this and prints the result "
-        "without blocking)",
+        "without blocking); a retired phrase fails the run "
+        "with or without it",
     )
     ap.add_argument(
         "--list",
@@ -403,6 +489,10 @@ def main(argv: list[str] | None = None) -> int:
         )
         for pattern, hint in _options().TERMS.items():
             print(f"  {pattern:<40} {hint}")
+        if _options().RETIRED:
+            print("\nretired (gated):")
+            for phrase, instead in _options().RETIRED.items():
+                print(f"  {phrase:<40} {instead}")
         if _options().ALLOW:
             print("\nallowed (settled keeps):")
             for path, frag, why in _options().ALLOW:
@@ -411,14 +501,21 @@ def main(argv: list[str] | None = None) -> int:
 
     try:
         hits = scan(paths=args.paths or None)
+        back = retired(paths=args.paths or None)
     except FileNotFoundError as e:
         print(f"jargon: no such file or directory: {e}", file=sys.stderr)
         return 2
+    if back:
+        report_retired(back)
+    elif _options().RETIRED:
+        print("✓ retired: no retired phrase in reader-facing prose.")
     if not hits:
         print("✓ jargon: no bare field terms in reader-facing prose.")
-        return 0
-    report(hits)
-    return 1 if args.check else 0
+    else:
+        report(hits)
+    # A retired phrase is a ruling already made, so it fails the run on its
+    # own. Bare terms are candidates for one, and fail it only when asked.
+    return 1 if back or (hits and args.check) else 0
 
 
 if __name__ == "__main__":

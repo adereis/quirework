@@ -11,3 +11,10 @@ exclude_names = ["sources.qmd"]
 # invite judgment; the tool never replaces a word automatically.
 [terms]
 "utili[sz]e" = "use"
+
+# Phrases the project has retired, each mapped to what replaced it. Unlike
+# terms these gate: `text check` fails while one is in reader-facing prose,
+# headings and tables included, and only an `allow` keep excuses a use.
+# Each is matched as written, in any case and across a line break.
+[retired]
+# "old coinage" = "the plain phrase that replaced it"

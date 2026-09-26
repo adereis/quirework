@@ -107,6 +107,8 @@ different ones per path: one sentence per line in chapters, hard wrapped
 at a column in guides. `text check` reports field jargon in
 reader-facing prose against a term list the project writes, so a word
 must be avoided, glossed on first use, or confined to where it belongs.
+A phrase the book has retired goes on the same list and fails the check
+if it ever comes back.
 
 ### Remembers how the book was written
 

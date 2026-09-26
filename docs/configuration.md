@@ -268,8 +268,10 @@ and visual choices out of Quirework's implementation:
 - `book.layout_policy`: `typst_prologues` and `typst_epilogues`.
 - `book.render_policy`: `print_drops` and `epub_style_headers` requiring
   CSS-comment cleanup in staged EPUB headers.
-- `text.terminology`: `terms`, `allow`, `scope_glob`, and
-  `exclude_names`.
+- `text.terminology`: `terms`, `retired`, `allow`, `scope_glob`, and
+  `exclude_names`. A term warns and waits for the author's ruling; a
+  `retired` phrase is a ruling already made, so `text check` fails
+  while one is back in reader-facing prose.
 - `sops.persona_policy`: the optional `default` persona ID.
 - `sops.review_policy`: review frames and reviewable source paths.
 - `book.variant_policy`: the selected model and optional assignment.
