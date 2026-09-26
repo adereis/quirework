@@ -139,12 +139,7 @@ def cc_records(path, *, thinking=False, raw=False):
             typ = o.get("type")
             if typ not in ("user", "assistant"):
                 continue
-            # The notice the harness writes in the model's slot when a request
-            # fails ("API Error: 529 Overloaded"): no model wrote it, so the
-            # turn before it drew no reply. The cold-read render keeps it for
-            # now, since its hashes key the cold-read cache.
-            failed = typ == "assistant" and bool(o.get("isApiErrorMessage"))
-            if not raw and (FLT.harness_flagged(o) or o.get("isSidechain") or failed):
+            if not raw and (FLT.harness_flagged(o) or o.get("isSidechain")):
                 continue
             ts = o.get("timestamp")
             content = (o.get("message") or {}).get("content")
@@ -185,7 +180,7 @@ def cc_records(path, *, thinking=False, raw=False):
             body = "\n\n".join(parts).strip()
             if body:
                 # Reached flagged only with raw: an error notice, not a reply.
-                role = "harness" if failed or FLT.harness_flagged(o) else "assistant"
+                role = "harness" if FLT.harness_flagged(o) else "assistant"
                 out.append((role, body, ts))
     return out
 

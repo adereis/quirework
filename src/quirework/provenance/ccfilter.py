@@ -164,11 +164,16 @@ def harness_flagged(obj):
 
     ``isMeta`` marks an injection, and ``isCompactSummary`` the model-written
     summary a compacted session resumes from. Both are logged in the human's
-    slot, and neither was typed by the author, whatever its text says. Every
-    reader of the human's turns asks this one question, so that a new flag is
-    learned in one place rather than by each reader in turn.
+    slot, and neither was typed by the author, whatever its text says.
+    ``isApiErrorMessage`` marks the notice the harness writes in the model's
+    slot when a request fails ("API Error: 529 Overloaded"): no model wrote
+    it, and the turn before it drew no reply. Every reader of a session asks
+    this one question, so that a new flag is learned in one place rather than
+    by each reader in turn.
     """
-    return bool(obj.get("isMeta") or obj.get("isCompactSummary"))
+    return bool(
+        obj.get("isMeta") or obj.get("isCompactSummary") or obj.get("isApiErrorMessage")
+    )
 
 
 def snippet(s, n=110):

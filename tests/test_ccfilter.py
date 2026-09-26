@@ -149,6 +149,27 @@ def test_a_subagent_report_and_a_compaction_summary_are_not_the_human(tmp_path):
     assert stats["human_turns"] == 1
 
 
+def test_a_failed_request_is_not_rendered_as_the_model(tmp_path):
+    """The harness writes a failed request's notice in the model's slot."""
+    body, _ = ccfilter.filter_session(
+        _session(
+            tmp_path,
+            [
+                {"type": "user", "message": {"content": "Check the keeper's name."}},
+                {
+                    "type": "assistant",
+                    "isApiErrorMessage": True,
+                    "message": {
+                        "model": "<synthetic>",
+                        "content": [{"type": "text", "text": "API Error: 529"}],
+                    },
+                },
+            ],
+        )
+    )
+    assert "Check the keeper's name." in body and "API Error" not in body
+
+
 # --------------------------------------------------------------------------- #
 # v3: human authorship the filter used to delete
 # --------------------------------------------------------------------------- #
