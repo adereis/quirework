@@ -209,9 +209,9 @@ class Project:
         cached = self._scratch.get(name)
         if cached is not None:
             return cached
-        runtime = os.environ.get("XDG_RUNTIME_DIR")
-        parent = Path(runtime) if runtime and Path(runtime).is_dir() else None
-        made = Path(tempfile.mkdtemp(prefix=f"quirework-{name}-", dir=parent))
+        made = Path(
+            tempfile.mkdtemp(prefix=f"quirework-{name}-", dir=private_tmp_parent())
+        )
         self._scratch[name] = made
         return made
 
@@ -336,6 +336,17 @@ class Project:
 _CURRENT: contextvars.ContextVar[Project | None] = contextvars.ContextVar(
     "quirework_project", default=None
 )
+
+
+def private_tmp_parent() -> Path | None:
+    """Where a directory that must not outlive its command belongs.
+
+    `$XDG_RUNTIME_DIR` where the session has one: per-user, 0700, on tmpfs and
+    emptied at logout. Otherwise None, which sends `tempfile` to `$TMPDIR`
+    under a name nobody can predict.
+    """
+    runtime = os.environ.get("XDG_RUNTIME_DIR")
+    return Path(runtime) if runtime and Path(runtime).is_dir() else None
 
 
 def current_project() -> Project:

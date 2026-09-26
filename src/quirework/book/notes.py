@@ -25,7 +25,9 @@ from __future__ import annotations
 
 import argparse
 import difflib
+import os
 import re
+import subprocess
 import sys
 from collections import Counter
 from dataclasses import dataclass
@@ -945,7 +947,7 @@ def companion_check(
     return problems, advisories, anchors
 
 
-def check(docs: Path | None = None) -> int:
+def _findings(docs: Path) -> tuple[list[str], list[tuple[str, list[str]]]]:
     """Lint the split-metadata layout; replaces physical co-location as the
     drift guard. Eleven hard invariants (any failure → exit 1):
 
@@ -1179,8 +1181,15 @@ def check(docs: Path | None = None) -> int:
                 f"section; @bind is reserved for bodyless relationships."
             )
 
-    for p in problems:
-        print(p, file=sys.stderr)
+    def at(a) -> str:
+        return f"{a.source or a.file}:{a.line}: @{a.kind}" + (
+            f"({a.args[0]})" if a.args else ""
+        )
+
+    # Each advisory is a (header, lines) group, printed by `check`. The header
+    # carries `{n}` for its count, so a subset of the lines (what `--since`
+    # prints) is announced with its own number.
+    groups: list[tuple[str, list[str]]] = []
 
     # Directories whose contents are working material rather than authority. A
     # mark that rests on one has put a commitment somewhere the book does not
@@ -1188,63 +1197,49 @@ def check(docs: Path | None = None) -> int:
     # undeclared project gets no advisory rather than a report about a tree it
     # does not have.
     noncanonical = tuple(current_project().get("book.noncanonical_roots", ()) or ())
-    advisory = [a for a in annos if any(root in a.body for root in noncanonical)]
-    if advisory:
-        print(
-            f"\nadvisory ({len(advisory)} mark(s) reference "
-            f"{', '.join(noncanonical)}; a mark states its own commitment "
-            f"— advisory, not yet gated):",
-            file=sys.stderr,
+    groups.append(
+        (
+            f"{{n}} mark(s) reference {', '.join(noncanonical)}; a mark states "
+            f"its own commitment — advisory, not yet gated",
+            [
+                f"  {at(a)}"
+                for a in annos
+                if any(root in a.body for root in noncanonical)
+            ],
         )
-        for a in advisory:
-            argstr = f"({a.args[0]})" if a.args else ""
-            print(
-                f"  {a.source or a.file}:{a.line}: @{a.kind}{argstr}", file=sys.stderr
-            )
+    )
 
-    register = [
-        (a, m)
-        for a in annos
-        if a.kind in BLOCK_KINDS and a.body
-        for m in [_CAPS_RUN.search(a.body)]
-        if m
-    ]
-    if register:
-        print(
-            f"\nadvisory ({len(register)} block-surfaced mark(s) in AI register; "
-            f"these are what the author reads in the .docx):",
-            file=sys.stderr,
+    groups.append(
+        (
+            "{n} block-surfaced mark(s) in AI register; these are what the "
+            "author reads in the .docx",
+            [
+                f"  {at(a)} — '{m.group(0)}'"
+                for a in annos
+                if a.kind in BLOCK_KINDS and a.body
+                for m in [_CAPS_RUN.search(a.body)]
+                if m
+            ],
         )
-        for a, m in register:
-            argstr = f"({a.args[0]})" if a.args else ""
-            print(
-                f"  {a.source or a.file}:{a.line}: @{a.kind}{argstr} — '{m.group(0)}'",
-                file=sys.stderr,
-            )
+    )
 
     journ: list[str] = []
     for a in annos:
         if a.kind in CONTRACT_KINDS and a.body:
             m = _JOURNALING.search(a.body)
             if m:
-                argstr = f"({a.args[0]})" if a.args else ""
-                journ.append(
-                    f"  {a.source or a.file}:{a.line}: "
-                    f"@{a.kind}{argstr} — '{m.group(0)}'"
-                )
+                journ.append(f"  {at(a)} — '{m.group(0)}'")
     for slug, title, body in sections:
         m = _JOURNALING.search(body)
         if m:
             journ.append(f"  {spec_rel}#{slug or title} — '{m.group(0)}'")
-    if journ:
-        print(
-            f"\nadvisory ({len(journ)} contract mark(s)/spec section(s) "
-            f"carry decision-journaling; current state, never history — "
-            f"the story belongs in git):",
-            file=sys.stderr,
+    groups.append(
+        (
+            "{n} contract mark(s)/spec section(s) carry decision-journaling; "
+            "current state, never history — the story belongs in git",
+            journ,
         )
-        for line in journ:
-            print(line, file=sys.stderr)
+    )
 
     # Every pin, not the first per mark: a mark carrying two of them is exactly
     # where reporting one is worst, because the author fixes what is printed
@@ -1253,64 +1248,48 @@ def check(docs: Path | None = None) -> int:
     pins: list[str] = []
     for a in annos:
         if a.body:
-            argstr = f"({a.args[0]})" if a.args else ""
             for m in _LINE_PIN.finditer(a.body):
-                pins.append(
-                    f"  {a.source or a.file}:{a.line}: "
-                    f"@{a.kind}{argstr} — '{m.group(0)}'"
-                )
+                pins.append(f"  {at(a)} — '{m.group(0)}'")
     for slug, title, body in sections:
         for m in _LINE_PIN.finditer(body):
             pins.append(f"  {spec_rel}#{slug or title} — '{m.group(0)}'")
-    if pins:
-        print(
-            f"\nadvisory ({len(pins)} mark(s)/spec section(s) pin a line "
-            f"distance; the next insertion above makes the number wrong — "
-            f"name the scene or the phrase instead):",
-            file=sys.stderr,
+    groups.append(
+        (
+            "{n} mark(s)/spec section(s) pin a line distance; the next "
+            "insertion above makes the number wrong — name the scene or the "
+            "phrase instead",
+            pins,
         )
-        for line in pins:
-            print(line, file=sys.stderr)
+    )
 
-    if comp_quotes:
-        print(
-            f"\nadvisory ({len(comp_quotes)} companion quotation(s) appear "
-            f"nowhere in canon; a quote is primary evidence and is never "
-            f"paraphrased into existence):",
-            file=sys.stderr,
+    groups.append(
+        (
+            "{n} companion quotation(s) appear nowhere in canon; a quote is "
+            "primary evidence and is never paraphrased into existence",
+            comp_quotes,
         )
-        for line in comp_quotes:
-            print(line, file=sys.stderr)
+    )
+    groups.append(
+        (
+            "{n} companion entry/entries anchor nothing; an entry with no "
+            "resolving **Anchors:** run is invisible to the join that keeps the "
+            "collection in step",
+            comp_anchors,
+        )
+    )
 
-    if comp_anchors:
-        print(
-            f"\nadvisory ({len(comp_anchors)} companion entry/entries anchor "
-            f"nothing; an entry with no resolving **Anchors:** run is invisible "
-            f"to the join that keeps the collection in step):",
-            file=sys.stderr,
+    groups.append(
+        (
+            "{n} inline spec #slug reference(s) resolve to no spec section",
+            [
+                f"  {at(a)} — #{slug}"
+                for a in annos
+                if a.body
+                for slug in _SPEC_REF.findall(a.body)
+                if slug not in spec
+            ],
         )
-        for line in comp_anchors:
-            print(line, file=sys.stderr)
-
-    dangling = [
-        (a, slug)
-        for a in annos
-        if a.body
-        for slug in _SPEC_REF.findall(a.body)
-        if slug not in spec
-    ]
-    if dangling:
-        print(
-            f"\nadvisory ({len(dangling)} inline spec #slug reference(s) "
-            f"resolve to no spec section):",
-            file=sys.stderr,
-        )
-        for a, slug in dangling:
-            argstr = f"({a.args[0]})" if a.args else ""
-            print(
-                f"  {a.source or a.file}:{a.line}: @{a.kind}{argstr} — #{slug}",
-                file=sys.stderr,
-            )
+    )
 
     # The spec is prose and is held to both tells. Bindings are bodyless
     # relationships, so only the spec can carry an imperative here.
@@ -1319,16 +1298,166 @@ def check(docs: Path | None = None) -> int:
         m = _IMPERATIVE.search(body) or _CAPS_RUN.search(body)
         if m:
             spec_register.append(f"  {spec_rel}#{slug or title} — '{m.group(0)}'")
-    if spec_register:
-        print(
-            f"\nadvisory ({len(spec_register)} spec section(s) in "
-            f"the imperative or contract register; the spec states and "
-            f"prices, never orders):",
-            file=sys.stderr,
+    groups.append(
+        (
+            "{n} spec section(s) in the imperative or contract register; the "
+            "spec states and prices, never orders",
+            spec_register,
         )
-        for line in spec_register:
+    )
+    return problems, [(header, lines) for header, lines in groups if lines]
+
+
+def _advise(groups: list[tuple[str, list[str]]]) -> None:
+    for header, lines in groups:
+        print(
+            f"\nadvisory ({header.replace('{n}', str(len(lines)))}):", file=sys.stderr
+        )
+        for line in lines:
             print(line, file=sys.stderr)
 
+
+# A line number is where an advisory sits, not what it says: an edit above a
+# mark moves it without changing it, and must not make it read as new.
+_LINE_NO = re.compile(r":\d+:")
+
+
+def introduced(groups, before):
+    """The advisory lines in `groups` that `before` did not have.
+
+    Compared per group, as text with line numbers taken out, and counted: a
+    second identical advisory in the same file is new even though the first
+    was not.
+    """
+    had = {
+        header: Counter(_LINE_NO.sub(":", line) for line in lines)
+        for header, lines in before
+    }
+    new, standing = [], 0
+    for header, lines in groups:
+        left = Counter(had.get(header, {}))
+        fresh = []
+        for line in lines:
+            key = _LINE_NO.sub(":", line)
+            if left[key]:
+                left[key] -= 1
+                standing += 1
+            else:
+                fresh.append(line)
+        if fresh:
+            new.append((header, fresh))
+    return new, standing
+
+
+def _extract(top: Path, ref: str, prefix: str, dest: Path) -> None:
+    """Write the files `ref` holds under `prefix` into `dest`, byte for byte.
+
+    Not `git archive`, which honours export-ignore and export-subst and so can
+    leave out or rewrite a file the check reads, making its advisories look
+    new. Not a checkout either, which runs smudge filters and can reach the
+    network. The committed blobs are the revision. They are read one at a
+    time, so memory is bounded by the largest file rather than the tree.
+    """
+    listing = subprocess.run(
+        ["git", "-C", str(top), "ls-tree", "-r", "-z", "--full-tree", ref]
+        + (["--", prefix] if prefix else []),
+        capture_output=True,
+        check=True,
+    )
+    blobs = []
+    for record in listing.stdout.split(b"\0"):
+        meta, _, path = record.partition(b"\t")
+        if not record or meta.split()[1] != b"blob":
+            continue  # a submodule entry is another repository's commit
+        mode, _, sha = meta.split()
+        blobs.append((mode, sha, Path(os.fsdecode(path))))
+    with subprocess.Popen(
+        ["git", "-C", str(top), "cat-file", "--batch"],
+        stdin=subprocess.PIPE,
+        stdout=subprocess.PIPE,
+    ) as batch:
+        for mode, sha, path in blobs:
+            batch.stdin.write(sha + b"\n")
+            batch.stdin.flush()
+            size = int(batch.stdout.readline().split()[2])
+            body = batch.stdout.read(size)
+            batch.stdout.read(1)  # the newline after each object
+            target = dest / (path.relative_to(prefix) if prefix else path)
+            target.parent.mkdir(parents=True, exist_ok=True)
+            if mode == b"120000":
+                target.symlink_to(os.fsdecode(body))
+            else:
+                target.write_bytes(body)
+        batch.stdin.close()
+    if batch.returncode:
+        raise ValueError(f"--since {ref}: git cat-file failed")
+
+
+def _findings_at(ref: str, docs: Path):
+    """The same findings for the book as it stood at a git revision.
+
+    The tree at `ref` is written into a private directory that does not
+    outlive the call, and checked in a project rooted there with today's
+    settings, so both trees answer to the same rules and name their files
+    relative to their own root. Nothing touches the index or adds a worktree.
+    """
+    import dataclasses
+    import tempfile
+
+    from quirework.project import private_tmp_parent, project_scope
+
+    project = current_project()
+    try:
+        inside = Path(docs).resolve().relative_to(project.root)
+    except ValueError:
+        raise ValueError(
+            f"--since needs the book source inside the project: {docs}"
+        ) from None
+
+    def git(*args):
+        return subprocess.run(
+            ["git", "-C", str(project.root), *args], capture_output=True, text=True
+        )
+
+    if git("rev-parse", "--verify", "--quiet", f"{ref}^{{commit}}").returncode:
+        raise ValueError(f"--since {ref}: not a commit in this repository")
+    top = Path(git("rev-parse", "--show-toplevel").stdout.strip()).resolve()
+    prefix = project.root.relative_to(top).as_posix()
+    prefix = "" if prefix == "." else prefix
+    with tempfile.TemporaryDirectory(
+        prefix="quirework-notes-since-", dir=private_tmp_parent()
+    ) as tmp:
+        root = Path(tmp).resolve()
+        _extract(top, ref, prefix, root)
+        with project_scope(dataclasses.replace(project, root=root)):
+            return _findings(root / inside)
+
+
+def check(docs: Path | None = None, since: str | None = None) -> int:
+    """Run `_findings`, print them, and exit non-zero on a hard problem.
+
+    With `since`, the advisories the book did not have at that revision are
+    printed first, then only a count of the ones it already had: a change's
+    own advisories were otherwise found by grepping a long standing list.
+    """
+    docs = Path(docs) if docs is not None else current_project().path("book.source")
+    problems, groups = _findings(docs)
+    for p in problems:
+        print(p, file=sys.stderr)
+    if since is None:
+        _advise(groups)
+    else:
+        new, standing = introduced(groups, _findings_at(since, docs)[1])
+        if new:
+            print(f"\nnew since {since}:", file=sys.stderr)
+            _advise(new)
+        else:
+            print(f"\nno advisory new since {since}.", file=sys.stderr)
+        print(
+            f"\n{standing} standing advisory line(s) the book already had at "
+            f"{since}; run without --since to list them.",
+            file=sys.stderr,
+        )
     if problems:
         print(
             f"\n✗ notes --check: {len(problems)} problem(s); the sidecar "
@@ -1411,6 +1540,13 @@ def main(argv=None) -> int:
         help="lint the sidecar metadata layout and exit (for the pre-commit hook)",
     )
     ap.add_argument(
+        "--since",
+        metavar="REF",
+        default=None,
+        help="with --check, print first the advisories the book did not have "
+        "at this git revision, then only a count of the standing ones",
+    )
+    ap.add_argument(
         "--coverage",
         action="store_true",
         help="which spec sections a companion entry exercises, and which none does",
@@ -1455,7 +1591,16 @@ def main(argv=None) -> int:
                 file=sys.stderr,
             )
             return 2
-        return check(Path(args.path[0])) if args.path else check()
+        docs = Path(args.path[0]) if args.path else None
+        try:
+            return check(docs, since=args.since)
+        except (ValueError, subprocess.CalledProcessError) as exc:
+            print(f"notes --check: {exc}", file=sys.stderr)
+            return 2
+
+    if args.since:
+        print("--since compares advisories, so it needs --check.", file=sys.stderr)
+        return 2
 
     if args.coverage:
         by_slug, unexercised = coverage()

@@ -436,6 +436,15 @@ declare, and a spec section missing its anchor. Run it before every
 commit; it is what keeps the metadata from drifting away from the text
 it describes.
 
+It also prints advisories: a mark carrying a date, a spec section
+written as an order, a line-number pin. They never fail the check, and
+in a long-lived book they accumulate, so an edit's own advisory is easy
+to lose among the standing ones. `--check --since REF` compares the
+working tree with the book at a revision and lists the advisories that
+are new first, then only a count of the rest. `--since HEAD` is what a
+pre-commit hook wants: what this change is about to add. An advisory
+that merely moved down because of an edit above it is not new.
+
 `quirework book quotes` checks that wording a mark quotes is still in
 the book, and it is narrow on purpose. It checks only a long quotation
 introduced as one (`reads "…"`, `the sentence "…"`), because most quoted
