@@ -477,3 +477,21 @@ def test_evidence_paths_are_read_from_the_project_root(tmp_path):
         guide = book / "AGENTS.md"
         guide.write_text("A guide, wrapped like one.\n")
         assert mdwrap.classify(str(guide)) == "column"
+
+
+def test_an_answering_no_ends_its_sentence():
+    """The numero sign is "No." before a number, never before a word."""
+    src = "Did the fuse hold?\nNo.\nThe lights went out.\n"
+    assert mdwrap.rewrap(src) == src
+    assert mdwrap.rewrap("Did it hold? No. The lights went out.") == (
+        "Did it hold?\nNo.\nThe lights went out."
+    )
+
+
+def test_the_numero_sign_still_holds_its_number():
+    for src in (
+        "The kettle was No. 5 in the catalogue.",
+        "It filed issue No. #12 and waited.",
+        "It came in at No.7 on the list.",
+    ):
+        assert mdwrap.rewrap(src) == src

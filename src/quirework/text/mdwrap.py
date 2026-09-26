@@ -65,7 +65,6 @@ _ABBREVS = [
     "Prof.",
     "St.",
     "Fig.",
-    "No.",
     "Inc.",
     "Ltd.",
     "Jr.",
@@ -85,12 +84,19 @@ _ABBREV_RE = re.compile(
     + ")"
 )
 
+# "No." is the numero sign only before a number: "No. 5", "No. #5". Listed
+# with the others it also swallowed the answer "No.", so "Did the fuse
+# hold? No. The lights went out." was joined onto one line, and the joined
+# form was then what --check demanded.
+_NUMERO_RE = re.compile(r"(?<![A-Za-z0-9.])No\.(?=\s*[0-9#])")
+
 _SENT = "\x00"  # sentinel standing in for a protected "."
 
 
 def _protect(text: str) -> str:
     """Replace dots that are not sentence ends with a sentinel."""
     text = _ABBREV_RE.sub(lambda m: m.group(0).replace(".", _SENT), text)
+    text = _NUMERO_RE.sub("No" + _SENT, text)
     # Single-capital-letter initials: "W. V. O. Quine".
     text = re.sub(r"\b([A-Z])\.(?=\s)", r"\1" + _SENT, text)
     return text
