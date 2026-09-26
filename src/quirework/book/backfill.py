@@ -54,6 +54,14 @@ TURN_HEAD = 4000
 TURN_TAIL = 1500
 GIST_CHARS = 280
 BATCH_TOKENS = 30000
+# A seat's answer is bounded by its model's output limit, and its thinking
+# counts against that limit. The token budget bounds it for conversations:
+# across 55 conversation seats in six passes, none held more than 100 author
+# turns, and none wrote more than 58,901 output tokens. Red-pen marks are
+# short, so the same budget packed 124 of them into one seat, and its answer
+# stopped mid-line at 64,853 of its model's 65,536. Red-pen seats wrote 420 to
+# 550 tokens per turn, thinking included, so 80 turns keep one near 44,000.
+SEAT_TURNS = 80
 # A seat that flags almost nothing over many turns may have written its done
 # lines without reading. Seats in one real pass flagged 12% to 79% of their
 # author turns, by what the sessions were about, so the floor is absolute and
@@ -228,6 +236,11 @@ def menu():
     return "\n".join(lines) + "\n"
 
 
+def _short(sid):
+    """A session as messages name it: a named source whole, an id by its head."""
+    return sid if sid.startswith(trail._NAMED) else sid[:8]
+
+
 def _tail(text, limit):
     text = text.strip()
     return text if len(text) <= limit else "… " + text[-limit:].lstrip()
@@ -344,6 +357,7 @@ def plan(
     scope=None,
     limit=None,
     budget=BATCH_TOKENS,
+    turns=SEAT_TURNS,
     materials=(),
     reread=False,
     external=False,
@@ -356,8 +370,11 @@ def plan(
     red-pen round, takes its place by that date; one with neither sorts
     first, and the summary names it. ``out`` of ``None`` plans into a new
     ``run_directory``, as ``RUN/packets``, beside which the record goes.
-    Each seat gets one batch of packets up to ``budget`` estimated tokens,
-    with the menu and any book ``materials`` in front, and no tools.
+    Each seat gets one batch of packets up to ``budget`` estimated tokens
+    and ``turns`` author turns, with the menu and any book ``materials`` in
+    front, and no tools. A session is never split, so one with more than
+    ``turns`` turns is read alone, and the summary names it: its reader may
+    run out of output before it finishes.
     """
     from quirework.provenance import scope as SCOPE
     from quirework.provenance import show
@@ -386,7 +403,7 @@ def plan(
         for prefix in sessions:
             sid, family, path, live = corpus.session(prefix)
             if live or sid not in kept:
-                raise LookupError(f"{sid[:8]} is not in the curated corpus")
+                raise LookupError(f"{_short(sid)} is not in the curated corpus")
             chosen.append(sid)
     else:
         covered = {r["session"] for r in _reads() if _current(r)}
@@ -396,10 +413,11 @@ def plan(
             if (reread or sid not in covered)
             and (scope is None or SCOPE.scope_of_id(sid) == scope)
         ]
-    dated, undated = [], set()
+    dated, undated, counts = [], set(), {}
     for sid in chosen:
         family, path = kept[sid]
-        if not show.author_turns(family, path):
+        counts[sid] = len(show.author_turns(family, path))
+        if not counts[sid]:
             continue
         day = show.session_date(family, path)
         start = show.session_start(family, path) or (
@@ -418,18 +436,19 @@ def plan(
         {"source": str(Path(m).expanduser().resolve(strict=True)), "delivery": "text"}
         for m in materials
     ]
-    batches, current, size = [], [], 0
+    batches, current, size, held = [], [], 0, 0
     for _, sid in dated:
         family, path = kept[sid]
         text = packet(sid, family, path)
         name = f"packets/{sid}.md"
         (out / name).write_text(text, encoding="utf-8")
         tokens = len(text) // 4
-        if current and size + tokens > budget:
+        if current and (size + tokens > budget or held + counts[sid] > turns):
             batches.append(current)
-            current, size = [], 0
+            current, size, held = [], 0, 0
         current.append((sid, name, tokens))
         size += tokens
+        held += counts[sid]
     if current:
         batches.append(current)
 
@@ -466,7 +485,7 @@ def plan(
                         {"source": "menu.md", "delivery": "text", "label": "menu"},
                         *extra,
                         *(
-                            {"source": name, "delivery": "text", "label": sid[:8]}
+                            {"source": name, "delivery": "text", "label": _short(sid)}
                             for sid, name, _ in batch
                         ),
                     ],
@@ -503,6 +522,8 @@ def plan(
         "sessions": len(dated),
         "harnesses": harnesses,
         "undated": [sid for _, sid in dated if sid in undated],
+        "oversized": [(sid, counts[sid]) for _, sid in dated if counts[sid] > turns],
+        "turns": turns,
         "tokens": packets,
         "total_tokens": packets + fixed * len(seats),
     }
@@ -520,6 +541,13 @@ def plan_lines(done):
         lines.append(
             f"{len(done['undated'])} session(s) have no start time and are "
             "planned first: " + ", ".join(sid[:16] for sid in done["undated"])
+        )
+    if done["oversized"]:
+        lines.append(
+            f"{len(done['oversized'])} session(s) hold more than the "
+            f"{done['turns']} author turns a seat is sized for, and are read "
+            "alone; each reader may run out of output before it finishes: "
+            + ", ".join(f"{_short(sid)} ({n})" for sid, n in done["oversized"])
         )
     record = done["record"] or "RECORD"
     lines += [
@@ -554,6 +582,19 @@ def _objects(answer):
         else:
             skipped.append(line.strip()[:120])
     return found, skipped
+
+
+def _cut_off(answer):
+    """Whether an answer stops partway through a line, as one cut off does.
+
+    A reader that runs out of output leaves its last line unfinished. A last
+    line that parses, or is a closing fence, is an answer that ended.
+    """
+    lines = [line.strip() for line in answer.splitlines() if line.strip()]
+    if not lines or lines[-1].startswith("```"):
+        return False
+    found, _ = _objects(lines[-1])
+    return not found
 
 
 def parse_answer(answer, sessions, corpus):
@@ -684,6 +725,7 @@ def import_run(record, accept=()):
             "empty": [],
             "sections": [],
             "sessions": [],
+            "cut": None,
         }
         report.append(row)
         done = run.state(name)["done"].get("read")
@@ -745,6 +787,12 @@ def import_run(record, accept=()):
         row["read"] = len(reads)
         row["unread"] = [sid for sid in meta["sessions"] if sid not in reads]
         row["dropped"] = dropped
+        if row["unread"] and _cut_off(answer):
+            usage = receipt.get("usage") or {}
+            row["cut"] = {
+                "output": usage.get("output_tokens"),
+                "thinking": usage.get("thinking_tokens"),
+            }
         seat_record = {
             "run": run.plan["id"],
             "seat": name,
@@ -783,7 +831,25 @@ def import_lines(report):
             f"{row['flagged']} of {row['turns']} author turn(s) flagged"
         )
         for sid in row["unread"]:
-            lines.append(f"    {sid[:8]}: no done line, so not recorded as read")
+            lines.append(f"    {_short(sid)}: no done line, so not recorded as read")
+        if row.get("cut"):
+            spent = row["cut"]
+            used = (
+                f" after {spent['output']:,} output tokens"
+                + (
+                    f", {spent['thinking']:,} of them thinking"
+                    if spent["thinking"]
+                    else ""
+                )
+                if spent["output"]
+                else ""
+            )
+            lines.append(
+                f"    ! the answer stops mid-line{used}: the reader ran out of "
+                "room, most likely at its model's output limit. The next plan "
+                "hands its unread sessions out again; give them fewer turns per "
+                "seat (--turns)"
+            )
         for drop in row["dropped"]:
             lines.append(f"    dropped ({drop['why']}): {drop['line'][:100]}")
         if (
@@ -796,7 +862,7 @@ def import_lines(report):
             )
             for s in row["sessions"]:
                 lines += [
-                    f"    {s['session'][:8]} · {s['turns']} turn(s), "
+                    f"    {_short(s['session'])} · {s['turns']} turn(s), "
                     f"{s['flagged']} flagged · {s['title']}",
                     f"      about: {s['about'] or '(no about line)'}",
                 ]
@@ -860,12 +926,12 @@ def _rejection(slug, corpus, *, session, turn, reason):
         )
     sid, family, path, live = corpus.session(session)
     if live:
-        raise LookupError(f"{sid[:8]} is not captured yet; capture it first")
+        raise LookupError(f"{_short(sid)} is not captured yet; capture it first")
     target = next(
         (t for t in corpus.turns(sid, family, path) if t.number == turn), None
     )
     if target is None:
-        raise LookupError(f"{sid[:8]} has no author turn {turn}")
+        raise LookupError(f"{_short(sid)} has no author turn {turn}")
     entry = {
         "session": sid,
         "turn": turn,
@@ -1174,7 +1240,7 @@ def _worklist_lines(slug, *, commits, everything, utc, also=(), read=False):
     if stale:
         lines.append(
             f"  {len(stale)} flag(s) name a turn the corpus no longer holds: "
-            + ", ".join(f"{s[:8]} turn {n}" for s, n in stale[:5])
+            + ", ".join(f"{_short(s)} turn {n}" for s, n in stale[:5])
         )
     corpus, days = trail.Corpus(), {}
     for c in pending:
@@ -1354,6 +1420,12 @@ def main(argv):
                 help="estimated tokens of packets per seat",
             )
             ap.add_argument(
+                "--turns",
+                type=int,
+                default=SEAT_TURNS,
+                help="author turns per seat, since a reader's output grows with them",
+            )
+            ap.add_argument(
                 "--material",
                 action="append",
                 default=[],
@@ -1381,6 +1453,7 @@ def main(argv):
                 scope=a.scope,
                 limit=a.limit,
                 budget=a.budget,
+                turns=a.turns,
                 materials=a.material,
                 reread=a.reread,
                 external=a.external,

@@ -281,7 +281,13 @@ and stamped as `provenance show` gives them, each with the end of the
 reply it answered, so a bare "yes" can be read as the acceptance it
 was. It then writes a run plan that hands the packets to readers with
 no tools, one seat per batch, so no reader's context grows from one
-batch to the next. The run engine runs it, and resumes it after a quota
+batch to the next. A batch is bounded by estimated tokens (`--budget`)
+and by your turns (`--turns`, 80 by default), because a reader's answer,
+thinking included, grows with the turns it answers for and stops at its
+model's output limit. Short turns, such as red-pen marks, fill a token
+budget with more turns than a reader can answer. A session is never
+split, so one longer than `--turns` is read alone, and the plan names
+it. The run engine runs it, and resumes it after a quota
 stop. Without `--out`, the plan takes a new directory in the project's
 private state, named for the day and the model, with a suffix for a
 second pass the same day. It prints the sessions by harness, the whole
@@ -301,6 +307,11 @@ keeps it in the ledger: a turn that is not yours, or a slug the spec
 does not have, is dropped and reported with its reason. A session whose
 reader did not say it finished is left for the next plan to hand out
 again.
+
+Import says when a reader was cut off: an answer that stops partway
+through a line, with sessions left unfinished, is reported with the
+seat's output and thinking tokens. Those sessions are handed out again
+by the next plan; give them fewer turns per seat.
 
 Import holds any seat whose receipt carries a red flag its plan did not
 accept, records nothing it read, and exits nonzero, so an unexpected

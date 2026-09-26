@@ -245,6 +245,18 @@ def test_a_small_budget_gives_each_session_its_own_seat(book, tmp_path):
     assert done["seats"] == 2
 
 
+def test_a_seat_holds_no_more_turns_than_its_reader_can_answer_for(book, tmp_path):
+    # The morning session holds three author turns and the evening one.
+    done = backfill.plan(
+        tmp_path / "packets", harness="codex", model="luna", effort="low", turns=2
+    )
+    assert done["seats"] == 2, "the token budget alone would seat both together"
+    assert done["oversized"] == [(MORNING, 3)]
+    lines = "\n".join(backfill.plan_lines(done))
+    assert "1 session(s) hold more than the 2 author turns" in lines
+    assert "0badc0de (3)" in lines
+
+
 def test_packets_never_land_in_the_checkout(book):
     with pytest.raises(ValueError, match="outside the checkout"):
         backfill.plan(
@@ -437,6 +449,25 @@ def test_a_rejection_needs_a_reason_and_is_made_once(book):
         backfill.reject("kettle-signal", session=MORNING, turn=1, reason="Again.")
 
 
+def test_import_says_when_an_answer_was_cut_off(book, tmp_path):
+    flag = {"slug": "kettle-signal", "kind": "seed", "confidence": "high"}
+    whole = json.dumps({"session": MORNING, "turn": 1, "sections": [flag]})
+    cut = whole + "\n" + whole[:40] + "\n"
+    [row] = _read(tmp_path, [cut])
+    assert row["read"] == 0 and row["unread"] == [MORNING, EVENING]
+    assert row["cut"] == {"output": None, "thinking": None}
+    lines = "\n".join(backfill.import_lines([row]))
+    assert "! the answer stops mid-line: the reader ran out of room" in lines
+    assert "(--turns)" in lines
+
+
+def test_an_answer_that_ends_is_not_cut_off():
+    done = json.dumps({"session": MORNING, "done": True})
+    assert not backfill._cut_off(done + "\n")
+    assert not backfill._cut_off(done + "\n```\n")
+    assert backfill._cut_off(done + '\n{"session": "0badc0de", "tu')
+
+
 def test_status_counts_the_sessions_read_and_the_sections_flagged(book, tmp_path):
     _read(tmp_path, [ANSWER])
     text = "\n".join(backfill.status())
@@ -596,6 +627,8 @@ def test_a_red_pen_round_is_read_in_date_order_with_its_parts_explained(
         flat = " ".join(text.split())
         assert 'a "+ now" line can be something the copy already held' in flat
         assert "note: A report, not a thought." in text
+        labels = [m["label"] for m in plan["seats"][0]["turns"][0]["materials"]]
+        assert "redpen-v2-2031-04-01" in labels, "a round is named whole"
 
 
 # --------------------------------------------------------------------------- #
