@@ -370,10 +370,38 @@ def _banner():
     )
 
 
-def _chronology(crumb):
-    """Logged order, with a review that logs no times after the dated turns."""
+def _days(crumbs):
+    """``{session: day}`` for each breadcrumb that points by turn, not by time.
+
+    A red-pen round and a Gemini review log no times but record their date,
+    so their breadcrumbs take their place in the story by that day, as the
+    backfill worklist places them. Without provenance, or for a session the
+    corpus does not hold, a breadcrumb stays undated.
+    """
+    wanted = {c.session for c in crumbs if c.instant is None}
+    if not wanted or not current_project().get("provenance.enabled", False):
+        return {}
+    from quirework.provenance import show
+
+    captured = Corpus().captured()
+    days = {}
+    for sid in wanted:
+        if sid in captured:
+            day = show.session_date(*captured[sid])
+            if day is not None:
+                days[sid] = day
+    return days
+
+
+def _chronology(crumb, days=None):
+    """Logged order; a turn with no time takes the start of its session's day,
+    and one with neither follows the dated turns."""
     if crumb.instant is not None:
         return (0, crumb.instant, 0)
+    day = (days or {}).get(crumb.session)
+    if day is not None:
+        start = datetime.combine(day, datetime.min.time(), timezone.utc)
+        return (0, start, crumb.turn or 0)
     return (1, datetime.min.replace(tzinfo=timezone.utc), crumb.turn or 0)
 
 
@@ -386,12 +414,13 @@ def dump(sidecar, spec=None):
     titles = {slug: title for slug, title, _ in spec if slug}
     parts = [sidecar.preamble or _banner()]
     held = [s for s in sidecar.sections if s.crumbs]
+    days = _days([c for s in held for c in s.crumbs])
     for section in sorted(held, key=lambda s: order.get(s.slug, len(order))):
         title = titles.get(section.slug, section.title)
         parts.append(f"## {title} {{#{section.slug}}}")
         # Pointer, note and excerpt are separate paragraphs of one list item,
         # so a reflow that wraps the pointer never runs it into the prose.
-        for crumb in sorted(section.crumbs, key=_chronology):
+        for crumb in sorted(section.crumbs, key=lambda c: _chronology(c, days)):
             parts.append(crumb.header())
             if crumb.note:
                 parts.append(f"  {crumb.note}")
@@ -918,9 +947,10 @@ def _opening(text, width):
     return one if len(one) <= width else one[: width - 1] + "…"
 
 
-def _date(crumb, utc):
+def _date(crumb, utc, days=None):
     if crumb.instant is None:
-        return "undated"
+        day = (days or {}).get(crumb.session)
+        return f"{day:%Y-%m-%d}" if day is not None else "undated"
     zone = timezone.utc if utc else None
     return crumb.instant.astimezone(zone).strftime("%Y-%m-%d")
 
@@ -981,14 +1011,15 @@ def _tally(crumbs):
     return " · ".join(f"{k} {kinds[k]}" for k in KINDS if k in kinds)
 
 
-def _span(crumbs, utc):
-    months = sorted({_date(c, utc)[:7] for c in crumbs if c.instant is not None})
+def _span(crumbs, utc, days=None):
+    dated = (_date(c, utc, days) for c in crumbs)
+    months = sorted({d[:7] for d in dated if d != "undated"})
     if not months:
         return "undated"
     return months[0] if len(months) == 1 else f"{months[0]} → {months[-1]}"
 
 
-def _crumb_lines(crumb, found, *, brief, utc):
+def _crumb_lines(crumb, found, *, brief, utc, days=None):
     turn = found.turn if found is not None else None
     if turn is not None:
         where = f"Human {turn.number}"
@@ -998,7 +1029,7 @@ def _crumb_lines(crumb, found, *, brief, utc):
         where = "not in the corpus yet"
     else:
         where = "unfollowable"
-    head = f"{_date(crumb, utc)}  {crumb.short:8}  {crumb.kind:8} {where}"
+    head = f"{_date(crumb, utc, days)}  {crumb.short:8}  {crumb.kind:8} {where}"
     if brief:
         gist = crumb.note or crumb.excerpt or (turn.text if turn else "")
         return [f"  {head}  {_opening(gist, 70)}" if gist else f"  {head}"]
@@ -1027,7 +1058,10 @@ def story(slug, *, brief=False, utc=False, sidecar=None, states=None):
     _known_slug(slug, titles)
     sidecar = load() if sidecar is None else sidecar
     section = sidecar.section(slug)
-    crumbs = sorted(section.crumbs, key=_chronology) if section else []
+    days = _days(section.crumbs) if section else {}
+    crumbs = (
+        sorted(section.crumbs, key=lambda c: _chronology(c, days)) if section else []
+    )
     chapters = sorted(_bound_by().get(slug, ()))
     lines = [f"#{slug} — {titles[slug]}"]
     if chapters:
@@ -1038,14 +1072,15 @@ def story(slug, *, brief=False, utc=False, sidecar=None, states=None):
     sessions = len({c.session for c in crumbs})
     lines.append(
         f"{len(crumbs)} breadcrumb{'s' * (len(crumbs) != 1)} from {sessions} "
-        f"session{'s' * (sessions != 1)}, {_span(crumbs, utc)} · {_tally(crumbs)}"
+        f"session{'s' * (sessions != 1)}, {_span(crumbs, utc, days)} · "
+        f"{_tally(crumbs)}"
     )
     states = _states(crumbs) if states is None else states
     for crumb in crumbs:
         found = states.get(id(crumb)) if states else None
         if not brief:
             lines.append("")
-        lines += _crumb_lines(crumb, found, brief=brief, utc=utc)
+        lines += _crumb_lines(crumb, found, brief=brief, utc=utc, days=days)
     return lines
 
 
@@ -1053,13 +1088,14 @@ def overview(*, utc=False):
     sidecar = load()
     sections = notes.spec_sections()
     held = {s.slug: s for s in sidecar.sections if s.crumbs}
+    days = _days([c for s in held.values() for c in s.crumbs])
     lines = [f"spec trail: {_rel(sidecar.path)}"]
     width = max((len(slug) for slug in held), default=0) + 1
     for slug, _, _ in sections:
         if slug in held:
             crumbs = held[slug].crumbs
             lines.append(
-                f"  #{slug:<{width}} {len(crumbs):>3}  {_span(crumbs, utc)}  "
+                f"  #{slug:<{width}} {len(crumbs):>3}  {_span(crumbs, utc, days)}  "
                 f"{_tally(crumbs)}"
             )
     lines.append(
@@ -1101,14 +1137,15 @@ def session_view(prefix, *, utc=False):
         return [f"no breadcrumb points into a session matching '{prefix}'"]
     titles = _spec_titles()
     states = _states([c for _, c in cited]) or {}
+    days = _days([c for _, c in cited])
     lines = []
     for section in sidecar.sections:
         mine = [c for s, c in cited if s is section]
         if mine:
             lines.append(f"#{section.slug} — {titles.get(section.slug, section.title)}")
-            for crumb in sorted(mine, key=_chronology):
+            for crumb in sorted(mine, key=lambda c: _chronology(c, days)):
                 found = states.get(id(crumb))
-                lines += _crumb_lines(crumb, found, brief=True, utc=utc)
+                lines += _crumb_lines(crumb, found, brief=True, utc=utc, days=days)
     return lines
 
 

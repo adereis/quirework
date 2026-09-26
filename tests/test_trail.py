@@ -627,6 +627,27 @@ def _thawed(value):
     return value
 
 
+def test_a_red_pen_breadcrumb_takes_its_place_by_the_rounds_day(tmp_path, monkeypatch):
+    """A round logs no times, so its day orders it among the dated turns."""
+    monkeypatch.setenv("CODEX_HOME", str(tmp_path / "codex-home"))
+    root = tmp_path / "book"
+    settings = _thawed(_book(tmp_path).settings)
+    settings["provenance"]["redpen"] = "private/redpen"
+    archive = root / "private" / "redpen"
+    archive.mkdir(parents=True)
+    earlier = REDPEN_ROUND.replace("2031-04-05", "2031-04-01")
+    (archive / "v0-2031-04-01.md").write_text(earlier, encoding="utf-8")
+    with project_scope(Project.from_settings(root, settings)):
+        trail.add("cooling-asymmetry", "correct", session=SESSION, turn=3)
+        trail.add("cooling-asymmetry", "seed", session="redpen-v0", turn=1)
+        text = "\n".join(trail.story("cooling-asymmetry", utc=True))
+        assert text.index("redpen-v0-2031-04-01") < text.index("0badc0de")
+        assert "2031-04-01  redpen-v0-2031-04-01" in text
+        assert "undated" not in text
+        written = trail.sidecar_path().read_text()
+        assert written.index("redpen-v0") < written.index("0badc0de")
+
+
 def test_a_breadcrumb_can_point_at_a_red_pen_mark(tmp_path, monkeypatch):
     """The author's marks on a rendered copy are his words too, named by turn."""
     monkeypatch.setenv("CODEX_HOME", str(tmp_path / "codex-home"))
