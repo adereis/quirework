@@ -129,7 +129,10 @@ counts as a turn of the author's: slash-command and system-reminder
 wrappers, the report a background subagent sends back, and the summary
 a compacted session resumes from. Search, show, the trail and the effort
 metrics apply the same rule, and `show --raw` labels that text
-`harness`.
+`harness`. `show` also takes the notice Claude Code writes in the
+model's slot when a request fails ("API Error: …") as the harness's, so
+a turn it follows reads as unanswered, which is what a resent turn's
+note depends on.
 
 A spec trail reads sessions only where provenance is enabled. There,
 `book trail add --find` also reads this project's live Claude Code and

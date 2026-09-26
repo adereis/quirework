@@ -119,10 +119,11 @@ def cc_records(path, *, thinking=False, raw=False):
     blocks as prose, ``thinking`` blocks (only with ``thinking``) prefixed and
     set off, ``tool_use`` blocks dropped. Human turns are the string-content
     messages; list content is a tool-result echo and is skipped. Records the
-    harness flags as its own (a meta injection, or the summary a compacted
-    session resumes from) and ``isSidechain`` (subagent side-threads) records
-    are dropped unless ``raw``, which keeps them under the role of whoever
-    wrote them: a flagged record is ``harness``, and a side-thread's prompt is
+    harness flags as its own (a meta injection, the summary a compacted
+    session resumes from, or the notice of a failed request written in the
+    model's slot) and ``isSidechain`` (subagent side-threads) records are
+    dropped unless ``raw``, which keeps them under the role of whoever wrote
+    them: a flagged record is ``harness``, and a side-thread's prompt is
     ``agent``, the task the parent handed its subagent.
     """
     out = []
@@ -138,7 +139,12 @@ def cc_records(path, *, thinking=False, raw=False):
             typ = o.get("type")
             if typ not in ("user", "assistant"):
                 continue
-            if not raw and (FLT.harness_flagged(o) or o.get("isSidechain")):
+            # The notice the harness writes in the model's slot when a request
+            # fails ("API Error: 529 Overloaded"): no model wrote it, so the
+            # turn before it drew no reply. The cold-read render keeps it for
+            # now, since its hashes key the cold-read cache.
+            failed = typ == "assistant" and bool(o.get("isApiErrorMessage"))
+            if not raw and (FLT.harness_flagged(o) or o.get("isSidechain") or failed):
                 continue
             ts = o.get("timestamp")
             content = (o.get("message") or {}).get("content")
@@ -178,7 +184,9 @@ def cc_records(path, *, thinking=False, raw=False):
                 # tool_use / tool_result: dropped
             body = "\n\n".join(parts).strip()
             if body:
-                out.append(("assistant", body, ts))
+                # Reached flagged only with raw: an error notice, not a reply.
+                role = "harness" if failed or FLT.harness_flagged(o) else "assistant"
+                out.append((role, body, ts))
     return out
 
 

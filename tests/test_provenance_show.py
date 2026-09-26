@@ -261,6 +261,50 @@ def test_raw_labels_each_turn_by_who_wrote_it(tmp_path):
     ]
 
 
+API_ERROR = "API Error: 529 Overloaded. This is a server-side issue."
+RESENT_AFTER_ERROR = [
+    {
+        "type": "user",
+        "timestamp": "2031-04-02T10:00:00Z",
+        "message": {"content": "Tighten the kettle scene."},
+    },
+    {
+        # The notice the harness writes in the model's slot when a request
+        # fails. No model wrote it, so the turn before it drew no reply.
+        "type": "assistant",
+        "isApiErrorMessage": True,
+        "timestamp": "2031-04-02T10:00:05Z",
+        "message": {
+            "model": "<synthetic>",
+            "content": [{"type": "text", "text": API_ERROR}],
+        },
+    },
+    {
+        "type": "user",
+        "timestamp": "2031-04-02T10:02:00Z",
+        "message": {"content": "Tighten the kettle scene."},
+    },
+    {
+        "type": "assistant",
+        "timestamp": "2031-04-02T10:02:30Z",
+        "message": {"content": [{"type": "text", "text": "Tightened."}]},
+    },
+]
+
+
+def test_a_failed_request_is_the_harness_and_not_a_reply(tmp_path):
+    p = _jsonl(
+        tmp_path, "0badc0de-0000-4000-8000-000000000001.jsonl", RESENT_AFTER_ERROR
+    )
+    clean = [(role, text) for role, text, _ in show.cc_records(p)]
+    assert ("assistant", API_ERROR) not in clean
+    assert clean[-1] == ("assistant", "Tightened.")
+    raw = [(role, text) for role, text, _ in show.cc_records(p, raw=True)]
+    assert ("harness", API_ERROR) in raw
+    replies = {n: reply for n, _, _, reply in show.exchanges("cc", p)}
+    assert replies == {1: "", 2: ""}
+
+
 def test_raw_human_turns_hold_only_the_authors_words(tmp_path):
     p = _jsonl(tmp_path, "0badc0de-0000-4000-8000-000000000001.jsonl", CC_WITH_HARNESS)
     human = _render(p, raw=True, role="human")
