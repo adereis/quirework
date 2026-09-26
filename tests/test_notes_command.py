@@ -1,4 +1,4 @@
-"""`notes --check --since REF`: a change's own advisories, ahead of the rest."""
+"""`book notes` as a command: `--check --since REF` and the `relations` alias."""
 
 import subprocess
 
@@ -113,3 +113,21 @@ def test_a_revision_that_is_not_a_commit_is_refused(book, capsys):
 def test_since_without_check_is_refused(book, capsys):
     assert notes.main(["--since", "HEAD"]) == 2
     assert "needs --check" in capsys.readouterr().err
+
+
+def test_relations_is_the_bind_filter_without_the_word(book, capsys):
+    """A harness guard that refuses "bind" anywhere in argv cannot run it."""
+    assert notes.main(["relations"]) == 0
+    by_alias = capsys.readouterr().out
+    assert notes.main(["bind"]) == 0
+    assert by_alias == capsys.readouterr().out
+    assert "kettle-signal" in by_alias
+
+
+def test_a_book_s_own_kind_of_that_name_is_not_guessed_at(book, capsys):
+    marks = book / "_marks" / "opening.md"
+    marks.write_text(MARKS + "<!-- @relations the whistle and the lid -->\n")
+    assert notes.main(["relations"]) == 2
+    assert "name the one you mean with --kind" in capsys.readouterr().err
+    assert notes.main(["--kind", "relations"]) == 0
+    assert "the whistle and the lid" in capsys.readouterr().out

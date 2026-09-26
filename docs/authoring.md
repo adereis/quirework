@@ -422,7 +422,9 @@ conventional ones:
 - `@bind(slug)`: this chapter expresses that spec section. It carries no
   body: it is a relationship, not a note. Several chapters may bind one
   section, and `book notes bind --slug S` is the reverse lookup that
-  answers "what else does this commitment touch?".
+  answers "what else does this commitment touch?". `book notes
+  relations` is the same filter, for a shell or harness guard that
+  refuses any command containing the word "bind".
 - `@guidance`: how the chapter should read, its length, what it is for.
 - `@genesis`: where the material came from.
 - `@todo`: open work.

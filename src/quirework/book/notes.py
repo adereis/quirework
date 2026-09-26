@@ -341,6 +341,12 @@ KIND_DESCRIPTIONS = {
     "see": "pointer to a book-wide review note",
 }
 
+# Other names a kind answers to on the command line. A harness that guards a
+# worktree by refusing any command containing "bind" made `book notes bind`
+# unrunnable, and `--kind bind` did not help because the word was still in
+# argv. The alias spells the same filter without it.
+KIND_ALIASES = {"relations": "bind"}
+
 # The `--primer` preset: what a fresh session must act from or stay consistent
 # with -- the bindings and the constraints on how the book reads
 # (@guidance). The spec is printed first and owns what is true.
@@ -1482,6 +1488,8 @@ def main(argv=None) -> int:
         "                                       (bind+guidance, by chapter)\n"
         "  quirework book notes bind --slug authorship-by-log\n"
         "                                       who binds that spec section\n"
+        "  quirework book notes relations --slug authorship-by-log\n"
+        "                                       the same, without the word bind\n"
         "  quirework book notes --by chapter        the whole book's marks, in order\n"
         "  quirework book notes --list              the kind vocabulary + counts",
         formatter_class=argparse.RawDescriptionHelpFormatter,
@@ -1639,7 +1647,20 @@ def main(argv=None) -> int:
         return 0
 
     # Explicitly requested kinds: positional + --kind (comma-splittable), unioned.
-    explicit: list[str] = [k.lower() for k in args.kinds]
+    # A positional kind may be an alias; --kind is always the literal name.
+    positional = [k.lower() for k in args.kinds]
+    clash = [k for k in positional if k in KIND_ALIASES and k in present]
+    if clash:
+        # The tag set is open, so a book may have its own kind by that name.
+        # Guessing which one was meant would answer a different question.
+        for k in clash:
+            print(
+                f"'{k}' is both a kind in this book and an alias for "
+                f"'{KIND_ALIASES[k]}'; name the one you mean with --kind",
+                file=sys.stderr,
+            )
+        return 2
+    explicit: list[str] = [KIND_ALIASES.get(k, k) for k in positional]
     for spec in args.kind:
         explicit += [p.strip().lower() for p in spec.split(",") if p.strip()]
     explicit = list(dict.fromkeys(explicit))  # de-dup, preserve order
