@@ -1,6 +1,6 @@
 {
   "schema": 1,
-  "filter_version": 4,
+  "filter_version": 5,
   "codex_filter_version": 2,
   "sources": {
     "logs/cc-sessions/893d06b2-042a-458f-bc18-4f20e00032e0.jsonl": {
