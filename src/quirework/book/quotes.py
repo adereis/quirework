@@ -46,6 +46,16 @@ chapter at all and therefore speaks about its own. A body that names
 chapters but none near the quotation falls back to the book-wide check,
 because guessing the referent is how an advisory earns its way into being
 ignored.
+
+**When the narrowing is the wrong trade.** After a term retirement or a
+sentence rewrite, the stale quotations are exactly the ones the narrow scan
+skips: short (a coinage with its article falls under the twelve-character
+floor) or uncued (a note recording a rewrite writes `now "…"`, and "now" is
+no cue). `--all` adds every other quoted span in every mark, reported in a
+group of its own so the high-precision set stays readable, and `--grep`
+narrows that group to the spans a retired term appears in. Most of what it
+lists is correct -- guards, outside sources, elisions -- and the author
+reads it once, after the edit it was run for.
 """
 
 from __future__ import annotations
@@ -92,6 +102,8 @@ _NEGATED = re.compile(
 NEG_WINDOW = 34
 
 _QUOTED = re.compile(r'"([^"\n]{12,400})"')
+# `--all`: any quoted span at all, straight or curly, however short.
+_ANY_QUOTED = re.compile(r'"([^"\n]{1,400})"|“([^”\n]{1,400})”')
 _ELISION = re.compile(r"\s*(?:\.\.\.|…)\s*")
 
 CUE_WINDOW = 70
@@ -319,6 +331,47 @@ def scan(docs: Path | None = None) -> list[Hit]:
     return hits
 
 
+def _present(needle: str, corpus: str) -> bool:
+    """Whether the words stand in the prose as words, not inside longer ones.
+
+    A retired "fuse" is not still present because the book says "fuses".
+    """
+    return re.search(rf"(?<!\w){re.escape(needle)}(?!\w)", corpus) is not None
+
+
+def scan_all(docs: Path | None = None, grep: str | None = None, skip=()) -> list[Hit]:
+    """Every quoted span in every mark that the prose no longer contains.
+
+    No cue, no length floor, no filter for guards or outside sources: this is
+    the coverage the default scan gives up for precision. `grep` is a
+    case-insensitive regular expression a span must match, which is how a
+    term retirement checks every quotation that carried the term. Spans the
+    default scan already reported (`skip`) are left to that report.
+    """
+    docs = (
+        Path(docs) if docs is not None else notes.current_project().path("book.source")
+    )
+    corpus = _prose_corpus(docs)
+    pattern = re.compile(grep, re.I) if grep else None
+    reported = {(h.source, h.line, h.quote) for h in skip}
+    hits: list[Hit] = []
+    for anno in notes.scan():
+        body = notes._norm(anno.body)
+        source = anno.source or anno.file
+        for m in _ANY_QUOTED.finditer(body):
+            span = m.group(1) or m.group(2)
+            if pattern and not pattern.search(span):
+                continue
+            if (source, anno.line, span) in reported:
+                continue
+            needle = notes._searchable(_longest_fragment(span))
+            if not needle or _present(needle, corpus):
+                continue
+            slug = anno.args[0] if anno.args else ""
+            hits.append(Hit(source, anno.line, anno.kind, slug, span))
+    return hits
+
+
 def _group(hits: list[Hit], stream, header: str, tail: str) -> None:
     print(
         f"\nadvisory ({header} — warning, not gated):",
@@ -345,7 +398,8 @@ def _group(hits: list[Hit], stream, header: str, tail: str) -> None:
     print(tail, file=stream)
 
 
-def report(hits: list[Hit], stream=sys.stderr) -> None:
+def report(hits: list[Hit], stream=None) -> None:
+    stream = stream or sys.stderr
     if not hits:
         print(
             "✓ quotes: every cited phrase resolves, in the chapter that cites it.",
@@ -374,6 +428,25 @@ def report(hits: list[Hit], stream=sys.stderr) -> None:
         )
 
 
+def report_all(hits: list[Hit], grep: str | None, stream=None) -> None:
+    stream = stream or sys.stderr
+    scope = f" matching {grep!r}" if grep else ""
+    if not hits:
+        print(
+            f"✓ quotes --all: every other quoted phrase{scope} is in the book.",
+            file=stream,
+        )
+        return
+    _group(
+        hits,
+        stream,
+        f"{len(hits)} other quoted phrase(s){scope} not found in the book",
+        "\n  Every quoted span, with no filter for guards, outside sources or\n"
+        "  short coinages, so most of these are correct. The ones to fix are\n"
+        "  quotations of wording the prose has since changed.",
+    )
+
+
 def main(argv: list[str] | None = None) -> int:
     import argparse
 
@@ -387,6 +460,27 @@ def main(argv: list[str] | None = None) -> int:
         default=None,
         help="book source root (default: configured)",
     )
+    p.add_argument(
+        "--all",
+        action="store_true",
+        help="also check every other quoted span, however short or uncued, "
+        "in a separate group",
+    )
+    p.add_argument(
+        "--grep",
+        metavar="PATTERN",
+        default=None,
+        help="with --all (implied), only spans matching this case-insensitive "
+        "regular expression, such as a retired term",
+    )
     args = p.parse_args(argv)
-    report(scan(args.source))
+    if args.grep is not None:
+        try:
+            re.compile(args.grep)
+        except re.error as exc:
+            p.error(f"--grep: {exc}")
+    hits = scan(args.source)
+    report(hits)
+    if args.all or args.grep is not None:
+        report_all(scan_all(args.source, args.grep, hits), args.grep)
     return 0

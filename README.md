@@ -97,7 +97,8 @@ never disturbs them. `book notes --check` gates eleven invariants: a
 mark left in the prose, a sidecar that no longer mirrors its chapter, a
 binding that names a commitment the spec does not declare, a reading
 order that disagrees with the files on disk. `book quotes` checks that a
-phrase quoted in metadata still exists in the book.
+phrase quoted in metadata still exists in the book, and `--grep TERM`
+lists every quotation of a term you just retired from the prose.
 
 ### Formats and inspects the prose
 

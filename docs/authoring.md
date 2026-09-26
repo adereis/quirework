@@ -436,6 +436,23 @@ declare, and a spec section missing its anchor. Run it before every
 commit; it is what keeps the metadata from drifting away from the text
 it describes.
 
+`quirework book quotes` checks that wording a mark quotes is still in
+the book, and it is narrow on purpose. It checks only a long quotation
+introduced as one (`reads "…"`, `the sentence "…"`), because most quoted
+spans in marks are guards, coinages or outside sources that are meant
+to be absent. After a rewrite or a retired term that is the wrong
+trade, since the quotations left stale are short or uncued: a note
+that says a sentence is `now "…"` names no cue. `--all` adds every
+other quoted span in a group of its own. `--grep PATTERN` keeps the
+spans a regular expression matches, so retiring a word is one command:
+
+```bash
+quirework book quotes --grep '\bbreaker\b'
+```
+
+Most of what `--all` lists is correct. Read it once after the edit it
+was run for.
+
 ## 4. Figures
 
 Put the illustration sources in one directory and point at it:
