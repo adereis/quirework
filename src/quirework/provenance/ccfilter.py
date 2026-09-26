@@ -58,7 +58,11 @@ import sys
 #     message, and a compacted session resumes from a summary flagged
 #     isCompactSummary. Both rendered as "### Human", so a blind analyst read
 #     a subagent's findings and a model's summary as the author's own words.
-FILTER_VERSION = 4
+# v5: drop the notice the harness writes in the model's slot when a request
+#     fails (isApiErrorMessage: "API Error: 529 Overloaded"). It rendered as
+#     the model's turn, so a blind analyst read a harness notice as something
+#     the model said.
+FILTER_VERSION = 5
 
 # Human-turn *content* the harness wrote, not the human (mirrors
 # metrics.HARNESS; duplicated because this module stays import-free so the
