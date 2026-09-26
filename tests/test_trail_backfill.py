@@ -459,6 +459,9 @@ def test_import_says_when_an_answer_was_cut_off(book, tmp_path):
     lines = "\n".join(backfill.import_lines([row]))
     assert "! the answer stops mid-line: the reader ran out of room" in lines
     assert "(--turns)" in lines
+    alone = dict(row, handed=1)
+    lines = "\n".join(backfill.import_lines([alone]))
+    assert "a smaller seat cannot help" in lines and "--turns" not in lines
 
 
 def test_an_answer_that_ends_is_not_cut_off():

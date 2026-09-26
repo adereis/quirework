@@ -311,7 +311,10 @@ again.
 Import says when a reader was cut off: an answer that stops partway
 through a line, with sessions left unfinished, is reported with the
 seat's output and thinking tokens. Those sessions are handed out again
-by the next plan; give them fewer turns per seat.
+by the next plan; give them fewer turns per seat. The turn cap lowers
+this risk and cannot remove it, because thinking depends on what the
+turns hold: one dense session can use up a reader's room alone, and
+since a session is never split, it then needs a reader with more room.
 
 Import holds any seat whose receipt carries a red flag its plan did not
 accept, records nothing it read, and exits nonzero, so an unexpected

@@ -59,8 +59,11 @@ BATCH_TOKENS = 30000
 # across 55 conversation seats in six passes, none held more than 100 author
 # turns, and none wrote more than 58,901 output tokens. Red-pen marks are
 # short, so the same budget packed 124 of them into one seat, and its answer
-# stopped mid-line at 64,853 of its model's 65,536. Red-pen seats wrote 420 to
-# 550 tokens per turn, thinking included, so 80 turns keep one near 44,000.
+# stopped mid-line at 64,853 of its model's 65,536. A cap on turns lowers that
+# risk and cannot remove it. Thinking depends on what the turns hold: a round
+# of 52 marks, alone in its seat, was cut off the same way, and both cut-off
+# seats had stopped thinking within five tokens of 62,910, which no finished
+# seat came near. Import reports such an answer, so the pass can go on.
 SEAT_TURNS = 80
 # A seat that flags almost nothing over many turns may have written its done
 # lines without reading. Seats in one real pass flagged 12% to 79% of their
@@ -726,6 +729,7 @@ def import_run(record, accept=()):
             "sections": [],
             "sessions": [],
             "cut": None,
+            "handed": len(meta["sessions"]),
         }
         report.append(row)
         done = run.state(name)["done"].get("read")
@@ -844,11 +848,20 @@ def import_lines(report):
                 if spent["output"]
                 else ""
             )
+            if row.get("handed", 2) > 1:
+                advice = (
+                    "The next plan hands its unread sessions out again; give "
+                    "them fewer turns per seat (--turns)"
+                )
+            else:
+                advice = (
+                    "It held one session, and a session is never split, so a "
+                    "smaller seat cannot help: that session needs a reader "
+                    "with more room"
+                )
             lines.append(
                 f"    ! the answer stops mid-line{used}: the reader ran out of "
-                "room, most likely at its model's output limit. The next plan "
-                "hands its unread sessions out again; give them fewer turns per "
-                "seat (--turns)"
+                f"room, most likely at its model's output limit. {advice}"
             )
         for drop in row["dropped"]:
             lines.append(f"    dropped ({drop['why']}): {drop['line'][:100]}")
