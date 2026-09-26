@@ -2,8 +2,10 @@
 
 import argparse
 import ast
+import json
 import shutil
 import subprocess
+from pathlib import Path
 from quirework.project import current_project, extension
 
 
@@ -87,8 +89,14 @@ def formatting_check(root, paths):
     if not shutil.which("ruff"):
         print("Formatting: skipped, no formatter installed")
         return 0
+    # The report is read as JSON, never as the text a person would see. That
+    # text follows the caller's environment: FORCE_COLOR puts escape codes
+    # between a label and the file it names, and outranks NO_COLOR, so a
+    # session that forced colour got a check naming "\x1b[0mdrifted.py".
+    # RUFF_OUTPUT_FORMAT can change the layout altogether. The flag outranks
+    # both, and JSON carries no colour.
     result = subprocess.run(
-        ["ruff", "format", "--check", *paths],
+        ["ruff", "format", "--check", "--output-format", "json", *paths],
         cwd=root,
         capture_output=True,
         text=True,
@@ -97,15 +105,23 @@ def formatting_check(root, paths):
     if result.returncode == 0:
         print("Formatting: passed")
         return 0
-    drifted = sorted(
-        {
-            line.split("--> ")[1].split(":")[0]
-            for line in result.stdout.splitlines()
-            if "--> " in line
-        }
-    )
-    for rel in drifted:
-        print(f"unformatted: {rel}")
+    try:
+        diagnostics = json.loads(result.stdout)
+    except json.JSONDecodeError:
+        # No report at all: the formatter refused the invocation itself (an
+        # unreadable configuration, or a ruff too old for --output-format).
+        # Its own words are the only diagnosis there is.
+        print(result.stderr.strip())
+        print("Formatting: failed; the formatter did not run")
+        return 1
+    base = Path(root).resolve()
+    for item in sorted(diagnostics, key=lambda d: (d["filename"], d["code"])):
+        path = Path(item["filename"])
+        rel = path.relative_to(base) if path.is_relative_to(base) else path
+        if item["code"] == "unformatted":
+            print(f"unformatted: {rel}")
+        else:
+            print(f"{item['code']}: {rel}: {item['message']}")
     print("Formatting: failed; run `ruff format` and commit that on its own")
     return 1
 
