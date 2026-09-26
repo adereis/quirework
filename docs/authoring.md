@@ -285,9 +285,11 @@ batch to the next. A batch is bounded by estimated tokens (`--budget`)
 and by your turns (`--turns`, 80 by default), because a reader's answer,
 thinking included, grows with the turns it answers for and stops at its
 model's output limit. Short turns, such as red-pen marks, fill a token
-budget with more turns than a reader can answer. A session is never
-split, so one longer than `--turns` is read alone, and the plan names
-it. The run engine runs it, and resumes it after a quota
+budget with more turns than a reader can answer. A session longer than
+`--turns` is read in parts of nearly equal length, one part to a seat.
+A part's packet says which turns it holds, and its turns keep their
+numbers. The plan names every session it hands out in parts. The run
+engine runs the plan, and resumes it after a quota
 stop. Without `--out`, the plan takes a new directory in the project's
 private state, named for the day and the model, with a suffix for a
 second pass the same day. It prints the sessions by harness, the whole
@@ -313,8 +315,13 @@ through a line, with sessions left unfinished, is reported with the
 seat's output and thinking tokens. Those sessions are handed out again
 by the next plan; give them fewer turns per seat. The turn cap lowers
 this risk and cannot remove it, because thinking depends on what the
-turns hold: one dense session can use up a reader's room alone, and
-since a session is never split, it then needs a reader with more room.
+turns hold: one dense session can use up a reader's room alone. Plan it
+again with a lower `--turns`, and it is read in parts.
+
+A read of a part records the turns it covers. A session counts as read
+once its reads cover every turn, and the next plan hands out only the
+turns no reader finished. `backfill status` counts a session read only
+in part.
 
 Import holds any seat whose receipt carries a red flag its plan did not
 accept, records nothing it read, and exits nonzero, so an unexpected

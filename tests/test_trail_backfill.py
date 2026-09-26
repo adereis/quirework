@@ -245,16 +245,48 @@ def test_a_small_budget_gives_each_session_its_own_seat(book, tmp_path):
     assert done["seats"] == 2
 
 
-def test_a_seat_holds_no_more_turns_than_its_reader_can_answer_for(book, tmp_path):
+def test_a_session_longer_than_a_seat_is_read_in_parts(book, tmp_path):
     # The morning session holds three author turns and the evening one.
     done = backfill.plan(
         tmp_path / "packets", harness="codex", model="luna", effort="low", turns=2
     )
-    assert done["seats"] == 2, "the token budget alone would seat both together"
-    assert done["oversized"] == [(MORNING, 3)]
+    plan = json.loads((tmp_path / "packets" / "plan.json").read_text())
+    reads = [s["metadata"]["trail_read"] for s in plan["seats"]]
+    assert [r.get("parts") for r in reads] == [{MORNING: [1, 2]}, {MORNING: [3, 3]}]
+    assert reads[1]["sessions"] == [MORNING, EVENING], "a part shares a seat"
+    assert done["split"] == [(MORNING, 3, [(1, 2), (3, 3)])]
     lines = "\n".join(backfill.plan_lines(done))
-    assert "1 session(s) hold more than the 2 author turns" in lines
-    assert "0badc0de (3)" in lines
+    assert "0badc0de turns 1-2, 3-3 of 3" in lines
+    part = (tmp_path / "packets" / "packets" / f"{MORNING}.turns-3-3.md").read_text()
+    assert "only turns 3 to 3 of the session's 3" in part
+    assert "## Turn 3 " in part and "## Turn 1 " not in part
+
+
+def test_parts_cut_evenly_and_never_leave_a_stub():
+    assert backfill._parts(1, 52, 26) == [(1, 26), (27, 52)]
+    assert backfill._parts(1, 147, 80) == [(1, 74), (75, 147)]
+    assert backfill._parts(5, 7, 80) == [(5, 7)]
+
+
+def test_a_session_read_in_part_hands_out_only_its_unread_turns(book, tmp_path):
+    flag = {"slug": "cooling-asymmetry", "kind": "correct", "confidence": "high"}
+    first = _lines(
+        {"session": MORNING, "turn": 1, "sections": [flag]},
+        {"session": MORNING, "turn": 3, "sections": [flag]},
+        {"session": MORNING, "done": True, "about": "The first two turns."},
+    )
+    [row, _] = _read(tmp_path, [first], turns=2)
+    assert row["read"] == 1 and row["dropped"][0]["why"] == "no such author turn"
+    read = backfill._reads()[0]
+    assert read["part"] == {"first": 1, "last": 2} and read["turns"] == 2
+    assert [c["turn"] for c in read["candidates"]] == [1]
+    assert backfill._coverage() == {MORNING: {1, 2}}
+    backfill.plan(tmp_path / "next", harness="codex", model="luna", effort="low")
+    plan = json.loads((tmp_path / "next" / "plan.json").read_text())
+    [seat] = plan["seats"]
+    assert seat["metadata"]["trail_read"]["parts"] == {MORNING: [3, 3]}
+    assert "1 of    2 read" not in "\n".join(backfill.status())
+    assert "1 read only in part" in "\n".join(backfill.status())
 
 
 def test_packets_never_land_in_the_checkout(book):
@@ -461,7 +493,7 @@ def test_import_says_when_an_answer_was_cut_off(book, tmp_path):
     assert "(--turns)" in lines
     alone = dict(row, handed=1)
     lines = "\n".join(backfill.import_lines([alone]))
-    assert "a smaller seat cannot help" in lines and "--turns" not in lines
+    assert "It held one session" in lines and "it is read in parts" in lines
 
 
 def test_an_answer_that_ends_is_not_cut_off():
