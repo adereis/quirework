@@ -200,3 +200,21 @@ def test_a_torn_line_costs_only_itself(tmp_path):
     rows = agy.normalize_capture(str(p)).decode().splitlines()
     assert json.loads(rows[1])["content"] == "kept"
     assert json.loads(rows[0])["dropped"]["<unparseable>"] == 1
+
+
+def test_a_renamed_format_is_not_reported_as_a_changed_session(tmp_path):
+    raw = _session(tmp_path, [_row("USER_INPUT", "go")])
+    capture = tmp_path / "capture.jsonl"
+    agy.write_capture(raw, str(capture))
+    lines = capture.read_text(encoding="utf-8").splitlines()
+    header = json.loads(lines[0])
+    header["capture_schema"] = "an-earlier-name-agy-v1"
+    capture.write_text("\n".join([json.dumps(header), *lines[1:]]) + "\n")
+    assert not agy.is_current(raw, str(capture))
+    why = agy.why_not_current(raw, str(capture))
+    assert "source is unchanged" in why and "an-earlier-name-agy-v1" in why
+    with open(raw, "a", encoding="utf-8") as fh:
+        fh.write(json.dumps(_row("USER_INPUT", "and more")) + "\n")
+    assert agy.why_not_current(raw, str(capture)) == (
+        "its source has changed since it was captured"
+    )

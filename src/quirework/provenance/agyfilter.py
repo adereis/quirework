@@ -233,6 +233,28 @@ def is_current(src, dst):
     return source_fingerprint(src) == recorded
 
 
+def why_not_current(src, dst):
+    """Why the capture at ``dst`` is not current for the source at ``src``.
+
+    A capture whose header names another format, over a source that has not
+    changed, is not a changed session. A tool that renames its format leaves
+    such captures behind, and the words say so rather than report a change.
+    """
+    try:
+        with open(dst, encoding="utf-8", errors="replace") as fh:
+            header = json.loads(fh.readline())
+        recorded = (int(header["source_bytes"]), str(header["source_sha256"]))
+    except (OSError, ValueError, KeyError, TypeError):
+        return "it holds no capture header"
+    schema = header.get("capture_schema")
+    if recorded == source_fingerprint(src) and schema != CAPTURE_SCHEMA:
+        return (
+            f"its source is unchanged, but its header names the format {schema}, "
+            f"not {CAPTURE_SCHEMA}"
+        )
+    return "its source has changed since it was captured"
+
+
 def write_capture(src, dst):
     """Normalize ``src`` into ``dst`` atomically, preserving the source's mtime.
 

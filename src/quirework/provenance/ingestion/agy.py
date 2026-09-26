@@ -153,7 +153,8 @@ def main(argv=None):
             print(f"  ~ {sid} (replaced)")
         else:
             counts["differ"] += 1
-            print(f"  ! {sid} differs from its source (kept)")
+            why = agyfilter.why_not_current(source, output)
+            print(f"  ! {sid} is not current: {why} (kept)")
     print(
         "agy-sessions: {new} new, {replaced} replaced, {unchanged} unchanged, {differ} differ, {curated} curated out, {review} review run(s), {evals} evaluation seat(s), {unreadable} unreadable -> ".format(
             **counts
