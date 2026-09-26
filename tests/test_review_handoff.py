@@ -121,3 +121,68 @@ def test_a_report_that_says_it_stopped_short_is_not_passed_off_as_done(project):
 def test_only_the_last_status_line_counts(body, stated, flagged):
     assert review._report_status(body) == stated
     assert review._unfinished(stated) is flagged
+
+
+@pytest.mark.parametrize(
+    "config, line",
+    [
+        (
+            {"harness": "codex", "model": "demo-model", "effort": "high"}
+            | {"max_context_window": 400000},
+            "harness=codex model=demo-model effort=high context=400000 "
+            "compaction=prevented jailed=true",
+        ),
+        (
+            {"harness": "claude", "model": "opus", "effort": "xhigh"}
+            | {"model_pinned": "claude-opus-5-5"},
+            f"harness=claude model=claude-opus-5-5 effort=xhigh "
+            f"context={models.CLAUDE_MAX_WINDOW} compaction=prevented jailed=true",
+        ),
+        (
+            {"harness": "agy", "model": "gemini-pro-high", "effort": "high"},
+            "harness=agy model=gemini-pro-high effort=high context=default "
+            "compaction=detected jailed=true",
+        ),
+    ],
+)
+def test_one_line_names_the_reviewer_before_the_argv(config, line):
+    """The jail is a hundred lines of mounts; what gets checked is this."""
+    assert review.launch_summary(config, True) == line
+    assert review.launch_summary(config, False).endswith("jailed=false")
+
+
+def test_a_short_status_keeps_what_a_poll_asks_and_drops_the_rest(project):
+    (project / "records" / "reviews" / RUN).mkdir(parents=True)
+    record = project / "state" / RUN
+    for turn, body in (("01", "STATUS: complete\n"), ("02", "STATUS: partial\n")):
+        (record / "turns" / turn / "report").mkdir(parents=True)
+        (record / "turns" / turn / "report" / "report.md").write_text(
+            body + "PROGRESS: commits 2/7\n"
+        )
+    (record / "run.json").write_text(
+        review.json.dumps(
+            {
+                "run": RUN,
+                "config": {"harness": "codex", "model": "demo-model"},
+                "delta": {"kind": "range", "range": "a..b"},
+                "turns": [entry(report_status="complete", findings=3, mode="run")],
+            }
+        )
+    )
+    short = review.short_status(review.status(RUN, store=record.parent))
+    assert set(short) == {"run", "turns", "uncollected_turns", "continuable"}
+    assert short["turns"] == [
+        {
+            "turn": "01",
+            "mode": "run",
+            "status": "completed",
+            "report_status": "complete",
+            "findings": 3,
+        }
+    ]
+    (pending,) = short["uncollected_turns"]
+    assert pending["turn"] == "02"
+    assert pending["report_status"] == "partial"
+    assert pending["progress"] == "PROGRESS: commits 2/7"
+    assert not any(key.endswith("_path") for key in pending)
+    assert short["continuable"] == []

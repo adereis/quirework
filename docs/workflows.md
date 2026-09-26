@@ -546,7 +546,14 @@ A range `A..B` covers the commits after `A`, not `A` itself. To review
 the last three commits, pass `HEAD~3..HEAD`, not `HEAD~2..HEAD`. Before
 the reviewer starts, `review run` prints the commits the range covers
 and names the base it leaves out. Read that list before waiting on the
-review.
+review. Beside it, every turn prints one line naming the reviewer as it
+will launch: harness, model, effort, context window, whether compaction
+is prevented or only detected, and whether it is jailed. `review
+prompt` prints the same line, so the check before paying for a turn is
+one line rather than an argv behind a hundred lines of jail mounts.
+While a turn runs, `review status RUN --short` answers what a poll
+asks: which turns ended and how, how far the running one has got, and
+which can be continued.
 
 The reviewer must not be the model that made the edit. That requirement
 makes a cross-harness check straightforward: a Codex edit can go to

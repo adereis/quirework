@@ -832,6 +832,29 @@ def _next_turn(record):
     return f"{int(existing[-1]) + 1:02d}" if existing else "01"
 
 
+def launch_summary(config, jailed):
+    """One line naming the reviewer, ahead of the argv that says it at length.
+
+    The jail alone is about a hundred lines of mounts, and the settings an
+    operator checks before paying for a turn (model, effort, the context it
+    may use, whether it is jailed) sat at the end of them.
+    """
+    harness = config["harness"]
+    window = {
+        "codex": config.get("max_context_window"),
+        "claude": drivers.CLAUDE_MAX_WINDOW,
+    }.get(harness)
+    # agy takes no context setting, so its compaction can only be seen after.
+    guard = (
+        "prevented" if drivers.window_assurance(harness) == "enforced" else "detected"
+    )
+    return (
+        f"harness={harness} model={config.get('model_pinned') or config['model']} "
+        f"effort={config['effort']} context={window or 'default'} "
+        f"compaction={guard} jailed={str(bool(jailed)).lower()}"
+    )
+
+
 def start(
     scope,
     *,
@@ -1053,6 +1076,7 @@ def _turn(
         args, _ = command(
             config, "resume" if mode == "continue" else mode, session_id, report_dir
         )
+        print(f"review: {launch_summary(config, jailed)}", file=sys.stderr)
         if dry_run:
             return {
                 "run": name,
@@ -1552,6 +1576,32 @@ def _uncollected_turns(record, state):
     return pending
 
 
+def short_status(full):
+    """What an operator checks while a run is in flight, and nothing else.
+
+    The full status repeats the configuration and the delta on every poll,
+    and the questions asked of it mid-run are only these: which turns ended
+    and how, how far the running one has got, and which can be continued.
+    """
+    if "turns" not in full:
+        return full
+    return {
+        "run": full["run"],
+        "turns": [
+            {
+                k: t.get(k)
+                for k in ("turn", "mode", "status", "report_status", "findings")
+            }
+            for t in full["turns"]
+        ],
+        "uncollected_turns": [
+            {k: v for k, v in t.items() if not k.endswith("_path")}
+            for t in full["uncollected_turns"]
+        ],
+        "continuable": full["continuable"],
+    }
+
+
 def status(name=None, store=None):
     if name is None:
         runs = sorted(
@@ -1627,15 +1677,20 @@ Cross-model editorial review of a delta. Procedure: docs/workflows.md.
       Branch the session to press a disagreement, leaving the first answer
       intact and quotable. A fork is a side branch: later resumes stay on
       the trunk unless you name the branch with --from TURN.
-  quirework sop review status [RUN]
+  quirework sop review status [RUN] [--short]
       Show collected turns and saved progress from uncollected turns.
       An uncollected turn may still be running; do not launch a duplicate.
+      --short keeps only turn states, progress and what can be continued.
   quirework sop review audit [--since REF]
       Commits touching the configured reviewable paths since the last commit
       carrying a Reviewed-by: trailer that carry none themselves. Advisory:
       whether an edit needed a foreign reviewer is a judgment, not a gate.
   quirework sop review prompt SCOPE --range A..B --brief FILE --model M
       Print the composed prompt and argv, launch nothing.
+
+Every turn, and every prompt, first prints one line naming the harness, model,
+effort, context window, whether compaction is prevented or only detected, and
+whether the reviewer is jailed.
 
 --model takes a family (opus, terra, gemini-pro), resolved to the newest the
 harness's own catalog lists, or a version that pins. Without --harness, a Claude
@@ -1763,6 +1818,11 @@ def main(argv=None):
     p = sub.add_parser("status", help="collected turns and saved progress")
     p.add_argument("run", nargs="?")
     p.add_argument("--store", default=None)
+    p.add_argument(
+        "--short",
+        action="store_true",
+        help="only turn states, progress and what can be continued",
+    )
     p = sub.add_parser("audit", help="reviewable commits that carry no review")
     p.add_argument(
         "--since",
@@ -1838,6 +1898,8 @@ def main(argv=None):
             )
         elif args.action == "status":
             result = status(args.run, args.store)
+            if args.short:
+                result = short_status(result)
         elif args.action == "audit":
             result = audit(args.since)
             print(json.dumps(result, indent=2, ensure_ascii=False))
