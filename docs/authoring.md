@@ -484,6 +484,14 @@ materializes the set into the build tree, and `--check` validates it.
 The sources stay tracked; the rasters and the derived galleries are
 build output.
 
+Figures often share a definition: a glyph placed with `<use
+href="#steam">`, an arrowhead marker, a gradient. A style guide that
+lists which figures place the glyph goes stale as soon as a figure is
+added or cut. `quirework book figures inventory` counts every such
+reference instead, per definition. `--uses steam` gives one
+definition's figures and counts, so the guide can say "run this" in
+place of the list.
+
 Two hooks make the figure pipeline a project's own without touching
 Quirework. `book.grayscale_transform` names a function taking SVG text
 and an asset name and returning SVG text, for a book that wants its own

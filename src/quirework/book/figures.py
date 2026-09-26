@@ -26,6 +26,10 @@ Commands (``quirework book figures …``):
                      rasterizes whatever it finds.
     gray             generate the grayscale SVG set for inspection
                      (build/figures-gray/, or ``--out DIR``).
+    inventory        which figures reference each shared definition (a
+                     ``<use href="#id">`` glyph, a marker, any ``url(#id)``),
+                     or with ``--uses ID`` one of them: the list a style
+                     guide would otherwise keep by hand, and let go stale.
 
 Build/check are stdlib-only (copy + parse); only ``png`` and the chart
 regeneration shell out (rsvg-convert / running the chart's .py), and only then.
@@ -436,6 +440,96 @@ def _check_gray(names: set[str]) -> list[str]:
     return problems
 
 
+# How one figure points at a definition: `href="#id"` (a <use>), and `url(#id)`
+# anywhere a property takes one, written as an attribute, inside style="", or in
+# a <style> block. A reference is a marker when the property naming it is one.
+_URL = re.compile(r"url\(\s*['\"]?#([^)'\"\s]+)['\"]?\s*\)")
+_DECLARATION = re.compile(r"([\w-]+)\s*:\s*([^;{}]*)")
+
+
+def _local(name: str) -> str:
+    return name.rsplit("}", 1)[-1]
+
+
+def references(svg: Path) -> list[tuple[str, str]]:
+    """(id, how) for every in-document reference in one SVG, in order."""
+    found: list[tuple[str, str]] = []
+
+    def urls(prop: str, value: str) -> None:
+        how = "marker" if prop.startswith("marker") else "url"
+        found.extend((ref, how) for ref in _URL.findall(value))
+
+    for element in ET.parse(svg).iter():
+        for name, value in element.attrib.items():
+            prop = _local(name)
+            if prop == "href" and value.startswith("#"):
+                found.append((value[1:], "use"))
+            elif prop == "style":
+                for declared, text in _DECLARATION.findall(value):
+                    urls(declared, text)
+            else:
+                urls(prop, value)
+        if _local(element.tag) == "style" and element.text:
+            for declared, text in _DECLARATION.findall(element.text):
+                urls(declared, text)
+    return found
+
+
+def inventory(uses: str | None = None) -> int:
+    """Which figures reference each definition, or one of them."""
+    import difflib
+    from collections import Counter
+
+    embedded = embedded_names()
+    by_id: dict[str, Counter] = {}
+    kinds: dict[str, set[str]] = {}
+    # A figure that does not parse cannot be counted, and a count that left it
+    # out would read as complete. It is named, and the command fails.
+    unreadable: list[str] = []
+    for svg in sorted(_settings().ILLUSTRATIONS.glob("*.svg")):
+        try:
+            found = references(svg)
+        except ET.ParseError as exc:
+            unreadable.append(f"figures: {_rel(svg)}: malformed SVG ({exc})")
+            continue
+        for ref, how in found:
+            by_id.setdefault(ref, Counter())[svg.stem] += 1
+            kinds.setdefault(ref, set()).add(how)
+    for line in unreadable:
+        print(line, file=sys.stderr)
+    status = 1 if unreadable else 0
+
+    def figure(stem: str) -> str:
+        return stem if stem in embedded else f"{stem} (not embedded)"
+
+    if uses is not None:
+        uses = uses.lstrip("#")
+        if uses not in by_id:
+            close = difflib.get_close_matches(uses, list(by_id), n=3)
+            hint = f" Close: {', '.join('#' + c for c in close)}." if close else ""
+            print(f"figures: no figure references #{uses}.{hint}")
+            return status
+        counts = by_id[uses]
+        print(
+            f"#{uses} ({', '.join(sorted(kinds[uses]))}): "
+            f"{len(counts)} figure(s), {sum(counts.values())} reference(s)"
+        )
+        for stem, n in sorted(counts.items()):
+            print(f"  {n:>3}  {figure(stem)}")
+        return status
+    if not by_id:
+        print("figures: no figure references a shared definition.")
+        return status
+    for ref in sorted(by_id):
+        counts = by_id[ref]
+        print(
+            f"#{ref} ({', '.join(sorted(kinds[ref]))}): {len(counts)} figure(s), "
+            f"{sum(counts.values())} reference(s)"
+        )
+        print(f"  {', '.join(figure(stem) for stem in sorted(counts))}")
+    return status
+
+
 def show_list() -> int:
     names = embedded_names()
     print(f"{'figure':<26} {'source':<50}")
@@ -506,8 +600,8 @@ def main(argv=None) -> int:
         "action",
         nargs="?",
         default="build",
-        choices=["build", "check", "list", "png", "gray"],
-        help="build (default) | check | list | png | gray",
+        choices=["build", "check", "list", "png", "gray", "inventory"],
+        help="build (default) | check | list | png | gray | inventory",
     )
     ap.add_argument(
         "--check", action="store_true", help="alias for the check action (pre-commit)"
@@ -523,7 +617,16 @@ def main(argv=None) -> int:
         "PATH rasterizes that directory as-is",
     )
     ap.add_argument("--out", default=None, help="png/gray: output dir")
+    ap.add_argument(
+        "--uses",
+        metavar="ID",
+        default=None,
+        help="inventory: only the figures that reference this definition",
+    )
     args = ap.parse_args(argv)
+    if args.uses is not None and args.action != "inventory":
+        print("figures: --uses belongs to the inventory action", file=sys.stderr)
+        return 2
 
     # --check is the hook's spelling of the check action; combined with a
     # different action it would silently run check instead of what was named.
@@ -538,6 +641,8 @@ def main(argv=None) -> int:
         return check()
     if args.action == "list":
         return show_list()
+    if args.action == "inventory":
+        return inventory(args.uses)
     if args.action == "png":
         return render_png(
             args.set_, Path(args.out) if args.out else _settings().BUILD_DIR
