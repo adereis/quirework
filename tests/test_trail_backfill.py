@@ -7,6 +7,7 @@ imports one goes through a real prepared record, never a hand-built stand-in.
 """
 
 import json
+import subprocess
 from pathlib import Path
 
 import pytest
@@ -662,6 +663,7 @@ def test_a_red_pen_round_is_read_in_date_order_with_its_parts_explained(
         flat = " ".join(text.split())
         assert 'a "+ now" line can be something the copy already held' in flat
         assert "note: A report, not a thought." in text
+        assert "could not be read" in text, "a round with no revision says so"
         labels = [m["label"] for m in plan["seats"][0]["turns"][0]["materials"]]
         assert "redpen-v2-2031-04-01" in labels, "a round is named whole"
 
@@ -680,3 +682,47 @@ def test_a_ledger_needs_a_trail_and_says_when_it_is_not_configured(tmp_path):
     broken = Project.from_settings(project.root, {"book": book})
     with pytest.raises(ConfigurationError, match="keeps leads for a spec trail"):
         broken.require("book")
+
+
+def test_a_red_pen_packet_leaves_out_lines_the_book_already_held(tmp_path, monkeypatch):
+    """A build prints agents' notes into a block; the round then shows them as
+    "+ now" lines. The book's text at the round's revision tells them apart."""
+    monkeypatch.setenv("CODEX_HOME", str(tmp_path / "codex-home"))
+    root = tmp_path / "book"
+    settings = _thawed(_book(tmp_path).settings)
+    settings["provenance"]["redpen"] = "private/redpen"
+    note = "(pacing) a note an agent wrote - before the round was built"
+    marks = root / "manuscript" / "sections" / "_marks" / "opening.md"
+    spelled = note.replace(" - ", " -- ")  # the source spells the dash twice
+    marks.write_text(marks.read_text() + f"\n<!-- @todo {spelled} -->\n")
+
+    def git(*args):
+        return subprocess.run(
+            ["git", "-C", str(root), "-c", "user.name=A. Fictional Author"]
+            + ["-c", "user.email=author@example.invalid", *args],
+            check=True,
+            capture_output=True,
+            text=True,
+        ).stdout
+
+    git("init", "-q")
+    git("add", "-A")
+    git("commit", "-q", "-m", "The kettle book")
+    revision = git("rev-parse", "--short=9", "HEAD").strip()
+    archive = root / "private" / "redpen"
+    archive.mkdir(parents=True)
+    (archive / "v3-2031-04-06.md").write_text(
+        "# Red-pen round v3 (2031-04-06)\n\n```\n"
+        f"canon-sha:      {revision}\nmarks-dated:    2031-04-06\n```\n\n"
+        "## MARKS  (`redpen read`)\n\n### REVIEW-NOTES FREE EDITS (1)\n\n"
+        "[1. The opening]\n"
+        f"  + now: {note}\n"
+        "  + now: The kettle whistles for itself, and nobody asked it to.\n",
+        encoding="utf-8",
+    )
+    with project_scope(Project.from_settings(root, settings)):
+        sid, family, path, _ = trail.Corpus().session("redpen-v3")
+        text = backfill.packet(sid, family, path)
+    assert "The kettle whistles for itself, and nobody asked it to." in text
+    assert note not in text
+    assert f"1 '+ now' line(s) are left out" in text and revision in text

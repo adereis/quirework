@@ -302,7 +302,13 @@ some of each mark is your words. A review-notes entry compares your copy
 of a block with the block rebuilt from source when the round was
 archived. A copy built by an older renderer held more than that rebuild,
 such as headings and notes agents had written, so the packet warns that
-those can show up among your "+ now" lines.
+those can show up among your "+ now" lines. A round records the book
+revision it was matched against, and the packet leaves out any "+ now"
+line the book's source already held at that revision, since such a line
+was not written in the round. It says how many it left out, or that git
+could not read the revision. A comment's file and line are where the
+archive matched its anchor, and a one-word anchor can match the wrong
+place, which the packet also says.
 
 `backfill import RECORD` checks each flag against the corpus and
 keeps it in the ledger: a turn that is not yours, or a slug the spec

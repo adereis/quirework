@@ -29,9 +29,11 @@ the trail, and more so: a reader's reasons paraphrase the author's turns.
 from __future__ import annotations
 
 import argparse
+import functools
 import json
 import os
 import re
+import subprocess
 import sys
 import tempfile
 from dataclasses import dataclass, field
@@ -105,7 +107,83 @@ parentheses and speaks of the author in the third person. Those are not the
 author's words. The author's own lines carry no label, and are often in the
 first person or addressed to whoever edits the book. A "- was" line is not
 evidence that the author deleted it.
+
+A comment's "->" line is where the archive matched the text the comment is
+anchored to. A short anchor, such as a single word, can match the wrong place,
+so read a comment by what its note says.
 """
+
+# A round records the book revision its marks were matched against. A "+ now"
+# line the book already held at that revision was not written in the round:
+# it is a note the build printed into the block, usually an agent's. Shorter
+# lines, such as headings, are too generic to match safely.
+_ROUND_REVISION = re.compile(r"^canon-sha:\s*([0-9a-f]{7,40})\s*$", re.M)
+_HELD_CHARS = 20
+_FOLD = str.maketrans(
+    {
+        "\u2014": "-",
+        "\u2013": "-",
+        "\u201c": '"',
+        "\u201d": '"',
+        "\u2018": "'",
+        "\u2019": "'",
+        "\u2026": "...",
+    }
+)
+
+
+def _folded(text):
+    """Text as a red-pen round and the book compare: plain punctuation, one space.
+
+    A round folds a dash to one hyphen, where the source may spell it "--".
+    """
+    return " ".join(re.sub(r"-{2,}", "-", text.translate(_FOLD)).split())
+
+
+@functools.lru_cache(maxsize=16)
+def _book_at(root, source, revision):
+    """The book's source text at ``revision``, folded; ``None`` if git cannot say."""
+    try:
+        top = trail._git(root, "rev-parse", "--show-toplevel").strip()
+        where = os.path.relpath(source, top)
+        names = trail._git(
+            top, "ls-tree", "-r", "--name-only", revision, "--", where
+        ).split()
+        texts = [
+            trail._git(top, "show", f"{revision}:{name}")
+            for name in names
+            if name.endswith((".md", ".qmd"))
+        ]
+    except (OSError, subprocess.CalledProcessError):
+        return None
+    return _folded("\n".join(texts)) if texts else None
+
+
+def _round_book(path):
+    """``(revision, the book's text then)`` for a red-pen round, either ``None``."""
+    found = _ROUND_REVISION.search(Path(path).read_text(encoding="utf-8"))
+    if not found:
+        return None, None
+    project = current_project()
+    held = _book_at(str(project.root), str(project.path("book.source")), found.group(1))
+    return found.group(1), held
+
+
+def _unheld(text, held):
+    """A mark without the "+ now" lines the book already held; and how many."""
+    kept, dropped = [], 0
+    for line in text.splitlines():
+        now = re.match(r"\s*\+ now: (.*)$", line)
+        if (
+            now
+            and len(now.group(1).strip()) >= _HELD_CHARS
+            and _folded(now.group(1)) in held
+        ):
+            dropped += 1
+            continue
+        kept.append(line)
+    return "\n".join(kept), dropped
+
 
 INSTRUCTIONS = """\
 You are reading conversations in which an author worked out the ideas of a
@@ -281,6 +359,28 @@ def packet(sid, family, path, span=None):
     if span is not None:
         first, last = span
         rows = [row for row in rows if first <= row[0] <= last]
+    held_note = []
+    if family == "redpen":
+        revision, held = _round_book(path)
+        if held is None:
+            held_note = [
+                "",
+                "The book's text at this round's revision could not be read, so "
+                "'+ now' lines the book already held are shown with the rest.",
+            ]
+        else:
+            left_out = 0
+            for i, (number, logged, text, reply) in enumerate(rows):
+                text, dropped = _unheld(text, held)
+                rows[i] = (number, logged, text, reply)
+                left_out += dropped
+            if left_out:
+                held_note = [
+                    "",
+                    f"{left_out} '+ now' line(s) are left out: the book already "
+                    f"held them at revision {revision}, so they were not written "
+                    "in this round.",
+                ]
     day = show.session_date(family, path)
     begun = f"started {day:%Y-%m-%d}" if day else "undated"
     lines = [
@@ -296,7 +396,7 @@ def packet(sid, family, path, span=None):
             "write the session's done line when you have read them.",
         ]
     if family == "redpen":
-        lines += ["", REDPEN_NOTE.strip()]
+        lines += ["", REDPEN_NOTE.strip(), *held_note]
     for number, logged, text, reply in rows:
         shape = _SHAPES.get(humaninput.classify(text), "typed")
         lines += [
