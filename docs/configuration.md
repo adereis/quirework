@@ -36,7 +36,10 @@ skill_prefix = "notebook-"
 
 `book.quarto` names the Quarto project file. Book settings can also name
 `spec`, `references`, `review_notes`, and `typst_template` when the
-project uses those features. Annotation bindings resolve
+project uses those features. `book.figure_fonts` lists font files that
+every staged figure carries as subsets, so a figure shown as an image is
+lettered in the book's face on a device that lacks it; the [authoring
+guide](authoring.md#4-figures) explains it. Annotation bindings resolve
 against the configured semantic register; a book need not adopt another
 project's claims or vocabulary.
 

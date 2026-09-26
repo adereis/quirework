@@ -506,6 +506,24 @@ A missing family is a hard stop, because Typst and rsvg both substitute
 silently and the book would render whole in the wrong face. `--any-font`
 overrides it.
 
+A figure the page shows as an image is drawn in isolation. It can use
+the fonts installed on the reader's device and nothing else, so the
+book's own web fonts never reach its labels, and a reader without the
+face gets a fallback of different widths. `book.figure_fonts` lists font
+files for the figures to carry instead:
+
+```toml
+[book]
+figure_fonts = ["manuscript/fonts/Face-Regular.woff2", "manuscript/fonts/Face-Bold.woff2"]
+```
+
+At build time each staged figure, color and gray, gets a subset of every
+listed face it could ask for, holding only the characters it letters.
+The sources are left as they are. `figures --check` fails when a face
+cannot draw a character a figure uses, since that glyph would reach the
+reader from a fallback. The setting needs fontTools, with Brotli to
+write WOFF2 (the `book` extra installs both).
+
 ## 5. Procedures
 
 A procedure is a playbook an AI companion reads and follows. Quirework

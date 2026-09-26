@@ -33,6 +33,8 @@ Commands (``quirework book figures …``):
 
 Build/check are stdlib-only (copy + parse); only ``png`` and the chart
 regeneration shell out (rsvg-convert / running the chart's .py), and only then.
+A project that sets ``book.figure_fonts`` also needs fontTools for both, because
+each staged figure then carries subsets of those faces (see ``figfonts``).
 """
 
 from __future__ import annotations
@@ -45,6 +47,7 @@ import sys
 import xml.etree.ElementTree as ET
 from pathlib import Path
 
+from quirework.book import figfonts as _figfonts
 from quirework.project import current_project
 
 
@@ -210,6 +213,7 @@ def build(stage: Path | None = None, gray: bool = False) -> int:
     ) / current_project().chapter_subdir
     names = embedded_names()
     illus_out.mkdir(parents=True, exist_ok=True)
+    faces = _figfonts.configured()
 
     problems: list[str] = []
     written = 0
@@ -227,7 +231,12 @@ def build(stage: Path | None = None, gray: bool = False) -> int:
         if err:
             problems.append(f"{name}: {err} ({_rel(src)})")
             continue
-        shutil.copyfile(src, illus_out / f"{name}.svg")
+        try:
+            staged = _figfonts.embed(src.read_text(encoding="utf-8"), name, faces)
+        except _figfonts.FigureFontError as e:
+            problems.append(str(e))
+            continue
+        (illus_out / f"{name}.svg").write_text(staged, encoding="utf-8")
         written += 1
 
     pruned = 0
@@ -253,17 +262,20 @@ def build(stage: Path | None = None, gray: bool = False) -> int:
 def generate_gray(names: set[str], out: Path) -> int:
     """Generate the grayscale gallery for `names` from the color sources into `out`.
 
-    Pure derivation (graybuild), never a copy of a tracked file. Prunes stale
-    outputs. Returns the count written.
+    Pure derivation (graybuild), never a copy of a tracked file. The configured
+    figure fonts are embedded after the transform, as in the color gallery.
+    Prunes stale outputs. Returns the count written.
     """
     from quirework.book import graybuild as _gray
 
     out.mkdir(parents=True, exist_ok=True)
+    faces = _figfonts.configured()
     written = 0
     for name in sorted(names):
         text = _gray.gray_text_for(name)
         if text is None:
             continue
+        text = _figfonts.embed(text, name, faces)
         (out / f"{name}.svg").write_text(text, encoding="utf-8")
         written += 1
     for svg in out.glob("*.svg"):
@@ -378,6 +390,7 @@ def check() -> int:
             problems.append(f"{name}: {err} ({_rel(src)})")
 
     problems += _check_gray(names)
+    problems += _check_fonts(names)
     from quirework.project import extension
 
     for reference in current_project().get("book.figure_checks", []):
@@ -438,6 +451,32 @@ def _check_gray(names: set[str]) -> list[str]:
                 f"a book with its own color meanings selects book.grayscale_transform)"
             )
     return problems
+
+
+def _check_fonts(names: set[str]) -> list[str]:
+    """Every configured figure face can letter every figure that asks for it.
+
+    Silent while `book.figure_fonts` is unset. Once it is set, an unreadable
+    font, a missing fontTools or a character a face cannot draw fails here,
+    at commit time, instead of at the next render.
+    """
+    from quirework.project import ConfigurationError
+
+    try:
+        faces = _figfonts.configured()
+        if not faces:
+            return []
+        problems: list[str] = []
+        for name in sorted(names):
+            src = resolve(name)
+            if not src.exists() or _wellformed(src):
+                continue  # the caller already reports these
+            gaps = _figfonts.uncovered(src.read_text(encoding="utf-8"), faces)
+            if gaps:
+                problems.append(f"{name}: {'; '.join(gaps)}")
+        return problems
+    except (ConfigurationError, _figfonts.FigureFontError) as e:
+        return [str(e)]
 
 
 # How one figure points at a definition: `href="#id"` (a <use>), and `url(#id)`
