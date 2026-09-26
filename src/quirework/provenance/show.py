@@ -21,7 +21,9 @@ retire.)
 The id is the short id search prints (an 8-hex prefix, or the full ``gemini-…``
 name); a full uuid or a path works too. It resolves across the corpus families:
 local CLI sessions (Claude Code, Antigravity, and Codex), claude.ai
-``*.raw.json`` web dialogues, and the already-rendered ``gemini-*.md`` reviews.
+``*.raw.json`` web dialogues, the already-rendered ``gemini-*.md`` reviews,
+and, where ``provenance.redpen`` declares the archive, red-pen rounds, read as
+the author's marks one turn each and named ``redpen-`` plus the file's name.
 
 Every turn carries the timestamp the raw log recorded for it (already present in
 the stored transcripts — cc ``timestamp``, agy/web ``created_at`` — so nothing
@@ -269,6 +271,62 @@ _READERS = {
     "web": web_records,
 }
 
+# --------------------------------------------------------------------------- #
+# red-pen rounds: the author's marks on a rendered copy of the book
+# --------------------------------------------------------------------------- #
+# A round archived by `book redpen archive` is not a conversation, but every
+# mark in it is the author's own words, typed on the page. It is read as a
+# session of author turns so the tools that follow the author's words (the
+# trail, its backfill) can reach them. The marks channel holds each comment,
+# tracked edit and review-notes edit as a blank-line-separated entry; the
+# verbatim channel after it repeats the review-notes blocks and is not read.
+_REDPEN_MARKS = re.compile(r"^## MARKS\b.*$", re.M)
+_REDPEN_END = re.compile(r"^## (?!MARKS\b)", re.M)
+_REDPEN_DATED = re.compile(r"^marks-dated:\s*(\d{4}-\d{2}-\d{2})", re.M)
+_REDPEN_BYLINE = re.compile(r"^\[[^\]\n]+\]\s+(\d{4}-\d{2}-\d{2})\b")
+
+
+def is_redpen_round(path):
+    """Whether ``path`` is an archived red-pen round rather than its README."""
+    try:
+        text = Path(path).read_text(encoding="utf-8", errors="replace")
+    except OSError:
+        return False
+    return bool(_REDPEN_MARKS.search(text))
+
+
+def redpen_marks(path):
+    """``(text, day)`` for each mark in a red-pen round, in the archive's order.
+
+    ``day`` is the date a comment carries in its byline, or the round's own
+    ``marks-dated``; the archive records no time of day for any mark.
+    """
+    text = Path(path).read_text(encoding="utf-8", errors="replace")
+    start = _REDPEN_MARKS.search(text)
+    if not start:
+        return []
+    body = text[start.end() :]
+    end = _REDPEN_END.search(body)
+    body = body[: end.start()] if end else body
+    dated = _REDPEN_DATED.search(text)
+    round_day = date.fromisoformat(dated.group(1)) if dated else None
+    out = []
+    for block in re.split(r"\n\s*\n", body):
+        block = block.strip("\n")
+        if not block.strip() or block.lstrip().startswith("### "):
+            continue
+        byline = _REDPEN_BYLINE.match(block)
+        day = date.fromisoformat(byline.group(1)) if byline else round_day
+        out.append((block, day))
+    return out
+
+
+def _redpen_title(path):
+    for line in Path(path).read_text(encoding="utf-8", errors="replace").splitlines():
+        if line.startswith("# "):
+            return line[2:].strip()
+    return Path(path).stem
+
 
 def author_turns(kind, path):
     """``(number, logged, text)`` for each of the author's turns in a session.
@@ -289,6 +347,10 @@ def exchanges(kind, path):
     is the context a bare "yes, go" needs before it means anything. The turns
     are exactly ``author_turns``'s, which is built from this.
     """
+    if kind == "redpen":
+        return [
+            (n, None, text, "") for n, (text, _) in enumerate(redpen_marks(path), 1)
+        ]
     if kind == "gemini":
         lines = Path(path).read_text(encoding="utf-8", errors="replace").splitlines()
         starts = [i for i, line in enumerate(lines) if _GEMINI_SPEAKER.match(line)]
@@ -378,6 +440,9 @@ def _candidates(idarg):
         if name.endswith(".raw.json"):
             return [("web", p)]
         if name.endswith(".md"):
+            redpen = _redpen_directory()
+            if redpen and p.resolve().parent == redpen.resolve():
+                return [("redpen", p)]
             return [("gemini", p)]
     return [
         (kind, path)
@@ -396,19 +461,49 @@ def sessions():
         ("web", "provenance.conversations", "conversations", "*.raw.json"),
         ("gemini", "provenance.conversations", "conversations", "gemini-*.md"),
     )
-    return [
+    found = [
         (kind, f)
         for kind, key, default, pattern in families
         for f in sorted(
             project.path(key, f".quirework/provenance/{default}").glob(pattern)
         )
     ]
+    redpen = _redpen_directory()
+    if redpen is not None:
+        found += [
+            ("redpen", f) for f in sorted(redpen.glob("*.md")) if is_redpen_round(f)
+        ]
+    return found
+
+
+def _redpen_directory():
+    """The red-pen archive, only where the project declares one.
+
+    The rounds are private and their author's, so they join the sessions
+    only by the project's explicit ``provenance.redpen``, never by default.
+    """
+    project = current_project()
+    if project.get("provenance.redpen") is None:
+        return None
+    return project.path("provenance.redpen")
+
+
+REDPEN_PREFIX = "redpen-"
 
 
 def session_id(kind, path):
-    """The full id a session is known by: its file name without the suffix."""
+    """The full id a session is known by: its file name without the suffix.
+
+    A red-pen round is named for its archive file with a ``redpen-`` prefix,
+    as a gemini review's file already carries ``gemini-``, so the id says
+    what it names wherever it is printed.
+    """
     name = Path(path).name
-    return name[: -len(".raw.json")] if kind == "web" else Path(path).stem
+    if kind == "web":
+        return name[: -len(".raw.json")]
+    if kind == "redpen":
+        return REDPEN_PREFIX + Path(path).stem
+    return Path(path).stem
 
 
 def resolve(idarg):
@@ -452,6 +547,14 @@ def _header(kind, path):
             else {"title": "(untitled)", "date": "?", "model": "?"}
         )
         return base, meta["title"], meta["date"], meta.get("model", "?")
+    if kind == "redpen":
+        day = session_date(kind, path)
+        return (
+            session_id(kind, path),
+            _redpen_title(path),
+            day.isoformat() if day else "?",
+            "red-pen round",
+        )
     meta = (
         CAT._web_scan(path)
         if path.exists()
@@ -496,6 +599,29 @@ def session_start(kind, path):
         return None
     dts = [dt for dt in (_parse_ts(ts) for _, _, ts in _READERS[kind](path)) if dt]
     return min(dts) if dts else None
+
+
+def session_date(kind, path):
+    """The UTC day a session began, or ``None`` where nothing records one.
+
+    A log's first logged time decides it. A pre-rendered gemini review logs no
+    times, but its header carries the date the author supplied at capture; a
+    red-pen round carries the date of its marks. Those dates are how a
+    timeless session takes its place in date order instead of sorting first.
+    """
+    start = session_start(kind, path)
+    if start is not None:
+        return start.astimezone(timezone.utc).date()
+    if kind == "redpen":
+        days = [day for _, day in redpen_marks(path) if day]
+        return min(days) if days else None
+    if kind == "gemini":
+        written = CAT._web_scan(Path(path)).get("date") or ""
+        try:
+            return date.fromisoformat(written[:10])
+        except ValueError:
+            return None
+    return None
 
 
 def shown_date(dt, utc=False):
@@ -717,6 +843,26 @@ def _gemini_turns(body, spec):
     return "\n".join(lines[yours[first - 1] : end]).rstrip()
 
 
+_GEMINI_ROLE = {"human": "You", "assistant": "Gemini"}
+
+
+def _gemini_role(body, role):
+    """Only the speaker sections of a gemini review that ``role`` names.
+
+    The review is pre-rendered, so its sections are its speakers: ``## You``
+    is the author and ``## Gemini`` the model. It holds nothing an agent or
+    the harness wrote, so those roles leave it empty.
+    """
+    speaker = _GEMINI_ROLE.get(role)
+    lines = body.splitlines()
+    starts = [i for i, line in enumerate(lines) if _GEMINI_SPEAKER.match(line)]
+    kept = []
+    for i, end in zip(starts, starts[1:] + [len(lines)]):
+        if speaker and _GEMINI_SPEAKER.match(lines[i]).group(1) == speaker:
+            kept += lines[i:end]
+    return "\n".join(kept).rstrip()
+
+
 def render(
     kind,
     path,
@@ -747,7 +893,26 @@ def render(
         if turn:
             body = _gemini_turns(body, turn)
             head += f" · {scope}"
+        if role != "all":
+            body = _gemini_role(body, role)
         return "\n".join([head, f"<source: {path.name}>", "", body]) + "\n"
+
+    if kind == "redpen":
+        if frm or to:
+            raise LookupError(
+                "--from/--to need per-turn timestamps; a red-pen round "
+                "records only the day of each mark"
+            )
+        marks = redpen_marks(path)
+        first, last = _turn_range(turn, len(marks)) if turn else (1, len(marks))
+        head = f"# {sid} — {title}  ({date})" + (f" · {scope}" if turn else "")
+        lines = [head, f"<source: {path.name}>", ""]
+        if role in ("all", "human"):
+            for n, (text, day) in enumerate(marks, 1):
+                if first <= n <= last:
+                    stamp = f" · {day.isoformat()}" if day else ""
+                    lines += [f"## {ROLE_LABEL['human']} {n}{stamp}", "", text, ""]
+        return "\n".join(lines).rstrip() + "\n"
 
     # Each turn carries the number of the author's latest turn at or before
     # it: their own on an author's turn, and theirs on the replies that follow.

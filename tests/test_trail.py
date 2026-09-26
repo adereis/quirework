@@ -486,3 +486,163 @@ def test_suggest_follows_a_sections_commits_to_their_sessions(book):
     assert "Human 2 · 2031-04-02 10:05  (on the trail)" in text
     assert "quoted “No, not slower. A route, not a speed.”" in text
     assert "Human 3 · 2031-04-02 10:09" in text
+
+
+def test_matching_ignores_which_quotation_marks_were_typed():
+    turn = "I said the “mind” was the OS, and it's the OS’s own loop."
+    assert trail.contains(turn, "The 'mind' was the OS")
+    assert trail.contains(turn, 'the "mind" was the OS')
+    assert trail.contains(turn, "it’s the OS's own loop")
+
+
+def test_a_commits_quote_loses_the_escapes_its_shell_left():
+    body = 'The author asked:\n\n> "What if you simply drop \\"ordinary\\"?"\n'
+    assert trail._quotes(body) == ['What if you simply drop "ordinary"?']
+
+
+def _history(book, message, committing):
+    """A spec edit committed with ``message``, and ``committing`` as a session."""
+    root = book.root
+    _git(root, "init", "-q")
+    _git(root, "add", "manuscript")
+    _git(root, "commit", "-q", "-m", "Draft the notebook's spec")
+    spec = book.path("book.spec")
+    spec.write_text(SPEC.replace("cools by another.", "cools by another route."))
+    _git(root, "commit", "-q", "-am", message)
+    _session(book.path("provenance.root") / "cc-sessions", SESSION, committing)
+
+
+def _tool_call(command, ts):
+    return {
+        "type": "assistant",
+        "timestamp": ts,
+        "message": {
+            "content": [
+                {"type": "tool_use", "name": "Bash", "input": {"command": command}}
+            ]
+        },
+    }
+
+
+def _write_records(book, sid, records):
+    path = book.path("provenance.root") / "cc-sessions" / f"{sid}.jsonl"
+    path.write_text("\n".join(json.dumps(r) for r in records) + "\n")
+
+
+def test_a_session_that_only_read_about_a_commit_did_not_make_it(book):
+    _history(book, "Say cooling is a route of its own", MORNING)
+    # Another session saw the subject only in a tool's output, a git log.
+    reader = [
+        {
+            "type": "user",
+            "timestamp": "2031-04-02T11:00:00Z",
+            "message": {"content": "What landed today?"},
+        },
+        _tool_call("git log --oneline", "2031-04-02T11:00:05Z"),
+        {
+            "type": "user",
+            "timestamp": "2031-04-02T11:00:06Z",
+            "message": {
+                "content": [
+                    {
+                        "type": "tool_result",
+                        "content": "abc1234 Say cooling is a route of its own",
+                    }
+                ]
+            },
+        },
+    ]
+    _write_records(book, OTHER, reader)
+    text = "\n".join(trail.suggest("cooling-asymmetry", utc=True))
+    assert "made in claude-code 0badc0de" not in text, "SESSION never names it"
+    assert f"made in claude-code {OTHER[:8]}" not in text
+
+
+def test_the_session_that_ran_the_commit_made_it(book):
+    records = [
+        {
+            "type": "user",
+            "timestamp": "2031-04-02T10:05:30Z",
+            "message": {
+                "content": "Cooling is a different route, not boiling backwards."
+            },
+        },
+        _tool_call(
+            'git commit -m "Say cooling is a route of its own"', "2031-04-02T10:09:40Z"
+        ),
+    ]
+    _history(book, "Say cooling is a route of its own", MORNING)
+    _write_records(book, OTHER, records)
+    text = "\n".join(trail.suggest("cooling-asymmetry", utc=True))
+    assert f"made in claude-code {OTHER[:8]} (by the commit's subject)" in text
+
+
+def test_a_short_quote_is_looked_for_only_where_its_commit_was_made(book):
+    message = "Say cooling is a route of its own\n\nThe author:\n\n> Yes.\n"
+    _history(book, message, MORNING)
+    text = "\n".join(trail.suggest("cooling-asymmetry", utc=True))
+    assert "quoted “Yes.”: too short to look for, and no session made" in text
+
+
+def test_suggest_can_show_what_each_commit_changed_in_the_section(book):
+    _history(book, "Say cooling is a route of its own", MORNING)
+    text = "\n".join(trail.suggest("cooling-asymmetry", utc=True, diff=True))
+    assert "changed in the section:" in text
+    assert "+A kettle reaches the boil by one route and cools by another route." in text
+    assert "-A kettle reaches the boil by one route and cools by another." in text
+
+
+def test_breadcrumbs_checked_together_are_written_together_or_not_at_all(book):
+    first, _ = trail.prepare("cooling-asymmetry", "seed", session=SESSION, turn=2)
+    again, _ = trail.prepare("cooling-asymmetry", "sharpen", session=SESSION, turn=2)
+    with pytest.raises(LookupError, match="already on"):
+        trail.append("cooling-asymmetry", [first, again])
+    assert not book.path("book.spec_trail").exists(), "nothing half-written"
+    third, _ = trail.prepare("cooling-asymmetry", "correct", session=SESSION, turn=3)
+    trail.append("cooling-asymmetry", [first, third])
+    assert trail.counts() == {"cooling-asymmetry": 2}
+
+
+REDPEN_ROUND = """# Red-pen round v1 (2031-04-05)
+
+```
+source-docx:    V1 - The Kettle.docx
+marks-dated:    2031-04-05
+```
+
+## MARKS  (`redpen read`)
+
+### COMMENTS (1)
+
+[A. Fictional Author] 2031-04-05  (on text)
+  edit/anchor: “It cools.”
+  note: I called it a speed before. It is a route.
+"""
+
+
+def _thawed(value):
+    """A project's frozen settings as plain dicts, to build a variant from."""
+    if hasattr(value, "items"):
+        return {k: _thawed(v) for k, v in value.items()}
+    return value
+
+
+def test_a_breadcrumb_can_point_at_a_red_pen_mark(tmp_path, monkeypatch):
+    """The author's marks on a rendered copy are his words too, named by turn."""
+    monkeypatch.setenv("CODEX_HOME", str(tmp_path / "codex-home"))
+    root = tmp_path / "book"
+    settings = _thawed(_book(tmp_path).settings)
+    settings["provenance"]["redpen"] = "private/redpen"
+    archive = root / "private" / "redpen"
+    archive.mkdir(parents=True)
+    (archive / "v1-2031-04-05.md").write_text(REDPEN_ROUND, encoding="utf-8")
+    with project_scope(Project.from_settings(root, settings)):
+        crumb, _ = trail.add(
+            "cooling-asymmetry",
+            "reverse",
+            session="redpen-v1",
+            turn=1,
+            excerpt="It is a route.",
+        )
+        assert crumb.header() == "- turn 1 · reverse · redpen redpen-v1-2031-04-05"
+        assert trail.check() == 0

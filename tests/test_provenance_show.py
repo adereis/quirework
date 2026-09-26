@@ -633,3 +633,113 @@ def test_a_gemini_turn_answers_the_review_section_before_it(tmp_path):
     )
     assert rows[2][3].startswith("Nothing to answer.")
     assert rows[1][3].startswith("## Pacing")
+
+
+def test_a_gemini_review_shows_only_the_role_asked_for(tmp_path):
+    """--role human keeps the author's sections and drops the model's."""
+    p = tmp_path / "gemini-fictitious-review.md"
+    p.write_text(GEMINI_REVIEW, encoding="utf-8")
+    human = show.render("gemini", p, turn="3", role="human")
+    assert "Cut the storm, then?" in human and "## Gemini" not in human
+    model = show.render("gemini", p, role="assistant")
+    assert "It runs long in the middle." in model and "## You" not in model
+
+
+def test_a_gemini_review_is_dated_by_its_header(tmp_path):
+    """A review logs no times, so the date written at capture places it."""
+    p = tmp_path / "gemini-fictitious-review.md"
+    p.write_text(
+        GEMINI_REVIEW.replace(
+            "> Provenance note for a fictitious review.",
+            "| Field | Value |\n|---|---|\n| Date | 2031-05-06 (author-supplied) |",
+        ),
+        encoding="utf-8",
+    )
+    assert show.session_start("gemini", p) is None
+    assert str(show.session_date("gemini", p)) == "2031-05-06"
+
+
+REDPEN_ROUND = """# Red-pen round v3 (2031-05-07)
+
+Archive of one fictitious review round.
+
+```
+source-docx:    V3 - A Kettle Book.docx
+marks-dated:    2031-05-07
+```
+
+## MARKS  (`redpen read`)
+
+### COMMENTS (2)
+
+[A. Fictional Author] 2031-05-06  (on text)
+  edit/anchor: “The kettle whistles.”
+  -> opening.qmd:3
+  note: A whistle is a report, not a thought.
+
+[A. Fictional Author] 2031-05-07  (on text)
+  edit/anchor: “It cools.”
+  -> opening.qmd:9
+  note: A route, not a speed.
+
+### TRACKED EDITS (1 paragraph redlines)
+
+[new]
+  ⟦+Steam is water, not smoke.+⟧
+
+## REVIEW-NOTES, VERBATIM  (`redpen notes`)
+
+1. The opening
+    - A whistle is a report, not a thought.
+"""
+
+
+def _redpen_project(tmp_path):
+    from quirework.project import Project
+
+    root = tmp_path / "book"
+    archive = root / "private" / "redpen"
+    archive.mkdir(parents=True)
+    (archive / "v3-2031-05-07.md").write_text(REDPEN_ROUND, encoding="utf-8")
+    (archive / "README.md").write_text("# The archive\n", encoding="utf-8")
+    return Project.from_settings(
+        root,
+        {
+            "provenance": {
+                "enabled": True,
+                "root": "private/corpus",
+                "redpen": "private/redpen",
+            }
+        },
+    )
+
+
+def test_a_red_pen_round_reads_as_the_authors_turns(tmp_path):
+    """Each mark is a turn; the verbatim channel and the README are not read."""
+    from quirework.project import project_scope
+
+    with project_scope(_redpen_project(tmp_path)):
+        rounds = [(k, p) for k, p in show.sessions() if k == "redpen"]
+        assert [p.name for _, p in rounds] == ["v3-2031-05-07.md"]
+        kind, path = show.resolve("redpen-v3")
+        assert show.session_id(kind, path) == "redpen-v3-2031-05-07"
+        turns = show.author_turns(kind, path)
+        assert [n for n, _, _ in turns] == [1, 2, 3]
+        assert all(logged is None for _, logged, _ in turns)
+        assert "A route, not a speed." in turns[1][2]
+        assert "Steam is water" in turns[2][2]
+        assert str(show.session_date(kind, path)) == "2031-05-06"
+        two = show.render(kind, path, turn="2")
+        assert "## Human 2 · 2031-05-07" in two and "whistle" not in two
+
+
+def test_red_pen_rounds_join_only_by_the_projects_own_setting(tmp_path):
+    from quirework.project import Project, project_scope
+
+    root = tmp_path / "plain"
+    (root / "private" / "corpus").mkdir(parents=True)
+    project = Project.from_settings(
+        root, {"provenance": {"enabled": True, "root": "private/corpus"}}
+    )
+    with project_scope(project):
+        assert not [k for k, _ in show.sessions() if k == "redpen"]

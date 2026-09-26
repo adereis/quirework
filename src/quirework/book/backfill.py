@@ -75,6 +75,17 @@ _SHAPES = {
     "TYPED": "typed",
 }
 
+# A red-pen round is read like a session, but it is not a conversation, and
+# the reader is told what its parts are before it reads one.
+REDPEN_NOTE = """
+This is not a conversation. It is a red-pen round: the author's marks on a
+rendered copy of the book, one mark per turn, with no replies. A comment's
+anchor quotes the book, not the author; its note is the author's. A tracked
+edit is the author's. A review-notes entry shows a note block as it was
+("- was") and as the author left it ("+ now"); only what the author added or
+changed is the author's, since a block can repeat text it already held.
+"""
+
 INSTRUCTIONS = """\
 You are reading conversations in which an author worked out the ideas of a
 book. The book keeps a spec: a list of sections, each stating one thing the
@@ -237,13 +248,15 @@ def packet(sid, family, path):
     from quirework.provenance import humaninput, show
 
     rows = show.exchanges(family, path)
-    start = show.session_start(family, path)
-    begun = f"started {start:%Y-%m-%d}" if start else "undated"
+    day = show.session_date(family, path)
+    begun = f"started {day:%Y-%m-%d}" if day else "undated"
     lines = [
         f"# Session {sid}",
         "",
         f"{trail._HARNESS_OF[family]} · {begun} · {len(rows)} author turn(s)",
     ]
+    if family == "redpen":
+        lines += ["", REDPEN_NOTE.strip()]
     for number, logged, text, reply in rows:
         shape = _SHAPES.get(humaninput.classify(text), "typed")
         lines += [
@@ -330,8 +343,9 @@ def plan(
 
     Sessions are taken oldest first from the curated corpus, skipping any a
     current read already covers unless ``reread`` or named in ``sessions``.
-    A session with no start time, such as a timeless export, sorts first,
-    and the summary names it. ``out`` of ``None`` plans into a new
+    A source that logs no times but records its date, a gemini review or a
+    red-pen round, takes its place by that date; one with neither sorts
+    first, and the summary names it. ``out`` of ``None`` plans into a new
     ``run_directory``, as ``RUN/packets``, beside which the record goes.
     Each seat gets one batch of packets up to ``budget`` estimated tokens,
     with the menu and any book ``materials`` in front, and no tools.
@@ -378,7 +392,10 @@ def plan(
         family, path = kept[sid]
         if not show.author_turns(family, path):
             continue
-        start = show.session_start(family, path)
+        day = show.session_date(family, path)
+        start = show.session_start(family, path) or (
+            datetime.combine(day, datetime.min.time(), timezone.utc) if day else None
+        )
         if start is None:
             undated.add(sid)
         dated.append((start or datetime.min.replace(tzinfo=timezone.utc), sid))
@@ -825,15 +842,13 @@ def _same(entry, turn):
     return entry.get("turn") == turn.number
 
 
-def reject(slug, *, session, turn, reason):
-    """Record that a candidate does not belong on a section's trail, and why."""
+def _rejection(slug, corpus, *, session, turn, reason):
+    """``(entry, target)`` for one rejection, checked but not yet written."""
     reason = " ".join(reason.split())
     if not reason:
         raise ValueError(
             "a rejection needs its reason, so no later pass reads it again"
         )
-    trail._known_slug(slug, trail._spec_titles())
-    corpus = trail.Corpus()
     sid, family, path, live = corpus.session(session)
     if live:
         raise LookupError(f"{sid[:8]} is not captured yet; capture it first")
@@ -842,23 +857,116 @@ def reject(slug, *, session, turn, reason):
     )
     if target is None:
         raise LookupError(f"{sid[:8]} has no author turn {turn}")
+    entry = {
+        "session": sid,
+        "turn": turn,
+        "logged": _instant(target.logged),
+        "reason": reason,
+        "date": date.today().isoformat(),
+    }
+    return entry, target
+
+
+def _record_rejections(slug, pairs):
+    """Write checked rejections to a section's ruling, all or none."""
     path = _rulings_path(slug)
     with trail._locked(path):
         rejected = rejections(slug)
-        if any(_same(e, target) for e in rejected):
-            raise LookupError(f"{sid[:8]} turn {turn} is already rejected for #{slug}")
-        rejected.append(
-            {
-                "session": sid,
-                "turn": turn,
-                "logged": _instant(target.logged),
-                "reason": reason,
-                "date": date.today().isoformat(),
-            }
-        )
+        for i, (_, target) in enumerate(pairs):
+            if any(_same(e, target) for e in rejected) or any(
+                _same(e, target) for e, _ in pairs[:i]
+            ):
+                raise LookupError(
+                    f"{target.short} turn {target.number} is already rejected "
+                    f"for #{slug}"
+                )
+        rejected += [entry for entry, _ in pairs]
         body = {"slug": slug, "rejected": rejected}
         _write_private(path, json.dumps(body, indent=2) + "\n")
-    return target
+
+
+def reject(slug, *, session, turn, reason):
+    """Record that a candidate does not belong on a section's trail, and why."""
+    trail._known_slug(slug, trail._spec_titles())
+    pair = _rejection(slug, trail.Corpus(), session=session, turn=turn, reason=reason)
+    _record_rejections(slug, [pair])
+    return pair[1]
+
+
+def rule(slug, lines):
+    """Apply a section's rulings from JSON lines; nothing is written unless all hold.
+
+    Each line keeps a turn or rejects it::
+
+        {"keep": "sharpen", "session": "ID", "turn": 4, "note": "…"}
+        {"reject": "why it does not belong", "session": "ID", "turn": 5}
+
+    A keep may carry an ``excerpt``. Every line is checked against the corpus,
+    the trail and the ledger before anything is written, so a mistake on the
+    fortieth line leaves the first thirty-nine unapplied rather than half a
+    section ruled. Returns ``(kept, rejected)`` as lists of turns.
+    """
+    titles = trail._spec_titles()
+    trail._known_slug(slug, titles)
+    corpus = trail.Corpus()
+    keeps, drops, errors = [], [], []
+    for number, line in enumerate(lines, 1):
+        if not line.strip() or line.lstrip().startswith("#"):
+            continue
+        try:
+            item = json.loads(line)
+            if not isinstance(item, dict):
+                raise ValueError("not a JSON object")
+            if ("keep" in item) == ("reject" in item):
+                raise ValueError("give either keep (a kind) or reject (a reason)")
+            if not isinstance(item.get("turn"), int) or not item.get("session"):
+                raise ValueError("name the turn with session and an integer turn")
+            if "keep" in item:
+                keeps.append(
+                    trail.prepare(
+                        slug,
+                        item["keep"],
+                        session=item["session"],
+                        turn=item["turn"],
+                        note=item.get("note", ""),
+                        excerpt=item.get("excerpt", ""),
+                        corpus=corpus,
+                        titles=titles,
+                    )
+                )
+            else:
+                drops.append(
+                    _rejection(
+                        slug,
+                        corpus,
+                        session=item["session"],
+                        turn=item["turn"],
+                        reason=str(item["reject"]),
+                    )
+                )
+        except (ValueError, LookupError) as exc:
+            errors.append(f"line {number}: {exc}")
+    for _, target in keeps:
+        if any(_same(entry, target) for entry, _ in drops):
+            errors.append(
+                f"{target.short} turn {target.number} is both kept and rejected"
+            )
+    for entry in rejections(slug):
+        for _, target in keeps:
+            if _same(entry, target):
+                errors.append(
+                    f"{target.short} turn {target.number} is already rejected "
+                    f"for #{slug}"
+                )
+    if errors:
+        raise LookupError(
+            "nothing was written; fix these and run it again:\n  " + "\n  ".join(errors)
+        )
+    if keeps:
+        trail.append(slug, [crumb for crumb, _ in keeps], titles)
+    if drops:
+        _record_rejections(slug, drops)
+    return [t for _, t in keeps], [t for _, t in drops]
 
 
 # --------------------------------------------------------------------------- #
@@ -869,17 +977,25 @@ class Candidate:
     turn: trail.Turn
     flags: list = field(default_factory=list)  # (model, flag as stored)
     commits: list = field(default_factory=list)  # (sha8, subject, how)
+    notes: list = field(default_factory=list)  # what the ruler should know first
 
 
-def worklist(slug, *, commits=True, everything=False):
+def worklist(slug, *, commits=True, everything=False, also=()):
     """``(pending, on_trail, rejected, stale)`` candidates for one section.
 
     Candidates come from the readers' flags and, with ``commits``, from the
-    commits that changed the section. One already on the trail or rejected is
-    left out unless ``everything``. A flag whose turn the corpus no longer
-    holds is ``stale``, reported rather than silently dropped.
+    commits that changed the section. ``also`` names neighbouring sections
+    whose flags are candidates here too: a reader chooses one section for a
+    turn that fits two, and the ruler of the other would never see it. One
+    already on the trail or rejected is left out unless ``everything``. A flag
+    whose turn the corpus no longer holds is ``stale``, reported rather than
+    silently dropped.
     """
-    trail._known_slug(slug, trail._spec_titles())
+    titles = trail._spec_titles()
+    trail._known_slug(slug, titles)
+    for other in also:
+        trail._known_slug(other, titles)
+    wanted = {slug, *also}
     corpus = trail.Corpus()
     found, stale = {}, []
 
@@ -898,7 +1014,7 @@ def worklist(slug, *, commits=True, everything=False):
     for read in _reads():
         for entry in read["candidates"]:
             for item in entry["sections"]:
-                if item["slug"] != slug:
+                if item["slug"] not in wanted:
                     continue
                 turn = at(read["session"], entry["turn"], entry.get("logged"))
                 if turn is None:
@@ -917,13 +1033,14 @@ def worklist(slug, *, commits=True, everything=False):
                     c.commits.append(
                         (lead.sha[:8], lead.subject, "made in this session")
                     )
-            for quote, hits in lead.quotes:
+            for quote, hits, _ in lead.quotes:
                 for t in hits:
                     c = found.setdefault((t.session, t.number), Candidate(t))
                     c.commits.append(
                         (lead.sha[:8], lead.subject, f"quoted “{quote[:60]}”")
                     )
 
+    _annotate(found.values(), corpus)
     crumbs = [c for s, c in trail.load().crumbs() if s.slug == slug]
     rejected = rejections(slug)
     pending, on_trail, dropped = [], [], []
@@ -935,22 +1052,88 @@ def worklist(slug, *, commits=True, everything=False):
         else:
             pending.append(c)
 
+    days = {}
+
     def order(c):
-        return (
-            c.turn.logged or datetime.min.replace(tzinfo=timezone.utc),
-            c.turn.session,
-            c.turn.number,
-        )
+        return (_when(c.turn, corpus, days), c.turn.session, c.turn.number)
 
     if everything:
         pending = pending + on_trail + dropped
     return sorted(pending, key=order), on_trail, dropped, stale
 
 
-def _worklist_lines(slug, *, commits, everything, utc):
+def _day(turn, corpus, days):
+    """The day a timeless turn's session is dated, cached per session."""
+    if turn.session not in days:
+        from quirework.provenance import show
+
+        family, path = corpus.captured().get(turn.session, (turn.family, turn.path))
+        days[turn.session] = show.session_date(family, path)
+    return days[turn.session]
+
+
+def _when(turn, corpus, days):
+    """Where a turn sorts: its logged time, else its session's date, else first."""
+    if turn.logged is not None:
+        return turn.logged
+    day = _day(turn, corpus, days)
+    if day is not None:
+        return datetime.combine(day, datetime.min.time(), timezone.utc)
+    return datetime.min.replace(tzinfo=timezone.utc)
+
+
+def _annotate(candidates, corpus):
+    """Note the two copies a ruler should see before ruling on either.
+
+    A turn sent twice: the author resent the same words, usually because the
+    first copy drew no reply, and only the copy that was answered is the one
+    the session went on from. A turn captured twice: a resumed or forked
+    session repeats the history it inherited under a new id, logged at the
+    same instant with the same words.
+    """
+    from quirework.provenance import show
+
+    candidates = list(candidates)
+    replies = {}
+    for c in candidates:
+        t = c.turn
+        if (t.family, t.path) not in replies:
+            rows = show.exchanges(t.family, t.path)
+            replies[(t.family, t.path)] = {
+                n: (text, reply) for n, _, text, reply in rows
+            }
+        rows = replies[(t.family, t.path)]
+        mine = trail._squash(t.text)
+        for other in (t.number - 1, t.number + 1):
+            if other in rows and trail._squash(rows[other][0]) == mine:
+                after = rows.get(t.number + 1)
+                if after is None:
+                    reply = "the session ends before its reply"
+                elif after[1].strip():
+                    reply = "this copy drew a reply"
+                else:
+                    reply = "this copy drew none"
+                c.notes.append(f"same words as Human {other}; {reply}")
+    twins = {}
+    for c in candidates:
+        if c.turn.logged is not None:
+            key = (c.turn.logged, trail._squash(c.turn.text))
+            twins.setdefault(key, []).append(c)
+    for group in twins.values():
+        if len({c.turn.session for c in group}) > 1:
+            for c in group:
+                others = ", ".join(
+                    f"{o.turn.short} Human {o.turn.number}"
+                    for o in group
+                    if o.turn.session != c.turn.session
+                )
+                c.notes.append(f"the same turn is captured again as {others}")
+
+
+def _worklist_lines(slug, *, commits, everything, utc, also=()):
     titles = trail._spec_titles()
     pending, on_trail, rejected, stale = worklist(
-        slug, commits=commits, everything=everything
+        slug, commits=commits, everything=everything, also=also
     )
     zone = timezone.utc if utc else None
     lines = [
@@ -968,22 +1151,38 @@ def _worklist_lines(slug, *, commits, everything, utc):
             f"  reject: quirework book trail backfill reject {slug} "
             f'--session ID --turn N --reason "…"'
         ),
+        f"  many:   quirework book trail backfill rule {slug} FILE",
     ]
+    if also:
+        lines.append(
+            "  with the flags of "
+            + ", ".join(f"#{s}" for s in also)
+            + ", marked where a reader named that section instead"
+        )
     if stale:
         lines.append(
             f"  {len(stale)} flag(s) name a turn the corpus no longer holds: "
             + ", ".join(f"{s[:8]} turn {n}" for s, n in stale[:5])
         )
+    corpus, days = trail.Corpus(), {}
     for c in pending:
         t = c.turn
-        when = f"{t.logged.astimezone(zone):%Y-%m-%d %H:%M}" if t.logged else "undated"
+        if t.logged:
+            when = f"{t.logged.astimezone(zone):%Y-%m-%d %H:%M}"
+        else:
+            day = _day(t, corpus, days)
+            when = f"{day:%Y-%m-%d} (day only)" if day else "undated"
         lines += ["", f"{when}  {t.harness} {t.short} Human {t.number}"]
         for model, item in c.flags:
+            where = f" [#{item['slug']}]" if item["slug"] != slug else ""
             lines.append(
-                f"  {model}: {item['kind']} ({item['confidence']}) {item['reason']}"
+                f"  {model}{where}: {item['kind']} ({item['confidence']}) "
+                f"{item['reason']}"
             )
         for sha, subject, how in c.commits:
             lines.append(f"  commit {sha} {trail._opening(subject, 50)}: {how}")
+        for note in c.notes:
+            lines.append(f"  note   {note}")
         lines.append(f"  opens  {trail._opening(t.text, 110)}")
         lines.append(f"  read   quirework provenance show {t.short} --turn {t.number}")
     return lines
@@ -1036,7 +1235,11 @@ def status():
                     (read["session"], entry.get("logged") or entry["turn"])
                 )
     held = trail.counts()
-    lines += ["", "sections: flagged turns (all readers), breadcrumbs, rejections:"]
+    lines += [
+        "",
+        "sections: turns the readers flagged, breadcrumbs, rejections",
+        "(a section's worklist adds the turns its commits lead to):",
+    ]
     for slug in slugs:
         n = len(flagged.get(slug, ()))
         if n or held.get(slug) or rejections(slug):
@@ -1059,8 +1262,13 @@ backfilling a trail from the corpus, in three steps:
      seat whose receipt carries a red flag its plan did not accept
   2. rule on one section at a time, with a strong reader:
      quirework book trail backfill SLUG          the section's candidates, oldest first
+         --also OTHER                            with the turns readers flagged for
+                                                 a neighbouring section instead
      quirework book trail add SLUG ...           keep one as a breadcrumb
      quirework book trail backfill reject SLUG --session ID --turn N --reason TEXT
+     quirework book trail backfill rule SLUG FILE
+                                                 keep and reject many at once, from
+                                                 JSON lines; all or nothing
   3. see how far it has come:
      quirework book trail backfill status
 
@@ -1167,6 +1375,26 @@ def main(argv):
             t = reject(a.slug, session=a.session, turn=a.turn, reason=a.reason)
             print(f"rejected for #{a.slug}: {t.harness} {t.short} Human {t.number}")
             return 0
+        if command == "rule":
+            ap = argparse.ArgumentParser(
+                prog="quirework book trail backfill rule",
+                description="Keep and reject a section's candidates from a file of "
+                'JSON lines: {"keep": KIND, "session": ID, "turn": N, "note": '
+                '"…"} or {"reject": REASON, "session": ID, "turn": N}. Every '
+                "line is checked before any is written.",
+            )
+            ap.add_argument("slug")
+            ap.add_argument("file", help="the rulings, or - for standard input")
+            a = ap.parse_args(rest)
+            source = (
+                sys.stdin
+                if a.file == "-"
+                else open(Path(a.file).expanduser(), encoding="utf-8")
+            )
+            with source:
+                kept, dropped = rule(a.slug, source.read().splitlines())
+            print(f"#{a.slug}: {len(kept)} kept on the trail, {len(dropped)} rejected")
+            return 0
         if command == "status":
             print("\n".join(status()))
             return 0
@@ -1179,11 +1407,22 @@ def main(argv):
             help="only the readers' flags, not the commit history",
         )
         ap.add_argument("--utc", action="store_true")
+        ap.add_argument(
+            "--also",
+            action="append",
+            default=[],
+            metavar="SLUG",
+            help="also the turns readers flagged for this neighbouring section",
+        )
         a = ap.parse_args(argv)
         print(
             "\n".join(
                 _worklist_lines(
-                    a.slug, commits=not a.no_commits, everything=a.all, utc=a.utc
+                    a.slug,
+                    commits=not a.no_commits,
+                    everything=a.all,
+                    utc=a.utc,
+                    also=a.also,
                 )
             )
         )

@@ -25,7 +25,8 @@ user's home, or in the web conversation, with or without Quirework. The
 author's turn number is derived from it on every read. The number is
 Quirework's own count, and it would move if the wrapper filter learned to drop
 one more kind of harness message. A pre-rendered Gemini review logs no times,
-so there, and only there, the breadcrumb names the turn.
+and a red-pen round records only the day of each mark, so there, and only
+there, the breadcrumb names the turn.
 
 The note is the agent's reading of the turn. The excerpt is optional: a
 highlight for a long turn whose relevant words would otherwise be buried, and
@@ -83,9 +84,13 @@ HARNESSES = {
     "antigravity": "agy",
     "claude.ai": "web",
     "gemini": "gemini",
+    "redpen": "redpen",
 }
 _HARNESS_OF = {family: name for name, family in HARNESSES.items()}
-_TIMELESS = {"gemini"}
+# Sources that log no time for a turn, so a breadcrumb names the turn: a
+# pre-rendered Gemini review, and a red-pen round, whose marks carry a day.
+_TIMELESS = {"gemini", "redpen"}
+_NAMED = ("gemini-", "redpen-")
 
 _STAMP = re.compile(r"\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.(\d{1,6}))?Z")
 _SESSION = re.compile(r"[A-Za-z0-9][\w.-]*")
@@ -115,7 +120,7 @@ class Crumb:
 
     @property
     def short(self):
-        return self.session if self.session.startswith("gemini-") else self.session[:8]
+        return self.session if self.session.startswith(_NAMED) else self.session[:8]
 
     @property
     def when(self):
@@ -498,11 +503,19 @@ class Turn:
 
     @property
     def short(self):
-        return self.session if self.session.startswith("gemini-") else self.session[:8]
+        return self.session if self.session.startswith(_NAMED) else self.session[:8]
+
+
+# Quotation marks and apostrophes, straight and curly. A commit quoting the
+# author writes whichever its editor produced ('mind', "mind", \"mind\"), and
+# the author typed whatever the keyboard produced, so matching ignores them.
+_QUOTE_MARKS = str.maketrans(
+    "", "", "\"'`\u2018\u2019\u201a\u201b\u201c\u201d\u201e\u201f\u00b4"
+)
 
 
 def _squash(text):
-    return " ".join(text.split()).casefold()
+    return " ".join(text.translate(_QUOTE_MARKS).split()).casefold()
 
 
 def _pieces(phrase):
@@ -780,7 +793,7 @@ def _target(corpus, *, find, session, turn):
     return hit, siblings
 
 
-def add(
+def prepare(
     slug,
     kind,
     *,
@@ -791,8 +804,10 @@ def add(
     harness=None,
     note="",
     excerpt="",
+    corpus=None,
+    titles=None,
 ):
-    """Put one breadcrumb on a section's trail; return it and where it leads.
+    """``(crumb, target)`` for one breadcrumb, checked but not yet written.
 
     The turn is named one of three ways. ``find`` is a phrase the author typed,
     looked up in the corpus and then in this project's live transcripts, which
@@ -800,10 +815,11 @@ def add(
     been captured. ``session`` and ``turn`` take a number search or show
     printed. ``harness``, ``session`` and ``at`` write a pointer by hand, for a
     conversation Quirework cannot read, and are verified only if it can.
+    ``corpus`` and ``titles`` let a caller checking many share one read.
     """
     if kind not in KINDS:
         raise ValueError(f"unknown kind '{kind}' (kinds: {', '.join(KINDS)})")
-    titles = _spec_titles()
+    titles = _spec_titles() if titles is None else titles
     _known_slug(slug, titles)
     note, excerpt = " ".join(note.split()), " ".join(excerpt.split())
 
@@ -820,10 +836,10 @@ def add(
         if not _SESSION.fullmatch(session):
             raise ValueError(f"'{session}' is not a session id")
         if harness in _TIMELESS:
-            raise ValueError(f"a {harness} review logs no times; use --turn")
+            raise ValueError(f"a {harness} source logs no times; use --turn")
         crumb = Crumb(kind, harness, session, _normal_stamp(at), None, note, excerpt)
         if current_project().get("provenance.enabled", False):
-            found = locate(crumb, Corpus())
+            found = locate(crumb, corpus or Corpus())
             if found.state not in ("turn", "uncaptured"):
                 raise LookupError(_explain(crumb, found))
             target = found.turn
@@ -837,7 +853,9 @@ def add(
             )
         if find and turn is not None:
             raise ValueError("--find and --turn each name a turn; give one")
-        target, siblings = _target(Corpus(), find=find, session=session, turn=turn)
+        target, siblings = _target(
+            corpus or Corpus(), find=find, session=session, turn=turn
+        )
         if target.logged is None:
             crumb = Crumb(
                 kind, target.harness, target.session, None, target.number, note, excerpt
@@ -852,7 +870,12 @@ def add(
             f"the excerpt is not in {target.harness} {target.short} Human "
             f"{target.number}; an excerpt highlights words the turn holds"
         )
+    return crumb, target
 
+
+def append(slug, crumbs, titles=None):
+    """Write checked breadcrumbs onto one section's trail, all or none."""
+    titles = _spec_titles() if titles is None else titles
     path = sidecar_path()
     with _locked(path):
         sidecar = load(path)
@@ -866,13 +889,24 @@ def add(
         if section is None:
             section = Section(slug, titles[slug], 0)
             sidecar.sections.append(section)
-        if any(crumb.same_turn(other) for other in section.crumbs):
-            raise LookupError(
-                f"{crumb.harness} {crumb.short} {crumb.when} is already on "
-                f"#{slug}'s trail"
-            )
-        section.crumbs.append(crumb)
+        for i, crumb in enumerate(crumbs):
+            if any(crumb.same_turn(other) for other in [*section.crumbs, *crumbs[:i]]):
+                raise LookupError(
+                    f"{crumb.harness} {crumb.short} {crumb.when} is already on "
+                    f"#{slug}'s trail"
+                )
+        section.crumbs.extend(crumbs)
         _write(path, dump(sidecar))
+
+
+def add(slug, kind, **pointer):
+    """Put one breadcrumb on a section's trail; return it and where it leads.
+
+    ``pointer`` names the turn as ``prepare`` takes it.
+    """
+    titles = _spec_titles()
+    crumb, target = prepare(slug, kind, titles=titles, **pointer)
+    append(slug, [crumb], titles)
     return crumb, target
 
 
@@ -1193,8 +1227,12 @@ def _section_range(text, slug):
     return None
 
 
-def _commits(slug):
-    """The commits that changed the section, oldest first, or a reason there are none."""
+def _commits(slug, *, patches=False):
+    """The commits that changed the section, oldest first, or a reason there are none.
+
+    Each is ``(sha, when, subject, body, patch)``; ``patch`` is the change to
+    the section's lines when ``patches`` is asked for, and empty otherwise.
+    """
     spec = notes._spec_path().resolve()
     try:
         root = Path(_git(spec.parent, "rev-parse", "--show-toplevel").strip())
@@ -1211,17 +1249,28 @@ def _commits(slug):
     out = _git(
         root,
         "log",
-        "-s",
+        *(() if patches else ("-s",)),
         f"-L{lines[0]},{lines[1]}:{relative}",
-        "--format=%x1e%H%x1f%aI%x1f%s%x1f%b",
+        "--format=%x1e%H%x1f%aI%x1f%s%x1f%b%x1f",
     )
     commits = []
     for record in out.split("\x1e"):
         parts = record.strip("\n").split("\x1f")
-        if len(parts) == 4:
-            sha, when, subject, body = parts
-            commits.append((sha, datetime.fromisoformat(when), subject, body))
+        if len(parts) == 5:
+            sha, when, subject, body, patch = parts
+            commits.append(
+                (sha, datetime.fromisoformat(when), subject, body, _changed(patch))
+            )
     return commits[::-1], None
+
+
+def _changed(patch):
+    """The lines a patch removed and added, without its headers."""
+    return "\n".join(
+        line
+        for line in patch.splitlines()
+        if line[:1] in "+-" and not line.startswith(("+++", "---"))
+    )
 
 
 def _quotes(body):
@@ -1235,7 +1284,73 @@ def _quotes(body):
             current = []
     if current:
         blocks.append(" ".join(current))
+    # A message written through a shell can keep its escapes: \" for ".
+    blocks = [re.sub(r"\\([\"'])", r"\1", b) for b in blocks]
     return [b.strip().strip('"“”').strip() for b in blocks if b.strip()]
+
+
+# A quote this short ("agreed", "go ahead") is in half the corpus, so it is
+# looked for only in the sessions that made its commit, where it means what
+# the commit says it meant.
+QUOTE_MIN_WORDS = 4
+
+
+def _strings(value):
+    """Every string inside a JSON value, depth first."""
+    if isinstance(value, str):
+        yield value
+    elif isinstance(value, dict):
+        for item in value.values():
+            yield from _strings(item)
+    elif isinstance(value, list):
+        for item in value:
+            yield from _strings(item)
+
+
+def _model_wrote(family, path, needles):
+    """Which ``needles`` appear in text the model wrote in a session's log.
+
+    A model writes a commit's subject when it makes the commit: in the shell
+    command, in the message file it writes, or in the reply reporting it. A
+    subject found only in a tool's output (a ``git log`` listing), in a message
+    the harness queued, or in the author's own turn names a commit the session
+    read about, not one it made.
+    """
+    found, wanted = set(), set(needles)
+
+    def look(value):
+        for text in _strings(value):
+            for needle in wanted - found:
+                if needle in text:
+                    found.add(needle)
+
+    with open(path, encoding="utf-8", errors="replace") as handle:
+        for line in handle:
+            if not any(n in line or json.dumps(n)[1:-1] in line for n in wanted):
+                continue
+            try:
+                record = json.loads(line)
+            except json.JSONDecodeError:
+                continue
+            if not isinstance(record, dict):
+                continue
+            if family == "cc":
+                if record.get("type") == "assistant":
+                    look((record.get("message") or {}).get("content"))
+            elif family == "codex":
+                payload = record.get("payload")
+                if record.get("type") == "response_item" and isinstance(payload, dict):
+                    kind = payload.get("type")
+                    if kind == "message" and payload.get("role") == "assistant":
+                        look(payload.get("content"))
+                    elif kind in ("function_call", "custom_tool_call", "action"):
+                        look(payload)
+            elif family == "agy":
+                if record.get("type") == "PLANNER_RESPONSE":
+                    look([record.get("content"), record.get("tool_calls")])
+            if found == wanted:
+                break
+    return found
 
 
 @dataclass(frozen=True)
@@ -1244,8 +1359,10 @@ class CommitLead:
 
     ``sessions`` holds ``(sid, family, turns)`` for each session that made the
     commit, with the author's last three turns before it; ``how`` says how
-    that session was recognized. ``quotes`` holds ``(quote, turns)`` for each
-    passage the commit quoted, with the turns found holding it.
+    that session was recognized. ``quotes`` holds ``(quote, turns, note)`` for
+    each passage the commit quoted, with the turns found holding it and, when
+    the search was narrowed, why. ``patch`` is the commit's change to the
+    section, when it was asked for.
     """
 
     sha: str
@@ -1254,18 +1371,19 @@ class CommitLead:
     how: str | None
     sessions: tuple
     quotes: tuple
+    patch: str = ""
 
 
-def suggest_leads(slug, corpus=None):
+def suggest_leads(slug, corpus=None, *, patches=False):
     """``(leads, reason)``: the commits that changed a section, as data.
 
     The commits lead to the sessions that made them, found by the commit's
-    subject in the session's own commit command or by its session trailer,
-    and to any author words the commit quoted. ``reason`` says why there is no
+    subject in what the session's model wrote or by its session trailer, and
+    to any author words the commit quoted. ``reason`` says why there is no
     history to follow, when there is none. Nothing is written.
     """
     corpus = corpus or Corpus()
-    commits, reason = _commits(slug)
+    commits, reason = _commits(slug, patches=patches)
     # Everything this section's history will look for, found in one pass: a
     # commit's subject as its own commit command wrote it into the log, its
     # session trailer, and a probe word for each passage it quoted.
@@ -1273,7 +1391,7 @@ def suggest_leads(slug, corpus=None):
         k: v for k, v in corpus.captured().items() if v[0] in ("cc", "codex", "agy")
     }
     asks = {}
-    for sha, _, subject, body in commits:
+    for sha, _, subject, body, _ in commits:
         asks[sha] = {
             "subject": {
                 json.dumps(subject)[1:-1],
@@ -1285,6 +1403,15 @@ def suggest_leads(slug, corpus=None):
     made_by = corpus.holding(
         {n for ask in asks.values() for n in ask["subject"] | ask["links"]}, tools
     )
+    # A raw hit is only where to look: the session made the commit if its own
+    # model wrote the subject, which a listing of the history never does.
+    subjects = {sha: subject for sha, _, subject, _, _ in commits}
+    for sha, ask in asks.items():
+        hits = set().union(*(made_by[n] for n in ask["subject"]))
+        for sid in hits:
+            if not _model_wrote(*tools[sid], [subjects[sha]]):
+                for needle in ask["subject"]:
+                    made_by[needle].discard(sid)
     quotes = [
         variant
         for ask in asks.values()
@@ -1293,7 +1420,7 @@ def suggest_leads(slug, corpus=None):
     ]
     probes = corpus.holding({_probe(q) for q in quotes} - {None})
     leads = []
-    for sha, when, subject, body in commits:
+    for sha, when, subject, body, patch in commits:
         ask = asks[sha]
         made = set().union(*(made_by[n] for n in ask["subject"]))
         how = "by the commit's subject"
@@ -1308,6 +1435,20 @@ def suggest_leads(slug, corpus=None):
             sessions.append((sid, family, tuple(before[-3:])))
         found = []
         for quote in ask["quotes"]:
+            if len(quote.split()) < QUOTE_MIN_WORDS:
+                hits = [
+                    t
+                    for sid, family, _ in sessions
+                    for t in corpus.turns(sid, family, tools[sid][1])
+                    if contains(t.text, quote)
+                ]
+                note = (
+                    "too short to look for beyond the session that made the commit"
+                    if sessions
+                    else "too short to look for, and no session made the commit"
+                )
+                found.append((quote, tuple(hits[:5]), note))
+                continue
             hits = []
             for variant in (quote, " ".join(quote.split()[:8])):
                 probe = _probe(variant)
@@ -1315,24 +1456,36 @@ def suggest_leads(slug, corpus=None):
                 hits = corpus.find(variant, within=within, live=False)
                 if hits:
                     break
-            found.append((quote, tuple(hits[:5])))
+            found.append((quote, tuple(hits[:5]), ""))
         leads.append(
             CommitLead(
-                sha, when, subject, how if made else None, tuple(sessions), tuple(found)
+                sha,
+                when,
+                subject,
+                how if made else None,
+                tuple(sessions),
+                tuple(found),
+                patch,
             )
         )
     return leads, reason
 
 
-def suggest(slug, *, utc=False):
+# How much of a commit's change to the section `suggest --diff` prints.
+DIFF_LINES = 40
+
+
+def suggest(slug, *, utc=False, diff=False):
     """Candidate turns for a section's backfill, each with why it was suggested.
 
-    ``suggest_leads`` as the lines an agent reads. These are leads for an
+    ``suggest_leads`` as the lines an agent reads. With ``diff``, each commit
+    also shows what it changed in the section, which is what tells a ruler
+    which paragraph a session's turns went into. These are leads for an
     agent to read, never breadcrumbs: nothing is written.
     """
     titles = _spec_titles()
     _known_slug(slug, titles)
-    leads, reason = suggest_leads(slug)
+    leads, reason = suggest_leads(slug, patches=diff)
     on_trail = [c for s, c in load().crumbs() if s.slug == slug]
     lines = [f"#{slug} — {titles[slug]}"]
     if reason:
@@ -1354,13 +1507,22 @@ def suggest(slug, *, utc=False):
                 lines.append("    " + _lead(t, on_trail, zone))
         if not lead.sessions:
             lines.append("  made in: no captured session names this commit")
-        for quote, hits in lead.quotes:
+        for quote, hits, note in lead.quotes:
             label = _opening(quote, 60)
-            if not hits:
+            if note:
+                lines.append(f"  quoted “{label}”: {note}")
+            elif not hits:
                 lines.append(f"  quoted “{label}”: not found in the author's turns")
             for t in hits:
-                lines.append(f"  quoted “{label}”")
+                if not note:
+                    lines.append(f"  quoted “{label}”")
                 lines.append("    " + _lead(t, on_trail, zone))
+        if diff and lead.patch:
+            changed = lead.patch.splitlines()
+            lines.append("  changed in the section:")
+            lines += [f"    {line}" for line in changed[:DIFF_LINES]]
+            if len(changed) > DIFF_LINES:
+                lines.append(f"    … {len(changed) - DIFF_LINES} more line(s)")
     lines.append("")
     lines.append(
         "Words the author used without a commit behind them: quirework "
@@ -1407,7 +1569,8 @@ writing:
 
 backfill:
   quirework book trail suggest SLUG         leads from the commits that
-                                            changed the section
+                                            changed the section; --diff adds
+                                            what each one changed in it
   quirework book trail backfill             cheap readers flag, a strong
                                             reader rules: see its help
 
@@ -1496,15 +1659,22 @@ def main(argv=None):
     ap.add_argument("--session", metavar="ID", help="which sections a session fed")
     ap.add_argument("--check", action="store_true", help="the trail's gate")
     ap.add_argument("--utc", action="store_true", help="date turns in UTC")
+    ap.add_argument(
+        "--diff",
+        action="store_true",
+        help="with suggest: what each commit changed in the section",
+    )
     args = ap.parse_args(argv)
     try:
         sidecar_path()
         if args.slug == "suggest":
             if not args.rest:
                 ap.error("suggest needs a SLUG")
-            lines = suggest(args.rest, utc=args.utc)
+            lines = suggest(args.rest, utc=args.utc, diff=args.diff)
         elif args.rest:
             ap.error(f"unexpected argument: {args.rest}")
+        elif args.diff:
+            ap.error("--diff goes with suggest SLUG")
         elif args.check:
             if args.slug or args.chapter or args.session or args.brief:
                 ap.error("--check runs the gate and takes no view options")

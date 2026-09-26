@@ -201,7 +201,12 @@ A breadcrumb is a pointer, not a copy. The session stays the only source
 of truth, so your words are read from it whenever the trail is read. The
 pointer is the time the harness logged your turn, in UTC, because anyone
 can find that moment: in the captured corpus, in the harness's own
-transcript, or in the web conversation, with or without Quirework. The
+transcript, or in the web conversation, with or without Quirework. A
+source that logs no time names the turn by its number instead: a
+pre-rendered Gemini review, and a red-pen round where
+`provenance.redpen` declares the archive, since each mark on your
+rendered copy is one of your turns
+(`--session redpen-v1 --turn 3`). The
 kind says what the turn did to the section: `seed`, `sharpen`, `correct`
 (refused a wording the agent proposed), `reverse` (moved off an earlier
 position), `accept` (took a wording the agent drafted) or `probe` (tried
@@ -280,9 +285,12 @@ batch to the next. The run engine runs it, and resumes it after a quota
 stop. Without `--out`, the plan takes a new directory in the project's
 private state, named for the day and the model, with a suffix for a
 second pass the same day. It prints the sessions by harness, the whole
-cost including each seat's menu, any session without a start time
-(sorted first), and the prepare, start and import commands with their
-real paths. `backfill import RECORD` checks each flag against the corpus and
+cost including each seat's menu, any session with neither a start
+time nor a recorded date (sorted first), and the prepare, start and
+import commands with their real paths. A Gemini review and a red-pen
+round log no times but record their date, and take their place by it.
+A red-pen round's packet opens by saying what its parts are, since only
+some of each mark is your words. `backfill import RECORD` checks each flag against the corpus and
 keeps it in the ledger: a turn that is not yours, or a slug the spec
 does not have, is dropped and reported with its reason. A session whose
 reader did not say it finished is left for the next plan to hand out
@@ -307,13 +315,41 @@ unrelated thread in which a question is asked as a control.
 
 `backfill SLUG` lists a section's candidates oldest first: what each
 reader flagged, and the turns before the commits that changed the
-section. A candidate the strong model keeps becomes a breadcrumb through
+section. A reader names the section it thinks fits, so a turn that fits
+two can reach only one of them; `--also OTHER` adds what readers
+flagged for a neighbouring section, marked with its slug. The list notes
+two kinds of copy before you rule on either: a turn you sent twice,
+saying which copy drew the reply, and a turn captured twice, when a
+resumed session repeats the history it inherited under a new id.
+
+A commit leads to the session that made it only where that session's
+model wrote the commit's subject, in the command, the message file or
+the reply reporting it; a session that saw the subject in a `git log`
+listing read about the commit and did not make it. A commit's quote is
+matched whatever quotation marks either side used. A quote of fewer
+than four words is looked for only in the session that made its commit,
+since "agreed" is in half the corpus. `trail suggest SLUG --diff` adds
+what each commit changed in the section, which tells you which
+paragraph a session's turns went into.
+
+A candidate the strong model keeps becomes a breadcrumb through
 `trail add`; one it drops is recorded with
 `backfill reject SLUG --session ID --turn N --reason "…"`, so no later
-pass pays to read it again. Only that step drops a candidate. A flag is
-a lead, never a breadcrumb, and the ledger is as private as the trail:
-its reasons paraphrase your turns. `backfill status` says how many
-sessions are read and which sections have candidates left.
+pass pays to read it again. A section's whole ruling can go through
+`backfill rule SLUG FILE` instead, one JSON line per candidate:
+
+```
+{"keep": "correct", "session": "0badc0de", "turn": 3, "note": "Refuses speed."}
+{"reject": "Placement, not the claim.", "session": "0badc0de", "turn": 1}
+```
+
+Every line is checked before anything is written, so a mistake leaves
+the section as it was rather than half ruled. Only this step drops a
+candidate. A flag is a lead, never a breadcrumb, and the ledger is as
+private as the trail: its reasons paraphrase your turns.
+`backfill status` says how many sessions are read and which sections
+have candidates left; its counts are the readers' flags, and a
+section's list adds the turns its commits lead to.
 
 ## 3. Marks
 

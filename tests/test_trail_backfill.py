@@ -453,6 +453,137 @@ def test_the_command_line_prints_a_sections_worklist(book, tmp_path, capsys):
     assert "quirework provenance show 0badc0de --turn 3" in out
 
 
+def test_a_neighbours_flags_join_the_worklist_when_asked(book, tmp_path):
+    _read(tmp_path, [ANSWER])
+    pending, *_ = backfill.worklist("kettle-signal", commits=False)
+    assert [c.turn.number for c in pending] == [1]
+    pending, *_ = backfill.worklist(
+        "kettle-signal", commits=False, also=["cooling-asymmetry"]
+    )
+    assert [c.turn.number for c in pending] == [1, 3]
+    lines = backfill._worklist_lines(
+        "kettle-signal",
+        commits=False,
+        everything=False,
+        utc=True,
+        also=["cooling-asymmetry"],
+    )
+    assert "claude-sonnet-5 [#cooling-asymmetry]: correct (high)" in "\n".join(lines)
+    with pytest.raises(LookupError, match="no section"):
+        backfill.worklist("kettle-signal", commits=False, also=["no-such"])
+
+
+RESENT = "a0000000-0000-4000-8000-00000000000a"
+FORK = "a0000000-0000-4000-8000-00000000000b"
+
+
+def test_a_resent_turn_and_a_twice_captured_turn_are_noted(book, tmp_path):
+    corpus = book.path("provenance.root") / "cc-sessions"
+    same = "Cooling is a route, not a speed."
+    _session(
+        corpus,
+        RESENT,
+        "2031-04-04",
+        [
+            ("human", same, "09:00:00"),
+            ("human", same, "09:02:00"),
+            ("assistant", "A route it is.", "09:03:00"),
+            ("human", "Thanks.", "09:04:00"),
+        ],
+    )
+    _session(corpus, FORK, "2031-04-04", [("human", same, "09:02:00")])
+    flag = {"slug": "cooling-asymmetry", "kind": "seed", "confidence": "high"}
+    answer = _lines(
+        {"session": RESENT, "turn": 1, "sections": [flag]},
+        {"session": RESENT, "turn": 2, "sections": [flag]},
+        {"session": RESENT, "done": True},
+        {"session": FORK, "turn": 1, "sections": [flag]},
+        {"session": FORK, "done": True},
+    )
+    _read(tmp_path, [answer], sessions=[RESENT, FORK])
+    pending, *_ = backfill.worklist("cooling-asymmetry", commits=False)
+    notes = {(c.turn.session, c.turn.number): c.notes for c in pending}
+    assert notes[(RESENT, 1)] == ["same words as Human 2; this copy drew none"]
+    assert "same words as Human 1; this copy drew a reply" in notes[(RESENT, 2)]
+    assert "the same turn is captured again as a0000000 Human 1" in notes[(RESENT, 2)]
+    assert notes[(FORK, 1)] == ["the same turn is captured again as a0000000 Human 2"]
+
+
+def test_a_sections_rulings_apply_from_a_file_all_or_none(book, tmp_path):
+    _read(tmp_path, [ANSWER])
+    good = [
+        json.dumps({"keep": "seed", "session": MORNING, "turn": 1, "note": "Opens."}),
+        json.dumps({"reject": "Not the claim.", "session": MORNING, "turn": 2}),
+    ]
+    bad = good + [json.dumps({"keep": "seed", "session": MORNING, "turn": 99})]
+    with pytest.raises(LookupError, match="nothing was written") as caught:
+        backfill.rule("kettle-signal", bad)
+    assert "line 3" in str(caught.value)
+    assert not book.path("book.spec_trail").exists()
+    assert backfill.rejections("kettle-signal") == []
+    kept, dropped = backfill.rule("kettle-signal", ["# a comment", *good])
+    assert [t.number for t in kept] == [1] and [t.number for t in dropped] == [2]
+    with pytest.raises(LookupError, match="already rejected"):
+        backfill.rule("kettle-signal", good[1:])
+
+
+def test_a_turn_cannot_be_kept_and_rejected_in_one_file(book):
+    both = [
+        json.dumps({"keep": "seed", "session": MORNING, "turn": 1}),
+        json.dumps({"reject": "No.", "session": MORNING, "turn": 1}),
+    ]
+    with pytest.raises(LookupError, match="both kept and rejected"):
+        backfill.rule("kettle-signal", both)
+
+
+REDPEN_ROUND = """# Red-pen round v2 (2031-04-01)
+
+```
+source-docx:    V2 - The Kettle.docx
+marks-dated:    2031-04-01
+```
+
+## MARKS  (`redpen read`)
+
+### COMMENTS (1)
+
+[A. Fictional Author] 2031-04-01  (on text)
+  edit/anchor: “It whistles.”
+  note: A report, not a thought.
+"""
+
+
+def _thawed(value):
+    if hasattr(value, "items"):
+        return {k: _thawed(v) for k, v in value.items()}
+    return value
+
+
+def test_a_red_pen_round_is_read_in_date_order_with_its_parts_explained(
+    tmp_path, monkeypatch
+):
+    monkeypatch.setenv("CODEX_HOME", str(tmp_path / "codex-home"))
+    settings = _thawed(_book(tmp_path).settings)
+    settings["provenance"]["redpen"] = "private/redpen"
+    archive = tmp_path / "book" / "private" / "redpen"
+    archive.mkdir(parents=True)
+    (archive / "v2-2031-04-01.md").write_text(REDPEN_ROUND, encoding="utf-8")
+    with project_scope(Project.from_settings(tmp_path / "book", settings)):
+        done = backfill.plan(
+            tmp_path / "packets", harness="claude", model="sonnet", effort="medium"
+        )
+        plan = json.loads((tmp_path / "packets" / "plan.json").read_text())
+        order = plan["seats"][0]["metadata"]["trail_read"]["sessions"]
+        assert order == ["redpen-v2-2031-04-01", MORNING, EVENING]
+        assert not done["undated"], "a round carries the day of its marks"
+        text = (
+            tmp_path / "packets" / "packets" / "redpen-v2-2031-04-01.md"
+        ).read_text()
+        assert "redpen · started 2031-04-01 · 1 author turn(s)" in text
+        assert "This is not a conversation. It is a red-pen round" in text
+        assert "note: A report, not a thought." in text
+
+
 # --------------------------------------------------------------------------- #
 # configuration
 # --------------------------------------------------------------------------- #

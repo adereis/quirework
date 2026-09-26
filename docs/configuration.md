@@ -138,6 +138,15 @@ writes to them. That is how a turn in a conversation still going on is
 pointed at before the session is captured. Without provenance, a trail
 can still be kept by hand and read as pointers.
 
+`provenance.redpen` names the archive of red-pen rounds that
+`book redpen archive` writes: your marks on a rendered copy of the book,
+one file per round. Declared, each round also reads as a session of your
+turns, one per mark, named `redpen-` and its file name, so `show`, the
+trail and its backfill reach words you typed on the page as well as in a
+conversation. A round records the day of each mark and no time of day,
+so a breadcrumb names the mark by its number. Nothing joins by default:
+the archive is private, and an undeclared one stays out.
+
 Derived caches default to a project-specific directory under the XDG
 cache directory. Run storage defaults to a project-specific directory
 under the XDG state directory. Configure `runs.store` to retain an
