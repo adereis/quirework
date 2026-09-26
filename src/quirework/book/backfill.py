@@ -81,9 +81,18 @@ REDPEN_NOTE = """
 This is not a conversation. It is a red-pen round: the author's marks on a
 rendered copy of the book, one mark per turn, with no replies. A comment's
 anchor quotes the book, not the author; its note is the author's. A tracked
-edit is the author's. A review-notes entry shows a note block as it was
-("- was") and as the author left it ("+ now"); only what the author added or
-changed is the author's, since a block can repeat text it already held.
+edit is the author's.
+
+A review-notes entry compares a note block as the author left it with the
+same block rebuilt later from the book's source. Its "+ now" lines are the
+author's copy and its "- was" lines are the rebuild's. The copy the author
+was sent can hold more than the rebuild, so a "+ now" line can be something
+the copy already held: a heading that says what a part of the block is for,
+or a note an agent wrote earlier, which usually opens with a label in
+parentheses and speaks of the author in the third person. Those are not the
+author's words. The author's own lines carry no label, and are often in the
+first person or addressed to whoever edits the book. A "- was" line is not
+evidence that the author deleted it.
 """
 
 INSTRUCTIONS = """\

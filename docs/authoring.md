@@ -290,7 +290,13 @@ time nor a recorded date (sorted first), and the prepare, start and
 import commands with their real paths. A Gemini review and a red-pen
 round log no times but record their date, and take their place by it.
 A red-pen round's packet opens by saying what its parts are, since only
-some of each mark is your words. `backfill import RECORD` checks each flag against the corpus and
+some of each mark is your words. A review-notes entry compares your copy
+of a block with the block rebuilt from source when the round was
+archived. A copy built by an older renderer held more than that rebuild,
+such as headings and notes agents had written, so the packet warns that
+those can show up among your "+ now" lines.
+
+`backfill import RECORD` checks each flag against the corpus and
 keeps it in the ledger: a turn that is not yours, or a slug the spec
 does not have, is dropped and reported with its reason. A session whose
 reader did not say it finished is left for the next plan to hand out

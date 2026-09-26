@@ -593,6 +593,8 @@ def test_a_red_pen_round_is_read_in_date_order_with_its_parts_explained(
         ).read_text()
         assert "redpen · started 2031-04-01 · 1 author turn(s)" in text
         assert "This is not a conversation. It is a red-pen round" in text
+        flat = " ".join(text.split())
+        assert 'a "+ now" line can be something the copy already held' in flat
         assert "note: A report, not a thought." in text
 
 
