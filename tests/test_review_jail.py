@@ -85,3 +85,80 @@ def test_inside_a_real_jail_a_worktree_reviewer_reads_the_range(tmp_path, monkey
         )
         with pytest.raises(ValueError, match="git cannot read the delta"):
             review.preflight(delta, record, ENV)
+
+
+def _hiding(repo, *hidden, reviews=None):
+    """A project whose review policy hides these checkout paths."""
+    (repo / "review.toml").write_text(
+        "hidden = [" + ", ".join(f'"{h}"' for h in hidden) + "]\n"
+    )
+    settings = {"sops": {"review_policy": "review.toml"}}
+    if reviews:
+        settings["runs"] = {"reviews": reviews}
+    return Project.from_settings(repo, settings)
+
+
+def test_hidden_paths_are_masked_after_the_checkout_is_bound(tmp_path):
+    main, _ = _worktree(tmp_path)
+    (main / "scratch" / "rulings").mkdir(parents=True)
+    (main / "scratch" / "rulings" / "verdicts.md").write_text("A settled call.\n")
+    (main / "notes.md").write_text("The operator's priors.\n")
+    (main / "records" / "reviews").mkdir(parents=True)
+    with project_scope(
+        _hiding(
+            main, "scratch", "scratch/rulings", "notes.md", reviews="records/reviews"
+        )
+    ):
+        # The nested path is covered by its parent, and the review records
+        # join without being named.
+        assert review.hidden_paths() == [
+            (main / "scratch").resolve(),
+            (main / "notes.md").resolve(),
+            (main / "records" / "reviews").resolve(),
+        ]
+        binds = review.repository_binds()
+        assert binds[:3] == ["--ro-bind", str(main), str(main)]
+        assert binds[3:] == [
+            "--tmpfs",
+            str(main / "scratch"),
+            "--ro-bind",
+            "/dev/null",
+            str(main / "notes.md"),
+            "--tmpfs",
+            str(main / "records" / "reviews"),
+        ]
+        # Only the committed one: the tracked file's history outlives a mask.
+        assert review._tracked(review.hidden_paths()) == []
+        _git(main, "add", "notes.md")
+        assert review._tracked(review.hidden_paths()) == ["notes.md"]
+
+
+@pytest.mark.parametrize("pattern", ["/etc", "../elsewhere", "link"])
+def test_a_hidden_path_outside_the_checkout_or_behind_a_link_is_refused(
+    tmp_path, pattern
+):
+    main, _ = _worktree(tmp_path)
+    (main / "link").symlink_to(tmp_path)
+    with project_scope(_hiding(main, pattern)):
+        with pytest.raises(ValueError, match="review_policy.hidden"):
+            review.hidden_paths()
+
+
+@pytest.mark.skipif(not REAL_BWRAP, reason="needs the real bubblewrap")
+def test_inside_a_real_jail_a_hidden_path_reads_as_empty(tmp_path, monkeypatch):
+    main, _ = _worktree(tmp_path)
+    (main / "scratch").mkdir()
+    (main / "scratch" / "verdicts.md").write_text("A settled call.\n")
+    (main / "notes.md").write_text("The operator's priors.\n")
+    record = tmp_path / "record"
+    with project_scope(_hiding(main, "scratch", "notes.md")):
+        delta = review.resolve_range("HEAD")
+        seen = review.preflight(delta, record, ENV)
+        assert seen["hidden"] == ["scratch", "notes.md"]
+        # Without the masks, the preflight is what notices.
+        root = str(main)
+        monkeypatch.setattr(
+            review, "repository_binds", lambda: ["--ro-bind", root, root]
+        )
+        with pytest.raises(ValueError, match="hidden path is still readable"):
+            review.preflight(delta, record, ENV)

@@ -542,6 +542,17 @@ reviews the final text and says so in a line that is easy to miss. Its
 private home does not carry the operator's saved conclusions. An
 unjailed fallback is disclosed in the run record.
 
+The checkout can hold the same kind of priors: scratch notes with
+rulings in them, or an earlier review of the same range, often in
+git-ignored directories. `sops.review_policy.hidden` lists such paths
+as globs relative to the checkout, and the jail masks each one. A
+directory becomes empty and a file reads as nothing. The review records
+directory is always masked when it lies inside the checkout, since no
+reviewer needs another run's verdicts. The preflight proves the masks
+from inside the jail before launch, and `launch.json` records them. A
+mask covers the checkout's copy only. A tracked path's history is still
+readable through git, and the launch says so.
+
 A range `A..B` covers the commits after `A`, not `A` itself. To review
 the last three commits, pass `HEAD~3..HEAD`, not `HEAD~2..HEAD`. Before
 the reviewer starts, `review run` prints the commits the range covers

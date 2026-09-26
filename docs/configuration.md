@@ -273,7 +273,8 @@ and visual choices out of Quirework's implementation:
   `retired` phrase is a ruling already made, so `text check` fails
   while one is back in reader-facing prose.
 - `sops.persona_policy`: the optional `default` persona ID.
-- `sops.review_policy`: review frames and reviewable source paths.
+- `sops.review_policy`: review frames, reviewable source paths, and
+  `hidden`, the checkout paths a jailed reviewer must not read.
 - `book.variant_policy`: the selected model and optional assignment.
 - `provenance.metrics_policy` and `provenance.coldread_policy`:
   historical source classifications, explicitly selected analysis

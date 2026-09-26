@@ -18,6 +18,14 @@ and binding a private `~/.claude` back removes that store and the global
 repository files. `--setting-sources` is a different surface and does not do
 this.
 
+The checkout can hold the same kind of material in git-ignored corners: an
+operator's scratch notes with rulings in them, or the record of an earlier
+review of the same range. `sops.review_policy.hidden` names those paths, and
+the jail masks each one after binding the checkout, so the independence the
+brief asks for is the jail's to enforce rather than the reviewer's to honour.
+The review records directory is always among them when it lies inside the
+checkout: no reviewer needs another run's verdicts.
+
 Running unjailed stays available and is the SOP's disclosed fallback rather
 than a silent one: `jailed: false` is recorded in the run record and printed,
 because the write-up has to say what the reviewer had.
@@ -635,6 +643,37 @@ def git_dirs():
     return found
 
 
+def hidden_paths():
+    """The checkout paths a reviewer must not read, as they exist now.
+
+    Globs from `sops.review_policy.hidden`, relative to the checkout, plus the
+    review records directory when it lies inside the checkout. A path inside
+    another hidden one is covered by it and dropped. A symlink is refused: a
+    mask over the link would leave its target in view.
+    """
+    root = current_project().root
+    patterns = list(current_project().data("sops.review_policy", {}).get("hidden", []))
+    found = []
+    for pattern in patterns:
+        if Path(pattern).is_absolute() or ".." in Path(pattern).parts:
+            _fail(f"review_policy.hidden must name checkout paths: {pattern!r}")
+        found += sorted(root.glob(pattern))
+    if current_project().get("runs.reviews") is not None:
+        rounds = _settings().ROUNDS
+        if rounds.is_dir() and rounds.resolve().is_relative_to(root):
+            found.append(rounds)
+    paths = []
+    for path in found:
+        if path.is_symlink():
+            _fail(f"review_policy.hidden: {path} is a symlink; hide its target")
+        path = path.resolve()
+        if path == root or not path.is_relative_to(root):
+            _fail(f"review_policy.hidden must name paths inside the checkout: {path}")
+        if path not in paths:
+            paths.append(path)
+    return [p for p in paths if not any(p != q and p.is_relative_to(q) for q in paths)]
+
+
 def repository_binds():
     """The repository and its history, read-only, at their real paths.
 
@@ -648,6 +687,14 @@ def repository_binds():
     argv = ["--ro-bind", root, root]
     for path in git_dirs():
         argv += ["--ro-bind", str(path), str(path)]
+    # After the checkout, so each mask lands on top of what it hides: an empty
+    # tmpfs over a directory, the null device over a file.
+    for path in hidden_paths():
+        argv += (
+            ["--tmpfs", str(path)]
+            if path.is_dir()
+            else ["--ro-bind", "/dev/null", str(path)]
+        )
     return argv
 
 
@@ -697,10 +744,48 @@ def preflight(delta, record, env):
             "not the history it was asked to review. Nothing was launched; "
             "--no-jail runs outside the jail and is recorded as jailed=false."
         )
+    hidden = hidden_paths()
+    if hidden:
+        # The masks are proved the same way: from inside, before a model is
+        # paid for. A directory must list nothing, a file must hold nothing.
+        dirs = [str(h) for h in hidden if h.is_dir()]
+        files = [str(h) for h in hidden if not h.is_dir()]
+        leaks = []
+        for probe in (
+            ["find", *dirs, "-mindepth", "1", "-print", "-quit"] if dirs else None,
+            ["find", *files, "-maxdepth", "0", "-size", "+0c"] if files else None,
+        ):
+            if probe is None:
+                continue
+            p = subprocess.run(
+                jail + probe, capture_output=True, text=True, timeout=120, env=env
+            )
+            if p.returncode:
+                _fail(f"the review jail's hidden-path check failed: {p.stderr[:300]}")
+            leaks += p.stdout.split()
+        if leaks:
+            _fail(
+                f"inside the review jail, a hidden path is still readable: "
+                f"{leaks[0]}. Nothing was launched."
+            )
     return {
         "git_dirs": [str(d) for d in git_dirs()],
         "commits_readable": len(seen) if delta.get("kind") == "range" else None,
+        "hidden": [_shown(h) for h in hidden],
     }
+
+
+def _shown(path):
+    return path.relative_to(current_project().root).as_posix()
+
+
+def _tracked(paths):
+    """The hidden paths git still carries: masked in the tree, not in history."""
+    return [
+        _shown(p)
+        for p in paths
+        if git("ls-files", "--", _shown(p), check=False).strip()
+    ]
 
 
 def _answer(harness, config, rows, private):
@@ -1062,6 +1147,21 @@ def _turn(
                 f"{history['commits_readable']} commit(s) of the range",
                 file=sys.stderr,
             )
+        hidden = hidden_paths()
+        tracked = _tracked(hidden)
+        if hidden:
+            print(
+                f"review: hidden from the reviewer: "
+                f"{', '.join(_shown(h) for h in hidden)}"
+                + ("" if jailed else " -- NOT hidden: the reviewer is unjailed"),
+                file=sys.stderr,
+            )
+        if tracked and jailed:
+            print(
+                f"review: {', '.join(tracked)} is tracked; the mask hides the "
+                f"checkout's copy, and git history still carries it",
+                file=sys.stderr,
+            )
         if mode == "continue":
             # No brief, no delta, no persona frame: all three are already in the
             # session. Re-sending them is how a continuation turns back into a
@@ -1103,6 +1203,8 @@ def _turn(
                 "private_runtime": str(private) if private else None,
                 "report_mount": str(report_path),
                 "history": history,
+                "hidden": [_shown(h) for h in hidden] if jailed else [],
+                "hidden_tracked": tracked if jailed else [],
                 "persona_sha256": persona["sha256"] if persona else None,
             },
         )
