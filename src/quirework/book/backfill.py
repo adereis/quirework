@@ -978,6 +978,7 @@ class Candidate:
     flags: list = field(default_factory=list)  # (model, flag as stored)
     commits: list = field(default_factory=list)  # (sha8, subject, how)
     notes: list = field(default_factory=list)  # what the ruler should know first
+    reply: str = ""  # the model's reply this turn answered
 
 
 def worklist(slug, *, commits=True, everything=False, also=()):
@@ -1103,6 +1104,8 @@ def _annotate(candidates, corpus):
                 n: (text, reply) for n, _, text, reply in rows
             }
         rows = replies[(t.family, t.path)]
+        if t.number in rows:
+            c.reply = rows[t.number][1]
         mine = trail._squash(t.text)
         for other in (t.number - 1, t.number + 1):
             if other in rows and trail._squash(rows[other][0]) == mine:
@@ -1130,7 +1133,7 @@ def _annotate(candidates, corpus):
                 c.notes.append(f"the same turn is captured again as {others}")
 
 
-def _worklist_lines(slug, *, commits, everything, utc, also=()):
+def _worklist_lines(slug, *, commits, everything, utc, also=(), read=False):
     titles = trail._spec_titles()
     pending, on_trail, rejected, stale = worklist(
         slug, commits=commits, everything=everything, also=also
@@ -1183,9 +1186,32 @@ def _worklist_lines(slug, *, commits, everything, utc, also=()):
             lines.append(f"  commit {sha} {trail._opening(subject, 50)}: {how}")
         for note in c.notes:
             lines.append(f"  note   {note}")
-        lines.append(f"  opens  {trail._opening(t.text, 110)}")
+        if read:
+            lines += _whole(c)
+        else:
+            lines.append(f"  opens  {trail._opening(t.text, 110)}")
         lines.append(f"  read   quirework provenance show {t.short} --turn {t.number}")
     return lines
+
+
+def _whole(candidate):
+    """A candidate as the ruler reads it: the turn, and the reply it answered.
+
+    The reply is cut to its end, as a packet cuts it, because a reply closes on
+    what it proposes, and a bare "yes, go" accepts only that. The turn is
+    clipped only where it is long enough to be mostly pasted material.
+    """
+    lines = []
+    if candidate.reply.strip():
+        lines += ["", "    It answered the end of this reply:", ""]
+        lines += [
+            f"    {line}".rstrip()
+            for line in _quoted(_tail(candidate.reply, REPLY_CHARS)).splitlines()
+        ]
+    lines += ["", "    The author wrote:", ""]
+    body = _clip(candidate.turn.text) or "(nothing)"
+    lines += [f"    {line}".rstrip() for line in body.splitlines()]
+    return lines + [""]
 
 
 # --------------------------------------------------------------------------- #
@@ -1264,6 +1290,8 @@ backfilling a trail from the corpus, in three steps:
      quirework book trail backfill SLUG          the section's candidates, oldest first
          --also OTHER                            with the turns readers flagged for
                                                  a neighbouring section instead
+         --read                                  each turn whole, with the end of
+                                                 the reply it answered
      quirework book trail add SLUG ...           keep one as a breadcrumb
      quirework book trail backfill reject SLUG --session ID --turn N --reason TEXT
      quirework book trail backfill rule SLUG FILE
@@ -1414,6 +1442,11 @@ def main(argv):
             metavar="SLUG",
             help="also the turns readers flagged for this neighbouring section",
         )
+        ap.add_argument(
+            "--read",
+            action="store_true",
+            help="print each turn whole, with the end of the reply it answered",
+        )
         a = ap.parse_args(argv)
         print(
             "\n".join(
@@ -1423,6 +1456,7 @@ def main(argv):
                     everything=a.all,
                     utc=a.utc,
                     also=a.also,
+                    read=a.read,
                 )
             )
         )

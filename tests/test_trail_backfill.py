@@ -473,6 +473,18 @@ def test_a_neighbours_flags_join_the_worklist_when_asked(book, tmp_path):
         backfill.worklist("kettle-signal", commits=False, also=["no-such"])
 
 
+def test_a_worklist_can_show_each_turn_with_the_reply_it_answered(
+    book, tmp_path, capsys
+):
+    _read(tmp_path, [ANSWER])
+    assert trail.main(["backfill", "cooling-asymmetry", "--no-commits", "--read"]) == 0
+    out = capsys.readouterr().out
+    assert "    > Noted as its own section." in out
+    assert "    No, not slower. A route, not a speed." in out
+    assert "  opens  " not in out
+    assert "quirework provenance show 0badc0de --turn 3" in out
+
+
 RESENT = "a0000000-0000-4000-8000-00000000000a"
 FORK = "a0000000-0000-4000-8000-00000000000b"
 

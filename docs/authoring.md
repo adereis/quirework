@@ -321,6 +321,10 @@ flagged for a neighbouring section, marked with its slug. The list notes
 two kinds of copy before you rule on either: a turn you sent twice,
 saying which copy drew the reply, and a turn captured twice, when a
 resumed session repeats the history it inherited under a new id.
+`--read` prints each candidate whole, after the end of the reply it
+answered, cut as a packet cuts it. A bare "yes, go" means only what
+that reply proposed, so ruling on one needs the reply, and a section
+with sixty candidates would otherwise take sixty `show` commands.
 
 A commit leads to the session that made it only where that session's
 model wrote the commit's subject, in the command, the message file or
