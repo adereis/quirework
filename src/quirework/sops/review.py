@@ -1552,6 +1552,73 @@ def audit(since=None):
     return {"range": since, "commits": len(revs), "unreviewed": unreviewed}
 
 
+def _live_rows(path):
+    """Complete records of a stream that may still be being written.
+
+    The last line of a running turn's stream is often half-written, so it is
+    left for the next poll rather than read as damage. A complete line that
+    does not parse is counted, never skipped in silence.
+    """
+    if not path.is_file():
+        return [], 0
+    rows, damaged = [], 0
+    for line in path.read_text(errors="replace").split("\n")[:-1]:
+        if not line.strip():
+            continue
+        try:
+            rows.append(json.loads(line))
+        except json.JSONDecodeError:
+            damaged += 1
+    return rows, damaged
+
+
+def _live_progress(config, turn_dir, private):
+    """What a running turn's own streams say: compaction, context, activity.
+
+    The run protocol asks the operator to watch for compaction while a turn
+    is active, and the report says nothing about it. The obvious hand check
+    is a trap: grepping the stream for "compact" matched five times in one
+    run, every one of them the word inside a file the reviewer had read.
+    """
+    harness = config["harness"]
+    rows, damaged = _live_rows(turn_dir / "events.jsonl")
+    native = []
+    if harness == "codex" and private:
+        # Codex reports per-request usage, and some compactions, only in its
+        # native transcript, which lives in the run's private home.
+        sessions = {
+            r.get("thread_id") for r in rows if r.get("type") == "thread.started"
+        }
+        for sid in sorted(sessions - {None}):
+            for path in sorted((Path(private) / "sessions").rglob(f"*{sid}*.jsonl")):
+                more, bad = _live_rows(path)
+                native += more
+                damaged += bad
+    window = {
+        "codex": config.get("max_context_window"),
+        "claude": drivers.CLAUDE_MAX_WINDOW,
+    }.get(harness)
+    context = {"last_request": None, "window": window}
+    if harness == "agy":
+        context["evidence"] = "agy reports no per-request usage"
+    elif harness == "codex" and not private:
+        context["evidence"] = "unjailed: the native transcript is not in the record"
+    else:
+        stream = native if harness == "codex" else rows
+        sizes = [drivers.request_size(harness, r) for r in stream]
+        context["last_request"] = next(
+            (n for n in reversed(sizes) if n is not None), None
+        )
+    if context["last_request"] and window:
+        context["share"] = f"{context['last_request'] / window:.0%}"
+    return {
+        "events": len(rows),
+        "compaction_events": drivers.compaction_events(rows + native),
+        "context": context,
+        "unreadable_lines": damaged,
+    }
+
+
 def _uncollected_turns(record, state):
     """Expose saved progress without claiming that an unfinished process is live."""
     collected = {t["turn"] for t in state.get("turns", [])}
@@ -1559,7 +1626,16 @@ def _uncollected_turns(record, state):
     for folder in sorted((record / "turns").glob("[0-9]*")):
         if not folder.is_dir() or not folder.name.isdigit() or folder.name in collected:
             continue
-        report = folder / "report" / "report.md"
+        launch = folder / "launch.json"
+        launched = read_json(launch) if launch.is_file() else {}
+        # A continuation keeps writing the interrupted turn's report, so its
+        # own report directory stays empty; the progress is in the parent's.
+        owner = (
+            launched["parent_turn"]
+            if launched.get("mode") == "continue" and launched.get("parent_turn")
+            else folder.name
+        )
+        report = record / "turns" / owner / "report" / "report.md"
         body = report.read_text() if report.exists() else ""
         progress = re.findall(r"(?m)^PROGRESS:.*$", body)
         pending.append(
@@ -1567,6 +1643,9 @@ def _uncollected_turns(record, state):
                 "turn": folder.name,
                 "report_status": _report_status(body),
                 "progress": progress[-1] if progress else None,
+                **_live_progress(
+                    state["config"], folder, launched.get("private_runtime")
+                ),
                 "report_path": str(report),
                 "events_path": str(folder / "events.jsonl"),
                 "stderr_path": str(folder / "stderr.log"),

@@ -592,7 +592,14 @@ def _model_matches(expected, actual):
     )
 
 
-def _no_compaction(rows):
+def compaction_events(rows):
+    """The event types in a stream that report a compaction, in order.
+
+    Read from the fields that name an event, never from what it says: a
+    reviewer that reads a procedure about compaction writes the word into its
+    stream a dozen times without anything having compacted.
+    """
+    found = []
     for row in rows:
         payload = row.get("payload") or {}
         fields = (
@@ -602,10 +609,19 @@ def _no_compaction(rows):
             payload.get("type"),
             row.get("step_update", {}).get("step_type"),
         )
-        if any("compact" in str(v).lower() for v in fields if v):
-            raise RuntimeError(
-                "session compacted; preserve it as an invalid experimental attempt"
-            )
+        label = next(
+            (str(v) for v in fields if v and "compact" in str(v).lower()), None
+        )
+        if label:
+            found.append(label)
+    return found
+
+
+def _no_compaction(rows):
+    if compaction_events(rows):
+        raise RuntimeError(
+            "session compacted; preserve it as an invalid experimental attempt"
+        )
 
 
 def _rollouts(private, harness, sid, *, resumed=False):
@@ -624,6 +640,38 @@ def _rollouts(private, harness, sid, *, resumed=False):
             f"expected one native {harness} transcript for {sid}, found {len(paths)}"
         )
     return paths
+
+
+def request_size(harness, row):
+    """Tokens one request carried, from a row of the harness's own accounting.
+
+    None for a row that reports no request. Shared by the peak measured after
+    a run and the figure `review status` shows while one is running, so the
+    two cannot disagree about what a request is.
+    """
+    if harness == "codex":
+        payload = row.get("payload") or {}
+        if row.get("type") != "event_msg" or payload.get("type") != "token_count":
+            return None
+        last = (payload.get("info") or {}).get("last_token_usage") or {}
+        if not last:
+            return None
+        return (last.get("input_tokens") or 0) + (last.get("cached_input_tokens") or 0)
+    if harness == "claude":
+        usage = (row.get("message") or {}).get("usage") or {}
+        if not usage:
+            return None
+        # The three parts of one prompt: cached prefix, newly cached prefix,
+        # and the uncached remainder.
+        return sum(
+            usage.get(k) or 0
+            for k in (
+                "input_tokens",
+                "cache_read_input_tokens",
+                "cache_creation_input_tokens",
+            )
+        )
+    return None
 
 
 def context_peak(harness, record):
@@ -649,12 +697,7 @@ def context_peak(harness, record):
                     continue
                 info = payload.get("info") or {}
                 window = info.get("model_context_window") or window
-                last = info.get("last_token_usage") or {}
-                peak = max(
-                    peak,
-                    (last.get("input_tokens") or 0)
-                    + (last.get("cached_input_tokens") or 0),
-                )
+                peak = max(peak, request_size(harness, row) or 0)
         if peak:
             out.update(
                 peak_request=peak,
@@ -665,21 +708,7 @@ def context_peak(harness, record):
         peak = window = 0
         events = record / "events.jsonl"
         for row in json_rows(events) if events.exists() else []:
-            usage = (row.get("message") or {}).get("usage") or {}
-            # The three parts of one prompt: cached prefix, newly cached
-            # prefix, and the uncached remainder.
-            if usage:
-                peak = max(
-                    peak,
-                    sum(
-                        usage.get(k) or 0
-                        for k in (
-                            "input_tokens",
-                            "cache_read_input_tokens",
-                            "cache_creation_input_tokens",
-                        )
-                    ),
-                )
+            peak = max(peak, request_size(harness, row) or 0)
             for served in (row.get("modelUsage") or {}).values():
                 window = max(window, served.get("contextWindow") or 0)
         if peak:

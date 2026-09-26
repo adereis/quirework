@@ -553,7 +553,12 @@ prompt` prints the same line, so the check before paying for a turn is
 one line rather than an argv behind a hundred lines of jail mounts.
 While a turn runs, `review status RUN --short` answers what a poll
 asks: which turns ended and how, how far the running one has got, and
-which can be continued.
+which can be continued. For a turn still running, status also reads the
+harness's own streams. It lists any compaction events, found by event
+type because the word itself turns up in whatever the reviewer read. It
+gives the last request's size against the window, and says why when the
+harness does not report one. So a compaction halfway through shows at
+the next poll rather than when the turn is collected.
 
 The reviewer must not be the model that made the edit. That requirement
 makes a cross-harness check straightforward: a Codex edit can go to
