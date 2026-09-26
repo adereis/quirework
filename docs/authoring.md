@@ -539,6 +539,24 @@ routes so a companion can be pointed at a procedure by name. The
 generated routes name the project's own guide, which
 `sops.operator_guide` sets.
 
+A long procedure is often read for one of the things it covers.
+`sop show NAME --outline` lists its headings, and `--section TITLE`
+prints one section with its subsections, verbatim. The option repeats,
+and a title used twice is named by its path, `'One page > Checks'`.
+When the procedure already knows what a kind of request needs, it says
+so in a marker, one per mode:
+
+```markdown
+<!-- @mode one-page: Choosing a pass; One page -->
+```
+
+`sop show NAME --mode one-page` then prints the procedure's opening
+(everything before its second heading) followed by those sections, and
+the generated route lists the modes. A reader handling a one-page tidy
+reads two sections and the goal, not the whole notebook procedure. The
+catalog check resolves every declared section, so renaming a heading a
+mode names fails the gate rather than the next reader.
+
 Personas are perspectives and instruments are questions, kept separate
 so either can vary alone. A persona is one JSON file per profile under
 `sops.personas`:

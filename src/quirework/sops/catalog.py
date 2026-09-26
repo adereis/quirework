@@ -133,6 +133,7 @@ def load(root=None):
             f"missing files={sorted(set(entries) - expected)}"
         )
     from quirework.sops.commands import is_fragment
+    from quirework.sops.sections import check_modes
 
     for name, entry in entries.items():
         if not _NAME.fullmatch(name) or name in {
@@ -166,6 +167,12 @@ def load(root=None):
             raise ValueError(
                 f"{name}: protocol kind disagrees with SOP fragment heading"
             )
+        # A mode names sections by title, so renaming a heading would break
+        # it at the moment someone reads it. Here it breaks at the gate.
+        try:
+            check_modes(text)
+        except ValueError as exc:
+            raise ValueError(f"{name}: {exc}") from None
         _text(entry["note"], f"{name} note", empty=True)
         _strings(entry["requires"], f"{name} requires")
         _strings(entry["mechanics"], f"{name} mechanics")

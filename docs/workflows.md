@@ -71,8 +71,10 @@ to another procedure never launches it automatically.
 catalog. `quirework sop skills --target both` generates thin entry
 points for Claude Code and portable agents such as Codex. The generated
 skill routes the companion to the SOP through `quirework sop show`,
-which prints it verbatim and records that it was read. The SOP remains
-the content owner. Project configuration selects the skill-name prefix.
+which prints it verbatim and records that it was read. A SOP that
+declares modes gets them named in its route, and `sop show NAME --mode
+MODE` prints only the part that request needs. The SOP remains the
+content owner. Project configuration selects the skill-name prefix.
 
 Personas specify perspectives. Instruments specify questions. Panels
 specify an allocation of perspectives and models. None grants filesystem

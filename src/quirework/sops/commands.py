@@ -18,6 +18,7 @@ metadata and handwritten alias bodies remain independently maintained.
 
 from __future__ import annotations
 
+import argparse
 import re
 import shutil
 import sys
@@ -168,7 +169,24 @@ def _operator_guide() -> str:
 def _skill_md(
     stem: str, description: str, portable: bool = False, allow_implicit: bool = False
 ) -> str:
-    source = source_path(stem).relative_to(current_project().root)
+    from . import sections
+
+    path = source_path(stem)
+    source = path.relative_to(current_project().root)
+    declared = sections.modes(path.read_text(encoding="utf-8"))
+    # A long procedure that declares what some requests need of it gets that
+    # call in its route. The route is read before the procedure, so it is the
+    # only place that can spare a reader the rest of it.
+    partial = (
+        "\nSome requests need only part of it, and the SOP declares which. For\n"
+        f"one of these, run `quirework sop show {stem} --mode MODE` instead: it\n"
+        "prints the opening and the sections that mode needs.\n\n"
+        + "".join(
+            f"- `{name}`: {'; '.join(titles)}\n" for name, titles in declared.items()
+        )
+        if declared
+        else ""
+    )
     disabled = "false" if allow_implicit else "true"
     manual = "" if portable else f"disable-model-invocation: {disabled}\n"
     # Claude's switch lives here; Codex's equivalent lives in agents/openai.yaml.
@@ -197,6 +215,7 @@ def _skill_md(
         f"analyze -> deliver loop. The human's request names the target (which\n"
         f"chapter, artifact, run, or model); assume and state it when it is clear,\n"
         f"ask once only when it is not.\n"
+        f"{partial}"
         f"\n"
         f"`{source}` is the single source of truth for this procedure, and `sop show`\n"
         f"prints it verbatim. This skill is only its front door, so show the SOP each\n"
@@ -392,15 +411,46 @@ def _list() -> int:
     return sop_catalog.main(["list"])
 
 
-def _print(name: str) -> int:
+def _show(argv: list[str]) -> int:
+    """`sop show NAME`, whole or in part."""
+    from . import sections
+
+    # The name comes first. Usage records credit the first bare word after
+    # `sop show` as the procedure read, and a section title placed before the
+    # name would be counted as one.
+    if not argv or argv[0].startswith("-"):
+        print(f"usage: {SHOW_USAGE}", file=sys.stderr)
+        return 2
+    parser = argparse.ArgumentParser(prog=f"quirework sop show {argv[0]}")
+    part = parser.add_mutually_exclusive_group()
+    part.add_argument("--outline", action="store_true", help="list the headings")
+    part.add_argument(
+        "--section",
+        action="append",
+        metavar="TITLE",
+        help="print this section and its subsections; repeatable. A repeated "
+        "title is named by its path: 'Parent > Child'",
+    )
+    part.add_argument(
+        "--mode", help="print the opening and the sections this declared mode needs"
+    )
+    args = parser.parse_args(argv[1:])
     try:
-        path = source_path(name)
+        text = source_path(argv[0]).read_text(encoding="utf-8")
+        if args.outline:
+            text = sections.outline(text)
+        elif args.section:
+            text = sections.select(text, args.section)
+        elif args.mode:
+            text = sections.mode(text, args.mode)
     except ValueError as exc:
         print(str(exc), file=sys.stderr)
         return 2
-    print(path.read_text(encoding="utf-8"), end="")
+    print(text, end="")
     return 0
 
+
+SHOW_USAGE = "quirework sop show NAME [--outline | --section TITLE ... | --mode MODE]"
 
 USAGE = """usage: quirework sop [list | show NAME | explain NAME | catalog | skills]
 
@@ -414,6 +464,9 @@ agent follows it, drives the tools, then analyzes and delivers.
   quirework sop catalog --write regenerate the catalog index
   quirework sop catalog --check validate metadata, reading graph and index
   quirework sop show NAME      print one playbook
+  quirework sop show NAME --outline         list its headings and modes
+  quirework sop show NAME --section TITLE   print one section (repeatable)
+  quirework sop show NAME --mode MODE       print what a declared mode needs
   quirework sop skills --target both   generate Claude and portable routes
   quirework sop skills         regenerate the prefixed skills from the SOPs
   quirework sop skills --check exit non-zero if any skill is stale; write
@@ -465,7 +518,7 @@ def main(argv=None) -> int:
     if argv[0] in ("-h", "--help"):
         print(USAGE, end="")
         return 0
-    return _print(argv[0])
+    return _show(argv)
 
 
 if __name__ == "__main__":
