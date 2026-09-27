@@ -1035,7 +1035,7 @@ def run_seat(root, plan, seat, n, *, timeout=None):
     # no later reading mistakes a late arrival for an independent opening.
     cold = n > 1 and not resume
     record.mkdir(parents=True)
-    return _launch(
+    return launch_turn(
         root,
         plan,
         seat,
@@ -1046,13 +1046,30 @@ def run_seat(root, plan, seat, n, *, timeout=None):
     )
 
 
-def _launch(root, plan, seat, n, prompt, resume, *, timeout=None):
+def launch_turn(
+    root,
+    plan,
+    seat,
+    n,
+    prompt,
+    resume,
+    *,
+    timeout=None,
+    workflow="room",
+    readonly=("board",),
+):
     """Run one turn and bank what it produced, however it ended.
 
     Split from ``run_seat`` so a continuation after a quota stop is the same
     launch, the same jail, the same receipt and the same records as the turn
     it replaces. A recovery that took a different path would be evidence
     about the recovery rather than about the room.
+
+    Public because the roundtable takes its turns through it too: one jail,
+    one receipt and one record layout for every procedure that seats models
+    in rounds. ``readonly`` names the workspace folders bound read-only over
+    the writable workspace, and ``workflow`` is what the usage record calls
+    the procedure that launched the seat.
     """
     name = seat["id"]
     work, config = root / "seats" / name, seat_config(plan, seat)
@@ -1071,9 +1088,10 @@ def _launch(root, plan, seat, n, prompt, resume, *, timeout=None):
     with blind.session_bus([config["harness"]]) as bus:
         args, payload = drivers.command(config, work, prompt, resume=resume)
         jail, env, private = drivers.launch_context(config, work, bus)
-        jail += ["--ro-bind", str(work / "board"), str(work / "board")]
+        for folder in readonly:
+            jail += ["--ro-bind", str(work / folder), str(work / folder)]
         (record / "prompt.md").write_text(prompt)
-        usage_records.seat("room", config)
+        usage_records.seat(workflow, config)
         write(
             record / "launch.json",
             {
@@ -1259,7 +1277,7 @@ def continue_seat(root, n, name, *, timeout=None):
         resumed=resume,
         attempt=number,
     )
-    return _launch(root, plan, seat, n, prompt, resume, timeout=timeout)
+    return launch_turn(root, plan, seat, n, prompt, resume, timeout=timeout)
 
 
 def run_round(root, n, *, jobs=1, timeout=None):

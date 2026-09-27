@@ -60,9 +60,10 @@ can convene a room with Codex, Claude, and Antigravity seats. Each seat
 declares its harness, model, effort, materials, and access policy. The
 receipt records what the provider actually served.
 
-The [workflow guide](docs/workflows.md) develops this loop through four
-especially useful patterns: writers rooms, independent prose workshops,
-blind-reader panels, and contextual consistency reviews.
+The [workflow guide](docs/workflows.md) develops this loop through five
+especially useful patterns: writers rooms, roundtables of models working
+together as themselves, independent prose workshops, blind-reader panels,
+and contextual consistency reviews.
 
 ## What it does
 

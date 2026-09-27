@@ -122,6 +122,7 @@ The useful workflows differ mainly in who may see what:
 | Need | Workflow | What each seat sees | Durable result |
 |---|---|---|---|
 | Develop one answer through disagreement | Writers room | Its own packet, then the shared board between rounds | Attributed posts and named deliverables |
+| Have several models work together as themselves | Roundtable | The shared packet, then every turn as it happens, its own mail and a shared folder | An attributed board, mail and a shared folder with its history |
 | Produce genuinely independent alternatives | Prose workshop | One frozen packet, never another writer's draft | Anonymous drafts with a sealed identity key |
 | Learn what the page tells a reader | Blind reader panel | Only the selected reader-facing material | Reports tied to personas, questions, and receipts |
 | Test an edit against the whole book | Consistency review | The project guide, spec, marks, brief, and Git delta | An independent findings report |
@@ -420,6 +421,136 @@ the file in a packet the objecting seat had never been shown.
 
 Seats may be given different packets on purpose. Asymmetric exposure is
 what makes disagreement between them substantive rather than stylistic.
+
+## Roundtables
+
+A roundtable seats AI models as themselves and has them take turns
+towards one goal. Three things set it apart from a writers room. Each
+seat is a model named after itself, such as Haiku, Luna or Gemini-Flash,
+and is told that it is collaborating with other models, which ones they
+are, and that the supervisor reads everything, direct messages included.
+Turns are sequential, so a seat reads what the one before it wrote
+minutes earlier. And every seat has the same tools: a shell, the web,
+and a folder the whole table shares.
+
+```json
+{
+  "title": "Back-cover copy",
+  "goal": "Write the back cover: a blurb and two real comparable titles.",
+  "rounds": 5,
+  "effort": "medium",
+  "brief": {"path": "brief.md", "local_source": "brief.md"},
+  "shared_files": [
+    {"path": "manuscript/preface.qmd", "source": "manuscript/preface.qmd"}
+  ],
+  "seats": [
+    {"model": "gemini-flash", "harness": "agy"},
+    {"model": "luna", "harness": "codex"},
+    {"model": "haiku", "harness": "claude"}
+  ]
+}
+```
+
+`quirework sop roundtable prepare PLAN NAME` stages it, and `run` takes
+turns until the supervisor is needed. A seat's name comes from its model
+family, without maker or version, so `claude-haiku-4-5` is still Haiku;
+a seat may set `name` instead. A table seats each model once, because
+two seats called Opus would bring back the attribution confusion that
+real names remove.
+
+A seat speaks through `bin/room` in its workspace. `bin/room post` puts
+at most `post_words` words (200 by default) on the board, and posting
+again replaces the post. `bin/room message NAME TEXT` sends a colleague,
+or `supervisor`, at most `message_chars` characters (300), up to
+`messages_per_turn` (3) a turn. Everything is delivered when the turn
+ends. The tool refuses an over-long post inside the turn, so the seat
+can shorten it. The controller checks every limit again on delivery,
+because a seat can write the files by hand. What it refuses is named on
+the board or to the seat at its next turn, and never truncated: a
+truncated post would put words on the board that the seat did not
+choose. A turn that ends without a post is a pass. The board says so,
+and it says differently when the turn failed.
+
+The folder `shared/` is copied into the acting seat's workspace before
+its turn and back afterwards. Only one seat acts at a time, so no two
+edits ever meet. Each change is announced on the board under its
+author's name, and the version each turn wrote is kept in that turn's
+record. A link in the folder is refused rather than followed, because it
+would point into whichever jail read it next.
+
+The order of turns is drawn when the table is prepared. No seat takes
+two turns in a row across a round boundary. Within each block of as many
+rounds as there are seats, every seat holds every position once. After
+that, seats follow the same neighbour as rarely as possible. A rotation
+would leave Luna answering Haiku in every round. With three seats the
+first two rules leave only a rotation, so the neighbours change when the
+next block begins. `order TABLE ROUND SEAT...` sets a round that has not
+opened, and the `--reason` is read out on the board when it opens,
+never earlier. Each turn tells the seat who has spoken and who follows,
+so it can address the people who will read it next.
+
+`rounds` is a minimum. Before the round the table was promised as its
+last, the controller stops and waits for the supervisor:
+`decide TABLE close` makes it final, and `decide TABLE extend --to N`
+moves the end and draws orders for the rounds it adds. The same
+question then comes back before the new last round. Either way the
+decision goes on the board with the supervisor's `--message`. The
+controller never makes that call itself.
+
+`run` also stops at the end of any round in which a seat wrote to the
+supervisor or a turn failed. `inbox` reads the supervisor's mail,
+`reply TABLE SEAT TEXT` answers one seat at its next turn, and
+`announce TABLE TEXT` posts to the board. None of them needs the table's
+lock, so the supervisor can write while a seat is mid-turn.
+
+A table runs without compaction, so a seat's context has to last every
+round, and each seat is given a budget in tokens before its first turn.
+The budget is 80% of a window up to 500,000 tokens and 60% of a larger
+one, and a larger window never gets a smaller budget. Haiku's 200,000
+tokens become 160,000, and Sonnet's million become 600,000. Large
+windows keep less of themselves because every request re-sends the
+whole conversation, and a model reasons less reliably near the end of a
+very long one. The controller does not resume a seat whose context has
+passed its budget. The turn that crosses it is delivered like any
+other, the board then says the seat has used its budget, and later
+rounds run without it. A seat is never reopened in a fresh session,
+which would hand it a new window.
+
+The budget has to be stated before the first turn, but only Codex
+publishes a window before a model has run. Claude's windows and
+Gemini's come from the providers' documentation, and a model whose
+window nothing records is refused until the plan gives the seat a
+`window`. Every turn states what the seat has used, what its last turn
+added, and what remains. Claude and Codex report the size of their
+latest request. Antigravity reports only each turn's billed totals, so
+its figure is estimated: the billed prompt tokens divided by the turn's
+requests give the turn's average context, and half the transcript's
+growth during the turn brings that to its end. The seat is told that
+its figures are estimates. Antigravity cannot pin its window either, so
+a compaction there is detected only afterwards, as in a room.
+
+A turn has no time limit of its own. The controller stops a turn still
+running after four hours as hung, and the standing assignment says so,
+because a frontier model working alone for ninety minutes is taking its
+turn, not hanging. What the seat queued before then is still delivered.
+The standing assignment does not say how the order is drawn, what the
+supervisor watches, or what would earn an extension.
+
+The standing assignment also says the user expects both collaboration
+and disagreement, and asks every seat to check the others' work rather
+than take it on trust. That is a norm for every seat, not a skeptic's
+chair for one. A chair lets the other seats hand their doubts to it,
+and a seat told to expect disagreement may raise objections only to
+comply. A first pilot given only permission to disagree had all three
+seats signing off by its third round.
+
+`status TABLE` reads the table and changes nothing. It names what the
+table waits for, each seat's served model, turns and context, anything
+refused or failed, and the novelty and closing signals a room uses to
+notice it has run dry. The seats never see those signals. `board` prints
+the board as the seats read it. A held provider stop is taken again with
+`continue`, under the same rules as a room's. The room's `follow` and
+`usage` do not read a roundtable yet.
 
 ## Blind reader panels
 

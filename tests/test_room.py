@@ -886,7 +886,7 @@ def test_a_room_turn_records_its_seat_before_the_process_starts(prepared, monkey
 
     monkeypatch.setattr(room.subprocess, "Popen", fail_spawn)
     with pytest.raises(OSError, match="pre-spawn"):
-        room._launch(prepared, plan, seat, 1, "Open.", None)
+        room.launch_turn(prepared, plan, seat, 1, "Open.", None)
     assert launched == ["room"]
 
 
@@ -933,17 +933,17 @@ def test_a_release_between_rounds_does_not_switch_a_seat_model(prepared, monkeyp
         "popen",
         lambda argv, bus, **kw: room.subprocess.Popen(["true"], **kw),
     )
-    assert room._launch(prepared, plan, seat, 1, "Open.", None) == "answered"
+    assert room.launch_turn(prepared, plan, seat, 1, "Open.", None) == "answered"
     assert "model_pinned" not in sent[0], "a first turn has nothing to keep"
     state = read(room.state_path(prepared, "ana-pell"))
     assert state["model_served"] == "claude-opus-5-20260601"
-    assert room._launch(prepared, plan, seat, 2, "Again.", "s-1") == "answered"
+    assert room.launch_turn(prepared, plan, seat, 2, "Again.", "s-1") == "answered"
     assert sent[1]["model_pinned"] == "claude-opus-5-20260601"
     got = read(prepared / "records/ana-pell/r002/receipt.json")
     assert got["model"] == got["model_pinned"] == "claude-opus-5-20260601"
     # A seat whose plan already names the served version needs no pin.
     exact = {**seat, "config": {**seat["config"], "model": "claude-opus-5-20260601"}}
-    room._launch(prepared, plan, exact, 3, "Once more.", "s-1")
+    room.launch_turn(prepared, plan, exact, 3, "Once more.", "s-1")
     assert "model_pinned" not in sent[2]
 
 

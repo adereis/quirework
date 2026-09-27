@@ -391,6 +391,11 @@ def window_flags(config):
 PINNED_WINDOW = ("claude", "codex")
 
 
+# What a seat may do beyond reading its packet. `write` is the floor,
+# `research` adds the web, and `workbench` adds a shell to that.
+TOOL_POLICIES = ("write", "research", "workbench")
+
+
 def window_assurance(harness):
     """Whether a run can prevent compaction here, or only detect it after."""
     return "enforced" if harness in PINNED_WINDOW else "detected"
@@ -412,10 +417,18 @@ def command(config, workspace, prompt, *, manual=False, resume=None):
     # alias on resume follows a release, so the seat would change model
     # between turns while its receipt still read as the same seat.
     model = config.get("model_pinned") or model
-    research = config.get("tools", "write") == "research"
+    tools = config.get("tools", "write")
+    if tools not in TOOL_POLICIES:
+        raise ValueError(f"tools must be one of {TOOL_POLICIES}, not {tools!r}")
+    # `workbench` is `research` plus a shell: the roundtable's seats speak
+    # through a command in their workspace, and a seat that cannot run it
+    # cannot post. It is also the one policy Antigravity can honour, because
+    # it confines nothing that agy could otherwise have used.
+    workbench = tools == "workbench"
+    research = tools == "research" or workbench
     if resume and manual:
         raise ValueError("resume the writer automatically or relaunch it by hand")
-    if research and harness == "agy":
+    if tools == "research" and harness == "agy":
         raise ValueError("agy cannot confine a seat to a tool set")
     if harness == "codex":
         args = ["codex"] + (
@@ -440,6 +453,14 @@ def command(config, workspace, prompt, *, manual=False, resume=None):
             'model_verbosity="high"',
             "-c",
             'web_search="live"' if research else 'web_search="disabled"',
+            # Codex's own sandbox cuts a shell command off the network even
+            # where the jail around it does not. A workbench seat was
+            # promised the network, not only the built-in search tool.
+            *(
+                ["-c", "sandbox_workspace_write.network_access=true"]
+                if workbench
+                else []
+            ),
             "-c",
             "project_doc_max_bytes=0",
             "-c",
@@ -459,8 +480,10 @@ def command(config, workspace, prompt, *, manual=False, resume=None):
             return args + [prompt], None
         return args + ["--skip-git-repo-check", "--json", "-"], prompt.encode()
     if harness == "claude":
-        tools = "Read,Write,Edit,Glob,Grep" + (
-            ",WebSearch,WebFetch" if research else ""
+        tools = (
+            "Read,Write,Edit,Glob,Grep"
+            + (",Bash" if workbench else "")
+            + (",WebSearch,WebFetch" if research else "")
         )
         args = [
             "claude",
@@ -724,6 +747,134 @@ def context_peak(harness, record):
     return out
 
 
+# Context windows no harness states before a turn has run. Codex lists its
+# own in the catalog, but Claude Code reports a window only in a finished
+# turn's result and Antigravity never does, so a procedure that must state a
+# budget before the first turn reads the window here. Claude's figures are
+# Anthropic's model table (cached 2026-06), and Claude Code reported the same
+# for Haiku and Sonnet in the September 2026 pilots. Gemini's is Google's
+# documented 1M-token input window for Gemini 3 models; Antigravity may cap
+# a session lower than that and has no way to say so.
+KNOWN_WINDOWS = {
+    "haiku": 200_000,
+    "sonnet": 1_000_000,
+    "opus": 1_000_000,
+    "fable": 1_000_000,
+    "mythos": 1_000_000,
+    "gemini": 1_048_576,
+}
+
+
+def stated_window(config):
+    """A model's context window before it has run, and where the figure is from.
+
+    ``(None, None)`` when nothing here knows it: a caller that has to state a
+    budget then asks for the window instead of guessing one.
+    """
+    if config["harness"] == "codex":
+        window = config.get("max_context_window")
+        if not window:
+            return None, None
+        # The share of the ceiling Codex actually hands a session: 95 percent
+        # of 872,000 is the 828,400 its own token counts report.
+        share = config.get("effective_context_window_percent") or 100
+        return int(window * share / 100), "Codex catalog"
+    words = set(_words(config["model"]))
+    for family, window in KNOWN_WINDOWS.items():
+        if family in words:
+            return window, "documented window"
+    return None, None
+
+
+# Characters per token when a transcript's size stands in for a count. It
+# leans low, so the estimate leans high: retiring a seat a little early
+# costs less than letting it run into a wall nobody measured.
+CHARS_PER_TOKEN = 3.5
+
+
+def agy_estimate(usage, transcripts, before=None):
+    """How full an Antigravity session is, estimated, since agy never says.
+
+    agy bills each turn as totals over all its requests, so the billed prompt
+    tokens divided by the requests the turn made is the turn's average
+    context. Growth within a turn is roughly even, so the end sits about half
+    the turn's growth above that average, and the growth is the transcript's
+    new bytes. ``before`` is the transcript's size and request count after
+    the previous turn, which the caller keeps; the returned ``marker`` is the
+    same figure after this one. A turn with no billed requests adds its
+    growth to nothing measured and is reported as unknown.
+    """
+    size = responses = 0
+    for path in transcripts:
+        path = Path(path)
+        if not path.exists():
+            continue
+        size += path.stat().st_size
+        responses += sum(
+            1 for row in json_rows(path) if row.get("type") == "PLANNER_RESPONSE"
+        )
+    marker = {"bytes": size, "responses": responses}
+    before = before or {"bytes": 0, "responses": 0}
+    requests = responses - before["responses"]
+    billed = sum(
+        (usage or {}).get(k) or 0 for k in ("input_tokens", "cache_read_tokens")
+    )
+    if requests <= 0 or not billed:
+        return None, marker
+    growth = max(0, size - before["bytes"]) / CHARS_PER_TOKEN
+    return int(billed / requests + growth / 2), marker
+
+
+def context_now(
+    harness, record, transcripts=(), *, usage=None, before=None, estimate=False
+):
+    """How full a session's window is after its latest request.
+
+    Not the peak. With compaction off, the latest request carries the whole
+    conversation so far, so its size is what the next turn starts from, and
+    a seat told that figure can decide how much of the rest it can afford.
+    ``transcripts`` are the native rollouts a receipt names, which is where
+    Codex keeps its per-request accounting; Claude keeps it in the stream.
+    Antigravity reports session totals only, so it is estimated when
+    ``estimate`` asks for it and unknown otherwise, never reported as small.
+    """
+    out = {"tokens": None, "window": None, "evidence": "not reported"}
+    if harness == "codex":
+        for path in sorted(Path(p) for p in transcripts):
+            for row in json_rows(path):
+                size = request_size(harness, row)
+                if size is None:
+                    continue
+                info = (row.get("payload") or {}).get("info") or {}
+                out.update(
+                    tokens=size,
+                    window=info.get("model_context_window") or out["window"],
+                    evidence="rollout token_count.last_token_usage",
+                )
+    elif harness == "claude":
+        events = record / "events.jsonl"
+        for row in json_rows(events) if events.exists() else []:
+            if row.get("type") == "assistant":
+                size = request_size(harness, row)
+                if size:
+                    out.update(tokens=size, evidence="assistant message usage")
+            for served in (row.get("modelUsage") or {}).values():
+                out["window"] = (
+                    max(out["window"] or 0, served.get("contextWindow") or 0) or None
+                )
+    elif estimate:
+        tokens, marker = agy_estimate(usage, transcripts, before)
+        out.update(
+            tokens=tokens,
+            evidence="estimated from billed tokens and transcript growth",
+            estimated=True,
+            marker=marker,
+        )
+    else:
+        out["evidence"] = "agy reports no per-request usage"
+    return out
+
+
 def _check_resumed(sid, resumed):
     """A resume must land in the session it named, and this is checked FIRST.
 
@@ -918,13 +1069,18 @@ def receipt(config, record, private, *, manual=False, resumed=None):
         native_rows = json_rows(paths[0])
         _no_compaction(native_rows)
         forbidden = []
+        # agy cannot be told which tools a seat may use, so its transcript is
+        # read afterwards instead. The web is outside a writing assignment and
+        # inside a workbench one; the browser, MCP servers, subagents and
+        # messaging stay outside both, because each would put something other
+        # than this one model into the seat.
+        outside = r"browser|mcp|invoke_subagent|send_message"
+        if config.get("tools") != "workbench":
+            outside += r"|search_web|url"
         for row in native_rows:
             for call in row.get("tool_calls", []):
                 name = call.get("name", "")
-                if re.search(
-                    r"browser|search_web|url|mcp|invoke_subagent|send_message",
-                    name,
-                ):
+                if re.search(outside, name):
                     forbidden.append(name)
                 if name == "generate_image" and "image-generation" not in config.get(
                     "capabilities", []

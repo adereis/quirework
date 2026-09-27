@@ -122,6 +122,9 @@ COMMANDS = {
     ),
     ("sop", "review"): Command("sops.review", "Review a configured source change"),
     ("sop", "room"): Command("sops.room", "Operate a writers room over a shared board"),
+    ("sop", "roundtable"): Command(
+        "sops.roundtable", "Run AI models, as themselves, in turns towards one goal"
+    ),
     ("sop", "blind"): Command("providers.blind", "Inspect and enforce run isolation"),
     ("dev", "check"): Command("core.checks", "Run the configured repository checks"),
     ("usage", "show"): Command(
