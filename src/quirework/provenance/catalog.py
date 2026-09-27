@@ -8,9 +8,12 @@ captures sitting uncommitted in the working tree are absent by construction.
 
 Mechanical fields (title, date, model, tokens, edits, sha, and the cold-read /
 highlight cross-links) are recomputed wholesale from the corpus on every build --
-a pure function of the files, so the index can never silently drift. The only
-preserved state is the small editorial layer (``note``, ``tags``), merged by path
-across rebuilds, so a hand-written gloss survives a regenerate.
+a pure function of the files, so the index can never silently drift. That
+includes the edit counts. A path is measured from the project trees recorded
+beside the corpus (``trees``), never from the worktrees this machine happens to
+have, so removing a worktree cannot change a row. The only preserved state is
+the small editorial layer (``note``, ``tags``), merged by path across rebuilds,
+so a hand-written gloss survives a regenerate.
 
 It is the complete, mechanical layer *beneath* the hand-curated ``highlights.md``
 (the narrative of the most significant moments); the ``★`` column links the two.
@@ -427,6 +430,73 @@ def _removed():
     )
 
 
+def unplaced(cc_paths=(), codex_paths=()):
+    """Sessions started outside every recorded project tree, keyed by directory.
+
+    Each edit a session records is measured from the listed tree that holds it
+    (see `trees`). A session started under no listed tree has nothing to be
+    measured from, so every edit it made would count as metadata. Such a count
+    is wrong without looking wrong, so the catalog refuses to build over one and
+    triage warns. Antigravity records no starting directory and is not checked.
+    """
+    from quirework.provenance import trees
+    from quirework.provenance.ingestion.claude import recorded_cwd
+
+    listed = trees.recorded(current_project())
+    found = {}
+    started = [(p, recorded_cwd(p)) for p in cc_paths]
+    started += [(p, CODEX_FLT.session_meta(p).get("cwd")) for p in codex_paths]
+    for path, cwd in started:
+        if cwd and not trees.within(listed, cwd):
+            found.setdefault(cwd, []).append(path)
+    return found
+
+
+def report_unplaced(found, file=None):
+    """Name each unplaced starting directory and how to place it."""
+    from quirework.provenance import trees
+    from quirework.runs.storage import shown
+
+    file = file or sys.stderr
+    total = sum(len(v) for v in found.values())
+    print(
+        f"{total} session(s) started outside every recorded project tree:",
+        file=file,
+    )
+    for cwd, paths in sorted(found.items()):
+        example = source_reference(paths[0], current_project())
+        print(f"  {shown(cwd)}  ({len(paths)}, e.g. {example})", file=file)
+    listing = source_reference(trees.location(current_project()), current_project())
+    print(
+        "Their edits would all count as metadata. A capture sweep records this "
+        "machine's checkouts; add a removed checkout's project directory to "
+        f"{listing} by hand.",
+        file=file,
+    )
+
+
+def _refuse_unplaced():
+    """Report tracked sessions no recorded tree places; True if there are any."""
+    found = unplaced(
+        _git_tracked(
+            current_project().path(
+                "provenance.claude_sessions", ".quirework/provenance/cc-sessions"
+            ),
+            ".jsonl",
+        ),
+        _git_tracked(
+            current_project().path(
+                "provenance.codex_sessions", ".quirework/provenance/codex-sessions"
+            ),
+            ".jsonl",
+        ),
+    )
+    if found:
+        print("provenance catalog: cannot count edits.", file=sys.stderr)
+        report_unplaced(found)
+    return bool(found)
+
+
 def _merge_editorial(entries, existing):
     """Carry the editorial layer (note/tags) forward from a prior index, by path."""
     for rel, e in entries.items():
@@ -642,6 +712,8 @@ def render_md(index):
 # commands
 # --------------------------------------------------------------------------- #
 def write():
+    if _refuse_unplaced():
+        return 1
     index = build()
     _settings().INDEX_JSON.write_text(_dump_json(index), encoding="utf-8")
     _settings().INDEX_MD.write_text(render_md(index), encoding="utf-8")
@@ -649,9 +721,12 @@ def write():
         f"wrote {source_reference(_settings().INDEX_JSON, current_project())} and {source_reference(_settings().INDEX_MD, current_project())} "
         f"({len(index['sources'])} sources, {len(index['removed'])} curated out)"
     )
+    return 0
 
 
 def check():
+    if _refuse_unplaced():
+        return 1
     index = build()
     stale = []
     if not _settings().INDEX_JSON.exists() or _settings().INDEX_JSON.read_text(
@@ -685,6 +760,11 @@ Writes both outputs (private -- they point at raw logs):
   .quirework/provenance/index.json   canonical, machine source of truth
   .quirework/provenance/INDEX.md     rendered human table
 
+Edits are counted against the project directories that capture recorded in
+.quirework/provenance/project-trees.txt, never against the worktrees that
+exist right now. Both forms refuse while a tracked session started outside
+every recorded directory.
+
 options:
   -h, --help  show this help message and exit
   --check     exit non-zero if either output is stale; write nothing
@@ -704,8 +784,7 @@ def main(argv):
             file=sys.stderr,
         )
         return 2
-    write()
-    return 0
+    return write()
 
 
 if __name__ == "__main__":

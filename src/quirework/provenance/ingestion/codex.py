@@ -43,8 +43,9 @@ from quirework.project import current_project
 
 # tools/session-sync/<this> -> repo root
 
-from quirework.provenance import codexfilter
+from quirework.provenance import codexfilter, trees
 from quirework.provenance import worktrees  # noqa: E402  (path set above)
+from quirework.runs.storage import shown
 
 
 SESSION_ID = re.compile(
@@ -271,6 +272,8 @@ def main(argv=None):
     current_project().path("provenance.codex_sessions").mkdir(
         parents=True, exist_ok=True
     )
+    for tree in trees.record(current_project()):
+        print(f"codex-sessions: recorded project tree {shown(tree)}")
     sources, system, evaluation = sweep()
     removed = load_removed()
     copied = []

@@ -35,8 +35,9 @@ from quirework.project import current_project
 
 # tools/session-sync/<this> -> repo root
 
-from quirework.provenance import ccfilter
+from quirework.provenance import ccfilter, trees
 from quirework.provenance import worktrees  # noqa: E402  (path set above)
+from quirework.runs.storage import shown
 
 
 # a removed-list entry: a session uuid, with or without the `.jsonl` suffix
@@ -262,6 +263,10 @@ def main(argv=None):
             json.load(sys.stdin)
         except json.JSONDecodeError:
             pass
+    # Recorded before anything is captured: a session is only ever captured
+    # from a tree that exists now, and this is the last moment that is known.
+    for tree in trees.record(current_project()):
+        print(f"cc-sessions: recorded project tree {shown(tree)}")
     sources = sweep()
 
     removed = load_removed()

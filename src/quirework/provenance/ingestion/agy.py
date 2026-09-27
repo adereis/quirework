@@ -7,7 +7,8 @@ import json
 import re
 from pathlib import Path
 from quirework.project import current_project
-from quirework.provenance import agyfilter, worktrees
+from quirework.provenance import agyfilter, trees, worktrees
+from quirework.runs.storage import shown
 
 
 def _strings(value):
@@ -79,6 +80,8 @@ def main(argv=None):
         else set()
     )
     roots = worktrees.project_trees(project.root)
+    for tree in trees.record(project):
+        print(f"agy-sessions: recorded project tree {shown(tree)}")
     counts = dict(
         new=0,
         replaced=0,

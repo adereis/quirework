@@ -1326,26 +1326,17 @@ def cmd_analyze(args):
 
 
 def _repo_relative(fp):
-    """A recorded edit path, made relative to whichever checkout it names.
+    """A recorded edit path, made relative to the project tree it names.
 
     A session records absolute paths, and the checkout it ran in is not
-    necessarily the one this process was started from. With a `git worktree` in
-    play the same file can live below either checkout. Stripping only the active
-    root would leave the other checkout's paths absolute and misclassify them.
-    Longest checkout first, because one checkout's path can be a string prefix
-    of another's.
+    necessarily the one this process was started from, nor one that still
+    exists. The trees come from the corpus's recorded list, never from the
+    worktrees present right now, so the same corpus classifies the same way on
+    every machine and after any `git worktree remove` (see `trees`).
     """
-    from quirework.provenance import worktrees
+    from quirework.provenance import trees
 
-    checkouts = sorted(
-        (str(p) for p in worktrees.checkouts(current_project().root)),
-        key=len,
-        reverse=True,
-    )
-    for root in checkouts:
-        if fp.startswith(root + "/"):
-            return fp[len(root) + 1 :]
-    return fp.lstrip("/")
+    return trees.relative(trees.recorded(current_project()), fp)
 
 
 def _classify_edit(fp):
@@ -1417,12 +1408,14 @@ def cmd_triage(args):
             for p in _untracked_cc() | _untracked_agy() | _untracked_codex()
         }
     rows = []
+    started = {}  # reference -> (path, kind) for the kinds that record a cwd
     for p in sorted(
         current_project()
         .path("provenance.claude_sessions", ".quirework/provenance/cc-sessions")
         .glob("*.jsonl")
     ):
         rel = str(source_reference(p, current_project()))
+        started[rel] = (p, "cc")
         body, _ = FLT.filter_session(str(p))
         if len(body.strip()) < MIN_RENDER_CHARS:
             continue
@@ -1447,6 +1440,7 @@ def cmd_triage(args):
         .glob("*.jsonl")
     ):
         rel = str(source_reference(p, current_project()))
+        started[rel] = (p, "codex")
         body, _ = CODEX_FLT.filter_session(p)
         if len(body.strip()) < MIN_RENDER_CHARS:
             continue
@@ -1459,6 +1453,14 @@ def cmd_triage(args):
         short_untracked = sorted(untracked - kept_ids)
         rows = [r for r in rows if r[0] in untracked]
     rows.sort(key=lambda r: -r[1])
+    listed = [started[r[0]] for r in rows if r[0] in started]
+    found = CAT.unplaced(
+        [p for p, kind in listed if kind == "cc"],
+        [p for p, kind in listed if kind == "codex"],
+    )
+    if found:
+        print("triage: the verdicts below undercount document edits.", file=sys.stderr)
+        CAT.report_unplaced(found)
 
     if review_only:
         for rel, _t, _d, _m, verdict, _f in rows:

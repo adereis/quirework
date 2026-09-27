@@ -124,6 +124,19 @@ a capture in prose. The configured paths apply across project worktrees;
 a matching directory name inside another project's absolute path does
 not establish an evaluation of this project's corpus.
 The catalog retains the existing tracked-source curation convention.
+
+Each capture sweep also records the project's directory in every
+checkout it can see. The list is `project-trees.txt`, beside the
+catalog, and it belongs in the same commits as the sessions. The catalog
+and `coldread triage` judge whether an edit touched the book by
+measuring its path from these directories. They never ask which
+worktrees exist when they run. Removing a worktree, or reading the
+corpus from a fresh clone, therefore changes no count. Capture only ever
+adds lines. A checkout removed before its directory was recorded has to
+be added by hand, as one absolute path per line. Until it is, the
+catalog refuses to build and names the directories where its tracked
+sessions started.
+
 Search reads human-authored turns; provider metadata is not proof of
 which model authored a historical turn.
 
