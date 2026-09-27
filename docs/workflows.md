@@ -558,13 +558,15 @@ objection to it, and what would change its mind keeps a disagreement
 visible to the end.
 
 `run` also stops at the end of any round in which a seat wrote to the
-supervisor or a turn failed. `inbox` reads the supervisor's mail, `reply
-TABLE SEAT TEXT` answers one seat at its next turn, and `announce TABLE
-TEXT` posts to the board. None of them needs the table's lock, so the
-supervisor can write while a seat is mid-turn. The standing assignment
-asks seats to keep messages for questions and answers: in a pilot most
-messages that went unanswered were announcements of a post every seat
-would read on the board anyway.
+supervisor or a turn failed. `inbox` reads the supervisor's mail, `mail
+TABLE [--round N]` reads every direct message in the order sent, which
+is what briefing a person seated at the table needs, `reply TABLE SEAT
+TEXT` answers one seat at its next turn, and `announce TABLE TEXT` posts
+to the board. None of them needs the table's lock, so the supervisor can
+write while a seat is mid-turn. The standing assignment asks seats to
+keep messages for questions and answers: in a pilot most messages that
+went unanswered were announcements of a post every seat would read on
+the board anyway.
 
 A table runs without compaction, so a seat's context has to last every
 round, and each seat is given a budget in tokens before its first turn.

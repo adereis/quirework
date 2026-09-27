@@ -950,6 +950,24 @@ def test_a_person_is_not_handed_the_material(plan, tmp_path, monkeypatch):
     assert "===== input/brief.md" not in prompt
 
 
+def test_the_supervisor_reads_every_message_in_order(table, monkeypatch):
+    seats = Seats(monkeypatch)
+    first, second, _ = order(table, 1)
+    seats.script[(first, 1)] = lambda work: tool(
+        work, "message", second, "Is it a tabby?"
+    )
+    seats.script[(second, 1)] = lambda work: tool(work, "message", first, "Grey.")
+    roundtable.run(table, to=1)
+    _, plan = roundtable.load(table)
+    labels = roundtable.names(plan)
+    got = roundtable.all_mail(table).splitlines()
+    assert got == [
+        f"r1 t1 {labels[first]} -> {labels[second]}: Is it a tabby?",
+        f"r1 t2 {labels[second]} -> {labels[first]}: Grey.",
+    ]
+    assert roundtable.all_mail(table, 2) == ""
+
+
 # -- The packet ------------------------------------------------------------------
 
 NOTES = """\

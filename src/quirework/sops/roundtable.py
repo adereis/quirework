@@ -2133,6 +2133,31 @@ def inbox(root):
     return render_mail(mailbox(root, SUPERVISOR), labels, received=True)
 
 
+def all_mail(root, n=None):
+    """Every direct message in the room, in the order sent.
+
+    The supervisor reads everything, and the seats are told so, but `inbox`
+    shows only what was sent to the supervisor. Briefing a person seated at
+    the table meant reading the other seats' mail by hand after every round.
+    """
+    root, plan = load(root)
+    labels = {**names(plan), SUPERVISOR: "supervisor"}
+    rows = [
+        row
+        for who in [*names(plan), SUPERVISOR]
+        for row in mailbox(root, who)
+        if n is None or row["round"] == n
+    ]
+    lines = []
+    for row in sorted(rows, key=lambda r: r["t"]):
+        when = f"r{row['round']}" + (f" t{row['turn']}" if row.get("turn") else "")
+        lines.append(
+            f"{when} {labels.get(row['from'], row['from'])} -> "
+            f"{labels.get(row['to'], row['to'])}: {row['text'].strip()}"
+        )
+    return "\n".join(lines)
+
+
 def _text(value):
     return sys.stdin.read() if value == "-" else value
 
@@ -2217,6 +2242,10 @@ def main(argv=None):
     )
     voice.add_argument("--pass", dest="passing", action="store_true")
 
+    letters = sub.add_parser("mail", help="print every direct message, in order")
+    letters.add_argument("root")
+    letters.add_argument("--round", type=int, default=None)
+
     say = sub.add_parser("announce", help="post to the board as the supervisor")
     say.add_argument("root")
     say.add_argument("text", help="the words, or - to read them from stdin")
@@ -2269,6 +2298,8 @@ def main(argv=None):
         print(json.dumps(value, indent=2) if args.json else render_status(value))
     elif args.command == "board":
         print((root / "board" / "board.md").read_text(), end="")
+    elif args.command == "mail":
+        print(all_mail(root, args.round) or "No direct messages.")
     elif args.command == "inbox":
         print(inbox(root) or "No messages to the supervisor.")
     elif args.command == "speak":
