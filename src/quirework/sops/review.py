@@ -1701,9 +1701,7 @@ def _live_progress(config, turn_dir, private):
         "claude": drivers.CLAUDE_MAX_WINDOW,
     }.get(harness)
     context = {"last_request": None, "window": window}
-    if harness == "agy":
-        context["evidence"] = "agy reports no per-request usage"
-    elif harness == "codex" and not private:
+    if harness == "codex" and not private:
         context["evidence"] = "unjailed: the native transcript is not in the record"
     else:
         stream = native if harness == "codex" else rows
@@ -1711,6 +1709,10 @@ def _live_progress(config, turn_dir, private):
         context["last_request"] = next(
             (n for n in reversed(sizes) if n is not None), None
         )
+        if context["last_request"] is None:
+            # Unmeasured, not small: a turn that has sent no request yet, or
+            # a harness that stopped reporting its requests.
+            context["evidence"] = f"{harness} has reported no request yet"
     if context["last_request"] and window:
         context["share"] = f"{context['last_request'] / window:.0%}"
     return {

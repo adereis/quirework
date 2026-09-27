@@ -125,7 +125,20 @@ def test_what_cannot_be_measured_says_why_rather_than_reading_as_zero(record):
     assert "unjailed" in turn["context"]["evidence"]
     open_run(record, {"harness": "agy", "model": "gemini-pro-high"})
     (turn,) = uncollected(record)
-    assert "agy reports no per-request usage" == turn["context"]["evidence"]
+    assert turn["context"]["evidence"] == "agy has reported no request yet"
+
+
+def test_an_agy_turn_is_measured_from_its_step_usage(record):
+    """Each finished step reports its request; the result is a running total."""
+    open_run(record, {"harness": "agy", "model": "gemini-pro-high"})
+    step = lambda n: {  # noqa: E731
+        "event": "step_update",
+        "step_update": {"usage": {"input_tokens": 2_000, "cache_read_tokens": n}},
+    }
+    total = {"event": "result", "result": {"usage": {"input_tokens": 900_000}}}
+    pending_turn(record, "01", lines(step(40_000), step(60_000), total))
+    (turn,) = uncollected(record)
+    assert turn["context"]["last_request"] == 62_000
 
 
 def test_a_continued_turn_shows_the_report_it_is_still_writing(record):

@@ -455,7 +455,9 @@ def prepare(plan_path, destination, *, resolve_models=True):
                 "window": window,
                 "window_source": source,
                 "allowance": allowance_for(window),
-                "occupancy": "estimated" if harness == "agy" else "measured",
+                # Every harness now reports its requests. A table prepared
+                # while agy was estimated keeps "estimated" in its plan.
+                "occupancy": "measured",
             }
         )
     if all(is_human(s) for s in seats):

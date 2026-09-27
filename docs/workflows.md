@@ -559,17 +559,21 @@ rounds run without it. A seat is never reopened in a fresh session,
 which would hand it a new window.
 
 The budget has to be stated before the first turn, but only Codex
-publishes a window before a model has run. Claude's windows and
-Gemini's come from the providers' documentation, and a model whose
-window nothing records is refused until the plan gives the seat a
-`window`. Every turn states what the seat has used, what its last turn
-added, and what remains. Claude and Codex report the size of their
-latest request. Antigravity reports only each turn's billed totals, so
-its figure is estimated: the billed prompt tokens divided by the turn's
-requests give the turn's average context, and half the transcript's
-growth during the turn brings that to its end. The seat is told that
-its figures are estimates. Antigravity cannot pin its window either, so
-a compaction there is detected only afterwards, as in a room.
+publishes a window before a model has run. Claude's windows and Gemini's
+come from the providers' documentation, and a model whose window nothing
+records is refused until the plan gives the seat a `window`. Every turn
+states what the seat has used, what its last turn added, and what
+remains. All three harnesses report the size of every request, and the
+latest one is what the seat is told: Claude in its assistant messages,
+Codex in its rollout, Antigravity in the usage each finished step
+carries. Antigravity's closing usage is not a request but a running
+total over the whole session, earlier turns included, and read as one
+turn's billing it put two Gemini seats at three times their real context
+in a pilot. It is used only if the steps stop reporting: the turn's
+share of the running total, over the turn's requests, gives its average
+context, half the transcript's growth brings that to its end, and the
+seat is told the figure is an estimate. Antigravity cannot pin its
+window, so a compaction there is detected only afterwards, as in a room.
 
 A turn has no time limit of its own. The controller stops a turn still
 running after four hours as hung, and the standing assignment says so,

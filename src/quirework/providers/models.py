@@ -694,6 +694,16 @@ def request_size(harness, row):
                 "cache_creation_input_tokens",
             )
         )
+    if harness == "agy":
+        # Each finished model step reports the request it made. The closing
+        # `result` row is not a request: it is a running total over every
+        # request the session has made, earlier turns included.
+        if row.get("event") != "step_update":
+            return None
+        usage = (row.get("step_update") or {}).get("usage") or {}
+        if not usage:
+            return None
+        return (usage.get("input_tokens") or 0) + (usage.get("cache_read_tokens") or 0)
     return None
 
 
@@ -727,7 +737,7 @@ def context_peak(harness, record):
                 window=window or None,
                 evidence="rollout token_count.last_token_usage",
             )
-    elif harness == "claude":
+    else:
         peak = window = 0
         events = record / "events.jsonl"
         for row in json_rows(events) if events.exists() else []:
@@ -738,13 +748,20 @@ def context_peak(harness, record):
             out.update(
                 peak_request=peak,
                 window=window or None,
-                evidence="assistant message usage",
+                evidence=REQUEST_EVIDENCE[harness],
             )
-    else:
-        # agy records session totals only; its transcript carries no
-        # per-request accounting, so occupancy here is unmeasured, not small.
-        out["evidence"] = "agy reports no per-request usage"
+        elif harness == "agy":
+            # An agy that stops reporting its steps is unmeasured, not small.
+            out["evidence"] = "agy reported no per-request usage"
     return out
+
+
+# Where each harness's per-request size is read from, as a receipt states it.
+REQUEST_EVIDENCE = {
+    "codex": "rollout token_count.last_token_usage",
+    "claude": "assistant message usage",
+    "agy": "step_update usage",
+}
 
 
 # Context windows no harness states before a turn has run. Codex lists its
@@ -793,16 +810,22 @@ CHARS_PER_TOKEN = 3.5
 
 
 def agy_estimate(usage, transcripts, before=None):
-    """How full an Antigravity session is, estimated, since agy never says.
+    """How full an Antigravity session is, estimated, when its steps are silent.
 
-    agy bills each turn as totals over all its requests, so the billed prompt
-    tokens divided by the requests the turn made is the turn's average
-    context. Growth within a turn is roughly even, so the end sits about half
-    the turn's growth above that average, and the growth is the transcript's
-    new bytes. ``before`` is the transcript's size and request count after
-    the previous turn, which the caller keeps; the returned ``marker`` is the
-    same figure after this one. A turn with no billed requests adds its
-    growth to nothing measured and is reported as unknown.
+    The fallback for an agy that reports no per-request usage. Its closing
+    usage is a running total over the whole session, so this turn's billing
+    is that total less the total after the previous turn, and divided by the
+    requests this turn made it is the turn's average context. Growth within
+    a turn is roughly even, so the end sits about half the turn's growth
+    above that average, and the growth is the transcript's new bytes.
+    ``before`` is the transcript's size, request count and running billing
+    after the previous turn, which the caller keeps; the returned ``marker``
+    is the same figure after this one. A turn with no billed requests adds
+    its growth to nothing measured and is reported as unknown.
+
+    The first version divided the running total by one turn's requests. In
+    a four-round table that put two Gemini seats at three times the context
+    their own requests reported, and would have retired them early.
     """
     size = responses = 0
     for path in transcripts:
@@ -813,13 +836,16 @@ def agy_estimate(usage, transcripts, before=None):
         responses += sum(
             1 for row in json_rows(path) if row.get("type") == "PLANNER_RESPONSE"
         )
-    marker = {"bytes": size, "responses": responses}
-    before = before or {"bytes": 0, "responses": 0}
-    requests = responses - before["responses"]
-    billed = sum(
+    total = sum(
         (usage or {}).get(k) or 0 for k in ("input_tokens", "cache_read_tokens")
     )
-    if requests <= 0 or not billed:
+    marker = {"bytes": size, "responses": responses, "billed": total}
+    before = before or {"bytes": 0, "responses": 0}
+    requests = responses - before["responses"]
+    # A marker kept before the billing was recorded cannot be subtracted, and
+    # the old overestimate is the most that can be said then.
+    billed = total - (before.get("billed") or 0)
+    if requests <= 0 or billed <= 0:
         return None, marker
     growth = max(0, size - before["bytes"]) / CHARS_PER_TOKEN
     return int(billed / requests + growth / 2), marker
@@ -835,8 +861,9 @@ def context_now(
     a seat told that figure can decide how much of the rest it can afford.
     ``transcripts`` are the native rollouts a receipt names, which is where
     Codex keeps its per-request accounting; Claude keeps it in the stream.
-    Antigravity reports session totals only, so it is estimated when
-    ``estimate`` asks for it and unknown otherwise, never reported as small.
+    Antigravity reports each request in its step events; where those are
+    missing it is estimated when ``estimate`` asks for it and unknown
+    otherwise, never reported as small.
     """
     out = {"tokens": None, "window": None, "evidence": "not reported"}
     if harness == "codex":
@@ -862,16 +889,31 @@ def context_now(
                 out["window"] = (
                     max(out["window"] or 0, served.get("contextWindow") or 0) or None
                 )
-    elif estimate:
-        tokens, marker = agy_estimate(usage, transcripts, before)
-        out.update(
-            tokens=tokens,
-            evidence="estimated from billed tokens and transcript growth",
-            estimated=True,
-            marker=marker,
+    elif harness == "agy":
+        events = record / "events.jsonl"
+        sizes = (
+            [request_size(harness, r) for r in json_rows(events)]
+            if (events.exists())
+            else []
         )
-    else:
-        out["evidence"] = "agy reports no per-request usage"
+        last = next((n for n in reversed(sizes) if n is not None), None)
+        # The marker is kept even when the steps are measured, so a later
+        # turn whose steps fall silent still has a running total to subtract.
+        guess, marker = (
+            agy_estimate(usage, transcripts, before) if estimate else (None, None)
+        )
+        if last is not None:
+            out.update(tokens=last, evidence=REQUEST_EVIDENCE[harness])
+        elif estimate:
+            out.update(
+                tokens=guess,
+                evidence="estimated from billed tokens and transcript growth",
+                estimated=True,
+            )
+        else:
+            out["evidence"] = "agy reported no per-request usage"
+        if marker:
+            out["marker"] = marker
     return out
 
 

@@ -617,8 +617,9 @@ def test_every_seat_is_told_its_budget_and_the_time_limit(table):
     assert "the turn that crosses it is that model's last" in haiku
     assert "a turn still running after 4 hours, which is treated as hung" in haiku
     assert "estimates" not in haiku
+    # agy's steps report their requests, so a Gemini seat is measured too.
     gemini = " ".join((table / "seats/gemini-flash/START.md").read_text().split())
-    assert "those figures are estimates" in gemini
+    assert "estimates" not in gemini
 
 
 def test_a_model_with_no_known_window_is_refused(plan, tmp_path):
@@ -678,7 +679,7 @@ def test_a_room_whose_every_seat_is_spent_cannot_go_on(table, monkeypatch):
     assert where == {"kind": "spent", "round": 2}
 
 
-def test_agy_occupancy_is_estimated_from_billing_and_transcript_growth(tmp_path):
+def test_agy_occupancy_falls_back_to_billing_and_transcript_growth(tmp_path):
     transcript = tmp_path / "transcript_full.jsonl"
     rows = [{"type": "PLANNER_RESPONSE"}] * 4 + [{"type": "GENERIC"}]
     transcript.write_text("".join(json.dumps(r) + "\n" for r in rows))
@@ -686,14 +687,42 @@ def test_agy_occupancy_is_estimated_from_billing_and_transcript_growth(tmp_path)
     usage = {"input_tokens": 30_000, "cache_read_tokens": 50_000}
     tokens, marker = drivers.agy_estimate(usage, [transcript])
     assert tokens == int(80_000 / 4 + size / drivers.CHARS_PER_TOKEN / 2)
-    assert marker == {"bytes": size, "responses": 4}
-    # The next turn counts only its own requests and its own growth.
+    assert marker == {"bytes": size, "responses": 4, "billed": 80_000}
+    # agy's closing usage is a running total over the session, so the next
+    # turn counts only what the total grew by, over its own requests.
     with transcript.open("a") as f:
         f.write(json.dumps({"type": "PLANNER_RESPONSE"}) + "\n")
     grown = transcript.stat().st_size - size
-    tokens, _ = drivers.agy_estimate({"input_tokens": 90_000}, [transcript], marker)
+    running = {"input_tokens": 60_000, "cache_read_tokens": 110_000}
+    tokens, _ = drivers.agy_estimate(running, [transcript], marker)
     assert tokens == int(90_000 + grown / drivers.CHARS_PER_TOKEN / 2)
-    assert drivers.agy_estimate({}, [transcript], marker)[0] is None
+    assert drivers.agy_estimate(usage, [transcript], marker)[0] is None
+
+
+def test_agy_occupancy_is_its_last_step_request(tmp_path):
+    """The pilot's Gemini seats read 3x their size when estimated."""
+    record = tmp_path / "record"
+    record.mkdir()
+    step = lambda n: {  # noqa: E731
+        "event": "step_update",
+        "step_update": {"usage": {"input_tokens": 2_000, "cache_read_tokens": n}},
+    }
+    total = {"event": "result", "result": {"usage": {"input_tokens": 3_000_000}}}
+    rows = [step(80_000), step(110_000), {"event": "step_update"}, total]
+    (record / "events.jsonl").write_text("".join(json.dumps(r) + "\n" for r in rows))
+    transcript = tmp_path / "transcript_full.jsonl"
+    transcript.write_text(json.dumps({"type": "PLANNER_RESPONSE"}) + "\n")
+    got = drivers.context_now(
+        "agy",
+        record,
+        [transcript],
+        usage={"input_tokens": 3_000_000},
+        estimate=True,
+    )
+    assert got["tokens"] == 112_000 and not got.get("estimated")
+    assert got["evidence"] == "step_update usage"
+    assert got["marker"]["billed"] == 3_000_000, "kept for a later silent turn"
+    assert drivers.context_peak("agy", record)["peak_request"] == 112_000
 
 
 def test_windows_are_known_before_a_model_has_run():
