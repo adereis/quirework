@@ -294,10 +294,24 @@ def generate_gray(names: set[str], out: Path) -> int:
 # The block width is the one number here that lives somewhere else --
 # The configured Typst template owns the trim and margins, so they are read from that
 # template rather than copied, and a margin change reaches this check for free.
-# The floor is 6pt, which is where incidental type in a printed book stops
-# being readable; 7 to 8pt is where it stops being a squint.
+# The default floor is 6pt, which is where incidental type in a printed book
+# stops being readable; 7 to 8pt is where it stops being a squint. A book that
+# letters its figures above that sets `book.figure_type_floor_pt`, so the
+# warning holds the set to the size the book chose rather than the one it left.
 PRINT_FLOOR_PT = 6.0
 VIEWBOX_UNITS = 960.0
+
+
+def print_floor_pt() -> float:
+    """The printed size under which figure type is reported, in points."""
+    value = current_project().get("book.figure_type_floor_pt")
+    if value is None:
+        return PRINT_FLOOR_PT
+    if isinstance(value, bool) or not isinstance(value, (int, float)) or value <= 0:
+        raise SystemExit(
+            f"book.figure_type_floor_pt must be a positive number of points, not {value!r}"
+        )
+    return float(value)
 
 
 def print_text_block_in() -> float | None:
@@ -344,6 +358,7 @@ def print_legibility(names: set[str]) -> list[str]:
     block = print_text_block_in()
     if block is None:
         return []
+    floor = print_floor_pt()
     pt_per_unit = block * 72.0 / VIEWBOX_UNITS
     out: list[str] = []
     for name in sorted(names):
@@ -352,9 +367,7 @@ def print_legibility(names: set[str]) -> list[str]:
             continue
         sizes = print_type_sizes(src)
         under = {
-            k: v * pt_per_unit
-            for k, v in sizes.items()
-            if v * pt_per_unit < PRINT_FLOOR_PT
+            k: v * pt_per_unit for k, v in sizes.items() if v * pt_per_unit < floor
         }
         if under:
             worst = min(under.values())
@@ -409,7 +422,7 @@ def check() -> int:
         block = print_text_block_in()
         print(
             f"\n⚠ print legibility: {len(thin)} of {len(names)} figures carry type under "
-            f"{PRINT_FLOOR_PT:.0f}pt when\n  reproduced across the {block:.2f}in print text block. "
+            f"{print_floor_pt():g}pt when\n  reproduced across the {block:.2f}in print text block. "
             "Warning only -- the commit is\n  NOT blocked. Raising a label inside a fixed canvas "
             "moves the artwork around\n  it, so each of these is a layout job and never a "
             "batch replace.",

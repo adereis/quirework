@@ -524,6 +524,20 @@ cannot draw a character a figure uses, since that glyph would reach the
 reader from a fallback. The setting needs fontTools, with Brotli to
 write WOFF2 (the `book` extra installs both).
 
+A figure is drawn at one size and printed at another. Where
+`book.typst_template` sets the page, `figures --check` works out how
+large each figure's type prints across the text block and warns about
+anything under 6pt, the size below which incidental type stops being
+readable. It warns and never fails, because raising a label moves the
+drawing around it. A book that letters its figures larger raises the
+threshold to the size it chose, so a plate that slips back under it is
+reported:
+
+```toml
+[book]
+figure_type_floor_pt = 7.4
+```
+
 ## 5. Procedures
 
 A procedure is a playbook an AI companion reads and follows. Quirework

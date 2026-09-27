@@ -39,7 +39,9 @@ skill_prefix = "notebook-"
 project uses those features. `book.figure_fonts` lists font files that
 every staged figure carries as subsets, so a figure shown as an image is
 lettered in the book's face on a device that lacks it; the [authoring
-guide](authoring.md#4-figures) explains it. Annotation bindings resolve
+guide](authoring.md#4-figures) explains it. `book.figure_type_floor_pt`
+sets the printed size, in points, under which `figures --check` warns
+about a figure's type; it defaults to 6. Annotation bindings resolve
 against the configured semantic register; a book need not adopt another
 project's claims or vocabulary.
 
