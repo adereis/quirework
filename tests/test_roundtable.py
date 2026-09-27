@@ -917,6 +917,39 @@ def test_a_place_is_first_or_last_and_held_by_one_seat(plan, tmp_path):
         roundtable.prepare(plan, tmp_path / "two", resolve_models=False)
 
 
+def handing(plan, tmp_path, *extra):
+    """The fictional table with its brief handed in full, plus extra seats."""
+    spec = read(plan)
+    spec["brief"]["inline"] = True
+    spec["seats"] += list(extra)
+    write(plan, spec)
+    roundtable.prepare(plan, tmp_path / "handed", resolve_models=False)
+    return tmp_path / "handed"
+
+
+def test_the_core_material_is_handed_in_full_with_the_first_turn(
+    plan, tmp_path, monkeypatch
+):
+    table = handing(plan, tmp_path)
+    seats = Seats(monkeypatch)
+    roundtable.run(table, to=2)
+    first = order(table, 1)[0]
+    text = seats.prompt(first, 1)
+    assert "===== input/brief.md =====\n\nName the lighthouse keeper's cat." in text
+    assert "===== input/brief.md" not in seats.prompt(first, 2)
+    start = (table / "seats" / first / "START.md").read_text()
+    assert "input/brief.md (given in full with your first turn)" in start
+
+
+def test_a_person_is_not_handed_the_material(plan, tmp_path, monkeypatch):
+    person = {"human": True, "name": "Morgan", "position": "first"}
+    table = handing(plan, tmp_path, person)
+    Seats(monkeypatch)
+    assert roundtable.run(table)[1]["kind"] == "human"
+    prompt = (table / "records" / "morgan" / "r001" / "prompt.md").read_text()
+    assert "===== input/brief.md" not in prompt
+
+
 # -- The packet ------------------------------------------------------------------
 
 NOTES = """\

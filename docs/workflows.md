@@ -467,6 +467,16 @@ file's source digest and, inside a Git repository, the commit it was
 read against and whether the file matched that commit. A packet
 described as quoting the book at a commit can then be checked to.
 
+An entry marked `"inline": true` is also handed in full with each
+model's first turn, in the order the plan lists it, and the standing
+assignment says so. A model handed a path decides whether to read it,
+and one handed the text has read it. In a pilot with a nine-file packet,
+two of five seats never opened the chapter the brief said to start with
+and argued about it from the brief's summary, probably because the
+budget warning makes a seat frugal before it has read anything. Hand the
+few files the discussion stands on and leave the rest on disk for
+reference. A person at the table is not handed them.
+
 A person can take a seat as well:
 
 ```json
@@ -539,11 +549,22 @@ question then comes back before the new last round. Either way the
 decision goes on the board with the supervisor's `--message`. The
 controller never makes that call itself.
 
+The closing message shapes the last round. Asking the table for one
+joint synthesis invites the convergence the checking norm works against:
+in a pilot the final round settled on the reading most comfortable to
+everyone present, and two seats wrote to thank or praise the person
+whose book it was. Asking each seat for its own verdict, the strongest
+objection to it, and what would change its mind keeps a disagreement
+visible to the end.
+
 `run` also stops at the end of any round in which a seat wrote to the
-supervisor or a turn failed. `inbox` reads the supervisor's mail,
-`reply TABLE SEAT TEXT` answers one seat at its next turn, and
-`announce TABLE TEXT` posts to the board. None of them needs the table's
-lock, so the supervisor can write while a seat is mid-turn.
+supervisor or a turn failed. `inbox` reads the supervisor's mail, `reply
+TABLE SEAT TEXT` answers one seat at its next turn, and `announce TABLE
+TEXT` posts to the board. None of them needs the table's lock, so the
+supervisor can write while a seat is mid-turn. The standing assignment
+asks seats to keep messages for questions and answers: in a pilot most
+messages that went unanswered were announcements of a post every seat
+would read on the board anyway.
 
 A table runs without compaction, so a seat's context has to last every
 round, and each seat is given a budget in tokens before its first turn.

@@ -497,6 +497,7 @@ def prepare(plan_path, destination, *, resolve_models=True):
                 "sections": entry.get("sections"),
                 "source_sha256": digest(path),
                 "git": git_state(path),
+                "inline": bool(entry.get("inline")),
             }
         )
         return content
@@ -519,6 +520,8 @@ def prepare(plan_path, destination, *, resolve_models=True):
         seats=seats,
         source_root=str(source_root),
         sources=sources,
+        # What every seat is handed in full with its first turn, in order.
+        inline=[s["path"] for s in sources if s["inline"]],
         seed=supplied.get("seed", random.SystemRandom().randrange(2**31)),
         prepared_at=time.time(),
     )
@@ -579,7 +582,12 @@ def start_text(plan, seat):
     """
     people = [s for s in plan["seats"] if is_human(s)]
     human = is_human(seat)
-    reads = [f"  - input/{rel}" for rel in seat["reads"]]
+    handed = set(plan.get("inline") or [])
+    reads = [
+        f"  - input/{rel}"
+        + (" (given in full with your first turn)" if rel in handed else "")
+        for rel in seat["reads"]
+    ]
     last = plan["rounds"]
     if human:
         opening = (
@@ -705,7 +713,9 @@ def start_text(plan, seat):
         ),
         "Your post and your messages are delivered when your turn ends. In "
         "each post, say what you add, what you checked, what you dispute, or "
-        "what you changed.",
+        "what you changed. Everyone reads the board, so a message that only "
+        "points at your post adds nothing; use messages for questions and "
+        "for answers.",
     ]
     return "\n\n".join(_filled(block) for block in blocks) + "\n"
 
@@ -1287,6 +1297,22 @@ def turn_prompt(root, plan, seat, where, *, shown_through, mail_shown):
             if earlier
             else "Read START.md first. It is your standing assignment for the "
             "whole room."
+        )
+    if fresh and plan.get("inline") and not is_human(seat):
+        # A model handed a path decides whether to read it, and one handed
+        # the text has read it. In the first pilot two of five seats never
+        # opened the chapter the brief told them to start with, and argued
+        # about it from the brief's summary.
+        work = root / "seats" / seat["id"] / "input"
+        parts.append(
+            "The core material follows in full. It is also in input/, and "
+            "the rest of input/ is there for reference.\n\n"
+            + "\n\n".join(
+                f"===== input/{rel} =====\n\n"
+                f"{(work / relative(rel)).read_text().strip()}\n\n"
+                f"===== end of input/{rel} ====="
+                for rel in plan["inline"]
+            )
         )
     final = final_round(root) == n
     head = f"Round {n}" + (
