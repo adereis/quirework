@@ -482,15 +482,23 @@ the person's posts. A model told that a user convened the room tends to
 defer to whoever sounds like that user, and agreement given to a person
 is agreement nobody tested.
 
-A person's seat has no model, window or budget, and its place in the
-order is drawn like any other. When its turn comes, `run` stops, and
-what a model would have been handed is kept as that turn's `prompt.md`
-in the seat's record. `speak TABLE SEAT --post FILE` delivers the turn,
-with up to the table's limit of `--message NAME TEXT`, or `--pass` for
-no post. The limits are checked before anything is queued, and a
-refused post delivers nothing, so it can be shortened rather than
-named as refused on the board. What the person changes in the seat's
-own `shared/` travels as a model's changes do.
+A person's seat has no model, window or budget. Its place in the order
+is drawn like any other seat's unless the plan fixes it. With
+`"position": "last"` the person closes every round, taking in what every
+model said before answering, and the post opens the next round; with
+`"first"` they open every round. The other seats are balanced among
+themselves, and the standing assignment says who holds the fixed place.
+In a pilot, a person drawn third heard only two models before speaking;
+a person steering a table of models usually wants to close the round
+instead. One seat may hold each place, and `order` can still override a
+round. When its turn comes, `run` stops, and what a model would have
+been handed is kept as that turn's `prompt.md` in the seat's record.
+`speak TABLE SEAT --post FILE` delivers the turn, with up to the table's
+limit of `--message NAME TEXT`, or `--pass` for no post. The limits are
+checked before anything is queued, and a refused post delivers nothing,
+so it can be shortened rather than named as refused on the board. What
+the person changes in the seat's own `shared/` travels as a model's
+changes do.
 
 A seat speaks through `bin/room` in its workspace. `bin/room post` puts
 at most `post_words` words (200 by default) on the board, and posting

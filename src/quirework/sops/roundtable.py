@@ -230,7 +230,7 @@ def duration(seconds):
 # -- The order of turns -------------------------------------------------------
 
 
-def next_order(ids, history, rng):
+def next_order(ids, history, rng, *, boundary=True):
     """The order for the round after ``history``, as balanced as it can be.
 
     Three properties, in priority order. No seat takes two turns in a row
@@ -245,11 +245,14 @@ def next_order(ids, history, rng):
     leave exactly one order per round, a rotation, so the neighbours only
     change when the next block begins. With five seats in five rounds no
     order balances every neighbour pair and also avoids back-to-back turns.
+
+    ``boundary=False`` drops the first rule, for seats that never meet
+    across a boundary because a seat with a fixed place stands between.
     """
     n = len(ids)
     block = history[len(history) - len(history) % n :]
     pairs = Counter((a, b) for order in history for a, b in itertools.pairwise(order))
-    last = history[-1] if history else None
+    last = history[-1] if history and boundary else None
     best, score = None, None
     for order in itertools.permutations(ids):
         if last and order[0] == last[-1]:
@@ -262,20 +265,50 @@ def next_order(ids, history, rng):
     return best
 
 
-def extend_schedule(schedule, ids, seed, through):
+def extend_schedule(schedule, ids, seed, through, fixed=None):
     """Draw orders for every round up to ``through`` that has none yet.
 
     Each round draws from a generator seeded by the room and the round
     number, so the schedule an extension adds is the one the same room would
     have drawn at preparation, and a rerun reproduces it.
+
+    ``fixed`` maps "first" or "last" to a seat that always holds that place,
+    such as a person who closes every round to take in what the models
+    said. The other seats are balanced among themselves, and since the
+    fixed seat stands between one round's end and the next one's start,
+    none of them can answer itself across the boundary.
     """
+    fixed = fixed or {}
+    free = [i for i in ids if i not in fixed.values()]
+    head = [fixed["first"]] if "first" in fixed else []
+    tail = [fixed["last"]] if "last" in fixed else []
     rounds = schedule.setdefault("rounds", {})
     for n in range(1, through + 1):
         if str(n) in rounds:
             continue
-        history = [rounds[str(k)] for k in range(1, n)]
-        rounds[str(n)] = next_order(ids, history, random.Random(f"{seed}:{n}"))
+        history = [[s for s in rounds[str(k)] if s in free] for k in range(1, n)]
+        order = next_order(
+            free, history, random.Random(f"{seed}:{n}"), boundary=not fixed
+        )
+        rounds[str(n)] = head + order + tail
     return schedule
+
+
+def fixed_places(seats):
+    """Which seat, if any, always speaks first or last."""
+    places = {}
+    for seat in seats:
+        where = seat.get("position")
+        if where is None:
+            continue
+        if where not in ("first", "last"):
+            raise ValueError(
+                f"seat {seat['name']!r}: a position is first or last, not {where!r}"
+            )
+        if where in places:
+            raise ValueError(f"only one seat can always speak {where}")
+        places[where] = seat["id"]
+    return places
 
 
 # -- The packet -----------------------------------------------------------------
@@ -427,6 +460,10 @@ def prepare(plan_path, destination, *, resolve_models=True):
         )
     if all(is_human(s) for s in seats):
         raise ValueError("a roundtable seats at least one model")
+    for item, seat in zip(declared, seats, strict=True):
+        if item.get("position") is not None:
+            seat["position"] = item["position"]
+    fixed = fixed_places(seats)
     for key, what in (("id", "name"), ("model", "model")):
         values = [
             s["id"] if key == "id" else s["config"]["model"]
@@ -514,7 +551,7 @@ def prepare(plan_path, destination, *, resolve_models=True):
     ids = [s["id"] for s in seats]
     write(
         destination / "schedule.json",
-        extend_schedule({"changes": []}, ids, frozen["seed"], limits["rounds"]),
+        extend_schedule({"changes": []}, ids, frozen["seed"], limits["rounds"], fixed),
     )
     write(
         destination / "budget.json",
@@ -536,8 +573,7 @@ def start_text(plan, seat):
     A person at the table is named as one, and the norm of checking covers
     their posts too. A model told the user convened the room tends to defer
     to whoever sounds like the user, and deference is agreement nobody
-    tested. A table of models alone reads exactly as it did before people
-    could sit at one.
+    tested. A table of models alone is told nothing about people.
     """
     people = [s for s in plan["seats"] if is_human(s)]
     human = is_human(seat)
@@ -588,6 +624,16 @@ def start_text(plan, seat):
         )
     everyone = "everyone at the table" if people else "every model"
     others = "the others" if people else "the other models"
+    fixed = fixed_places(plan["seats"])
+    labels = names(plan)
+    if fixed:
+        steady = " ".join(
+            f"{labels[who]} speaks {where} in every round."
+            for where, who in sorted(fixed.items())
+        )
+        order_text = f"one after another. {steady} The order of the others"
+    else:
+        order_text = "one after another, and the order"
     blocks = [
         f"# {plan.get('title', 'Roundtable')}",
         opening,
@@ -604,7 +650,7 @@ def start_text(plan, seat):
         "and may post to the board or write to you between turns.",
         "## How the room works",
         f"The room meets in rounds. In each round {everyone} takes one turn, "
-        "one after another, and the order changes from round to round. The "
+        f"{order_text} changes from round to round. The "
         f"room runs at least {last} rounds. After round {last - 1} the "
         f"supervisor will say whether round {last} is the last or the room is "
         "extended.",
@@ -626,6 +672,11 @@ def start_text(plan, seat):
                 *reads,
                 "- board/board.md: everything posted to the board so far. Read-only.",
                 "- mail/: your direct messages, received and sent. Read-only.",
+                # A pilot seat drafted its post as outbox/post1.md; the
+                # controller then reported the draft as a stray file.
+                "- outbox/: what bin/room has queued this turn. Keep drafts "
+                "anywhere else: a file bin/room did not write there is not "
+                "delivered.",
                 f"- shared/: files {everyone} can read and change. Each "
                 "change is recorded under the name of whoever made it."
                 if people
@@ -1445,7 +1496,12 @@ def deliver(root, plan, seat, n, t):
         if p.is_file() and p.name != "post.md" and p.parent != folder
     ]
     if stray:
-        refused.append("outbox files bin/room did not write: " + ", ".join(stray))
+        # Said as what to do next time: a pilot seat told only that
+        # post1.md was not bin/room's wrote post2.md the round after.
+        refused.append(
+            f"{', '.join(stray)} in outbox/, which only bin/room writes; "
+            "keep drafts in your own folder"
+        )
 
     links = []
     before = _listing(root / "shared", [])
@@ -1782,7 +1838,11 @@ def decide(root, kind, text, *, to=None):
                 f"round {to} is the last."
             )
             orders = extend_schedule(
-                schedule(root), [s["id"] for s in plan["seats"]], plan["seed"], to
+                schedule(root),
+                [s["id"] for s in plan["seats"]],
+                plan["seed"],
+                to,
+                fixed_places(plan["seats"]),
             )
             write(root / "schedule.json", orders)
             value["end"] = to
@@ -1871,7 +1931,7 @@ def status(root):
         turns = mine["rounds"]
         flags = []
         for n, turn in sorted(turns.items(), key=lambda kv: int(kv[0])):
-            if turn["status"] != "answered":
+            if turn["status"] not in ("answered", "awaiting"):
                 flags.append(
                     f"r{int(n):03d} {turn['status']}: {turn.get('error') or ''}".strip()
                 )

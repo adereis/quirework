@@ -269,6 +269,28 @@ def test_the_controller_refuses_what_the_tool_would_have(table, monkeypatch):
     assert (table / "records" / first / "r001" / "outbox" / "post.md").exists()
 
 
+def test_a_draft_left_in_the_outbox_is_named_with_what_to_do(table, monkeypatch):
+    seats = Seats(monkeypatch)
+    first = order(table, 1)[0]
+
+    def draft(work):
+        (work / "outbox").mkdir(exist_ok=True)
+        (work / "outbox" / "post1.md").write_text("A draft.\n")
+        tool(work, "post", "outbox/post1.md")
+
+    seats.script[(first, 1)] = draft
+    result = roundtable.run_turn(table)
+    assert result["outcome"]["post"] is True
+    assert result["outcome"]["refused"] == [
+        "post1.md in outbox/, which only bin/room writes; "
+        "keep drafts in your own folder"
+    ]
+    roundtable.run(table, to=2)
+    assert "keep drafts in your own folder" in seats.prompt(first, 2)
+    start = " ".join((table / "seats" / first / "START.md").read_text().split())
+    assert "- outbox/: what bin/room has queued this turn. Keep drafts" in start
+
+
 def test_a_delivery_taken_twice_posts_once(table, monkeypatch):
     seats = Seats(monkeypatch)
     first = order(table, 1)[0]
@@ -762,6 +784,7 @@ def test_the_room_stops_for_a_person_and_never_launches_one(seated, monkeypatch)
     text = roundtable.render_status(roundtable.status(seated))
     assert "waiting for Morgan: round 1" in text
     assert "Morgan         a person" in text
+    assert "awaiting" not in text, "a person's turn is a wait, not a fault"
 
 
 def test_a_persons_turn_goes_through_the_rooms_limits(seated, monkeypatch):
@@ -819,6 +842,50 @@ def test_a_table_needs_a_model_and_a_person_needs_a_name(plan, tmp_path):
     write(plan, spec)
     with pytest.raises(ValueError, match="needs the name"):
         roundtable.prepare(plan, tmp_path / "nameless", resolve_models=False)
+
+
+def closing(plan, tmp_path, rounds):
+    """The fictional table with Morgan closing every round."""
+    spec = read(plan)
+    spec["rounds"] = rounds
+    spec["seats"].append({"human": True, "name": "Morgan", "position": "last"})
+    write(plan, spec)
+    roundtable.prepare(plan, tmp_path / "closing", resolve_models=False)
+    return tmp_path / "closing"
+
+
+def test_a_person_can_close_every_round(plan, tmp_path):
+    table = closing(plan, tmp_path, 6)
+    orders = [order(table, n) for n in range(1, 7)]
+    assert all(o[-1] == "morgan" for o in orders)
+    models = ["haiku", "luna", "gemini-flash"]
+    for block in (orders[:3], orders[3:]):
+        for p in range(3):
+            assert sorted(o[p] for o in block) == sorted(models)
+    start = " ".join((table / "seats" / "luna" / "START.md").read_text().split())
+    assert "Morgan speaks last in every round. The order of the others" in start
+
+
+def test_an_extension_keeps_a_fixed_place(plan, tmp_path, monkeypatch):
+    table = closing(plan, tmp_path, 2)
+    Seats(monkeypatch)
+    assert roundtable.run(table)[1]["kind"] == "human"
+    roundtable.speak(table, "Morgan", passing=True)
+    assert roundtable.run(table)[1]["kind"] == "decision"
+    roundtable.decide(table, "extend", "", to=4)
+    assert [order(table, n)[-1] for n in (3, 4)] == ["morgan", "morgan"]
+
+
+def test_a_place_is_first_or_last_and_held_by_one_seat(plan, tmp_path):
+    spec = read(plan)
+    spec["seats"][0]["position"] = "middle"
+    write(plan, spec)
+    with pytest.raises(ValueError, match="first or last"):
+        roundtable.prepare(plan, tmp_path / "middle", resolve_models=False)
+    spec["seats"][0]["position"] = spec["seats"][1]["position"] = "first"
+    write(plan, spec)
+    with pytest.raises(ValueError, match="only one seat can always speak first"):
+        roundtable.prepare(plan, tmp_path / "two", resolve_models=False)
 
 
 # -- The packet ------------------------------------------------------------------
