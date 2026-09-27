@@ -13,8 +13,8 @@
       "human_turns": 8,
       "assistant_turns": 440,
       "tokens": 22110,
-      "doc_edits": 0,
-      "meta_edits": 65,
+      "doc_edits": 34,
+      "meta_edits": 31,
       "top_edited": [
         "the-sidecar.qmd×11",
         "quirework.toml×9",
