@@ -24,6 +24,11 @@ supervisor would: it refuses to open the round the room was promised as its
 last until the supervisor has said whether it is the last, and it stops
 between rounds when a seat has written to the supervisor. Everything a seat
 sees is recorded, including direct messages, and the seats are told so.
+
+A person may also take a seat, named and described as a person. The
+controller never speaks for one: it stops when that seat's turn comes and
+waits for the person's words, which pass through the same limits as a
+model's.
 """
 
 from __future__ import annotations
@@ -92,6 +97,10 @@ HOUSES = {"claude": "Anthropic", "codex": "OpenAI", "agy": "Google"}
 # Words in a model id that name its maker or its effort, not the model.
 NOT_A_NAME = ("claude", "gpt", *drivers.AGY_EFFORTS)
 SUPERVISOR = "supervisor"
+# What the controller stops at rather than taking a turn: a decision only the
+# supervisor makes, a provider limit, a person's turn, or a room with no seat
+# left to speak.
+WAITS = ("closed", "decision", "held", "human", "spent")
 
 
 # -- Where a roundtable lives ------------------------------------------------
@@ -171,6 +180,31 @@ def seat_name(model):
     if not words:
         raise ValueError(f"cannot name a seat after {model!r}; give it a name")
     return "-".join(w.capitalize() for w in words)
+
+
+def is_human(seat):
+    return bool(seat.get("human"))
+
+
+def human_seat(item):
+    """A seat a person takes: named by the plan and described in its words.
+
+    The models are told who is at the table, so a person is described as
+    what they are, in the plan's own words, rather than passed off as one
+    more model: a table whose roster lies about one seat is no evidence of
+    how models work when told the truth. A human seat has no model, window
+    or budget, and its turns are delivered by the operator with ``speak``.
+    """
+    name = str(item.get("name") or "").strip()
+    if not name:
+        raise ValueError("a human seat needs the name the table will call it by")
+    description = str(item.get("description") or "a human").strip()
+    return {
+        "id": identifier(name.lower()),
+        "name": name,
+        "human": True,
+        "description": description,
+    }
 
 
 def maker(config):
@@ -343,6 +377,9 @@ def prepare(plan_path, destination, *, resolve_models=True):
 
     seats = []
     for item in declared:
+        if item.get("human"):
+            seats.append(human_seat(item))
+            continue
         requested = item.get("model")
         if not requested:
             raise ValueError("every seat names its model")
@@ -388,8 +425,14 @@ def prepare(plan_path, destination, *, resolve_models=True):
                 "occupancy": "estimated" if harness == "agy" else "measured",
             }
         )
+    if all(is_human(s) for s in seats):
+        raise ValueError("a roundtable seats at least one model")
     for key, what in (("id", "name"), ("model", "model")):
-        values = [s["id"] if key == "id" else s["config"]["model"] for s in seats]
+        values = [
+            s["id"] if key == "id" else s["config"]["model"]
+            for s in seats
+            if key == "id" or not is_human(s)
+        ]
         repeated = sorted({v for v in values if values.count(v) > 1})
         if repeated:
             raise ValueError(
@@ -489,51 +532,93 @@ def start_text(plan, seat):
     everything. It does not explain how the order is drawn, what the
     supervisor watches, or what would extend the room: telling a model the
     instrument it is measured by is how it starts playing to the instrument.
+
+    A person at the table is named as one, and the norm of checking covers
+    their posts too. A model told the user convened the room tends to defer
+    to whoever sounds like the user, and deference is agreement nobody
+    tested. A table of models alone reads exactly as it did before people
+    could sit at one.
     """
-    roster = [
-        f"- {s['name']}: {s['maker']} model {s['config']['model']}, running in "
-        f"{HARNESS_NAMES[s['config']['harness']]}{' (you)' if s is seat else ''}"
-        for s in plan["seats"]
-    ]
+    people = [s for s in plan["seats"] if is_human(s)]
+    human = is_human(seat)
     reads = [f"  - input/{rel}" for rel in seat["reads"]]
     last = plan["rounds"]
+    if human:
+        opening = (
+            f"You are {seat['name']}, seated here as a person, not a model. "
+            "The models read the roster below, so they know you as it "
+            "describes you."
+        )
+    else:
+        opening = (
+            f"You are {seat['name']}, an AI model made by {seat['maker']}. In "
+            "this room you are not playing a character: you are yourself."
+        )
+    # A norm for every seat, never a role for one. The first pilot was
+    # given permission to disagree and no expectation to check, and its
+    # three seats were signing off by round three. A skeptic's chair would
+    # let the others hand their doubt to it, and "expect disagreement"
+    # invites objections made to comply; checking yields disagreement
+    # where a check finds a reason for it.
+    if people:
+        who = ", ".join(s["name"] for s in people)
+        company = (
+            f"one person, {who}" if len(people) == 1 else f"{len(people)} people, {who}"
+        )
+        norm = (
+            f"This is a collaboration between AI models and {company}. The "
+            "models take their turns autonomously. The user who convened it "
+            "wants everyone at the table to work together towards one goal, "
+            "and expects both collaboration and disagreement. Check each "
+            "other's work rather than taking it on trust, a person's work "
+            "included: agreement nobody tested is not what the user is looking "
+            "for, and neither is agreement given because a person said so. "
+            "Say plainly where you disagree, and keep a disagreement that "
+            "stays open visible rather than smoothing it over."
+        )
+    else:
+        norm = (
+            "This is an autonomous collaboration between AI models. The user "
+            "who convened it wants several models to work together towards "
+            "one goal, and expects both collaboration and disagreement. Check "
+            "each other's work rather than taking it on trust: agreement "
+            "nobody tested is not what the user is looking for. Say plainly "
+            "where you disagree, and keep a disagreement that stays open "
+            "visible rather than smoothing it over."
+        )
+    everyone = "everyone at the table" if people else "every model"
+    others = "the others" if people else "the other models"
     blocks = [
         f"# {plan.get('title', 'Roundtable')}",
-        f"You are {seat['name']}, an AI model made by {seat['maker']}. In this "
-        "room you are not playing a character: you are yourself.",
-        # A norm for every seat, never a role for one. The first pilot was
-        # given permission to disagree and no expectation to check, and its
-        # three seats were signing off by round three. A skeptic's chair
-        # would let the others hand their doubt to it, and "expect
-        # disagreement" invites objections made to comply; checking yields
-        # disagreement where a check finds a reason for it.
-        "This is an autonomous collaboration between AI models. The user who "
-        "convened it wants several models to work together towards one goal, "
-        "and expects both collaboration and disagreement. Check each other's "
-        "work rather than taking it on trust: agreement nobody tested is not "
-        "what the user is looking for. Say plainly where you disagree, and "
-        "keep a disagreement that stays open visible rather than smoothing it "
-        "over.",
+        opening,
+        norm,
         "## The goal",
         plan["goal"].strip(),
         "## Who is in the room",
-        "\n".join(roster),
-        "No model here outranks another.",
+        "\n".join(roster_line(s, s is seat) for s in plan["seats"]),
+        "No one here outranks another."
+        if people
+        else "No model here outranks another.",
         "The supervisor is the user who convened the room and runs it. The "
         "supervisor reads everything in the room, direct messages included, "
         "and may post to the board or write to you between turns.",
         "## How the room works",
-        "The room meets in rounds. In each round every model takes one turn, "
+        f"The room meets in rounds. In each round {everyone} takes one turn, "
         "one after another, and the order changes from round to round. The "
         f"room runs at least {last} rounds. After round {last - 1} the "
         f"supervisor will say whether round {last} is the last or the room is "
         "extended.",
-        "Your turn has no time limit of its own. You may read, search the web, "
-        "run commands and write files as much as you like. The one exception "
-        f"is a turn still running after {duration(plan['turn_timeout'])}, "
-        "which is treated as hung and stopped; what you queued before then is "
-        "still delivered.",
-        budget_text(seat),
+    ]
+    if not human:
+        blocks += [
+            "Your turn has no time limit of its own. You may read, search the "
+            "web, run commands and write files as much as you like. The one "
+            "exception is a turn still running after "
+            f"{duration(plan['turn_timeout'])}, which is treated as hung and "
+            "stopped; what you queued before then is still delivered.",
+            budget_text(seat),
+        ]
+    blocks += [
         "## Where things are",
         "\n".join(
             [
@@ -541,11 +626,14 @@ def start_text(plan, seat):
                 *reads,
                 "- board/board.md: everything posted to the board so far. Read-only.",
                 "- mail/: your direct messages, received and sent. Read-only.",
-                "- shared/: files every model in the room can read and change. "
-                "Each change is recorded under the name of the model that "
-                "made it.",
+                f"- shared/: files {everyone} can read and change. Each "
+                "change is recorded under the name of whoever made it."
+                if people
+                else "- shared/: files every model in the room can read and "
+                "change. Each change is recorded under the name of the model "
+                "that made it.",
                 "- Anything else you write in this folder stays between your "
-                "turns. The other models cannot see it; the supervisor can.",
+                f"turns. {others.capitalize()} cannot see it; the supervisor can.",
             ]
         ),
         "## How you speak",
@@ -555,7 +643,8 @@ def start_text(plan, seat):
                 "- bin/room post FILE: your post to the board this turn, at "
                 f"most {plan['post_words']} words. Posting again replaces it. "
                 "Not posting is a pass.",
-                "- bin/room message NAME TEXT: a direct message to one model, "
+                "- bin/room message NAME TEXT: a direct message to "
+                f"{'anyone at the table' if people else 'one model'}, "
                 f'or to "supervisor", at most {plan["message_chars"]} '
                 f"characters. Up to {plan['messages_per_turn']} per turn.",
                 "- bin/room outbox: what you have queued this turn.",
@@ -566,6 +655,19 @@ def start_text(plan, seat):
         "what you changed.",
     ]
     return "\n\n".join(_filled(block) for block in blocks) + "\n"
+
+
+def roster_line(seat, you):
+    """One seat as the roster names it: a model by maker, id and harness,
+    a person in the plan's own words."""
+    mark = " (you)" if you else ""
+    if is_human(seat):
+        return f"- {seat['name']}: {seat['description']}{mark}"
+    config = seat["config"]
+    return (
+        f"- {seat['name']}: {seat['maker']} model {config['model']}, running in "
+        f"{HARNESS_NAMES[config['harness']]}{mark}"
+    )
 
 
 def budget_text(seat):
@@ -954,6 +1056,8 @@ def position(root, plan):
                 return {"kind": "turn", **where}
             if turn["status"] == "quota":
                 return {"kind": "held", **where}
+            if turn["status"] == "awaiting":
+                return {"kind": "human", **where}
             if not delivered(root, seat, n):
                 return {"kind": "deliver", **where}
     return {"kind": "closed", "rounds": end}
@@ -1119,7 +1223,10 @@ def turn_prompt(root, plan, seat, where, *, shown_through, mail_shown):
     labels = names(plan)
     parts = []
     earlier = any(str(r) in value["rounds"] for r in range(1, n))
-    if not value.get("session_id"):
+    # A person has no session to resume; what they have read is what they
+    # have taken turns with.
+    fresh = not earlier if is_human(seat) else not value.get("session_id")
+    if fresh:
         parts.append(
             "You are joining a room already in progress. Read START.md, your "
             "standing assignment, then board/board.md for everything said so "
@@ -1166,11 +1273,21 @@ def turn_prompt(root, plan, seat, where, *, shown_through, mail_shown):
     line = budget_line(seat, value)
     if line:
         parts.append(line)
-    parts.append(
-        f"Take your turn. Post with bin/room post (at most {plan['post_words']} "
-        "words), or pass by not posting. Send up to "
-        f"{plan['messages_per_turn']} direct messages with bin/room message."
-    )
+    if is_human(seat):
+        parts.append(
+            "Take your turn: quirework sop roundtable speak "
+            f"{shown(root)} {seat['id']} --post FILE (at most "
+            f"{plan['post_words']} words), with up to "
+            f"{plan['messages_per_turn']} --message NAME TEXT, or --pass to "
+            "post nothing. Edit shared/ in your seat's folder first to change "
+            "the shared files."
+        )
+    else:
+        parts.append(
+            "Take your turn. Post with bin/room post (at most "
+            f"{plan['post_words']} words), or pass by not posting. Send up to "
+            f"{plan['messages_per_turn']} direct messages with bin/room message."
+        )
     return "\n\n".join(parts) + "\n"
 
 
@@ -1179,7 +1296,7 @@ def run_turn(root, *, timeout=None):
     root, plan = load(root)
     with lock(root / "room.lock"):
         where = position(root, plan)
-        if where["kind"] in ("closed", "decision", "held", "spent"):
+        if where["kind"] in WAITS:
             return where
         seat = seat_by(plan, where["seat"])
         n, t = where["round"], where["turn"]
@@ -1210,6 +1327,15 @@ def run_turn(root, *, timeout=None):
                 "mail_shown": len(mailbox(root, seat["id"])),
             },
         )
+        if is_human(seat):
+            # The controller never speaks for a person. It stages the turn,
+            # keeps what the person is to read where a model's prompt would
+            # be, and waits for `speak`.
+            (record / "prompt.md").write_text(prompt)
+            value["rounds"][str(n)] = {"status": "awaiting", "error": None}
+            write(room.state_path(root, seat["id"]), value)
+            room.event(root, round=n, seat=seat["id"], event="awaiting")
+            return {**where, "kind": "human"}
         status = room.launch_turn(
             root,
             plan,
@@ -1343,18 +1469,10 @@ def deliver(root, plan, seat, n, t):
             {"kind": "files", "round": n, "turn": t, "seat": name, **changes},
         )
 
-    got = read(record / "receipt.json") if (record / "receipt.json").exists() else {}
     value = state(root, name)
     previous = value.get("context") or {}
-    context = drivers.context_now(
-        seat["config"]["harness"],
-        record,
-        got.get("native_transcripts") or [],
-        usage=got.get("usage"),
-        before=previous.get("marker"),
-        estimate=bool(seat.get("allowance")),
-    )
-    tokens = context["tokens"]
+    context = None if is_human(seat) else spent(record, seat, previous)
+    tokens = context and context["tokens"]
     if tokens is not None:
         first = not any(str(r) in value["rounds"] for r in range(1, n))
         if first or previous.get("tokens") is not None:
@@ -1400,6 +1518,102 @@ def deliver(root, plan, seat, n, t):
     write(record / "delivered.json", outcome)
     room.event(root, round=n, seat=name, event="delivered", **outcome)
     return outcome
+
+
+def spent(record, seat, previous):
+    """How full a model's context is after a turn, from what its harness said."""
+    got = read(record / "receipt.json") if (record / "receipt.json").exists() else {}
+    return drivers.context_now(
+        seat["config"]["harness"],
+        record,
+        got.get("native_transcripts") or [],
+        usage=got.get("usage"),
+        before=previous.get("marker"),
+        estimate=bool(seat.get("allowance")),
+    )
+
+
+def speak(root, seat, *, post=None, messages=(), passing=False):
+    """Deliver a person's turn: their post and messages, through the room's rules.
+
+    The limits a model's tool enforces are checked here before anything is
+    queued, and a refusal delivers nothing, so a person can shorten a post
+    rather than find it named as refused on the board. What passes goes into
+    the seat's outbox and out through the same delivery a model's turn takes,
+    which checks it again. Anything already queued in the outbox with
+    ``bin/room`` is kept: a post given here replaces a queued one, and
+    messages given here join the queued ones.
+    """
+    root, plan = load(root)
+    target = seat_by(plan, seat)
+    if not is_human(target):
+        raise ValueError(f"{target['name']} is a model; its turns are taken by run")
+    with lock(root / "room.lock"):
+        where = position(root, plan)
+        if where["kind"] != "human" or where["seat"] != target["id"]:
+            raise ValueError(
+                f"it is not {target['name']}'s turn; "
+                + _next_text(where, names(plan), root)
+            )
+        n, t = where["round"], where["turn"]
+        outbox = root / "seats" / target["id"] / "outbox"
+        folder = outbox / "messages"
+        if passing and post is not None:
+            raise ValueError("a pass posts nothing; give --post or --pass, not both")
+        if post is not None:
+            words = len(post.split())
+            if not words:
+                raise ValueError("that post is empty; nothing was delivered")
+            if words > plan["post_words"]:
+                raise ValueError(
+                    f"the post has {words} words and the board takes at most "
+                    f"{plan['post_words']}; nothing was delivered"
+                )
+        queued = sorted(folder.glob("*.json")) if folder.is_dir() else []
+        if len(queued) + len(messages) > plan["messages_per_turn"]:
+            raise ValueError(
+                f"a turn sends at most {plan['messages_per_turn']} messages and "
+                f"{len(queued) + len(messages)} were given; nothing was delivered"
+            )
+        letters = []
+        for to, text in messages:
+            text = text.strip()
+            who = (
+                SUPERVISOR
+                if to.strip().lstrip("@").lower() == SUPERVISOR
+                else seat_by(plan, to)["id"]
+            )
+            if who == target["id"]:
+                raise ValueError("a message to yourself; nothing was delivered")
+            if not text or len(text) > plan["message_chars"]:
+                raise ValueError(
+                    f"a message to {names(plan).get(who, 'the supervisor')} has "
+                    f"{len(text)} characters and the limit is "
+                    f"{plan['message_chars']}; nothing was delivered"
+                )
+            letters.append({"to": who, "text": text})
+        has_post = post is not None or (outbox / "post.md").is_file()
+        if passing and (outbox / "post.md").is_file():
+            raise ValueError("a post is queued in the outbox; remove it to pass")
+        if not (has_post or queued or letters or passing):
+            raise ValueError("nothing to deliver: give --post, --message or --pass")
+        outbox.mkdir(exist_ok=True)
+        if post is not None:
+            (outbox / "post.md").write_text(post.strip() + "\n")
+        if letters:
+            folder.mkdir(exist_ok=True)
+        number = len(queued)
+        for letter in letters:
+            number += 1
+            while list(folder.glob(f"{number:02d}-*")):
+                number += 1
+            write(folder / f"{number:02d}-to-{letter['to']}.json", letter)
+        value = state(root, target["id"])
+        value["rounds"][str(n)] = {"status": "answered", "error": None}
+        write(room.state_path(root, target["id"]), value)
+        room.event(root, round=n, seat=target["id"], event="spoke")
+        result = {**where, "kind": "turn", "outcome": deliver(root, plan, target, n, t)}
+    return result, attention(root, result)
 
 
 def continue_turn(root, *, timeout=None):
@@ -1479,29 +1693,37 @@ def run(root, *, to=None, timeout=None):
     taken = []
     while True:
         where = position(root, plan)
-        if where["kind"] in ("closed", "decision", "held", "spent"):
+        if where["kind"] in WAITS:
             return taken, where
         if to is not None and where["round"] > to:
             return taken, {"kind": "stopped", "round": where["round"]}
         result = run_turn(root, timeout=timeout)
         taken.append(result)
-        if result["kind"] in ("closed", "decision", "held", "spent"):
+        if result["kind"] in WAITS:
             return taken, result
-        n = result["round"]
-        if result["turn"] == len(result["order"]):
-            wrote = [m for m in mailbox(root, SUPERVISOR) if m["round"] == n]
-            failed = [
-                s
-                for s in result["order"]
-                if state(root, s)["rounds"][str(n)]["status"] != "answered"
-            ]
-            if wrote or failed:
-                return taken, {
-                    "kind": "attention",
-                    "round": n,
-                    "mail": len(wrote),
-                    "failed": failed,
-                }
+        stop = attention(root, result)
+        if stop:
+            return taken, stop
+
+
+def attention(root, result):
+    """Why the supervisor should look before the next round, if a round ended.
+
+    A seat wrote to the supervisor, or a turn failed. Only the turn that
+    closes its round asks, whether a model took it or a person spoke it.
+    """
+    n = result["round"]
+    if result["turn"] != len(result["order"]):
+        return None
+    wrote = [m for m in mailbox(root, SUPERVISOR) if m["round"] == n]
+    failed = [
+        s
+        for s in result["order"]
+        if state(root, s)["rounds"][str(n)]["status"] != "answered"
+    ]
+    if wrote or failed:
+        return {"kind": "attention", "round": n, "mail": len(wrote), "failed": failed}
+    return None
 
 
 # -- What the supervisor does ----------------------------------------------------
@@ -1661,16 +1883,18 @@ def status(root):
                 flags.append(
                     f"r{int(n):03d} refused: " + "; ".join(read(made)["refused"])
                 )
+        config = seat.get("config") or {}
         seats.append(
             {
                 "number": number,
                 "id": seat["id"],
                 "name": seat["name"],
-                "model": drivers.model_text(seat["config"]),
-                "selected": seat["config"]["model"],
+                "human": is_human(seat),
+                "model": drivers.model_text(config) if config else None,
+                "selected": config.get("model"),
                 "served": mine.get("model_served"),
-                "harness": seat["config"]["harness"],
-                "effort": seat["config"]["effort"],
+                "harness": config.get("harness"),
+                "effort": config.get("effort"),
                 "turns": len(turns),
                 "context": mine.get("context"),
                 "window": seat.get("window"),
@@ -1705,6 +1929,13 @@ def _next_text(where, labels, root):
         )
     if kind == "deliver":
         return f"next: deliver {labels[where['seat']]}'s round {where['round']} turn"
+    if kind == "human":
+        record = record_dir(root, where["seat"], where["round"]) / "prompt.md"
+        return (
+            f"waiting for {labels[where['seat']]}: round {where['round']}, turn "
+            f"{where['turn']}. What is new for them is in {shown(record)}; "
+            f"{command.format('speak')} {where['seat']} --post FILE"
+        )
     if kind == "held":
         return (
             f"held: {labels[where['seat']]}'s round {where['round']} turn hit a "
@@ -1768,12 +1999,21 @@ def render_status(value):
             if seat["served"] and seat["served"] != seat["selected"]
             else ""
         )
-        context = _occupancy(seat["context"], seat.get("allowance"), seat.get("window"))
-        lines.append(
-            f"  {seat['number']}. {seat['name']:<14} {seat['harness']}/{seat['model']}"
-            f"{served} {seat['effort']}  turns: {seat['turns']}"
-        )
-        lines.append(f"       {context}")
+        if seat["human"]:
+            lines.append(
+                f"  {seat['number']}. {seat['name']:<14} a person  "
+                f"turns: {seat['turns']}"
+            )
+        else:
+            lines.append(
+                f"  {seat['number']}. {seat['name']:<14} "
+                f"{seat['harness']}/{seat['model']}{served} {seat['effort']}  "
+                f"turns: {seat['turns']}"
+            )
+            context = _occupancy(
+                seat["context"], seat.get("allowance"), seat.get("window")
+            )
+            lines.append(f"       {context}")
         lines += [f"       ! {flag}" for flag in seat["flags"]]
         if seat.get("retired"):
             gone = seat["retired"]
@@ -1875,6 +2115,20 @@ def main(argv=None):
     mail = sub.add_parser("inbox", help="print the messages sent to the supervisor")
     mail.add_argument("root")
 
+    voice = sub.add_parser("speak", help="deliver a person's turn")
+    voice.add_argument("root")
+    voice.add_argument("seat")
+    voice.add_argument("--post", help="a file holding the post, or - for stdin")
+    voice.add_argument(
+        "--message",
+        nargs=2,
+        action="append",
+        default=[],
+        metavar=("NAME", "TEXT"),
+        help="a direct message; repeat for more",
+    )
+    voice.add_argument("--pass", dest="passing", action="store_true")
+
     say = sub.add_parser("announce", help="post to the board as the supervisor")
     say.add_argument("root")
     say.add_argument("text", help="the words, or - to read them from stdin")
@@ -1904,9 +2158,12 @@ def main(argv=None):
         value = prepare(args.plan, destination)
         print(f"prepared {len(value['seats'])} seats in {shown(destination)}")
         for seat in value["seats"]:
-            print(
-                f"  {seat['name']}: {seat['config']['harness']}/{seat['config']['model']}"
+            what = (
+                "a person"
+                if is_human(seat)
+                else f"{seat['config']['harness']}/{seat['config']['model']}"
             )
+            print(f"  {seat['name']}: {what}")
         return 0
     root = table_root(args.root)
     labels = names(load(root)[1])
@@ -1926,6 +2183,18 @@ def main(argv=None):
         print((root / "board" / "board.md").read_text(), end="")
     elif args.command == "inbox":
         print(inbox(root) or "No messages to the supervisor.")
+    elif args.command == "speak":
+        post = None
+        if args.post is not None:
+            post = sys.stdin.read() if args.post == "-" else Path(args.post).read_text()
+        result, stop = speak(
+            root,
+            args.seat,
+            post=post,
+            messages=[tuple(m) for m in args.message],
+            passing=args.passing,
+        )
+        _print_taken([result], stop or position(root, load(root)[1]), root, labels)
     elif args.command == "announce":
         announce(root, _text(args.text))
         print("posted to the board; the next seat to act reads it")

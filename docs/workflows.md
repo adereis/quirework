@@ -467,6 +467,31 @@ file's source digest and, inside a Git repository, the commit it was
 read against and whether the file matched that commit. A packet
 described as quoting the book at a commit can then be checked to.
 
+A person can take a seat as well:
+
+```json
+{"human": true, "name": "Morgan", "description": "a human, who wrote the brief."}
+```
+
+The roster describes the person in the plan's words and never as one
+more model, because a table whose roster lies about one seat is no
+evidence of how models work when told the truth. The standing
+assignment then names the collaboration as one between models and a
+person, says no one outranks another, and extends the checking norm to
+the person's posts. A model told that a user convened the room tends to
+defer to whoever sounds like that user, and agreement given to a person
+is agreement nobody tested.
+
+A person's seat has no model, window or budget, and its place in the
+order is drawn like any other. When its turn comes, `run` stops, and
+what a model would have been handed is kept as that turn's `prompt.md`
+in the seat's record. `speak TABLE SEAT --post FILE` delivers the turn,
+with up to the table's limit of `--message NAME TEXT`, or `--pass` for
+no post. The limits are checked before anything is queued, and a
+refused post delivers nothing, so it can be shortened rather than
+named as refused on the board. What the person changes in the seat's
+own `shared/` travels as a model's changes do.
+
 A seat speaks through `bin/room` in its workspace. `bin/room post` puts
 at most `post_words` words (200 by default) on the board, and posting
 again replaces the post. `bin/room message NAME TEXT` sends a colleague,

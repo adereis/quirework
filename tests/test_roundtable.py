@@ -701,6 +701,126 @@ def test_a_table_prepared_before_budgets_keeps_its_old_context_line(table):
     )
 
 
+# -- A person at the table -------------------------------------------------------
+
+
+@pytest.fixture
+def seated(plan, tmp_path):
+    """The same fictional table with a person at it, for four rounds."""
+    spec = read(plan)
+    spec["rounds"] = 4
+    spec["seats"].append(
+        {
+            "human": True,
+            "name": "Morgan",
+            "description": "a human, who wrote the brief about the cat.",
+        }
+    )
+    write(plan, spec)
+    roundtable.prepare(plan, tmp_path / "seated", resolve_models=False)
+    return tmp_path / "seated"
+
+
+def up_to_morgan(seated, seats):
+    """Take model turns until Morgan's first turn, each model posting once."""
+    for seat in order(seated, 1):
+        if seat != "morgan":
+            seats.script[(seat, 1)] = posts(f"{seat} was here.")
+    return roundtable.run(seated)
+
+
+def test_a_person_is_named_as_one_and_checked_like_anyone(seated):
+    _, plan = roundtable.load(seated)
+    morgan = roundtable.seat_by(plan, "Morgan")
+    assert morgan["human"] and "config" not in morgan and "allowance" not in morgan
+    start = " ".join((seated / "seats" / "luna" / "START.md").read_text().split())
+    assert "- Morgan: a human, who wrote the brief about the cat." in start
+    assert "collaboration between AI models and one person, Morgan" in start
+    assert "a person's work included" in start
+    assert "neither is agreement given because a person said so" in start
+    assert "No one here outranks another." in start
+    assert "a direct message to anyone at the table" in start
+    own = " ".join((seated / "seats" / "morgan" / "START.md").read_text().split())
+    assert "seated here as a person, not a model" in own
+    assert "- Morgan: a human, who wrote the brief about the cat. (you)" in own
+    assert "budget" not in own and "hung" not in own
+
+
+def test_the_room_stops_for_a_person_and_never_launches_one(seated, monkeypatch):
+    seats = Seats(monkeypatch)
+    taken, where = up_to_morgan(seated, seats)
+    assert where["kind"] == "human" and where["seat"] == "morgan"
+    assert all(p["seat"] != "morgan" for p in seats.prompts)
+    before = order(seated, 1)[: order(seated, 1).index("morgan")]
+    assert len(taken) == len(before) + 1
+    prompt = (seated / "records" / "morgan" / "r001" / "prompt.md").read_text()
+    for seat in before:
+        assert f"{seat} was here." in prompt
+    assert "quirework sop roundtable speak" in prompt
+    # Nothing moves until the person speaks.
+    assert roundtable.run(seated)[1]["kind"] == "human"
+    text = roundtable.render_status(roundtable.status(seated))
+    assert "waiting for Morgan: round 1" in text
+    assert "Morgan         a person" in text
+
+
+def test_a_persons_turn_goes_through_the_rooms_limits(seated, monkeypatch):
+    seats = Seats(monkeypatch)
+    up_to_morgan(seated, seats)
+    with pytest.raises(ValueError, match="301 words"):
+        roundtable.speak(seated, "Morgan", post=" ".join(["word"] * 301))
+    with pytest.raises(ValueError, match="yourself"):
+        roundtable.speak(seated, "Morgan", messages=[("morgan", "Hi.")])
+    with pytest.raises(ValueError, match="at most 3 messages"):
+        roundtable.speak(seated, "Morgan", messages=[("haiku", "Hi.")] * 4)
+    with pytest.raises(ValueError, match="nothing to deliver"):
+        roundtable.speak(seated, "Morgan")
+    with pytest.raises(ValueError, match="is a model"):
+        roundtable.speak(seated, "Haiku", post="Not mine to say.")
+    assert "Morgan (round 1" not in (seated / "board" / "board.md").read_text()
+
+    (seated / "seats" / "morgan" / "shared" / "names.md").write_text("Barnacle\n")
+    result, _ = roundtable.speak(
+        seated,
+        "morgan",
+        post="I propose Barnacle.",
+        messages=[("Haiku", "Why not Barnacle?")],
+    )
+    assert result["outcome"]["post"] and result["outcome"]["messages"] == ["haiku"]
+    board = (seated / "board" / "board.md").read_text()
+    assert "### Morgan (round 1, turn" in board and "I propose Barnacle." in board
+    assert "*Morgan added names.md in shared/.*" in board
+    assert roundtable.mailbox(seated, "haiku")[0]["from"] == "morgan"
+    # The table goes on, and the model that acts next hears the person.
+    first = order(seated, 1)
+    at = first.index("morgan")
+    after, n = (first[at + 1], 1) if at + 1 < len(first) else (order(seated, 2)[0], 2)
+    roundtable.run(seated, to=2)
+    assert "I propose Barnacle." in seats.prompt(after, n)
+
+
+def test_a_person_may_pass_and_may_not_speak_out_of_turn(seated, monkeypatch):
+    with pytest.raises(ValueError, match="not Morgan's turn"):
+        roundtable.speak(seated, "Morgan", post="Too early.")
+    seats = Seats(monkeypatch)
+    up_to_morgan(seated, seats)
+    result, _ = roundtable.speak(seated, "Morgan", passing=True)
+    assert result["outcome"]["post"] is False
+    assert "*No post. Morgan passed.*" in (seated / "board" / "board.md").read_text()
+
+
+def test_a_table_needs_a_model_and_a_person_needs_a_name(plan, tmp_path):
+    spec = read(plan)
+    spec["seats"] = [{"human": True, "name": "Morgan"}, {"human": True, "name": "Sam"}]
+    write(plan, spec)
+    with pytest.raises(ValueError, match="at least one model"):
+        roundtable.prepare(plan, tmp_path / "people", resolve_models=False)
+    spec["seats"] = [{"model": "haiku", "harness": "claude"}, {"human": True}]
+    write(plan, spec)
+    with pytest.raises(ValueError, match="needs the name"):
+        roundtable.prepare(plan, tmp_path / "nameless", resolve_models=False)
+
+
 # -- The packet ------------------------------------------------------------------
 
 NOTES = """\
