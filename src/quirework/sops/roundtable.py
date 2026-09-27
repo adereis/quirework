@@ -35,6 +35,7 @@ import os
 import random
 import re
 import shutil
+import subprocess
 import sys
 import textwrap
 import time
@@ -243,6 +244,76 @@ def extend_schedule(schedule, ids, seed, through):
     return schedule
 
 
+# -- The packet -----------------------------------------------------------------
+
+HEADING = re.compile(r"(#{1,6})[ \t]+(.*?)[ \t]*$")
+ANCHOR = re.compile(r"\{[^}]*#([\w:.-]+)[^}]*\}$")
+FENCE = re.compile(r"(`{3,}|~{3,})")
+
+
+def excerpt(text, anchors, source="the source"):
+    """The sections of a Markdown text named by their heading anchors, verbatim.
+
+    A section is its heading line and everything up to the next heading of
+    the same or a higher level, so its subsections come with it. Sections
+    are returned in the order asked for. Nothing is summarized or
+    reflowed: a packet that says it quotes the source quotes it. A heading
+    inside a code fence is text, not a boundary.
+    """
+    lines = text.splitlines(keepends=True)
+    heads, fence = [], None
+    for number, line in enumerate(lines):
+        stripped = line.strip()
+        opener = FENCE.match(stripped)
+        if fence:
+            # Only a bare run of the same character, at least as long, closes.
+            closes = opener and stripped == opener.group(1)
+            if closes and stripped[0] == fence[0] and len(stripped) >= len(fence):
+                fence = None
+            continue
+        if opener:
+            fence = opener.group(1)
+            continue
+        heading = HEADING.match(line.rstrip("\n"))
+        if heading:
+            anchor = ANCHOR.search(heading.group(2))
+            heads.append((number, len(heading.group(1)), anchor and anchor.group(1)))
+    found = {}
+    for i, (start, level, anchor) in enumerate(heads):
+        if anchor and anchor not in found:
+            stop = next((s for s, lv, _ in heads[i + 1 :] if lv <= level), len(lines))
+            found[anchor] = "".join(lines[start:stop]).rstrip() + "\n"
+    missing = [a for a in anchors if a not in found]
+    if missing:
+        raise ValueError(f"{shown(source)} has no section {', '.join(missing)}")
+    return "\n".join(found[a] for a in anchors)
+
+
+def git_state(path):
+    """The commit a packet file was read against, and whether it matched it.
+
+    ``None`` outside a repository. A file that is untracked or differs from
+    the commit is said so, since "verbatim from the book at this commit" is
+    then not what the packet holds.
+    """
+    path = Path(path)
+
+    def git(*args):
+        return subprocess.run(
+            ["git", "-C", str(path.parent), *args],
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+
+    head = git("rev-parse", "HEAD")
+    if head.returncode:
+        return None
+    tracked = not git("ls-files", "--error-unmatch", "--", path.name).returncode
+    same = tracked and not git("diff", "--quiet", "HEAD", "--", path.name).returncode
+    return {"commit": head.stdout.strip(), "tracked": tracked, "matches_commit": same}
+
+
 # -- Preparing a roundtable ---------------------------------------------------
 
 
@@ -326,10 +397,27 @@ def prepare(plan_path, destination, *, resolve_models=True):
                 f"{', '.join(repeated)} appears more than once"
             )
 
+    sources = []
+
     def staged(entry):
-        if "local_source" in entry:
-            return (plan_path.parent / entry["local_source"]).read_bytes()
-        return (source_root / entry["source"]).read_bytes()
+        path = (
+            plan_path.parent / entry["local_source"]
+            if "local_source" in entry
+            else source_root / entry["source"]
+        )
+        content = path.read_bytes()
+        if entry.get("sections"):
+            content = excerpt(content.decode(), entry["sections"], path).encode()
+        sources.append(
+            {
+                "path": entry["path"],
+                "source": str(path),
+                "sections": entry.get("sections"),
+                "source_sha256": digest(path),
+                "git": git_state(path),
+            }
+        )
+        return content
 
     packet = {}
     if supplied.get("brief"):
@@ -348,6 +436,7 @@ def prepare(plan_path, destination, *, resolve_models=True):
         **limits,
         seats=seats,
         source_root=str(source_root),
+        sources=sources,
         seed=supplied.get("seed", random.SystemRandom().randrange(2**31)),
         prepared_at=time.time(),
     )

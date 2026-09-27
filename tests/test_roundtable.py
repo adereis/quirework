@@ -699,3 +699,75 @@ def test_a_table_prepared_before_budgets_keeps_its_old_context_line(table):
     assert roundtable.budget_line(seat, value) == (
         "Your context holds about 6,000 of 200,000 tokens (3%)."
     )
+
+
+# -- The packet ------------------------------------------------------------------
+
+NOTES = """\
+# A book {#top}
+
+Opening.
+
+## One {#one}
+
+Alpha.
+
+### Under one {#under}
+
+Beta.
+
+```
+## Not a heading {#fenced}
+```
+
+## Two {#two}
+
+Gamma.
+"""
+
+
+def test_sections_are_excerpted_verbatim_by_anchor():
+    got = roundtable.excerpt(NOTES, ["two", "one"])
+    assert got == (
+        "## Two {#two}\n\nGamma.\n\n"
+        "## One {#one}\n\nAlpha.\n\n### Under one {#under}\n\nBeta.\n\n"
+        "```\n## Not a heading {#fenced}\n```\n"
+    )
+    assert roundtable.excerpt(NOTES, ["under"]).startswith("### Under one")
+    with pytest.raises(ValueError, match="no section fenced"):
+        roundtable.excerpt(NOTES, ["fenced"])
+
+
+def test_a_packet_names_the_commit_it_was_read_against(plan, tmp_path):
+    repo = tmp_path / "book"
+    repo.mkdir()
+    (repo / "notes.md").write_text(NOTES)
+
+    def git(*args):
+        subprocess.run(["git", "-C", str(repo), *args], check=True, capture_output=True)
+
+    git("init", "-q")
+    git("add", "notes.md")
+    git(
+        "-c",
+        "user.name=Test",
+        "-c",
+        "user.email=t@example.invalid",
+        "commit",
+        "-qm",
+        "x",
+    )
+    spec = read(plan)
+    spec["source_root"] = str(repo)
+    spec["shared_files"] = [
+        {"path": "spec/one.md", "source": "notes.md", "sections": ["one"]}
+    ]
+    write(plan, spec)
+    frozen = roundtable.prepare(plan, tmp_path / "packet", resolve_models=False)
+    staged = tmp_path / "packet" / "seats" / "haiku" / "input" / "spec" / "one.md"
+    assert staged.read_text() == roundtable.excerpt(NOTES, ["one"])
+    source = next(s for s in frozen["sources"] if s["path"] == "spec/one.md")
+    assert source["sections"] == ["one"] and len(source["source_sha256"]) == 64
+    assert source["git"]["tracked"] and source["git"]["matches_commit"]
+    (repo / "notes.md").write_text(NOTES + "\nAn edit.\n")
+    assert roundtable.git_state(repo / "notes.md")["matches_commit"] is False

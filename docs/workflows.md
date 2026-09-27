@@ -458,6 +458,15 @@ a seat may set `name` instead. A table seats each model once, because
 two seats called Opus would bring back the attribution confusion that
 real names remove.
 
+A shared file can be an excerpt. An entry with `"sections": ["slug",
+...]` takes the named sections of a Markdown file by their heading
+anchors, each with its subsections, verbatim and in the order given, so
+a table can read the three sections of a long specification that bear
+on its goal rather than all of it. The frozen plan records each packet
+file's source digest and, inside a Git repository, the commit it was
+read against and whether the file matched that commit. A packet
+described as quoting the book at a commit can then be checked to.
+
 A seat speaks through `bin/room` in its workspace. `bin/room post` puts
 at most `post_words` words (200 by default) on the board, and posting
 again replaces the post. `bin/room message NAME TEXT` sends a colleague,
