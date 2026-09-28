@@ -141,7 +141,7 @@ def words(s):
 def _prose(text):
     """A unit's text without what a reader never sees: its frontmatter, which
     is metadata, and its comments."""
-    from quirework.manuscript import frontmatter
+    from quirework.core import frontmatter
 
     found = frontmatter.block(text)
     if found:

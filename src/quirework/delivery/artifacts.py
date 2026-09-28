@@ -168,10 +168,10 @@ def stage(items, frozen, destination, virtual):
 
 @register("prose")
 def prose(source, directory):
-    from quirework.delivery.text import clean_qmd
+    from quirework.delivery.text import reader_markdown
 
     frozen = copy(source, directory / ("source" + source.suffix))
-    text, figures = clean_qmd(frozen.read_text())
+    text, figures = reader_markdown(frozen.read_text())
     for figure in figures:
         text = text.replace(
             f"![{figure['caption']}](../{figure['file']})",
@@ -184,18 +184,26 @@ def prose(source, directory):
 
 @register("prose-images")
 def prose_images(source, directory):
-    from quirework.delivery.text import clean_qmd
+    from quirework.delivery.text import reader_markdown
 
     # The figures travel as images, so their alt text would only restate
     # them in words, and a seat could rate a figure from that without ever
     # looking at it. Text-only `prose` keeps it: there the description is
     # the only account of the figure the seat gets.
     frozen = copy(source, directory / ("source" + source.suffix))
-    text, figures = clean_qmd(frozen.read_text(), alt=False)
+    text, figures = reader_markdown(frozen.read_text(), alt=False)
     dest = directory / "material.md"
     dest.write_text(text)
     result = [("text", dest)]
     for index, figure in enumerate(figures):
+        # A figure travels from beside the page that embeds it. A site-root
+        # path or a URL names something only the published site can find.
+        if "://" in figure["source"] or Path(figure["source"]).is_absolute():
+            raise ValueError(
+                f"{source.name}: figure {figure['source']} is not a file beside "
+                "the page, so it cannot be delivered as an image; deliver the "
+                "page as text, or its figures as their own materials"
+            )
         original = source.parent / figure["source"]
         transform = svg if original.suffix.lower() == ".svg" else image
         result += transform(original, directory / f"figure-{index:03d}")

@@ -11,7 +11,8 @@ import subprocess
 
 import pytest
 
-from quirework.manuscript import frontmatter, notes, trail, units
+from quirework.core import frontmatter
+from quirework.manuscript import notes, trail, units
 from quirework.project import ConfigurationError, Project, project_scope
 
 SPEC = """# What the kettle blog holds

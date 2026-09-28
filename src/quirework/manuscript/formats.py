@@ -20,7 +20,7 @@ import re
 from dataclasses import dataclass
 from pathlib import Path
 
-from quirework.manuscript import frontmatter
+from quirework.core import frontmatter
 from quirework.project import ConfigurationError, Project, current_project, extension
 
 # The formats Quirework ships, by module. Imported on first use, so a project

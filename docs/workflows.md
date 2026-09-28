@@ -195,6 +195,17 @@ images, rendered PDF pages, and native files. Delivery and exposure are
 separate choices. A native file receipt does not establish that its
 pages were inspected visually.
 
+Clean prose (`prose`, and `prose-images` with its figures) is the copy a
+reader of the rendered page would get, whether the source is a Quarto
+chapter or a site's post. Frontmatter goes, in either convention, since
+a draft flag or a summary the author wrote about the piece is not the
+piece. Comments go, and the marks with them. A figure is recognized as
+Pandoc writes it, as a plain Markdown image, or as Hugo's `figure`
+shortcode, and it needs alt text. Any other shortcode keeps the text it
+wraps and loses its tags. A figure given as a site-root path or a URL
+cannot travel as an image, and `prose-images` says so rather than
+sending the page without it.
+
 ## Prose workshops
 
 A prose workshop asks several independent writers to solve the same

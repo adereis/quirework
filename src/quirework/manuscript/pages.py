@@ -15,7 +15,8 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from quirework.manuscript import formats, frontmatter
+from quirework.core import frontmatter
+from quirework.manuscript import formats
 from quirework.manuscript.formats import SKIP_NAMES, SLUG_OK, Format, Unit
 from quirework.project import ConfigurationError, Project, current_project
 

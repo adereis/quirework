@@ -525,7 +525,9 @@ def prose_dir(out: Path) -> int:
         source = stage / row.rel
         # No alt text: the seat opens the figure files themselves, and a
         # description beside each embed let one rate plates it never opened.
-        text, refs = _text.clean_qmd(source.read_text(encoding="utf-8"), alt=False)
+        text, refs = _text.reader_markdown(
+            source.read_text(encoding="utf-8"), alt=False
+        )
         stem = Path(row.rel).stem
         (out / "chapters" / f"{i:02d}-{stem}.md").write_text(text, encoding="utf-8")
         for ref in refs:

@@ -34,7 +34,8 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import NamedTuple
 
-from quirework.manuscript import formats, frontmatter, units
+from quirework.core import frontmatter
+from quirework.manuscript import formats, units
 from quirework.project import current_project
 
 # <!-- @kind(args)  body --> , possibly multi-line.

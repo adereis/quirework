@@ -3,7 +3,8 @@
 A page opens with TOML between `+++` lines, which is Hugo's default, or YAML
 between `---` lines, which is what Quarto, Jekyll and most other generators
 write. The manuscript reads a few top-level scalars from it (`title`, `date`,
-`draft`) and never writes it.
+`draft`) and never writes it, and a reader copy made for delivery drops the
+block whole, since a reader of the rendered page never sees it.
 
 TOML is parsed with the standard library. YAML is not in it, and Quirework's
 core takes no third-party dependency, so YAML is read for top-level scalar
