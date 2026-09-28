@@ -245,8 +245,22 @@ def count_advisory(docs: Path | None = None) -> list[str]:
 
 
 def _print_registry() -> None:
+    from quirework.manuscript import lifecycle
+
     for row in formats.current().listing(registry()):
         print(row)
+    # The stages before a page exists: a spec with no page yet, and an idea no
+    # unit has taken up.
+    planned = lifecycle.planned()
+    if planned:
+        print(f"planned (a spec, no {noun()} yet):")
+        for slug, spec in planned:
+            print(f"  {slug:34} {formats.rel(spec)}")
+    ideas = lifecycle.open_ideas()
+    if ideas:
+        print(f"ideas (no {noun()} has taken them up):")
+        for idea in ideas:
+            print(f"  {idea.slug:34} {idea.rel}")
 
 
 def main(argv=None) -> int:
@@ -256,8 +270,9 @@ def main(argv=None) -> int:
         "site) in reading order, and the guards that keep every reference to "
         "one resolvable.",
         epilog="examples:\n"
-        "  quirework spec units            reading order: number or date, slug, title\n"
-        "  quirework spec units --check    units on disk agree; every @unit() resolves",
+        "  quirework spec units            reading order, then planned units and ideas\n"
+        "  quirework spec units --check    units on disk agree; every @unit() resolves;\n"
+        "                                  what published units still owe a reader",
         formatter_class=argparse.RawDescriptionHelpFormatter,
     )
     ap.add_argument(
@@ -293,6 +308,33 @@ def main(argv=None) -> int:
             file=sys.stderr,
         )
         for line in counts:
+            print(line, file=sys.stderr)
+
+    from quirework.manuscript import lifecycle
+
+    todos = lifecycle.open_todos()
+    if todos:
+        print(
+            f"\nadvisory ({len(todos)} open @todo on published {noun()}s; a "
+            f"reader cannot see what it is waiting on):",
+            file=sys.stderr,
+        )
+        for line in todos:
+            print(line, file=sys.stderr)
+    stale = lifecycle.unrevised()
+    if stale is None and lifecycle.published():
+        print(
+            f"\nnote: not a git repository, so no published {noun()} is checked "
+            f"against changes to its spec.",
+            file=sys.stderr,
+        )
+    elif stale:
+        print(
+            f"\nadvisory ({len(stale)} published {noun()}(s) whose spec changed "
+            f"after they were last dated):",
+            file=sys.stderr,
+        )
+        for line in stale:
             print(line, file=sys.stderr)
 
     if problems:

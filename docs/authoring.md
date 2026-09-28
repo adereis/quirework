@@ -719,7 +719,9 @@ terminology = "quirework/terms.toml"
 A post in a page bundle, `content/posts/why-the-lamp-turns/index.md`,
 is the unit `why-the-lamp-turns`. Its frontmatter, TOML or YAML, gives
 its title, its date, which orders the posts, and whether it is a draft.
-`quirework spec units` lists them.
+`quirework spec units` lists them, then each post specified but not yet
+drafted, then each idea in `manuscript.ideas` no post has taken up. An
+About page can be a unit too, once the site names its collections.
 
 The post's spec is `specs/why-the-lamp-turns/spec.md`, written like any
 spec: its reader, its thesis, its boundaries, each a section with an
@@ -739,6 +741,11 @@ so a mistyped slug does not hide among them.
 `spec notes --primer -c why-the-lamp-turns` is how a session starts on
 one post. It prints that post's spec, the shared sections it binds, and
 its marks, rather than every post's commitments.
+
+A published post is revised for years, and `spec units --check` keeps
+that honest. It names a published post with an open `@todo`, and one
+whose spec was revised after the post was last dated, until its
+`lastmod` records the revision.
 
 The trail works as it does for a book, over one register: breadcrumbs
 are kept by a section's full name, whichever file holds it. A post often begins

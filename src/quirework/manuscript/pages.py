@@ -1,10 +1,24 @@
 """The `pages` manuscript format: a site's Markdown pages.
 
 `manuscript.pages` is a glob under `manuscript.source`, the shape a static
-site generator such as Hugo reads. A page named `index.md` takes its slug from
-its directory (a page bundle), any other page from its stem. Order is the
-frontmatter `date`, and a page's `draft` flag is carried along. Pages carry no
-number.
+site generator such as Hugo reads, and the pages it matches are the units,
+oldest first. A site whose units are not all posts names collections instead,
+each a glob and an order:
+
+    [manuscript.collections.posts]
+    pages = "posts/*/index.md"
+    [manuscript.collections.pages]
+    pages = "*.md"
+    order = "title"
+
+Collections are read in the order declared, and a page two globs match
+belongs to the first. `order` is `date` (the default: oldest first, undated
+last), `weight` (the frontmatter weight, then title), `title` or `path`.
+
+A page named `index.md` takes its slug from its directory (a page bundle),
+any other page from its stem. A `_`-prefixed file is a list page or a partial,
+never a unit. A page's `title`, `date`, `lastmod`, `weight` and `draft` come
+from its frontmatter, in either convention. Pages carry no number.
 
 A page's marks live at `manuscript.marks`, a path pattern with `{slug}` in it,
 which should sit outside the rendered tree: anything inside it is the site
@@ -14,6 +28,7 @@ generator's to read, and marks are metadata a reader must never be served.
 from __future__ import annotations
 
 from pathlib import Path
+from typing import NamedTuple
 
 from quirework.core import frontmatter, globs
 from quirework.manuscript import formats
@@ -21,14 +36,54 @@ from quirework.manuscript.formats import SKIP_NAMES, SLUG_OK, Format, Unit
 from quirework.project import ConfigurationError, Project, current_project
 
 
-def _glob() -> str:
-    pattern = current_project().get("manuscript.pages")
-    if not pattern:
+class Collection(NamedTuple):
+    name: str | None  # None for the single, unnamed collection `pages` makes
+    pages: str  # a glob under the source
+    order: str
+
+
+ORDERS = {
+    "date": lambda u: (u.date is None, u.date or "", u.slug),
+    "weight": lambda u: (u.weight is None, u.weight or 0, u.title.lower(), u.slug),
+    "title": lambda u: (u.title.lower(), u.slug),
+    "path": lambda u: u.rel,
+}
+
+
+def collections(project: Project | None = None) -> list[Collection]:
+    """The collections of pages, in the order the project declares them."""
+    project = project or current_project()
+    declared = project.get("manuscript.collections")
+    single = project.get("manuscript.pages")
+    if declared and single:
         raise ConfigurationError(
-            "manuscript.format = 'pages' needs manuscript.pages, a glob under "
-            "manuscript.source such as 'posts/*/index.md'"
+            "manuscript.pages and manuscript.collections both name the pages; keep one"
         )
-    return pattern
+    if not declared:
+        if not single:
+            raise ConfigurationError(
+                "manuscript.format = 'pages' needs manuscript.pages, a glob under "
+                "manuscript.source such as 'posts/*/index.md', or "
+                "manuscript.collections"
+            )
+        return [Collection(None, single, "date")]
+    out = []
+    for name, table in declared.items():
+        where = f"manuscript.collections.{name}"
+        if not isinstance(table, dict) or not table.get("pages"):
+            raise ConfigurationError(f"{where} needs pages, a glob under the source")
+        unknown = set(table) - {"pages", "order"}
+        if unknown:
+            raise ConfigurationError(
+                f"{where}: unknown keys {', '.join(sorted(unknown))}"
+            )
+        order = table.get("order", "date")
+        if order not in ORDERS:
+            raise ConfigurationError(
+                f"{where}.order must be one of {', '.join(ORDERS)}, not {order!r}"
+            )
+        out.append(Collection(name, table["pages"], order))
+    return out
 
 
 def _marks() -> str | None:
@@ -36,7 +91,11 @@ def _marks() -> str | None:
     return formats.slug_pattern("manuscript.marks")
 
 
-def _page(path: Path, base: Path) -> Unit:
+def _weight(value) -> int | None:
+    return value if isinstance(value, int) and not isinstance(value, bool) else None
+
+
+def _page(path: Path, base: Path, collection: str | None) -> Unit:
     text = path.read_text(encoding="utf-8")
     try:
         meta = frontmatter.fields(text)
@@ -44,6 +103,9 @@ def _page(path: Path, base: Path) -> Unit:
         raise ValueError(f"{formats.rel(path)}: {exc}") from None
     title = frontmatter.as_text(meta.get("title")) or formats.h1(text)[0]
     slug = FORMAT.slug_of(path)
+    weight = meta.get("weight")
+    if isinstance(weight, str) and weight.lstrip("-").isdigit():
+        weight = int(weight)  # YAML is read as text
     return Unit(
         slug,
         str(path.relative_to(base)),
@@ -51,6 +113,19 @@ def _page(path: Path, base: Path) -> Unit:
         None,
         frontmatter.as_text(meta.get("date")),
         bool(meta.get("draft", False)),
+        frontmatter.as_text(
+            meta.get(current_project().get("manuscript.revision_field", "lastmod"))
+        ),
+        _weight(weight),
+        collection,
+    )
+
+
+def _is_page(path: Path) -> bool:
+    """A Hugo branch bundle's `_index.md` is a list page, and other
+    `_`-prefixed files are partials, so neither is a unit."""
+    return (
+        path.is_file() and not path.name.startswith("_") and path.name not in SKIP_NAMES
     )
 
 
@@ -61,14 +136,32 @@ class Pages(Format):
     def validate(self, project: Project) -> None:
         # A glob, not a path: it names the pages under the source, and matching
         # nothing is legitimate for a site with no posts yet.
-        _glob()
+        collections(project)
         _marks()
 
+    def _members(self, docs: Path) -> list[tuple[Collection, list[Path]]]:
+        """Each collection with its pages; a page two globs match is the
+        first one's."""
+        seen: set[Path] = set()
+        out = []
+        for collection in collections():
+            found = [
+                p
+                for p in sorted(docs.glob(collection.pages))
+                if _is_page(p) and p not in seen
+            ]
+            seen.update(found)
+            out.append((collection, found))
+        return out
+
     def registry(self, docs: Path) -> list[Unit]:
-        """Every page, oldest first; an undated page after the dated ones."""
+        """Every page, collection by collection, each in its own order."""
         base = formats.base(docs)
-        pages = [_page(p, base) for p in self.prose_files(docs)]
-        return sorted(pages, key=lambda u: (u.date is None, u.date or "", u.slug))
+        out: list[Unit] = []
+        for collection, paths in self._members(docs):
+            pages = [_page(p, base, collection.name) for p in paths]
+            out += sorted(pages, key=ORDERS[collection.order])
+        return out
 
     def order_problems(self, docs: Path) -> list[str]:
         """Two pages sharing a slug, or a slug no reference could name."""
@@ -91,14 +184,7 @@ class Pages(Format):
         return problems
 
     def prose_files(self, docs: Path) -> list[Path]:
-        """The pages under ``docs``. A Hugo branch bundle's `_index.md` is a
-        list page, and other `_`-prefixed files are partials, so neither is a
-        unit."""
-        return sorted(
-            p
-            for p in docs.glob(_glob())
-            if p.is_file() and not p.name.startswith("_") and p.name not in SKIP_NAMES
-        )
+        return sorted(p for _, paths in self._members(docs) for p in paths)
 
     def slug_of(self, path: Path) -> str:
         """A page bundle's `index.md` is named by its directory; a page file by
@@ -107,15 +193,15 @@ class Pages(Format):
         return path.parent.name if path.stem == "index" else path.stem
 
     def prose_token(self, token: str) -> str | None:
-        # Written as the pages glob names a page, from the source or from the
-        # project root: `posts/the-kettle/index.md`.
-        pattern = _glob()
+        # Written as a collection's glob names a page, from the source or from
+        # the project root: `posts/the-kettle/index.md`.
         source = formats.relative(current_project(), "manuscript.source")
-        shapes = [pattern] + (
-            [f"{source}/{pattern}"] if source not in (None, ".") else []
-        )
-        if any(globs.matches(token, shape) for shape in shapes):
-            return self.slug_of(Path(token))
+        for collection in collections():
+            shapes = [collection.pages]
+            if source not in (None, "."):
+                shapes.append(f"{source}/{collection.pages}")
+            if any(globs.matches(token, shape) for shape in shapes):
+                return self.slug_of(Path(token))
         return None
 
     def marks_path(self, slug: str, docs: Path) -> Path | None:
@@ -168,25 +254,31 @@ class Pages(Format):
         # the marks. Not the whole source: a site's source holds list pages,
         # taxonomies and whatever else the generator reads.
         source = formats.relative(project, "manuscript.source")
-        pattern = project.get("manuscript.pages")
         out: list[str] = []
-        if source is not None and pattern:
+        if source is not None:
             prefix = "" if source == "." else f"{source}/"
-            out.append(prefix + pattern)
-            head, _, name = pattern.rpartition("/")
-            if name == "index.md" and head:
-                out.append(f"{prefix}{head}/**")
+            for collection in collections(project):
+                out.append(prefix + collection.pages)
+                head, _, name = collection.pages.rpartition("/")
+                if name == "index.md" and head:
+                    out.append(f"{prefix}{head}/**")
         marks = project.get("manuscript.marks")
         if marks:
             out.append(str(marks).replace("{slug}", "*"))
         return tuple(out)
 
     def listing(self, units: list[Unit]) -> list[str]:
-        return [
-            f"  {u.date or '-':<25} {'draft' if u.draft else '     '}  "
-            f"{u.slug:34} {u.title}"
-            for u in units
-        ]
+        out: list[str] = []
+        named = len({u.collection for u in units}) > 1
+        width = max([34, *(len(u.slug) + 1 for u in units)])
+        current = object()
+        for u in units:
+            if named and u.collection != current:
+                current = u.collection
+                out.append(f"{u.collection}:")
+            state = "draft" if u.draft else "published"
+            out.append(f"  {u.date or '-':<25} {state:<9}  {u.slug:{width}} {u.title}")
+        return out
 
 
 FORMAT = Pages()

@@ -117,7 +117,26 @@ from its file stem. A file starting with `_`, such as a section's
 frontmatter between `+++` lines or YAML between `---` lines. Its `date`
 orders it, its `title` names it, and its `draft` flag is shown by
 `spec units`. YAML is read for top-level scalars only, which is all
-those three fields need.
+the fields Quirework reads need.
+
+A site whose units are not all posts names collections instead of one
+glob. An About page is then a unit beside the posts, with a spec and
+marks of its own:
+
+```toml
+[manuscript.collections.posts]
+pages = "posts/*/index.md"
+
+[manuscript.collections.pages]
+pages = "*.md"
+order = "title"
+```
+
+Collections are read in the order declared, and a page two globs match
+belongs to the first. `order` is `date`, the default, which lists the
+oldest first and the undated last; `weight`, the frontmatter weight,
+then the title; `title`; or `path`. `spec units` lists each collection
+under its name. A project declares `pages` or `collections`, not both.
 
 `marks` is where a page's sidecar lives, as a path pattern containing
 `{slug}`, relative to the project root. Put it outside the source. A
@@ -141,6 +160,30 @@ The class answers for its layout: the units in reading order, which
 files are prose, where a unit's marks live, and which unit a sidecar
 belongs to. The spec, marks, quotations and trail read the work only
 through it, so they need no change for a new layout.
+
+### Where each unit stands
+
+`spec units` lists more than the pages. A unit specified before it is
+drafted is listed as planned. With `manuscript.ideas`, a glob relative
+to the project root such as `"ideas/*/brief.md"`, each idea no unit has
+taken up is listed too. An idea is named like a unit, by its directory
+when the glob names a fixed file. It counts as taken up once a unit or a
+planned spec carries its name, or a mark or a spec names its path, which
+is what a post's `@genesis` does when it points at the brief it grew
+from.
+
+A published page owes its readers more than a draft does, so
+`spec units --check` adds two advisories for published pages. An open
+`@todo` on one is waiting on something a reader cannot see. A page
+whose own spec was revised after the page was last dated says something
+it no longer holds, until it is revised and its revision field records
+it. The field is `lastmod` unless `manuscript.revision_field` names
+another, such as `last_modified_at`. The second advisory reads the
+history, so it needs git, and it says so when there is none. Writing a
+spec for a post already published is not revising it: only a change
+after the spec exists counts, and a spec not yet tracked is never
+named. A book's chapters have no publication state of their own, so
+neither advisory applies to them.
 
 ### A spec per unit
 

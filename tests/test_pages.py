@@ -187,8 +187,10 @@ def test_a_reference_to_a_post_resolves_by_slug(site):
 def test_the_units_listing_marks_drafts(site, capsys):
     assert units.main([]) == 0
     out = capsys.readouterr().out
-    assert "draft  cooling-down" in out
-    assert "notes-on-a-kettle" in out
+    [cooling] = [line for line in out.splitlines() if "cooling-down" in line]
+    [kettle] = [line for line in out.splitlines() if "notes-on-a-kettle" in line]
+    assert " draft " in cooling
+    assert " published " in kettle
 
 
 def test_the_primer_reads_a_post_by_its_slug(site, capsys):

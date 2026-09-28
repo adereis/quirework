@@ -39,8 +39,11 @@ def run(project, command, *argv):
 def test_the_posts_are_listed_by_date_with_the_draft_marked(site, capsys):
     assert run(site, "spec units") == 0
     out = capsys.readouterr().out.splitlines()
-    assert "why-the-lamp-turns" in out[0]
-    assert "draft  what-the-fog-signal-is-for" in out[1]
+    assert "published" in out[0] and "why-the-lamp-turns" in out[0]
+    assert "draft" in out[1] and "what-the-fog-signal-is-for" in out[1]
+    # A post specified before it is drafted is listed as planned.
+    assert "planned (a spec, no post yet):" in out[2]
+    assert "a-keepers-first-winter" in out[3]
     assert run(site, "spec units", "--check") == 0
 
 

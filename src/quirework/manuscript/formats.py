@@ -45,7 +45,12 @@ class Unit:
     title: str  # the H1 or frontmatter title, which may drift from the slug
     number: int | None = None  # a printed chapter number, from position
     date: str | None = None  # a page's frontmatter date
-    draft: bool = False  # a page's frontmatter draft flag
+    # Whether a page is a draft. None where the format has no publication
+    # state, as a book's chapters have none of their own.
+    draft: bool | None = None
+    lastmod: str | None = None  # when a published page was last revised
+    weight: int | None = None  # a page's frontmatter weight, for ordering
+    collection: str | None = None  # the named collection a page belongs to
 
 
 class Format:
