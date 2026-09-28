@@ -121,12 +121,12 @@ def _options():
     CANONICAL_DIR = (
         current_project()
         .data("provenance.metrics_policy", {})
-        .get("canonical_dir", _configured_relative("book.chapters"))
+        .get("canonical_dir", _configured_relative("manuscript.chapters"))
     )
     ESSAY_PATHS = (
         current_project()
         .data("provenance.metrics_policy", {})
-        .get("essay_paths", [_configured_relative("book.source")])
+        .get("essay_paths", [_configured_relative("manuscript.source")])
     )
     return SimpleNamespace(
         CANONICAL_DIR=CANONICAL_DIR,

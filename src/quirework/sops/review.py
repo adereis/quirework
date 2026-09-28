@@ -93,8 +93,8 @@ def _options():
     )
     project = current_project()
     declared = [
-        project.get("book.source"),
-        *(project.get("book.companion_dirs", ()) or ()),
+        project.get("manuscript.source"),
+        *(project.get("manuscript.companion_dirs", ()) or ()),
     ]
     default_reviewable = []
     for value in declared:

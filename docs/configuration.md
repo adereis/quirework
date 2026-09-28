@@ -8,22 +8,24 @@ that declares them. Explicit absolute paths and home expansion are also
 supported.
 
 ```toml
-schema = 1
+schema = 2
 
 [project]
 name = "A Small Notebook"
 scratchpad = "scratchpad"
 private = "private"
 
-[book]
+[manuscript]
 source = "manuscript"
 quarto = "manuscript/_quarto.yml"
 chapters = "manuscript/sections"
+companion_dirs = ["companion"]
+noncanonical_roots = ["scratchpad"]
+
+[publish]
 figures = "manuscript/sections/illustrations"
 build = "build"
 variants = "variants"
-companion_dirs = ["companion"]
-noncanonical_roots = ["scratchpad"]
 
 [sops]
 root = "procedures"
@@ -34,20 +36,26 @@ panels = "panels"
 skill_prefix = "notebook-"
 ```
 
-`book.quarto` names the Quarto project file. Book settings can also name
-`spec`, `references`, `review_notes`, and `typst_template` when the
-project uses those features. `book.figure_fonts` lists font files that
+`[manuscript]` describes what is written: where the source is, how its
+units are found, and the spec, marks and trail that bind them.
+`[publish]` describes how that source becomes something a reader opens.
+A project that renders elsewhere declares no `[publish]` section, and its
+spec commands work the same.
+
+`manuscript.quarto` names the Quarto project file. The manuscript can
+also name `spec`, `references` and `review_notes`, and the publisher
+`typst_template`, when the project uses those features. `publish.figure_fonts` lists font files that
 every staged figure carries as subsets, so a figure shown as an image is
 lettered in the book's face on a device that lacks it; the [authoring
-guide](authoring.md#4-figures) explains it. `book.figure_type_floor_pt`
+guide](authoring.md#4-figures) explains it. `publish.figure_type_floor_pt`
 sets the printed size, in points, under which `figures --check` warns
 about a figure's type; it defaults to 6. Annotation bindings resolve
 against the configured semantic register; a book need not adopt another
 project's claims or vocabulary.
 
-`book.spec_trail` names the spec's trail sidecar, which points each spec
-section at the conversations that shaped it. It requires `book.spec`,
-and the file need not exist yet: the first `book trail add` creates it,
+`manuscript.spec_trail` names the spec's trail sidecar, which points each spec
+section at the conversations that shaped it. It requires `manuscript.spec`,
+and the file need not exist yet: the first `spec trail add` creates it,
 readable by its owner only. Put it with the private material, since it
 points into the private corpus, or in `quirework.local.toml` where the
 corpus lives somewhere else on each machine. Leaving it unset turns the
@@ -55,17 +63,17 @@ trail off: no command reads or writes one, and the primer shows no
 counts. The [authoring guide](authoring.md#the-specs-trail) says what a
 breadcrumb holds and when one is added.
 
-`book.spec_trail_leads` names the directory of the backfill ledger:
+`manuscript.spec_trail_leads` names the directory of the backfill ledger:
 what cheap readers flagged in each session, and what the ruling reader
-rejected. It requires `book.spec_trail`, and is created on first use.
+rejected. It requires `manuscript.spec_trail`, and is created on first use.
 Keep it with the private material, since its reasons paraphrase the
 corpus. The packets a backfill plan writes hold corpus text, so they go
 outside the checkout or under `build/`, like run records.
 
 `project.scratchpad` and `project.private` document the two non-publishing
-spaces. `book.noncanonical_roots` tells checks which working paths have no
-authority. `book.companion_dirs` names reader-facing documents outside the
-canon. `book.variants` names the root for derived editions.
+spaces. `manuscript.noncanonical_roots` tells checks which working paths have no
+authority. `manuscript.companion_dirs` names reader-facing documents outside the
+canon. `publish.variants` names the root for derived editions.
 
 `sops.root` names the procedure directory, so a project can call it
 `procedures` or anything else; discovery and reading both follow the
@@ -90,7 +98,7 @@ working directory.
 
 ```python
 from quirework.project import Project, project_scope
-from quirework.book.chapters import registry
+from quirework.manuscript.chapters import registry
 
 project = Project.load("/path/to/a/book")
 with project_scope(project):
@@ -153,14 +161,14 @@ harness's, not the model's, so a turn it follows reads as unanswered,
 and a blind cold-read never sees it as something the model said.
 
 A spec trail reads sessions only where provenance is enabled. There,
-`book trail add --find` also reads this project's live Claude Code and
+`spec trail add --find` also reads this project's live Claude Code and
 Codex transcripts, from the same locations capture sweeps, and never
 writes to them. That is how a turn in a conversation still going on is
 pointed at before the session is captured. Without provenance, a trail
 can still be kept by hand and read as pointers.
 
 `provenance.redpen` names the archive of red-pen rounds that
-`book redpen archive` writes: your marks on a rendered copy of the book,
+`publish redpen archive` writes: your marks on a rendered copy of the book,
 one file per round. Declared, each round also reads as a session of your
 turns, one per mark, named `redpen-` and its file name, so `show`, the
 trail and its backfill reach words you typed on the page as well as in a
@@ -280,11 +288,11 @@ Policy files are commented TOML data referenced by configuration.
 Existing JSON policy files remain readable. They keep project vocabulary
 and visual choices out of Quirework's implementation:
 
-- `book.chapter_policy`: `metadata_layers`. The metadata layers default to the sidecar
-  directories under `book.source`, so a project declares this only to
+- `manuscript.chapter_policy`: `metadata_layers`. The metadata layers default to the sidecar
+  directories under `manuscript.source`, so a project declares this only to
   scan something else.
-- `book.layout_policy`: `typst_prologues` and `typst_epilogues`.
-- `book.render_policy`: `print_drops` and `epub_style_headers` requiring
+- `publish.layout_policy`: `typst_prologues` and `typst_epilogues`.
+- `publish.render_policy`: `print_drops` and `epub_style_headers` requiring
   CSS-comment cleanup in staged EPUB headers.
 - `text.terminology`: `terms`, `retired`, `allow`, `scope_glob`, and
   `exclude_names`. A term warns and waits for the author's ruling; a
@@ -293,7 +301,7 @@ and visual choices out of Quirework's implementation:
 - `sops.persona_policy`: the optional `default` persona ID.
 - `sops.review_policy`: review frames, reviewable source paths, and
   `hidden`, the checkout paths a jailed reviewer must not read.
-- `book.variant_policy`: the selected model and optional assignment.
+- `publish.variant_policy`: the selected model and optional assignment.
 - `provenance.metrics_policy` and `provenance.coldread_policy`:
   historical source classifications, explicitly selected analysis
   models, and `output_counts`, which names each collection the metrics
@@ -301,9 +309,9 @@ and visual choices out of Quirework's implementation:
 
 Three settings describe a project's own placement, and all three default
 to describing nothing rather than to another project's directory names.
-`book.companion_dirs` names reader-facing collections beside the book,
-whose quotations and spec citations `book notes --check` then gates.
-`book.noncanonical_roots` names directories that hold working material
+`manuscript.companion_dirs` names reader-facing collections beside the book,
+whose quotations and spec citations `spec notes --check` then gates.
+`manuscript.noncanonical_roots` names directories that hold working material
 rather than authority, so a mark resting on one is reported.
 `runs.evidence_roots` names every directory holding saved run records.
 A project that keeps one needs only `runs.reviews`. Files inside a run
@@ -316,8 +324,8 @@ a function returning `sentence`, `column`, `trailing`, or `skip` for a
 source path; it receives an absolute path, and
 `quirework.text.mdwrap.project_relative` turns that into the path as the
 project names it, which is what a rule about location needs.
-`book.grayscale_transform` accepts SVG text and its asset name and
-returns transformed SVG text. `book.figure_checks` is a list of
+`publish.grayscale_transform` accepts SVG text and its asset name and
+returns transformed SVG text. `publish.figure_checks` is a list of
 functions returning diagnostic strings. Extensions belong to the
 consumer's package and must be installed explicitly.
 
@@ -377,3 +385,37 @@ mount matching one. They are deliberately separate from
 `project_markers`, which the blind canary matches against a seat's
 answer. A book about consciousness wants that word to fail a mount path
 and never to fail a verdict, and one list cannot do both.
+
+## From schema 1
+
+Schema 1 kept everything about the written work in one `[book]`
+section. Schema 2 splits it by job, and a schema-1 file is refused with
+a pointer here rather than read with guesses. Set `schema = 2`, then
+move each key to the section this table names. The key names do not
+change.
+
+| Schema 1 | Schema 2 |
+|---|---|
+| `book.source`, `book.chapters`, `book.quarto` | `manuscript.*` |
+| `book.spec`, `book.spec_trail`, `book.spec_trail_leads` | `manuscript.*` |
+| `book.references`, `book.review_notes` | `manuscript.*` |
+| `book.companion_dirs`, `book.noncanonical_roots`, `book.chapter_policy` | `manuscript.*` |
+| `book.build`, `book.figures`, `book.figure_fonts` | `publish.*` |
+| `book.figure_type_floor_pt`, `book.figure_checks` | `publish.*` |
+| `book.grayscale_transform`, `book.grayscale_policy` | `publish.*` |
+| `book.render_policy`, `book.layout_policy`, `book.typst_template` | `publish.*` |
+| `book.variants`, `book.variant_policy` | `publish.*` |
+
+The commands moved the same way:
+
+| Schema 1 | Schema 2 |
+|---|---|
+| `book notes`, `book trail`, `book quotes` | `spec notes`, `spec trail`, `spec quotes` |
+| `book chapters` | `spec units` |
+| `book build`, `book figures`, `book fonts`, `book epubcheck` | `publish build`, `publish figures`, `publish fonts`, `publish epubcheck` |
+| `book redpen`, `book packet`, `book variant` | `publish redpen`, `publish packet`, `publish variant` |
+| `book plan`, `book compare` | `publish plan`, `publish compare` |
+
+A project's own procedures, guides and generated skills name these
+commands too. Regenerate the skills with `quirework sop skills` after
+editing the procedures.

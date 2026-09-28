@@ -21,7 +21,8 @@ class Command:
 
 
 GROUPS = {
-    "book": "Build and inspect book artifacts",
+    "spec": "Read and check the spec, marks, quotations and trail",
+    "publish": "Render the manuscript and inspect its editions",
     "text": "Format and inspect writing",
     "provenance": "Capture, organize, and search source history",
     "sop": "Find procedures and operate supervised workflows",
@@ -30,39 +31,49 @@ GROUPS = {
     "usage": "Report which commands and procedures get used",
 }
 COMMANDS = {
-    ("book", "build"): Command("book.render", "Render the configured book", "book"),
-    ("book", "figures"): Command(
-        "book.figures", "Build and inspect figure galleries", "book"
+    ("spec", "notes"): Command(
+        "manuscript.notes", "Inspect annotations and bindings", "manuscript"
     ),
-    ("book", "chapters"): Command(
-        "book.chapters", "Inspect chapter order and references", "book"
+    ("spec", "trail"): Command(
+        "manuscript.trail",
+        "Point spec sections at the sessions that shaped them",
+        "manuscript",
     ),
-    ("book", "notes"): Command(
-        "book.notes", "Inspect annotations and bindings", "book"
+    ("spec", "quotes"): Command(
+        "manuscript.quotes", "Check quotations in annotations", "manuscript"
     ),
-    ("book", "quotes"): Command(
-        "book.quotes", "Check quotations in annotations", "book"
+    ("spec", "units"): Command(
+        "manuscript.chapters",
+        "List the units and check references to them",
+        "manuscript",
     ),
-    ("book", "trail"): Command(
-        "book.trail", "Point spec sections at the sessions that shaped them", "book"
+    ("publish", "build"): Command(
+        "publish.render", "Render the manuscript's editions", "publish"
     ),
-    ("book", "redpen"): Command(
-        "book.redpen", "Create and read review documents", "book"
+    ("publish", "figures"): Command(
+        "publish.figures", "Build and inspect figure galleries", "publish"
     ),
-    ("book", "packet"): Command(
-        "book.panelkit", "Prepare a rendered review packet", "book"
+    ("publish", "fonts"): Command(
+        "publish.fonts", "Inspect required typefaces", "publish"
     ),
-    ("book", "fonts"): Command("book.fonts", "Inspect required typefaces", "book"),
-    ("book", "epubcheck"): Command("book.epubcheck", "Validate an EPUB artifact"),
-    ("book", "variant"): Command(
-        "book.variant", "Prepare a configured derived edition", "book"
+    ("publish", "epubcheck"): Command("publish.epubcheck", "Validate an EPUB artifact"),
+    ("publish", "redpen"): Command(
+        "publish.redpen", "Create and read review documents", "publish"
     ),
-    ("book", "plan"): Command("book.plans", "Compile book artifacts into run plans"),
+    ("publish", "packet"): Command(
+        "publish.panelkit", "Prepare a rendered review packet", "publish"
+    ),
+    ("publish", "variant"): Command(
+        "publish.variant", "Prepare a configured derived edition", "publish"
+    ),
+    ("publish", "plan"): Command(
+        "publish.plans", "Compile rendered artifacts into run plans"
+    ),
+    ("publish", "compare"): Command(
+        "publish.experiment", "Prepare and operate chapter comparisons", "publish"
+    ),
     ("sop", "panel"): Command(
         "sops.composition", "Compile declared panels into run plans"
-    ),
-    ("book", "compare"): Command(
-        "book.experiment", "Prepare and operate chapter comparisons", "book"
     ),
     ("text", "wrap"): Command("text.mdwrap", "Wrap Markdown or check its formatting"),
     ("text", "check"): Command("text.jargon", "Inspect configured terminology"),
@@ -150,7 +161,7 @@ def _parser(group=None):
         lines = ["Work with:"]
         lines += [
             f"  {name:12} {GROUPS[name]}"
-            for name in ("book", "text", "provenance", "sop")
+            for name in ("spec", "publish", "text", "provenance", "sop")
         ]
         lines += ["", "Maintain:"]
         lines += [f"  {name:12} {GROUPS[name]}" for name in ("dev", "config", "usage")]
@@ -277,8 +288,10 @@ def main(argv=None):
             if selected.command == "check":
                 if project.get("provenance.enabled", False):
                     project.require("provenance")
-                if project.get("book"):
-                    project.require("book")
+                if project.get("manuscript"):
+                    project.require("manuscript")
+                if project.get("publish"):
+                    project.require("publish")
                 if project.get("usage.store") is not None:
                     # Resolve it here, where somebody is asking, instead of
                     # letting a typo surface as a warning on every command.

@@ -1,8 +1,8 @@
-"""`book figures inventory`: who uses a shared glyph, counted rather than kept."""
+"""`publish figures inventory`: who uses a shared glyph, counted rather than kept."""
 
 import pytest
 
-from quirework.book import figures
+from quirework.publish import figures
 from quirework.project import Project, project_scope
 
 SVG = '<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink">{}</svg>'
@@ -31,11 +31,13 @@ def gallery(tmp_path):
     )
     (plates / "spare.svg").write_text(SVG.format('<use href="#steam"/>'))
     settings = {
-        "book": {
+        "manuscript": {
             "source": "manuscript",
             "chapters": "manuscript",
+        },
+        "publish": {
             "figures": "manuscript/illustrations",
-        }
+        },
     }
     with project_scope(Project.from_settings(tmp_path, settings)):
         yield plates

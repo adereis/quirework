@@ -8,7 +8,7 @@ project -- a test suite does, and so does any caller that opens a second book
 one's chapter names, silently and in the author-facing output.
 """
 
-from quirework.book import redpen
+from quirework.publish import redpen
 from quirework.project import Project, project_scope
 
 
@@ -20,11 +20,11 @@ def _book(root, slug, title):
     return Project.from_settings(
         root,
         {
-            "book": {
+            "manuscript": {
                 "source": "docs",
                 "chapters": "docs/canon",
                 "quarto": "docs/_quarto.yml",
-            }
+            },
         },
     )
 

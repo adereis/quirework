@@ -8,10 +8,10 @@ dependencies = []
 
 [project.optional-dependencies]
 capture = ["websocket-client>=1.6"]
-book = ["quarto-cli>=1.5", "pypdf>=4", "fonttools[woff]>=4.40"]
+quarto = ["quarto-cli>=1.5", "pypdf>=4", "fonttools[woff]>=4.40"]
 semantic = ["numpy>=1.24", "fastembed>=0.4"]
 test = ["pytest>=8"]
-dev = ["quirework[capture,book,semantic,test]"]
+dev = ["quirework[capture,quarto,semantic,test]"]
 
 [project.scripts]
 quirework = "quirework.cli:main"

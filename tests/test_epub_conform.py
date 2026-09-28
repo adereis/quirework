@@ -3,7 +3,7 @@
 Both defects these repair are invisible in a reader and were found only by the
 validator. That cuts the other way too: **EPUBCheck cannot police the repair.**
 A transform that deleted a figure outright would leave a perfectly valid book,
-and a passing `quirework book epubcheck` would report it as clean. So the tests
+and a passing `quirework publish epubcheck` would report it as clean. So the tests
 that matter here are the ones asserting what must SURVIVE -- the image, its
 own alt text, the face declarations -- and not merely that the invalid markup
 went away.
@@ -12,7 +12,7 @@ went away.
 import re
 import zipfile
 
-from quirework.book import bookstage as b
+from quirework.publish import bookstage as b
 
 FIGURE = (
     '<div id="fig-x" class="quarto-float" alt="A described figure.">\n'

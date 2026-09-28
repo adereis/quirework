@@ -4,15 +4,15 @@ The book is refined by red-penning a rendered copy in Google Docs, then applying
 the marks into the canonical `.qmd` (canon stays the source of truth). This module
 is the mechanical layer for both ends of that loop:
 
-    quirework book redpen build [--chapter STEM] [--gray]   # book (or a chapter) -> .docx
-    quirework book redpen read  REVIEWED.docx      # extract marks, map them to source
-    quirework book redpen notes REVIEWED.docx      # dump each block verbatim, by chapter
-    quirework book redpen archive REVIEWED.docx --out ARTIFACT.md   # the durable record
+    quirework publish redpen build [--chapter STEM] [--gray]   # book (or a chapter) -> .docx
+    quirework publish redpen read  REVIEWED.docx      # extract marks, map them to source
+    quirework publish redpen notes REVIEWED.docx      # dump each block verbatim, by chapter
+    quirework publish redpen archive REVIEWED.docx --out ARTIFACT.md   # the durable record
 
 ``--gray`` doubles every figure in the built copy: beneath each color figure it
 appends the **generated grayscale twin** the EPUB and print editions ship (see
 ``graybuild``), under the one caption, so the author can catch a gray gone muddy
-(the one failure ``quirework book figures --check`` cannot see: it checks the transform
+(the one failure ``quirework publish figures --check`` cannot see: it checks the transform
 is clean, not that the result still reads). The color embed is left byte-for-byte
 intact -- same caption, number, and ``#fig-`` cross-reference -- and the twin is a
 bare, unnumbered image there to look at, not to comment onto; a gray fix goes to
@@ -26,7 +26,7 @@ the human-readable authorial layers — ``@guidance`` (how it should read),
 ``@genesis`` (where it came from: why this subject, the inspiration behind it),
 and ``@variant`` (what a derived edition does differently here). The bodyless
 ``@bind`` relationship and the ``@todo`` working state are deliberately
-kept *out* of the block (harvested with ``quirework book notes``, for the agent, not
+kept *out* of the block (harvested with ``quirework spec notes``, for the agent, not
 the review copy). There are three flavors:
 
 * **per-chapter** — each chapter's own ``@guidance`` / ``@genesis`` /
@@ -36,7 +36,7 @@ the review copy). There are three flavors:
   to the three block kinds appear, so the list can never name a note the document
   did not print (see ``_see_pointers``);
 * **book-wide** — a single block at the very top of the document, built from
-  ``book.review_notes`` (a never-rendered HTML-comment manifest of
+  ``manuscript.review_notes`` (a never-rendered HTML-comment manifest of
   notes that apply across the whole book). A whole-book note is written once
   there and *referred to* where it bites via ``@see(slug)`` marks, never repeated
   verbatim in every chapter.
@@ -58,7 +58,7 @@ each located back to a source line:
   body and are not read here (they can only be recovered by a noisy diff);
 * **review-notes edits** — tracked changes made *inside* a review-notes block,
   grouped by the block they belong to (a chapter or ``«book-wide»`` routed to
-  ``book.review_notes``), to be folded back into that section's
+  ``manuscript.review_notes``), to be folded back into that section's
   ``@guidance`` / ``@genesis`` / ``@variant`` metadata rather than into prose;
 * **review-notes free edits** — the review-notes block is *generated* from source,
   so a block edited in **plain mode** (not Suggesting) is still recoverable: its
@@ -96,13 +96,13 @@ from functools import lru_cache
 from pathlib import Path
 
 from quirework.project import current_project
-from quirework.book import bookstage as _bookstage
-from quirework.book import figures as _figures
-from quirework.book import notes as _notes
-from quirework.book.bookstage import cap_docx_image_widths
-from quirework.book.bookstage import copy_gallery
-from quirework.book.bookstage import flatten_book_parts
-from quirework.book.bookstage import unnumber_h1
+from quirework.publish import bookstage as _bookstage
+from quirework.publish import figures as _figures
+from quirework.manuscript import notes as _notes
+from quirework.publish.bookstage import cap_docx_image_widths
+from quirework.publish.bookstage import copy_gallery
+from quirework.publish.bookstage import flatten_book_parts
+from quirework.publish.bookstage import unnumber_h1
 
 
 # where review copies are collected
@@ -120,15 +120,15 @@ def _settings():
     """Resolve paths from the current operation, without import-time state."""
     from types import SimpleNamespace
 
-    CANONICAL = current_project().path("book.chapters")
-    SOURCE = current_project().path("book.source")
+    CANONICAL = current_project().path("manuscript.chapters")
+    SOURCE = current_project().path("manuscript.source")
     REVIEW_NOTES = (
-        current_project().path("book.review_notes")
-        if current_project().get("book.review_notes") is not None
+        current_project().path("manuscript.review_notes")
+        if current_project().get("manuscript.review_notes") is not None
         else None
     )
-    BUILD_REDPEN = current_project().path("book.build", "build") / "redpen"
-    STAGE_REDPEN = current_project().path("book.build", "build") / "redpen-stage"
+    BUILD_REDPEN = current_project().path("publish.build", "build") / "redpen"
+    STAGE_REDPEN = current_project().path("publish.build", "build") / "redpen-stage"
     return SimpleNamespace(
         BUILD_REDPEN=BUILD_REDPEN,
         CANONICAL=CANONICAL,
@@ -318,7 +318,7 @@ def render_book_notes_block(
 
 @lru_cache(maxsize=8)
 def _chapter_titles_at(root: Path) -> dict[str, str]:
-    from quirework.book.chapters import registry
+    from quirework.manuscript.chapters import registry
 
     return {c.slug: c.title for c in registry()}
 
@@ -416,7 +416,7 @@ def _see_pointers(annos, by_slug: dict) -> list[str]:
 
     **A pointer inherits its target's audience.** A @see at a non-block note,
     normally @todo, is agent cross-referencing and is dropped here: it stays
-    harvested by `quirework book notes` but never reaches the review copy. The same
+    harvested by `quirework spec notes` but never reaches the review copy. The same
     filter prevents a malformed binding note from leaking through a pointer."""
     out = []
     for a in annos:
@@ -1157,7 +1157,7 @@ def format_review(rev: Review) -> str:
         out.append(
             f"\n### REVIEW-NOTES EDITS ({len(rev.notes_edits)}) "
             f"-> fold into @guidance / @genesis / @variant metadata, not prose "
-            f"({BOOK_NOTES_LABEL} -> configured book.review_notes)"
+            f"({BOOK_NOTES_LABEL} -> configured manuscript.review_notes)"
         )
         for owner, red in rev.notes_edits:
             out.append(f"\n[{owner}]\n  {red}")
@@ -1178,7 +1178,7 @@ def _newest_docx(root: Path) -> Path | None:
 # `redpen build --gray` appends, under every color figure, the *generated* gray
 # rendering the EPUB and print editions actually ship (see graybuild). The author
 # reads the two under the one caption and catches a gray that has gone muddy or
-# lost a distinction the color carried -- the one failure `quirework book figures
+# lost a distinction the color carried -- the one failure `quirework publish figures
 # --check` cannot see (it verifies the transform is clean, not that the result
 # still reads). The color embed line is left byte-for-byte intact (same caption,
 # number, `#fig-` anchor), so every `@fig-NAME` cross-reference still resolves;
@@ -1273,7 +1273,7 @@ def _build_chapter(
 
 
 def build(chapter: str | None, out_dir: Path, gray: bool = False) -> int:
-    from quirework.book import render as _render
+    from quirework.publish import render as _render
 
     quarto = _render.find_quarto()
     if not quarto:
@@ -1341,7 +1341,7 @@ def build(chapter: str | None, out_dir: Path, gray: bool = False) -> int:
         shown = dest
     print(f"redpen: review copy -> {shown}")
     print("upload it to Google Docs; use Suggesting mode for edits, then:")
-    print("  quirework book redpen read <downloaded>.docx")
+    print("  quirework publish redpen read <downloaded>.docx")
     return 0
 
 
@@ -1524,12 +1524,12 @@ def archive(
     ]
 
     parts = ["\n".join(head)]
-    parts.append("## MARKS  (`quirework book redpen read`)\n")
+    parts.append("## MARKS  (`quirework publish redpen read`)\n")
     parts.append(format_review(rev))
     diffs = format_note_content_diffs(rev.notes_content, source)
     if diffs:
         parts.append(diffs)
-    parts.append("\n## REVIEW-NOTES, VERBATIM  (`quirework book redpen notes`)\n")
+    parts.append("\n## REVIEW-NOTES, VERBATIM  (`quirework publish redpen notes`)\n")
     parts.append(format_notes(sections) or "(no review-notes blocks in this round)")
 
     out.parent.mkdir(parents=True, exist_ok=True)
@@ -1553,7 +1553,7 @@ def archive(
 
 def main(argv=None) -> int:
     ap = argparse.ArgumentParser(
-        prog="quirework book redpen",
+        prog="quirework publish redpen",
         description="Red-pen review loop: build a reviewable .docx, read the marks back.",
     )
     sub = ap.add_subparsers(dest="cmd")
@@ -1576,7 +1576,9 @@ def main(argv=None) -> int:
     )
     r.add_argument("docx", help="the reviewed .docx downloaded from Google Docs")
     r.add_argument(
-        "--source", default=None, help="source .qmd or dir (default: book.chapters)"
+        "--source",
+        default=None,
+        help="source .qmd or dir (default: manuscript.chapters)",
     )
     r.add_argument(
         "--out",
@@ -1605,7 +1607,7 @@ def main(argv=None) -> int:
     a.add_argument(
         "--source",
         default=None,
-        help="canon of that round (a worktree at its SHA); default: book.chapters",
+        help="canon of that round (a worktree at its SHA); default: manuscript.chapters",
     )
     a.add_argument("--canon-sha", default=None, help="SHA to record in the header")
     a.add_argument(

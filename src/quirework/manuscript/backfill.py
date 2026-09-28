@@ -22,7 +22,7 @@ This module owns what sits between the two readers:
 A flag is a lead and never a breadcrumb; a breadcrumb is written with
 ``trail add``. Only the ruling reader drops a candidate, and it records why.
 
-The ledger lives where ``book.spec_trail_leads`` puts it. It is as private as
+The ledger lives where ``manuscript.spec_trail_leads`` puts it. It is as private as
 the trail, and more so: a reader's reasons paraphrase the author's turns.
 """
 
@@ -40,7 +40,7 @@ from dataclasses import dataclass, field
 from datetime import date, datetime, timezone
 from pathlib import Path
 
-from quirework.book import notes, trail
+from quirework.manuscript import notes, trail
 from quirework.project import ConfigurationError, current_project
 
 # Bump when a packet shows a reader something materially different, so the
@@ -133,7 +133,7 @@ _FOLD = str.maketrans(
 
 
 def _folded(text):
-    """Text as a red-pen round and the book compare: plain punctuation, one space.
+    """Text as a red-pen round and `publish compare` see it: plain punctuation, one space.
 
     A round folds a dash to one hyphen, where the source may spell it "--".
     """
@@ -165,7 +165,9 @@ def _round_book(path):
     if not found:
         return None, None
     project = current_project()
-    held = _book_at(str(project.root), str(project.path("book.source")), found.group(1))
+    held = _book_at(
+        str(project.root), str(project.path("manuscript.source")), found.group(1)
+    )
     return found.group(1), held
 
 
@@ -238,14 +240,14 @@ def ledger():
     project = current_project()
     if not trail.configured():
         raise ConfigurationError(
-            "a backfill ledger belongs to a spec trail: set book.spec_trail first"
+            "a backfill ledger belongs to a spec trail: set manuscript.spec_trail first"
         )
-    if project.get("book.spec_trail_leads") is None:
+    if project.get("manuscript.spec_trail_leads") is None:
         raise ConfigurationError(
-            "this project keeps no backfill ledger: set book.spec_trail_leads in "
+            "this project keeps no backfill ledger: set manuscript.spec_trail_leads in "
             "quirework.toml to the directory that should hold it"
         )
-    return project.path("book.spec_trail_leads")
+    return project.path("manuscript.spec_trail_leads")
 
 
 def _write_private(path, text):
@@ -554,7 +556,7 @@ def plan(
     )
     project = current_project()
     if out.is_relative_to(project.root) and not out.is_relative_to(
-        project.path("book.build", "build")
+        project.path("publish.build", "build")
     ):
         raise ValueError(
             "packets hold private corpus text: write them outside the checkout, "
@@ -758,7 +760,7 @@ def plan_lines(done):
         "next:",
         f"  quirework sop runs prepare {done['plan']} {record}",
         f"  quirework sop runs start {record}",
-        f"  quirework book trail backfill import {record}",
+        f"  quirework spec trail backfill import {record}",
     ]
     return lines
 
@@ -1449,14 +1451,14 @@ def _worklist_lines(slug, *, commits, everything, utc, also=(), read=False):
             f"leads, not breadcrumbs: read each turn before ruling on it."
         ),
         (
-            f"  keep:   quirework book trail add {slug} --kind KIND "
+            f"  keep:   quirework spec trail add {slug} --kind KIND "
             f'--session ID --turn N --note "…"'
         ),
         (
-            f"  reject: quirework book trail backfill reject {slug} "
+            f"  reject: quirework spec trail backfill reject {slug} "
             f'--session ID --turn N --reason "…"'
         ),
-        f"  many:   quirework book trail backfill rule {slug} FILE",
+        f"  many:   quirework spec trail backfill rule {slug} FILE",
     ]
     if also:
         lines.append(
@@ -1589,25 +1591,25 @@ USAGE = """\
 backfilling a trail from the corpus, in three steps:
 
   1. hand every session to a cheap reader, once:
-     quirework book trail backfill plan --harness H --model M --effort E [--out DIR]
+     quirework spec trail backfill plan --harness H --model M --effort E [--out DIR]
      then the prepare, start and import commands it prints; import holds a
      seat whose receipt carries a red flag its plan did not accept
   2. rule on one section at a time, with a strong reader:
-     quirework book trail backfill SLUG          the section's candidates, oldest first
+     quirework spec trail backfill SLUG          the section's candidates, oldest first
          --also OTHER                            with the turns readers flagged for
                                                  a neighbouring section instead
          --read                                  each turn whole, with the end of
                                                  the reply it answered
-     quirework book trail add SLUG ...           keep one as a breadcrumb
-     quirework book trail backfill reject SLUG --session ID --turn N --reason TEXT
-     quirework book trail backfill rule SLUG FILE
+     quirework spec trail add SLUG ...           keep one as a breadcrumb
+     quirework spec trail backfill reject SLUG --session ID --turn N --reason TEXT
+     quirework spec trail backfill rule SLUG FILE
                                                  keep and reject many at once, from
                                                  JSON lines; all or nothing
   3. see how far it has come:
-     quirework book trail backfill status
+     quirework spec trail backfill status
 
-  quirework book trail backfill packet ID...   what a reader is handed
-  quirework book trail backfill menu           the sections a reader names
+  quirework spec trail backfill packet ID...   what a reader is handed
+  quirework spec trail backfill menu           the sections a reader names
 """
 
 
@@ -1627,7 +1629,7 @@ def main(argv):
             print(menu(), end="")
             return 0
         if command == "plan":
-            ap = argparse.ArgumentParser(prog="quirework book trail backfill plan")
+            ap = argparse.ArgumentParser(prog="quirework spec trail backfill plan")
             ap.add_argument(
                 "--out",
                 help="a new directory for packets (default: RUN/packets in a "
@@ -1692,7 +1694,7 @@ def main(argv):
             print("\n".join(plan_lines(done)))
             return 0
         if command == "import":
-            ap = argparse.ArgumentParser(prog="quirework book trail backfill import")
+            ap = argparse.ArgumentParser(prog="quirework spec trail backfill import")
             ap.add_argument("record")
             ap.add_argument(
                 "--accept",
@@ -1707,7 +1709,7 @@ def main(argv):
             print("\n".join(import_lines(report)))
             return 1 if any(row["held"] for row in report) else 0
         if command == "reject":
-            ap = argparse.ArgumentParser(prog="quirework book trail backfill reject")
+            ap = argparse.ArgumentParser(prog="quirework spec trail backfill reject")
             ap.add_argument("slug")
             ap.add_argument("--session", required=True, metavar="ID")
             ap.add_argument("--turn", required=True, type=int, metavar="N")
@@ -1718,7 +1720,7 @@ def main(argv):
             return 0
         if command == "rule":
             ap = argparse.ArgumentParser(
-                prog="quirework book trail backfill rule",
+                prog="quirework spec trail backfill rule",
                 description="Keep and reject a section's candidates from a file of "
                 'JSON lines: {"keep": KIND, "session": ID, "turn": N, "note": '
                 '"…"} or {"reject": REASON, "session": ID, "turn": N}. Every '
@@ -1739,7 +1741,7 @@ def main(argv):
         if command == "status":
             print("\n".join(status()))
             return 0
-        ap = argparse.ArgumentParser(prog="quirework book trail backfill")
+        ap = argparse.ArgumentParser(prog="quirework spec trail backfill")
         ap.add_argument("slug")
         ap.add_argument("--all", action="store_true", help="include ruled candidates")
         ap.add_argument(

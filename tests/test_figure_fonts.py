@@ -1,4 +1,4 @@
-"""`book.figure_fonts`: a staged figure carries the faces it letters in."""
+"""`publish.figure_fonts`: a staged figure carries the faces it letters in."""
 
 import base64
 import io
@@ -13,7 +13,7 @@ from fontTools.fontBuilder import FontBuilder  # noqa: E402
 from fontTools.pens.ttGlyphPen import TTGlyphPen  # noqa: E402
 from fontTools.ttLib import TTFont  # noqa: E402
 
-from quirework.book import figfonts, figures  # noqa: E402
+from quirework.publish import figfonts, figures  # noqa: E402
 from quirework.project import Project, project_scope  # noqa: E402
 
 SVG = (
@@ -69,16 +69,15 @@ def book(tmp_path):
         SVG.format('<text x="1" y="20">tide</text><text font-weight="700">sea</text>')
     )
     settings = {
-        "book": {
-            "source": "manuscript",
-            "chapters": "manuscript",
+        "manuscript": {"source": "manuscript", "chapters": "manuscript"},
+        "publish": {
             "figures": "manuscript/illustrations",
             "figure_fonts": [
                 "fonts/Tidewater-Regular.ttf",
                 "fonts/Tidewater-Bold.ttf",
                 "fonts/Tidewater-Italic.ttf",
             ],
-        }
+        },
     }
     figfonts._describe.cache_clear()
     with project_scope(Project.from_settings(tmp_path, settings)):
@@ -146,11 +145,13 @@ def test_unset_means_a_plain_copy(tmp_path):
     source = SVG.format("<text>tide</text>")
     (plates / "tide.svg").write_text(source)
     settings = {
-        "book": {
+        "manuscript": {
             "source": "manuscript",
             "chapters": "manuscript",
+        },
+        "publish": {
             "figures": "manuscript/illustrations",
-        }
+        },
     }
     with project_scope(Project.from_settings(tmp_path, settings)):
         assert figures.build(stage=tmp_path / "stage") == 0

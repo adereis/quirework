@@ -12,7 +12,7 @@ import subprocess
 
 import pytest
 
-from quirework.book import notes, trail
+from quirework.manuscript import notes, trail
 from quirework.project import ConfigurationError, Project, project_scope
 from quirework.text import mdwrap
 
@@ -85,7 +85,7 @@ def _book(tmp_path, *, provenance=True, trail_file="private/spec-trail.md", **ex
     }
     if trail_file:
         book["spec_trail"] = trail_file
-    settings = {"book": book, **extra}
+    settings = {"manuscript": book, **extra}
     corpus = root / "private" / "corpus"
     _session(corpus / "cc-sessions", SESSION, MORNING)
     if provenance:
@@ -111,7 +111,7 @@ def book(tmp_path, monkeypatch):
 
 
 def _text(project):
-    return project.path("book.spec_trail").read_text(encoding="utf-8")
+    return project.path("manuscript.spec_trail").read_text(encoding="utf-8")
 
 
 # --------------------------------------------------------------------------- #
@@ -215,12 +215,12 @@ def test_a_reflowed_breadcrumb_reads_back_the_same(book):
         "  speed as the difference.\n\n"
         "  > A route,\n  not a speed.\n"
     )
-    parsed = trail.parse(squeezed, book.path("book.spec_trail"))
+    parsed = trail.parse(squeezed, book.path("manuscript.spec_trail"))
     assert parsed.problems == []
     (crumb,) = parsed.sections[0].crumbs
     assert crumb.note == "Refuses speed as the difference."
     assert crumb.excerpt == "A route, not a speed."
-    again = trail.parse(trail.dump(parsed), book.path("book.spec_trail"))
+    again = trail.parse(trail.dump(parsed), book.path("manuscript.spec_trail"))
     assert again.sections[0].crumbs[0].note == crumb.note
 
 
@@ -237,7 +237,7 @@ def test_a_reflowed_breadcrumb_reads_back_the_same(book):
 )
 def test_a_breadcrumb_that_cannot_be_read_is_reported(book, item, trouble):
     text = f"## A kettle signals without thinking {{#kettle-signal}}\n\n{item}\n"
-    parsed = trail.parse(text, book.path("book.spec_trail"))
+    parsed = trail.parse(text, book.path("manuscript.spec_trail"))
     assert len(parsed.problems) == 1 and trouble in parsed.problems[0]
 
 
@@ -247,7 +247,7 @@ def test_prose_the_writer_would_drop_is_refused_rather_than_lost(book):
         "A paragraph somebody wrote by hand.\n\n"
         "<!-- a comment in a section -->\n"
     )
-    parsed = trail.parse(text, book.path("book.spec_trail"))
+    parsed = trail.parse(text, book.path("manuscript.spec_trail"))
     assert len(parsed.problems) == 2
     _write(book, text)
     with pytest.raises(LookupError, match="problems to fix before it is rewritten"):
@@ -258,14 +258,14 @@ def test_prose_the_writer_would_drop_is_refused_rather_than_lost(book):
 # the gates
 # --------------------------------------------------------------------------- #
 def _write(project, body):
-    path = project.path("book.spec_trail")
+    path = project.path("manuscript.spec_trail")
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(body)
 
 
 def test_a_renamed_section_breaks_the_trail_in_notes_check(book, capsys):
     trail.add("kettle-signal", "seed", session=SESSION, turn=1)
-    spec = book.path("book.spec")
+    spec = book.path("manuscript.spec")
     spec.write_text(SPEC.replace("{#kettle-signal}", "{#whistle-signal}"))
     notes_rc = notes.check()
     err = capsys.readouterr().err
@@ -359,11 +359,11 @@ def test_a_trail_is_kept_by_hand_and_read_as_pointers_without_provenance(tmp_pat
 
 def test_a_trail_without_a_spec_is_a_configuration_error(tmp_path):
     project = _book(tmp_path)
-    book = {k: v for k, v in project.describe()["settings"]["book"].items()}
+    book = {k: v for k, v in project.describe()["settings"]["manuscript"].items()}
     del book["spec"]
-    broken = Project.from_settings(project.root, {"book": book})
+    broken = Project.from_settings(project.root, {"manuscript": book})
     with pytest.raises(ConfigurationError, match="follows the spec's sections"):
-        broken.require("book")
+        broken.require("manuscript")
 
 
 def test_leaving_the_setting_out_turns_the_feature_off(tmp_path, capsys):
@@ -462,7 +462,7 @@ def test_suggest_follows_a_sections_commits_to_their_sessions(book):
     _git(root, "init", "-q")
     _git(root, "add", "manuscript")
     _git(root, "commit", "-q", "-m", "Draft the notebook's spec")
-    spec = book.path("book.spec")
+    spec = book.path("manuscript.spec")
     spec.write_text(SPEC.replace("cools by another.", "cools by another route."))
     message = (
         "Say cooling is a route of its own\n\n"
@@ -506,7 +506,7 @@ def _history(book, message, committing):
     _git(root, "init", "-q")
     _git(root, "add", "manuscript")
     _git(root, "commit", "-q", "-m", "Draft the notebook's spec")
-    spec = book.path("book.spec")
+    spec = book.path("manuscript.spec")
     spec.write_text(SPEC.replace("cools by another.", "cools by another route."))
     _git(root, "commit", "-q", "-am", message)
     _session(book.path("provenance.root") / "cc-sessions", SESSION, committing)
@@ -597,7 +597,7 @@ def test_breadcrumbs_checked_together_are_written_together_or_not_at_all(book):
     again, _ = trail.prepare("cooling-asymmetry", "sharpen", session=SESSION, turn=2)
     with pytest.raises(LookupError, match="already on"):
         trail.append("cooling-asymmetry", [first, again])
-    assert not book.path("book.spec_trail").exists(), "nothing half-written"
+    assert not book.path("manuscript.spec_trail").exists(), "nothing half-written"
     third, _ = trail.prepare("cooling-asymmetry", "correct", session=SESSION, turn=3)
     trail.append("cooling-asymmetry", [first, third])
     assert trail.counts() == {"cooling-asymmetry": 2}

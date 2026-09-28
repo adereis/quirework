@@ -13,8 +13,8 @@ import sys
 from dataclasses import dataclass
 from pathlib import Path
 
-from quirework.book import bookstage as _bookstage
-from quirework.book import notes as _notes
+from quirework.publish import bookstage as _bookstage
+from quirework.manuscript import notes as _notes
 from quirework.project import current_project
 
 # A chapter reference in the metadata layer. `@x(y)` is the repo's one pointer
@@ -42,7 +42,7 @@ def _default_layers() -> tuple[str, ...]:
     than silently matching nothing. Either way ``chapter_policy`` overrides it.
     """
     project = current_project()
-    source = project.path("book.source")
+    source = project.path("manuscript.source")
     try:
         relative = source.relative_to(project.root)
     except ValueError:
@@ -55,11 +55,11 @@ def _options():
     from types import SimpleNamespace
 
     configured = (
-        current_project().data("book.chapter_policy", {}).get("metadata_layers")
+        current_project().data("manuscript.chapter_policy", {}).get("metadata_layers")
     )
     # The default is derived only when nothing is declared. Computing it either
     # way would make a project that names its own layers fail for want of a
-    # `book.source` the answer never used.
+    # `manuscript.source` the answer never used.
     layers = tuple(configured) if configured is not None else _default_layers()
     return SimpleNamespace(METADATA_LAYERS=layers)
 
@@ -108,7 +108,9 @@ def registry(docs: Path | None = None) -> list[Chapter]:
     the live book's current content -- and that is precisely how two of its
     tests came to assert a part divider that had since been dissolved.
     """
-    docs = Path(docs) if docs is not None else current_project().path("book.source")
+    docs = (
+        Path(docs) if docs is not None else current_project().path("manuscript.source")
+    )
     root = docs.parent
     dividers = _part_dividers(docs)
     out: list[Chapter] = []
@@ -142,7 +144,9 @@ def bijection_problems(docs: Path | None = None) -> list[str]:
     only remaining way to orphan a chapter: rename the file, forget the config.
     `bookstage.book_chapters` raises on a shape it cannot parse but never asks
     whether the files it names exist, and nothing asked the reverse."""
-    docs = Path(docs) if docs is not None else current_project().path("book.source")
+    docs = (
+        Path(docs) if docs is not None else current_project().path("manuscript.source")
+    )
     cfg = docs / _bookstage.BOOK_CONFIG
     if not cfg.exists():
         return []
@@ -218,7 +222,9 @@ def count_advisory(docs: Path | None = None) -> list[str]:
     grep does not catch counts, and an insert or a cut re-counts every site.
     Advisory, because de-numbering the sentence is an equally good fix and that
     is an author call."""
-    docs = Path(docs) if docs is not None else current_project().path("book.source")
+    docs = (
+        Path(docs) if docs is not None else current_project().path("manuscript.source")
+    )
     words = {
         1: "one",
         2: "two",
@@ -267,12 +273,12 @@ def count_advisory(docs: Path | None = None) -> list[str]:
 
 def main(argv=None) -> int:
     ap = argparse.ArgumentParser(
-        prog="quirework book chapters",
+        prog="quirework spec units",
         description="The chapter registry: reading order, and the guards that "
         "keep every reference to a chapter resolvable.",
         epilog="examples:\n"
-        "  quirework book chapters            reading order (printed no., slug, title)\n"
-        "  quirework book chapters --check    every @ch() resolves",
+        "  quirework spec units            reading order (printed no., slug, title)\n"
+        "  quirework spec units --check    every @ch() resolves",
         formatter_class=argparse.RawDescriptionHelpFormatter,
     )
     ap.add_argument(

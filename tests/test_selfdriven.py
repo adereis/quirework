@@ -4,7 +4,7 @@ import json
 
 import pytest
 
-from quirework.book.plans import selfdriven
+from quirework.publish.plans import selfdriven
 from quirework.project import Project, project_scope
 
 INSTRUMENT = {
@@ -22,7 +22,7 @@ INSTRUMENT = {
 
 @pytest.fixture
 def book(tmp_path):
-    """The shape `book packet --prose-dir` writes: named figures, numbered chapters."""
+    """The shape `publish packet --prose-dir` writes: named figures, numbered chapters."""
     root = tmp_path / "project"
     (root / "questions").mkdir(parents=True)
     (root / "questions" / "reader-selfdriven.json").write_text(json.dumps(INSTRUMENT))
@@ -138,7 +138,7 @@ def test_a_mount_that_reveals_the_project_is_refused(book, tmp_path, where):
 def test_an_empty_directory_names_the_command_that_fills_it(book, tmp_path):
     empty = tmp_path / ".read" / "empty"
     (empty / "chapters").mkdir(parents=True)
-    with pytest.raises(ValueError, match="book packet --prose-dir"):
+    with pytest.raises(ValueError, match="publish packet --prose-dir"):
         selfdriven(
             empty,
             tmp_path / "plan.json",
@@ -232,7 +232,7 @@ def test_a_preset_can_name_the_asks_when_the_instrument_declares_no_sequence(
 
 
 def with_manifest(source, **fields):
-    from quirework.book.panelkit import manifest_path
+    from quirework.publish.panelkit import manifest_path
     from quirework.runs.storage import tree_digest
 
     record = dict(source_sha="abc1234", dirty=False, digest=tree_digest(source))

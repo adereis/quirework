@@ -1,10 +1,10 @@
-"""`book notes` as a command: `--check --since REF` and the `relations` alias."""
+"""`spec notes` as a command: `--check --since REF` and the `relations` alias."""
 
 import subprocess
 
 import pytest
 
-from quirework.book import notes
+from quirework.manuscript import notes
 from quirework.project import Project, project_scope
 
 SPEC = """# What the notebook holds
@@ -53,12 +53,12 @@ def book(tmp_path, monkeypatch):
         "A kettle book",
     )
     settings = {
-        "book": {
+        "manuscript": {
             "source": "manuscript",
             "chapters": "manuscript/sections",
             "quarto": "manuscript/_quarto.yml",
             "spec": "manuscript/sections/_spec.md",
-        }
+        },
     }
     with project_scope(Project.from_settings(root, settings)):
         yield sections

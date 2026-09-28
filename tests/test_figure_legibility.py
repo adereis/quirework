@@ -1,8 +1,8 @@
-"""`book.figure_type_floor_pt`: the printed size under which figure type is reported."""
+"""`publish.figure_type_floor_pt`: the printed size under which figure type is reported."""
 
 import pytest
 
-from quirework.book import figures
+from quirework.publish import figures
 from quirework.project import Project, project_scope
 
 # A 6in page with 1in inside and 0.85in outside margins leaves a 4.15in text
@@ -31,13 +31,12 @@ def _book(tmp_path, **book):
     (plates / "tide.svg").write_text(PLATE)
     (tmp_path / "page.typ").write_text(TEMPLATE)
     settings = {
-        "book": {
-            "source": "manuscript",
-            "chapters": "manuscript",
+        "manuscript": {"source": "manuscript", "chapters": "manuscript"},
+        "publish": {
             "figures": "manuscript/illustrations",
             "typst_template": "page.typ",
             **book,
-        }
+        },
     }
     return Project.from_settings(tmp_path, settings)
 

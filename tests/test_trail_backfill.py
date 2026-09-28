@@ -12,7 +12,7 @@ from pathlib import Path
 
 import pytest
 
-from quirework.book import backfill, trail
+from quirework.manuscript import backfill, trail
 from quirework.project import ConfigurationError, Project, project_scope
 from quirework.runs import engine
 from quirework.runs.storage import hashes, write
@@ -89,7 +89,7 @@ def _book(tmp_path, *, leads="private/spec-trail-leads"):
     return Project.from_settings(
         root,
         {
-            "book": book,
+            "manuscript": book,
             "provenance": {
                 "enabled": True,
                 "root": "private/corpus",
@@ -335,7 +335,9 @@ def test_a_finished_session_is_recorded_as_read_with_its_checked_flags(book, tmp
     report = _read(tmp_path, ["```jsonl\n" + ANSWER + "```\n"])
     assert report[0]["read"] == 1 and len(report[0]["dropped"]) == 2
     assert report[0]["unread"] == [EVENING], "no done line, so not read"
-    [path] = (book.path("book.spec_trail_leads") / "reads" / MORNING).glob("*.json")
+    [path] = (book.path("manuscript.spec_trail_leads") / "reads" / MORNING).glob(
+        "*.json"
+    )
     read = json.loads(path.read_text())
     assert read["model"] == "claude-sonnet-5" and read["requested"] == "sonnet"
     first, third = read["candidates"]
@@ -354,8 +356,10 @@ def test_a_seat_with_an_unexpected_red_flag_is_held_and_records_nothing(book, tm
     report = _read(tmp_path, [ANSWER], flags=["Compaction occurred: review it."])
     assert report[0]["held"] == ["Compaction occurred: review it."]
     assert report[0]["read"] == 0
-    assert not (book.path("book.spec_trail_leads") / "reads").exists() or not list(
-        (book.path("book.spec_trail_leads") / "reads").rglob("*.json")
+    assert not (
+        book.path("manuscript.spec_trail_leads") / "reads"
+    ).exists() or not list(
+        (book.path("manuscript.spec_trail_leads") / "reads").rglob("*.json")
     )
     assert "HELD" in "\n".join(backfill.import_lines(report))
 
@@ -417,7 +421,7 @@ def test_the_pass_summary_carries_the_numbers_a_ledger_commit_reports():
 def test_a_done_line_keeps_the_readers_account_of_the_session(book, tmp_path):
     about = {"session": MORNING, "done": True, "about": "  Shaping the kettle  "}
     _read(tmp_path, [_lines(about, {"session": EVENING, "done": True})])
-    leads = book.path("book.spec_trail_leads") / "reads"
+    leads = book.path("manuscript.spec_trail_leads") / "reads"
     [morning] = (leads / MORNING).glob("*.json")
     [evening] = (leads / EVENING).glob("*.json")
     assert json.loads(morning.read_text())["about"] == "Shaping the kettle"
@@ -430,7 +434,7 @@ def test_the_instructions_ask_for_an_account_of_each_session():
 
 def test_a_new_section_does_not_send_the_corpus_out_again(book, tmp_path):
     _read(tmp_path, [ANSWER])
-    spec = book.path("book.spec")
+    spec = book.path("manuscript.spec")
     spec.write_text(
         SPEC + "\n## Steam is not smoke {#steam-not-smoke}\n\nIt is water.\n"
     )
@@ -598,7 +602,7 @@ def test_a_sections_rulings_apply_from_a_file_all_or_none(book, tmp_path):
     with pytest.raises(LookupError, match="nothing was written") as caught:
         backfill.rule("kettle-signal", bad)
     assert "line 3" in str(caught.value)
-    assert not book.path("book.spec_trail").exists()
+    assert not book.path("manuscript.spec_trail").exists()
     assert backfill.rejections("kettle-signal") == []
     kept, dropped = backfill.rule("kettle-signal", ["# a comment", *good])
     assert [t.number for t in kept] == [1] and [t.number for t in dropped] == [2]
@@ -676,12 +680,12 @@ def test_a_ledger_needs_a_trail_and_says_when_it_is_not_configured(tmp_path):
     with project_scope(project):
         with pytest.raises(ConfigurationError, match="keeps no backfill ledger"):
             backfill.ledger()
-    book = dict(project.describe()["settings"]["book"])
+    book = dict(project.describe()["settings"]["manuscript"])
     del book["spec_trail"]
     book["spec_trail_leads"] = "private/leads"
-    broken = Project.from_settings(project.root, {"book": book})
+    broken = Project.from_settings(project.root, {"manuscript": book})
     with pytest.raises(ConfigurationError, match="keeps leads for a spec trail"):
-        broken.require("book")
+        broken.require("manuscript")
 
 
 def test_a_red_pen_packet_leaves_out_lines_the_book_already_held(tmp_path, monkeypatch):

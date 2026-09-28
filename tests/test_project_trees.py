@@ -44,7 +44,7 @@ def _remove_worktree(main, checkout):
 
 
 def _book(root):
-    return Project.from_settings(root, {"book": {"source": "manuscript"}})
+    return Project.from_settings(root, {"manuscript": {"source": "manuscript"}})
 
 
 def _session(path, cwd, *edited):

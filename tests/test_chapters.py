@@ -6,7 +6,7 @@ author the metadata is consistent. Every case below therefore asserts the set
 of files found, never just the absence of complaints.
 """
 
-from quirework.book import chapters
+from quirework.manuscript import chapters
 from quirework.project import Project, project_scope
 
 
@@ -20,7 +20,7 @@ def _book(tmp_path, source):
 
 
 def _project(root, **book):
-    return Project.from_settings(root, {"book": book})
+    return Project.from_settings(root, {"manuscript": book})
 
 
 def test_sidecars_are_found_under_a_source_not_named_docs(tmp_path):
@@ -67,7 +67,7 @@ def test_a_declared_policy_still_wins(tmp_path):
 
 
 def test_a_declared_policy_needs_no_book_source(tmp_path):
-    """The default glob is derived from `book.source`, and a project that
+    """The default glob is derived from `manuscript.source`, and a project that
     declares its own layers never uses it. Computing it anyway made the
     declared answer depend on a setting it does not read, so a tool-only
     project asking which layers to scan failed instead of being told."""

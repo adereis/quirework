@@ -46,8 +46,8 @@ from dataclasses import dataclass, field
 from pathlib import Path
 
 from quirework.project import current_project
-from quirework.book import bookstage as _bookstage
-from quirework.book import render as _render
+from quirework.publish import bookstage as _bookstage
+from quirework.publish import render as _render
 from quirework.delivery import text as _text
 
 # the kit output tree (git-ignored)
@@ -58,8 +58,8 @@ def _settings():
     """Resolve paths from the current operation, without import-time state."""
     from types import SimpleNamespace
 
-    BUILD_KIT = current_project().path("book.build", "build") / "panel-kit"
-    STAGE_KIT = current_project().path("book.build", "build") / "panel-stage"
+    BUILD_KIT = current_project().path("publish.build", "build") / "panel-kit"
+    STAGE_KIT = current_project().path("publish.build", "build") / "panel-stage"
     return SimpleNamespace(BUILD_KIT=BUILD_KIT, STAGE_KIT=STAGE_KIT)
 
 
@@ -249,7 +249,7 @@ def _source_sha() -> tuple[str, bool]:
         return "unknown", False
     # The packet records whether the book had uncommitted edits, so the status
     # query must name the configured source tree.
-    source = current_project().path("book.source")
+    source = current_project().path("manuscript.source")
     try:
         named = source.relative_to(current_project().root)
     except ValueError:
@@ -609,7 +609,7 @@ def _shown(path: Path) -> Path:
 
 def main(argv=None) -> int:
     ap = argparse.ArgumentParser(
-        prog="quirework book packet",
+        prog="quirework publish packet",
         description="Build airgap-ready panel artifacts (whole book + one PDF per "
         "reading segment, sliced from it, + manifest).",
     )

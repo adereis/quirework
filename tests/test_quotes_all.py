@@ -1,8 +1,8 @@
-"""`book quotes --all`: the coverage the default scan trades for precision."""
+"""`spec quotes --all`: the coverage the default scan trades for precision."""
 
 import pytest
 
-from quirework.book import quotes
+from quirework.manuscript import quotes
 from quirework.project import Project, project_scope
 
 CHAPTER = """\
@@ -32,7 +32,7 @@ def book(tmp_path):
     (source / "fuse.qmd").write_text(CHAPTER)
     (source / "_marks" / "fuse.md").write_text(MARKS)
     with project_scope(
-        Project.from_settings(tmp_path, {"book": {"source": "manuscript"}})
+        Project.from_settings(tmp_path, {"manuscript": {"source": "manuscript"}})
     ):
         yield source
 

@@ -6,7 +6,7 @@ The configured figure directory holds the tracked SVG sources. At build time,
 this module copies embedded figures into the corresponding staged directory so
 relative embeds resolve there.
 
-Commands (``quirework book figures …``):
+Commands (``quirework publish figures …``):
 
     build            materialize the embedded figures into the build stage;
                      regenerates a matplotlib chart export from its sibling .py
@@ -33,7 +33,7 @@ Commands (``quirework book figures …``):
 
 Build/check are stdlib-only (copy + parse); only ``png`` and the chart
 regeneration shell out (rsvg-convert / running the chart's .py), and only then.
-A project that sets ``book.figure_fonts`` also needs fontTools for both, because
+A project that sets ``publish.figure_fonts`` also needs fontTools for both, because
 each staged figure then carries subsets of those faces (see ``figfonts``).
 """
 
@@ -47,7 +47,7 @@ import sys
 import xml.etree.ElementTree as ET
 from pathlib import Path
 
-from quirework.book import figfonts as _figfonts
+from quirework.publish import figfonts as _figfonts
 from quirework.project import current_project
 
 
@@ -98,15 +98,15 @@ def _settings():
     """Resolve paths from the current operation, without import-time state."""
     from types import SimpleNamespace
 
-    CANONICAL = current_project().path("book.chapters")
-    ILLUSTRATIONS = current_project().path("book.figures")
-    BUILD_BOOK = current_project().path("book.build", "build") / "book"
+    CANONICAL = current_project().path("manuscript.chapters")
+    ILLUSTRATIONS = current_project().path("publish.figures")
+    BUILD_BOOK = current_project().path("publish.build", "build") / "book"
     BUILD_ILLUSTRATIONS = BUILD_BOOK / current_project().chapter_subdir / GALLERY
-    BUILD_DIR = current_project().path("book.build", "build") / "figures"
-    BUILD_GRAY_DIR = current_project().path("book.build", "build") / "figures-gray"
+    BUILD_DIR = current_project().path("publish.build", "build") / "figures"
+    BUILD_GRAY_DIR = current_project().path("publish.build", "build") / "figures-gray"
     _TEMPLATE = (
-        current_project().path("book.typst_template")
-        if current_project().get("book.typst_template") is not None
+        current_project().path("publish.typst_template")
+        if current_project().get("publish.typst_template") is not None
         else None
     )
     return SimpleNamespace(
@@ -266,7 +266,7 @@ def generate_gray(names: set[str], out: Path) -> int:
     figure fonts are embedded after the transform, as in the color gallery.
     Prunes stale outputs. Returns the count written.
     """
-    from quirework.book import graybuild as _gray
+    from quirework.publish import graybuild as _gray
 
     out.mkdir(parents=True, exist_ok=True)
     faces = _figfonts.configured()
@@ -296,7 +296,7 @@ def generate_gray(names: set[str], out: Path) -> int:
 # template rather than copied, and a margin change reaches this check for free.
 # The default floor is 6pt, which is where incidental type in a printed book
 # stops being readable; 7 to 8pt is where it stops being a squint. A book that
-# letters its figures above that sets `book.figure_type_floor_pt`, so the
+# letters its figures above that sets `publish.figure_type_floor_pt`, so the
 # warning holds the set to the size the book chose rather than the one it left.
 PRINT_FLOOR_PT = 6.0
 VIEWBOX_UNITS = 960.0
@@ -304,12 +304,12 @@ VIEWBOX_UNITS = 960.0
 
 def print_floor_pt() -> float:
     """The printed size under which figure type is reported, in points."""
-    value = current_project().get("book.figure_type_floor_pt")
+    value = current_project().get("publish.figure_type_floor_pt")
     if value is None:
         return PRINT_FLOOR_PT
     if isinstance(value, bool) or not isinstance(value, (int, float)) or value <= 0:
         raise SystemExit(
-            f"book.figure_type_floor_pt must be a positive number of points, not {value!r}"
+            f"publish.figure_type_floor_pt must be a positive number of points, not {value!r}"
         )
     return float(value)
 
@@ -406,7 +406,7 @@ def check() -> int:
     problems += _check_fonts(names)
     from quirework.project import extension
 
-    for reference in current_project().get("book.figure_checks", []):
+    for reference in current_project().get("publish.figure_checks", []):
         problems += extension(reference)()
 
     if problems:
@@ -444,7 +444,7 @@ def _check_gray(names: set[str]) -> list[str]:
     transform left a color unmapped (a bug in graybuild's map), not an untuned
     file, so it is a hard failure here.
     """
-    from quirework.book import graybuild as _gray
+    from quirework.publish import graybuild as _gray
 
     problems: list[str] = []
     for name in sorted(names):
@@ -461,7 +461,7 @@ def _check_gray(names: set[str]) -> list[str]:
             problems.append(
                 f"{name} (gray): transform left color {', '.join(sorted(stray))} "
                 f"(the source may state it in a form the transform does not read; "
-                f"a book with its own color meanings selects book.grayscale_transform)"
+                f"a book with its own color meanings selects publish.grayscale_transform)"
             )
     return problems
 
@@ -469,7 +469,7 @@ def _check_gray(names: set[str]) -> list[str]:
 def _check_fonts(names: set[str]) -> list[str]:
     """Every configured figure face can letter every figure that asks for it.
 
-    Silent while `book.figure_fonts` is unset. Once it is set, an unreadable
+    Silent while `publish.figure_fonts` is unset. Once it is set, an unreadable
     font, a missing fontTools or a character a face cannot draw fails here,
     at commit time, instead of at the next render.
     """
@@ -645,7 +645,7 @@ def render_png(which: str | None, out: Path) -> int:
 
 def main(argv=None) -> int:
     ap = argparse.ArgumentParser(
-        prog="quirework book figures",
+        prog="quirework publish figures",
         description="Materialize the book's figure gallery for the build tree.",
     )
     ap.add_argument(

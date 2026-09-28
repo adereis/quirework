@@ -177,11 +177,11 @@ _IMPERATIVE = re.compile(r"\b(NEVER|DO NOT|DON'T|MUST NOT|MAY NOT|BANNED)\b")
 def companion_dirs() -> tuple[str, ...]:
     """The reader-facing companion collections this book declares, if any.
 
-    `book.companion_dirs` names them. The default is none: a book with no
+    `manuscript.companion_dirs` names them. The default is none: a book with no
     companion collection has nothing here to check, and naming another
     project's directories would check a tree this one does not have.
     """
-    return tuple(current_project().get("book.companion_dirs", ()) or ())
+    return tuple(current_project().get("manuscript.companion_dirs", ()) or ())
 
 
 # `_template.md` carries placeholder citations (`<chapter files and @bind
@@ -342,7 +342,7 @@ KIND_DESCRIPTIONS = {
 }
 
 # Other names a kind answers to on the command line. A harness that guards a
-# worktree by refusing any command containing "bind" made `book notes bind`
+# worktree by refusing any command containing "bind" made `spec notes bind`
 # unrunnable, and `--kind bind` did not help because the word was still in
 # argv. The alias spells the same filter without it.
 KIND_ALIASES = {"relations": "bind"}
@@ -431,7 +431,7 @@ def _configured_book_file(docs, key):
     if project.get(key) is None:
         return None
     configured = project.path(key)
-    source = project.path("book.source")
+    source = project.path("manuscript.source")
     if configured.is_relative_to(source):
         return Path(docs) / configured.relative_to(source)
     return configured
@@ -439,12 +439,14 @@ def _configured_book_file(docs, key):
 
 def _spec_path(docs=None) -> Path:
     """This project's configured spec file."""
-    docs = Path(docs) if docs is not None else current_project().path("book.source")
-    spec = _configured_book_file(docs, "book.spec")
+    docs = (
+        Path(docs) if docs is not None else current_project().path("manuscript.source")
+    )
+    spec = _configured_book_file(docs, "manuscript.spec")
     if spec is None:
         from quirework.project import ConfigurationError
 
-        raise ConfigurationError("configure book.spec in quirework.toml")
+        raise ConfigurationError("configure manuscript.spec in quirework.toml")
     return spec
 
 
@@ -456,7 +458,9 @@ def spec_sections(docs: Path | None = None) -> list[tuple[str | None, str, str]]
     """(anchor, title, body) for each level-2 section of the spec,
     in file order. The anchor is None where a section is missing its {#slug}
     (a hard `check()` problem). Empty if the spec does not exist."""
-    docs = Path(docs) if docs is not None else current_project().path("book.source")
+    docs = (
+        Path(docs) if docs is not None else current_project().path("manuscript.source")
+    )
     spec = _spec_path(docs)
     if not spec.exists():
         return []
@@ -488,7 +492,7 @@ def spec_slugs(docs: Path | None = None) -> set[str]:
 
 def scan(paths: list[Path] | None = None) -> list[Annotation]:
     """Harvest annotations below the given paths or configured book source."""
-    roots = paths or [current_project().path("book.source")]
+    roots = paths or [current_project().path("manuscript.source")]
     out: list[tuple[Path, str, str]] = []  # (file to read, chapter, source)
     for root in roots:
         root = Path(root)
@@ -524,8 +528,8 @@ def _reading_order() -> dict[str, int]:
     """
     project = current_project()
     try:
-        text = project.path("book.quarto").read_text()
-        prefix = project.path("book.source").relative_to(project.root)
+        text = project.path("manuscript.quarto").read_text()
+        prefix = project.path("manuscript.source").relative_to(project.root)
     except OSError:
         return {}
     except ValueError:
@@ -572,8 +576,8 @@ def _print_spec_toc(docs: Path | None = None) -> None:
     )
     # Where a trail is kept, each section says how many breadcrumbs lead back
     # to the conversations that shaped it. Counting reads only the sidecar, so
-    # the primer stays as cheap as it was; following them is `book trail`.
-    from quirework.book import trail
+    # the primer stays as cheap as it was; following them is `spec trail`.
+    from quirework.manuscript import trail
 
     held = trail.counts()
     for slug, title, _ in sections:
@@ -583,7 +587,7 @@ def _print_spec_toc(docs: Path | None = None) -> None:
     if trail.configured():
         print(
             f"  {len(held)} of {len(sections)} section(s) have a trail of the "
-            f"sessions that shaped them: quirework book trail SLUG"
+            f"sessions that shaped them: quirework spec trail SLUG"
         )
 
 
@@ -602,7 +606,7 @@ def _trail_marker(a: Annotation, held: dict[str, int]) -> str:
 
 
 def _render_by_kind(annos: list[Annotation]) -> None:
-    from quirework.book import trail
+    from quirework.manuscript import trail
 
     held = trail.counts()
     by_kind: dict[str, list[Annotation]] = {}
@@ -623,7 +627,7 @@ def _render_by_kind(annos: list[Annotation]) -> None:
 
 
 def _render_by_chapter(annos: list[Annotation]) -> None:
-    from quirework.book import trail
+    from quirework.manuscript import trail
 
     held = trail.counts()
     by_file: dict[str, list[Annotation]] = {}
@@ -830,7 +834,9 @@ def coverage(
     sections belong to no chapter and to no exercise either ("The reverse
     direction is not an invariant" in AGENTS.md, for the same reason).
     """
-    docs = Path(docs) if docs is not None else current_project().path("book.source")
+    docs = (
+        Path(docs) if docs is not None else current_project().path("manuscript.source")
+    )
     spec = spec_slugs(docs)
     stems = {p.stem for p in docs.rglob("*.qmd")}
     by_slug: dict[str, list[str]] = {}
@@ -969,7 +975,7 @@ def _findings(docs: Path) -> tuple[list[str], list[tuple[str, list[str]]]]:
          (pointers into the spec are bindings or inline #slug refs,
          never @see);
       7. every @bind(slug) cited in the companion collections
-         (`book.companion_dirs`) names a spec section — the entries are canon's
+         (`manuscript.companion_dirs`) names a spec section — the entries are canon's
          one licensed outward dependency, and the citation runs back in.
       8. every anchor in an entry's **Anchors:** run names a chapter that
          really binds that slug. Invariant 7 gates the slug; this gates the
@@ -983,9 +989,9 @@ def _findings(docs: Path) -> tuple[list[str], list[tuple[str, list[str]]]]:
          The dual of invariant 2: every listed file exists, and every chapter
          on disk is listed, so nothing renders nowhere and nothing is named
          that is not there.
-     11. where `book.spec_trail` is set, the trail sidecar parses and each of
+     11. where `manuscript.spec_trail` is set, the trail sidecar parses and each of
          its headings names a spec section. It points into the sessions that
-         shaped the spec, and `book trail --check` follows those pointers.
+         shaped the spec, and `spec trail --check` follows those pointers.
 
     Plus six advisories, printed but never fatal.
 
@@ -1031,7 +1037,9 @@ def _findings(docs: Path) -> tuple[list[str], list[tuple[str, list[str]]]]:
     drafted before its SVG is built, and
     `figures --check`
     already gates every rendered embed against its source."""
-    docs = Path(docs) if docs is not None else current_project().path("book.source")
+    docs = (
+        Path(docs) if docs is not None else current_project().path("manuscript.source")
+    )
     problems: list[str] = []
 
     # 1. every book .qmd is mark-free.
@@ -1086,9 +1094,9 @@ def _findings(docs: Path) -> tuple[list[str], list[tuple[str, list[str]]]]:
     # 11. the trail sidecar, where the project keeps one, mirrors the spec. A
     # renamed or retired section breaks its trail in the same edit that breaks
     # its bindings, so the two are reported together. Following a breadcrumb
-    # into its session is `book trail --check`'s job: that reads the corpus.
-    if current_project().get("book.spec_trail") is not None:
-        from quirework.book import trail
+    # into its session is `spec trail --check`'s job: that reads the corpus.
+    if current_project().get("manuscript.spec_trail") is not None:
+        from quirework.manuscript import trail
 
         problems.extend(trail.structure_problems(spec))
 
@@ -1124,7 +1132,7 @@ def _findings(docs: Path) -> tuple[list[str], list[tuple[str, list[str]]]]:
         )
 
     # 6. @see resolves to a book-wide note.
-    rn = _configured_book_file(docs, "book.review_notes")
+    rn = _configured_book_file(docs, "manuscript.review_notes")
     rn_slugs = (
         {a.args[0] for a in scan_text(rn.read_text(), rn.name) if a.args}
         if rn is not None and rn.exists()
@@ -1139,7 +1147,7 @@ def _findings(docs: Path) -> tuple[list[str], list[tuple[str, list[str]]]]:
             problems.append(f"{at}: @see with no slug")
         elif rn is None:
             problems.append(
-                f"{at}: @see('{slug}') requires configured book.review_notes"
+                f"{at}: @see('{slug}') requires configured manuscript.review_notes"
             )
         elif slug not in rn_slugs:
             problems.append(
@@ -1160,7 +1168,7 @@ def _findings(docs: Path) -> tuple[list[str], list[tuple[str, list[str]]]]:
     # 10. `_quarto.yml` <-> disk, both directions. The dual of invariant 2, and
     # under slug-only the only remaining way to orphan a chapter: rename the
     # file and forget the config. Owned by chapters.py, which owns the registry.
-    from quirework.book.chapters import bijection_problems
+    from quirework.manuscript.chapters import bijection_problems
 
     problems += bijection_problems(docs)
 
@@ -1202,7 +1210,9 @@ def _findings(docs: Path) -> tuple[list[str], list[tuple[str, list[str]]]]:
     # carry. Which directories those are is the book's own placement, so an
     # undeclared project gets no advisory rather than a report about a tree it
     # does not have.
-    noncanonical = tuple(current_project().get("book.noncanonical_roots", ()) or ())
+    noncanonical = tuple(
+        current_project().get("manuscript.noncanonical_roots", ()) or ()
+    )
     groups.append(
         (
             f"{{n}} mark(s) reference {', '.join(noncanonical)}; a mark states "
@@ -1446,7 +1456,9 @@ def check(docs: Path | None = None, since: str | None = None) -> int:
     printed first, then only a count of the ones it already had: a change's
     own advisories were otherwise found by grepping a long standing list.
     """
-    docs = Path(docs) if docs is not None else current_project().path("book.source")
+    docs = (
+        Path(docs) if docs is not None else current_project().path("manuscript.source")
+    )
     problems, groups = _findings(docs)
     for p in problems:
         print(p, file=sys.stderr)
@@ -1477,21 +1489,21 @@ def check(docs: Path | None = None, since: str | None = None) -> int:
 
 def main(argv=None) -> int:
     ap = argparse.ArgumentParser(
-        prog="quirework book notes",
+        prog="quirework spec notes",
         description="Harvest the book's @-annotations from the source. "
         "Positional args filter by kind (bind, guidance, todo, ...); "
-        "run `quirework book notes --list` to see the kinds and their counts.",
+        "run `quirework spec notes --list` to see the kinds and their counts.",
         epilog="examples:\n"
-        "  quirework book notes                     all marks, grouped by kind\n"
-        "  quirework book notes bind                only @bind relationships\n"
-        "  quirework book notes --primer            the fresh-session primer\n"
+        "  quirework spec notes                     all marks, grouped by kind\n"
+        "  quirework spec notes bind                only @bind relationships\n"
+        "  quirework spec notes --primer            the fresh-session primer\n"
         "                                       (bind+guidance, by chapter)\n"
-        "  quirework book notes bind --slug authorship-by-log\n"
+        "  quirework spec notes bind --slug authorship-by-log\n"
         "                                       who binds that spec section\n"
-        "  quirework book notes relations --slug authorship-by-log\n"
+        "  quirework spec notes relations --slug authorship-by-log\n"
         "                                       the same, without the word bind\n"
-        "  quirework book notes --by chapter        the whole book's marks, in order\n"
-        "  quirework book notes --list              the kind vocabulary + counts",
+        "  quirework spec notes --by chapter        the whole book's marks, in order\n"
+        "  quirework spec notes --list              the kind vocabulary + counts",
         formatter_class=argparse.RawDescriptionHelpFormatter,
     )
     ap.add_argument(
@@ -1564,7 +1576,7 @@ def main(argv=None) -> int:
         action="append",
         default=[],
         metavar="PATH",
-        help="scan this file/dir instead of book.source (repeatable)",
+        help="scan this file/dir instead of manuscript.source (repeatable)",
     )
     args = ap.parse_args(argv)
 

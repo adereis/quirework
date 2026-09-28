@@ -18,7 +18,7 @@ import zipfile
 from pathlib import Path
 from typing import NamedTuple
 
-from quirework.book import figures as _figures
+from quirework.publish import figures as _figures
 
 # --------------------------------------------------------------------------- #
 # book parts (build side): docx has none, so flatten them away
@@ -35,10 +35,10 @@ def _options():
     from types import SimpleNamespace
 
     TYPST_PROLOGUES: dict[str, str] = (
-        current_project().data("book.layout_policy", {}).get("typst_prologues", {})
+        current_project().data("publish.layout_policy", {}).get("typst_prologues", {})
     )
     TYPST_EPILOGUES: dict[str, str] = (
-        current_project().data("book.layout_policy", {}).get("typst_epilogues", {})
+        current_project().data("publish.layout_policy", {}).get("typst_epilogues", {})
     )
     return SimpleNamespace(
         TYPST_EPILOGUES=TYPST_EPILOGUES, TYPST_PROLOGUES=TYPST_PROLOGUES
@@ -544,7 +544,7 @@ def strip_style_comments(stage: Path, rel: str | None = None) -> tuple[int, int]
     if rel is None:
         names = (
             current_project()
-            .data("book.render_policy", {})
+            .data("publish.render_policy", {})
             .get("epub_style_headers", [])
         )
         counts = [strip_style_comments(stage, name) for name in names]
@@ -694,7 +694,7 @@ def cap_docx_image_widths(
 # Both defects below are INVISIBLE in a reader -- every desktop and device
 # reader opens the book correctly with them in place -- and both are rejected
 # by EPUBCheck, which is what a retailer's ingestion runs. So neither could be
-# found by looking at the book, and `quirework book epubcheck` is what found them.
+# found by looking at the book, and `quirework publish epubcheck` is what found them.
 # The fixes are applied to the built artifact for the same reason the DOCX
 # image cap is: the defect is in what a writer emits, not in the source.
 

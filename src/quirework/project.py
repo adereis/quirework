@@ -28,6 +28,12 @@ class ConfigurationError(ValueError):
     """A project configuration cannot be used as declared."""
 
 
+# The configuration schema this release reads. Schema 1 kept everything about
+# the written work in one [book] section; schema 2 splits it by job, so a
+# project that never renders through Quirework still declares its spec.
+SCHEMA = 2
+
+
 def _freeze(value):
     if isinstance(value, dict):
         return MappingProxyType({k: _freeze(v) for k, v in value.items()})
@@ -101,7 +107,8 @@ class Project:
                     unknown = set(data) - {
                         "schema",
                         "project",
-                        "book",
+                        "manuscript",
+                        "publish",
                         "text",
                         "provenance",
                         "sops",
@@ -111,13 +118,20 @@ class Project:
                         "extensions",
                         "usage",
                     }
+                    if "book" in unknown:
+                        raise ConfigurationError(
+                            f"{path}: the [book] section is retired. Schema 2 "
+                            "splits it into [manuscript] (what is written) and "
+                            "[publish] (how it is rendered); the configuration "
+                            "guide's 'From schema 1' table maps every key"
+                        )
                     if unknown:
                         raise ConfigurationError(
                             f"{path}: unknown sections: {', '.join(sorted(unknown))}"
                         )
                     _merge(values, data, origins, path)
-            if type(values.get("schema")) is not int or values["schema"] != 1:
-                raise ConfigurationError(f"{config}: schema must be 1")
+            if type(values.get("schema")) is not int or values["schema"] != SCHEMA:
+                raise ConfigurationError(f"{config}: schema must be {SCHEMA}")
         if overrides:
             _merge(values, overrides, origins, root / "<invocation>")
         return cls(root, _freeze(values), _freeze(origins), config)
@@ -173,13 +187,13 @@ class Project:
 
     @property
     def chapter_subdir(self):
-        source = self.path("book.source")
-        chapters = self.path("book.chapters")
+        source = self.path("manuscript.source")
+        chapters = self.path("manuscript.chapters")
         try:
             return chapters.relative_to(source)
         except ValueError as exc:
             raise ConfigurationError(
-                "book.chapters must be inside book.source"
+                "manuscript.chapters must be inside manuscript.source"
             ) from exc
 
     @property
@@ -260,62 +274,66 @@ class Project:
                 raise ConfigurationError(
                     f"configured provenance directory is missing: {root}"
                 )
-        elif component == "book":
-            source = self.path("book.source")
+        elif component == "manuscript":
+            source = self.path("manuscript.source")
             if not source.is_dir():
                 raise ConfigurationError(
-                    f"configured book source directory is missing: {source}"
+                    f"configured manuscript source directory is missing: {source}"
                 )
-            chapters = self.path("book.chapters")
+            chapters = self.path("manuscript.chapters")
             if not chapters.is_dir():
                 raise ConfigurationError(
                     f"configured canon directory is missing: {chapters}"
                 )
-            quarto = self.path("book.quarto")
+            quarto = self.path("manuscript.quarto")
             if not quarto.is_file():
                 raise ConfigurationError(f"configured Quarto file is missing: {quarto}")
             for key, kind in (
-                ("book.spec", "spec file"),
-                ("book.review_notes", "review-notes file"),
+                ("manuscript.spec", "spec file"),
+                ("manuscript.review_notes", "review-notes file"),
             ):
                 if self.get(key) is not None and not self.path(key).is_file():
                     raise ConfigurationError(
                         f"configured {kind} is missing: {self.path(key)}"
                     )
-            if self.get("book.spec_trail") is not None:
+            if self.get("manuscript.spec_trail") is not None:
                 # The trail mirrors the spec's sections, so it means nothing
                 # without one. The file itself may not exist yet: the first
                 # breadcrumb creates it.
-                if self.get("book.spec") is None:
+                if self.get("manuscript.spec") is None:
                     raise ConfigurationError(
-                        "book.spec_trail follows the spec's sections; configure "
-                        "book.spec too, or remove book.spec_trail"
+                        "manuscript.spec_trail follows the spec's sections; configure "
+                        "manuscript.spec too, or remove manuscript.spec_trail"
                     )
-                trail = self.path("book.spec_trail")
+                trail = self.path("manuscript.spec_trail")
                 if trail.is_dir():
                     raise ConfigurationError(
-                        f"book.spec_trail names a directory, not a file: {trail}"
+                        f"manuscript.spec_trail names a directory, not a file: {trail}"
                     )
-            if self.get("book.spec_trail_leads") is not None:
+            if self.get("manuscript.spec_trail_leads") is not None:
                 # The backfill ledger holds leads for the trail's sections, so it
                 # means nothing without a trail. Its directory is made on first use.
-                if self.get("book.spec_trail") is None:
+                if self.get("manuscript.spec_trail") is None:
                     raise ConfigurationError(
-                        "book.spec_trail_leads keeps leads for a spec trail; "
-                        "configure book.spec_trail too, or remove it"
+                        "manuscript.spec_trail_leads keeps leads for a spec trail; "
+                        "configure manuscript.spec_trail too, or remove it"
                     )
-                leads = self.path("book.spec_trail_leads")
+                leads = self.path("manuscript.spec_trail_leads")
                 if leads.exists() and not leads.is_dir():
                     raise ConfigurationError(
-                        f"book.spec_trail_leads names a file, not a directory: {leads}"
+                        f"manuscript.spec_trail_leads names a file, not a directory: {leads}"
                     )
+        elif component == "publish":
+            # A publisher renders the manuscript, so it needs everything the
+            # manuscript does before anything of its own.
+            self.require("manuscript")
             if (
-                self.get("book.figures") is not None
-                and not self.path("book.figures").is_dir()
+                self.get("publish.figures") is not None
+                and not self.path("publish.figures").is_dir()
             ):
                 raise ConfigurationError(
                     f"configured figure directory is missing: "
-                    f"{self.path('book.figures')}"
+                    f"{self.path('publish.figures')}"
                 )
 
     def describe(self):

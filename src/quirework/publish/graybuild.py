@@ -52,7 +52,7 @@ def _neutral(match):
 
 def to_gray_svg(text, name=""):
     ET.fromstring(text)
-    configured = current_project().get("book.grayscale_transform")
+    configured = current_project().get("publish.grayscale_transform")
     return extension(configured)(text, name) if configured else _HEX.sub(_neutral, text)
 
 

@@ -12,7 +12,8 @@ from quirework.project import (
     project_scope,
     submit,
 )
-from quirework.book import chapters, fonts, graybuild, notes
+from quirework.manuscript import chapters, notes
+from quirework.publish import fonts, graybuild
 from quirework.sops import catalog, commands, personas
 
 
@@ -26,7 +27,7 @@ def book(root, slug):
         f"book:\n  chapters:\n    - sections/{slug}.qmd\nformat:\n  html: default\n"
     )
     (root / "quirework.toml").write_text(
-        'schema = 1\n[book]\nsource = "manuscript"\n'
+        'schema = 2\n[manuscript]\nsource = "manuscript"\n'
         'quarto = "manuscript/_quarto.yml"\n'
         'chapters = "manuscript/sections"\n'
     )
@@ -90,9 +91,26 @@ def test_unconfigured_corpus_is_distinct_from_missing_corpus(tmp_path):
 
 def test_unknown_configuration_section_is_rejected(tmp_path):
     (tmp_path / "quirework.toml").write_text(
-        "schema = 1\n[provnance]\nenabled = true\n"
+        "schema = 2\n[provnance]\nenabled = true\n"
     )
     with pytest.raises(ConfigurationError, match="unknown sections"):
+        Project.load(tmp_path)
+
+
+def test_a_schema_1_book_section_says_where_its_keys_went(tmp_path):
+    """Schema 1 kept everything in [book]; the error names the two sections."""
+    (tmp_path / "quirework.toml").write_text(
+        'schema = 1\n[book]\nsource = "manuscript"\n'
+    )
+    with pytest.raises(ConfigurationError, match=r"\[manuscript\].*\[publish\]"):
+        Project.load(tmp_path)
+
+
+def test_the_schema_must_be_the_current_one(tmp_path):
+    (tmp_path / "quirework.toml").write_text(
+        'schema = 1\n[manuscript]\nsource = "manuscript"\n'
+    )
+    with pytest.raises(ConfigurationError, match="schema must be 2"):
         Project.load(tmp_path)
 
 
@@ -264,7 +282,7 @@ def test_a_generic_font_family_is_not_a_missing_typeface(tmp_path):
         '<svg xmlns="http://www.w3.org/2000/svg"><text font-family="sans-serif">'
         "steam</text></svg>"
     )
-    settings = {"book": {"figures": "plates"}}
+    settings = {"publish": {"figures": "plates"}}
     with project_scope(Project.from_settings(tmp_path, settings)):
         assert fonts._stacks_in_figures() == []
     (figures / "kettle.svg").write_text(
@@ -293,7 +311,7 @@ def test_a_fallback_chain_is_read_as_a_chain(tmp_path):
         '<svg xmlns="http://www.w3.org/2000/svg"><text font-family="Second Plate">'
         "steam</text></svg>"
     )
-    settings = {"book": {"figures": "plates"}}
+    settings = {"publish": {"figures": "plates"}}
     with project_scope(Project.from_settings(tmp_path, settings)):
         stacks = fonts._stacks_in_figures()
         assert stacks == [
@@ -312,7 +330,7 @@ def test_a_format_the_reader_letters_needs_nothing_installed(tmp_path):
         '<svg xmlns="http://www.w3.org/2000/svg"><text font-family="Second Plate">'
         "steam</text></svg>"
     )
-    settings = {"book": {"figures": "plates"}}
+    settings = {"publish": {"figures": "plates"}}
     with project_scope(Project.from_settings(tmp_path, settings)):
         assert fonts.missing(["html"]) == []
         assert fonts.missing(["epub", "html"]) == []
@@ -329,7 +347,9 @@ def test_the_spec_is_named_by_configuration_not_by_convention(tmp_path):
     (source / "_register.md").write_text(
         "# Held\n\n## A kettle signals {#kettle-signal}\n\nA whistle reports.\n"
     )
-    settings = {"book": {"source": "manuscript", "spec": "manuscript/_register.md"}}
+    settings = {
+        "manuscript": {"source": "manuscript", "spec": "manuscript/_register.md"}
+    }
     with project_scope(Project.from_settings(tmp_path, settings)):
         assert notes._spec_name() == "_register.md"
         assert notes.spec_sections()[0][0] == "kettle-signal"
@@ -546,10 +566,10 @@ def test_book_can_check_metadata_without_migration_tables(tmp_path):
     project = Project.from_settings(
         tmp_path,
         {
-            "book": {
+            "manuscript": {
                 "source": "manuscript",
                 "chapters": "manuscript/sections",
-            }
+            },
         },
     )
     with project_scope(project):

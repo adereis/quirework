@@ -154,9 +154,9 @@ def _options():
 
     project = current_project()
     declared = [
-        project.get("book.source"),
-        *(project.get("book.companion_dirs", ()) or ()),
-        *(project.get("book.noncanonical_roots", ()) or ()),
+        project.get("manuscript.source"),
+        *(project.get("manuscript.companion_dirs", ()) or ()),
+        *(project.get("manuscript.noncanonical_roots", ()) or ()),
     ]
     default_dirs = []
     for value in declared:

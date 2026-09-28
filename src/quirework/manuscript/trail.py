@@ -32,9 +32,9 @@ The note is the agent's reading of the turn. The excerpt is optional: a
 highlight for a long turn whose relevant words would otherwise be buried, and
 it has to appear in that turn.
 
-The sidecar is context, never authority. It lives wherever `book.spec_trail`
+The sidecar is context, never authority. It lives wherever `manuscript.spec_trail`
 puts it, normally beside the private corpus, and the spec carries none of it:
-no session id, no date, no count. Leaving `book.spec_trail` unset turns the
+no session id, no date, no count. Leaving `manuscript.spec_trail` unset turns the
 whole feature off.
 
 A formatter cannot change what a breadcrumb says. Its header is read as
@@ -60,7 +60,7 @@ from dataclasses import dataclass, field
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
-from quirework.book import notes
+from quirework.manuscript import notes
 from quirework.project import ConfigurationError, current_project
 
 # What a turn did to the section. A closed set, so every trail reads the same
@@ -182,16 +182,16 @@ class Sidecar:
 # --------------------------------------------------------------------------- #
 def configured():
     """Whether this project keeps a trail at all."""
-    return current_project().get("book.spec_trail") is not None
+    return current_project().get("manuscript.spec_trail") is not None
 
 
 def sidecar_path():
     if not configured():
         raise ConfigurationError(
-            "this project keeps no spec trail: set book.spec_trail in "
+            "this project keeps no spec trail: set manuscript.spec_trail in "
             "quirework.toml to the file that should hold it"
         )
-    return current_project().path("book.spec_trail")
+    return current_project().path("manuscript.spec_trail")
 
 
 def _rel(path):
@@ -471,7 +471,7 @@ def structure_problems(slugs=None, sidecar=None):
     """What stops the sidecar from mirroring the spec, without reading a session.
 
     A heading whose slug the spec no longer declares is how a renamed or
-    retired section shows up, so `book notes --check` runs this beside the
+    retired section shows up, so `spec notes --check` runs this beside the
     bindings it would break in the same edit.
     """
     slugs = notes.spec_slugs() if slugs is None else set(slugs)
@@ -1067,7 +1067,7 @@ def story(slug, *, brief=False, utc=False, sidecar=None, states=None):
     if chapters:
         lines.append(f"bound by: {', '.join(chapters)}")
     if not crumbs:
-        lines.append("no breadcrumbs yet (quirework book trail add adds one)")
+        lines.append("no breadcrumbs yet (quirework spec trail add adds one)")
         return lines
     sessions = len({c.session for c in crumbs})
     lines.append(
@@ -1100,7 +1100,7 @@ def overview(*, utc=False):
             )
     lines.append(
         f"{len(held)} of {len(sections)} spec sections have a trail. "
-        f"Read one: quirework book trail SLUG"
+        f"Read one: quirework spec trail SLUG"
     )
     return lines
 
@@ -1590,25 +1590,25 @@ def _lead(turn, on_trail, zone):
 # --------------------------------------------------------------------------- #
 USAGE_EPILOG = """\
 views:
-  quirework book trail                      which sections have a trail
-  quirework book trail SLUG                 one section's trail, oldest first
-  quirework book trail SLUG --brief         one line per breadcrumb
-  quirework book trail --chapter CH         the trails of every section CH binds
-  quirework book trail --session ID         which sections a session fed
-  quirework book trail --check              the gate
+  quirework spec trail                      which sections have a trail
+  quirework spec trail SLUG                 one section's trail, oldest first
+  quirework spec trail SLUG --brief         one line per breadcrumb
+  quirework spec trail --chapter CH         the trails of every section CH binds
+  quirework spec trail --session ID         which sections a session fed
+  quirework spec trail --check              the gate
 
 writing:
-  quirework book trail add SLUG --kind K --find PHRASE [--session ID]
-  quirework book trail add SLUG --kind K --session ID --turn N
-  quirework book trail add SLUG --kind K --harness H --session ID --at TIME
+  quirework spec trail add SLUG --kind K --find PHRASE [--session ID]
+  quirework spec trail add SLUG --kind K --session ID --turn N
+  quirework spec trail add SLUG --kind K --harness H --session ID --at TIME
       options: --note TEXT (your reading of the turn), --excerpt TEXT
       (words the turn holds, when they would be buried in it)
 
 backfill:
-  quirework book trail suggest SLUG         leads from the commits that
+  quirework spec trail suggest SLUG         leads from the commits that
                                             changed the section; --diff adds
                                             what each one changed in it
-  quirework book trail backfill             cheap readers flag, a strong
+  quirework spec trail backfill             cheap readers flag, a strong
                                             reader rules: see its help
 
 kinds, what the turn did to the section:
@@ -1617,7 +1617,7 @@ kinds, what the turn did to the section:
 
 def _add_main(argv):
     ap = argparse.ArgumentParser(
-        prog="quirework book trail add",
+        prog="quirework spec trail add",
         description="Put a breadcrumb to one of the author's turns on a "
         "spec section's trail.",
     )
@@ -1679,11 +1679,11 @@ def main(argv=None):
     if argv and argv[0] == "add":
         return _add_main(argv[1:])
     if argv and argv[0] == "backfill":
-        from quirework.book import backfill
+        from quirework.manuscript import backfill
 
         return backfill.main(argv[1:])
     ap = argparse.ArgumentParser(
-        prog="quirework book trail",
+        prog="quirework spec trail",
         description="Read, check and keep the spec's trail sidecar: pointers "
         "into the sessions where the author shaped each spec section.",
         epilog=USAGE_EPILOG,

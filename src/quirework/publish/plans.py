@@ -74,7 +74,7 @@ def book(
     if not (kit / "manifest.json").is_file():
         raise ValueError(
             f"{kit} is not a prepared packet directory: build one with "
-            "`quirework book packet --out DIR`"
+            "`quirework publish packet --out DIR`"
         )
     manifest = read(kit / "manifest.json")
     missing = [
@@ -86,7 +86,7 @@ def book(
         raise ValueError(
             f"{kit}/manifest.json predates this tool ("
             + ", ".join(f"no {key}" for key in missing)
-            + "); rebuild the packet with `quirework book packet`"
+            + "); rebuild the packet with `quirework publish packet`"
         )
     if delivery not in ("pages", "file"):
         raise ValueError("book delivery must be pages or file")
@@ -177,7 +177,7 @@ def selfdriven(
     surroundings, so `mount` must be a path that reveals neither the project nor
     the run, and this refuses the ones it can recognize.
 
-    `source` is a `book packet --prose-dir` directory. The instrument is the
+    `source` is a `publish packet --prose-dir` directory. The instrument is the
     caller's to choose and is used unaltered. A printed-book instrument does not
     belong here: its opening sentence tells the seat that its pages are attached,
     which in this mode is a lie told in the first line, and a seat answering it
@@ -194,7 +194,7 @@ def selfdriven(
     if not chapters:
         raise ValueError(
             f"{source} holds no chapter files: build it with "
-            "`quirework book packet --prose-dir DIR`"
+            "`quirework publish packet --prose-dir DIR`"
         )
     seat, preset, instrument = _resolve_reader(seat, instrument, "self-driven")
     mount = Path(mount).expanduser().resolve() if mount else source
@@ -351,7 +351,7 @@ def _pin_material(source, mount):
     may be a copy of the packet placed at a neutral path; it must then be an
     exact copy, or the plan would pin one book and describe another.
     """
-    from quirework.book.panelkit import manifest_path
+    from quirework.publish.panelkit import manifest_path
     from quirework.runs.storage import tree_digest
 
     pinned = tree_digest(mount)
@@ -360,7 +360,7 @@ def _pin_material(source, mount):
         print(
             f"plan: no provenance beside {source} ({record.name}); the plan "
             "pins the mounted bytes but cannot say which book state they are. "
-            "Rebuild with `quirework book packet --prose-dir` to record it.",
+            "Rebuild with `quirework publish packet --prose-dir` to record it.",
             file=sys.stderr,
         )
         return {}, pinned
@@ -504,12 +504,12 @@ def main(argv=None):
     import json
 
     p = argparse.ArgumentParser(
-        prog="quirework book plan",
+        prog="quirework publish plan",
         description="Compile declared book materials into run plans.",
     )
     sub = p.add_subparsers(dest="kind", required=True)
     for kind, text in (
-        ("read", "a reader plan over a prepared book packet"),
+        ("read", "a reader plan over a packet from `publish packet`"),
         ("selfdriven", "a one-turn plan for a seat that reads a mounted book"),
         ("bundle", "a plan over the whole-book text and page artifact"),
     ):

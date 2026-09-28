@@ -1,14 +1,15 @@
-"""Keep reusable execution independent of book workflows and consumers."""
+"""Keep reusable execution independent of writing workflows and consumers."""
 
 import ast
 from pathlib import Path
 import quirework
 
 
-def test_execution_and_providers_do_not_import_book_workflows():
+def test_execution_and_providers_do_not_import_writing_workflows():
     root = Path(quirework.__file__).parent
     forbidden = (
-        "quirework.book",
+        "quirework.manuscript",
+        "quirework.publish",
         "quirework.sops.workshop",
         "quirework.sops.review",
         "book_project",

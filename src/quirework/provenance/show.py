@@ -277,7 +277,7 @@ _READERS = {
 # --------------------------------------------------------------------------- #
 # red-pen rounds: the author's marks on a rendered copy of the book
 # --------------------------------------------------------------------------- #
-# A round archived by `book redpen archive` is not a conversation, but every
+# A round archived by `publish redpen archive` is not a conversation, but every
 # mark in it is the author's own words, typed on the page. It is read as a
 # session of author turns so the tools that follow the author's words (the
 # trail, its backfill) can reach them. The marks channel holds each comment,

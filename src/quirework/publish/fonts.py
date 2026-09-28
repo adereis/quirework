@@ -70,11 +70,11 @@ def _settings():
     from types import SimpleNamespace
 
     TEMPLATE = (
-        current_project().path("book.typst_template")
-        if current_project().get("book.typst_template") is not None
+        current_project().path("publish.typst_template")
+        if current_project().get("publish.typst_template") is not None
         else None
     )
-    ILLUSTRATIONS = current_project().path("book.figures")
+    ILLUSTRATIONS = current_project().path("publish.figures")
     return SimpleNamespace(ILLUSTRATIONS=ILLUSTRATIONS, TEMPLATE=TEMPLATE)
 
 
@@ -212,7 +212,7 @@ def missing(formats=None) -> list[tuple[tuple[str, ...], str]]:
     """Unsatisfied requirements, for the formats about to be rendered.
 
     Passing no formats asks about every consumer, which is what
-    `quirework book fonts` reports.
+    `quirework publish fonts` reports.
     """
     if formats is None:
         wanted = None
@@ -281,7 +281,7 @@ def report(as_check: bool) -> int:
 
 def main(argv: list[str] | None = None) -> int:
     ap = argparse.ArgumentParser(
-        prog="quirework book fonts",
+        prog="quirework publish fonts",
         description="The typefaces the build needs, and whether they are "
         "installed. Read from the files that already name them, the Typst "
         "template and the figure sources, never declared twice.",

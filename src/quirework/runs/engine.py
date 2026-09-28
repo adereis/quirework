@@ -253,7 +253,9 @@ def prepare(plan_path, destination, *, resolve=True):
     # Records contain raw sessions. Inside a checkout they belong in build/.
     if destination.is_relative_to(
         current_project().root
-    ) and not destination.is_relative_to(current_project().path("book.build", "build")):
+    ) and not destination.is_relative_to(
+        current_project().path("publish.build", "build")
+    ):
         raise ValueError("raw run records belong outside the checkout or under build/")
     destination.parent.mkdir(parents=True, exist_ok=True)
     temporary = Path(tempfile.mkdtemp(prefix=".prepare-", dir=destination.parent))

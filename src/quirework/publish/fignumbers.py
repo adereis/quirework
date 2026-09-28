@@ -40,8 +40,8 @@ import subprocess
 import zipfile
 from pathlib import Path
 
-from quirework.book import bookstage as _bookstage
-from quirework.book import figures as _figures
+from quirework.publish import bookstage as _bookstage
+from quirework.publish import figures as _figures
 from quirework.project import current_project
 
 
@@ -277,7 +277,7 @@ def verify(site: Path, stage: Path, formats: list[str]) -> int:
         for p in problems:
             print(f"  {p}")
         config = stage / _bookstage.BOOK_CONFIG
-        template = current_project().get("book.typst_template")
+        template = current_project().get("publish.typst_template")
         where = f"`crossref` in {_named(config)}"
         if template:
             where += f" and the numbering rule in {template}"

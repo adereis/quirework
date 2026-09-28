@@ -95,10 +95,10 @@ def test_a_name_is_kept_only_once_the_project_resolved_it(tmp_path):
 def test_a_command_that_raises_is_recorded_without_a_status(tmp_path):
     project = project_with(tmp_path)
     with pytest.raises(RuntimeError):
-        with usage.record(("book", "build"), [], project=project):
+        with usage.record(("publish", "build"), [], project=project):
             raise RuntimeError("a fictitious render failure")
     (entry,) = records(project)
-    assert entry["command"] == "book build"
+    assert entry["command"] == "publish build"
     assert entry["status"] is None
     assert usage.summarize(records(project))["errors"] == 1
 
@@ -136,7 +136,7 @@ def test_an_unwritable_store_costs_a_warning_not_the_command(tmp_path, capsys):
 
 def test_a_misconfigured_store_is_reported_the_same_way(tmp_path, capsys):
     project = project_with(tmp_path, usage={"store": "   "})
-    with usage.record(("book", "build"), [], project=project) as outcome:
+    with usage.record(("publish", "build"), [], project=project) as outcome:
         outcome.status = 0
     assert "not recording usage" in capsys.readouterr().err
     with pytest.raises(ConfigurationError):
@@ -169,7 +169,7 @@ def test_two_projects_share_one_store_and_stay_apart(tmp_path):
         tmp_path / "two", {"project": {"name": "Two"}, **shared}
     )
     for project in (one, two, two):
-        with usage.record(("book", "build"), [], project=project) as outcome:
+        with usage.record(("publish", "build"), [], project=project) as outcome:
             outcome.status = 0
     report = usage.summarize(records(one))
     assert report["projects"] == {str(two.root): 2, str(one.root): 1}
@@ -179,7 +179,7 @@ def test_two_projects_share_one_store_and_stay_apart(tmp_path):
 def test_a_torn_line_is_counted_rather_than_ignored(tmp_path):
     project = project_with(tmp_path)
     usage.append(
-        {"at": "2026-05-04T00:00:00Z", "command": "book build"}, project=project
+        {"at": "2026-05-04T00:00:00Z", "command": "publish build"}, project=project
     )
     store = tmp_path / "records"
     written = next(iter(store.glob("*.jsonl")))
@@ -192,7 +192,7 @@ def test_a_torn_line_is_counted_rather_than_ignored(tmp_path):
 def test_pruning_drops_the_old_and_keeps_the_rest(tmp_path):
     project = project_with(tmp_path)
     for at in ("2024-01-02T00:00:00Z", "2026-05-04T00:00:00Z"):
-        usage.append({"at": at, "command": "book build"}, project=project)
+        usage.append({"at": at, "command": "publish build"}, project=project)
     dropped, files = usage.prune(project, "2025-01-01", dry_run=True)
     assert (dropped, files, len(records(project))) == (1, 0, 2)
     dropped, files = usage.prune(project, "2025-01-01")
@@ -203,7 +203,7 @@ def test_pruning_drops_the_old_and_keeps_the_rest(tmp_path):
 def test_pruning_everything_removes_the_file_itself(tmp_path):
     project = project_with(tmp_path)
     usage.append(
-        {"at": "2024-01-02T00:00:00Z", "command": "book build"}, project=project
+        {"at": "2024-01-02T00:00:00Z", "command": "publish build"}, project=project
     )
     assert usage.prune(project, "2025-01-01") == (1, 1)
     assert list((tmp_path / "records").glob("*.jsonl")) == []
@@ -222,7 +222,7 @@ def test_a_report_window_may_be_an_age_and_not_only_a_date(tmp_path):
     project = project_with(tmp_path)
     today = usage.when("0d")
     for at in ("2024-01-02T00:00:00Z", f"{today}T00:00:00Z"):
-        usage.append({"at": at, "command": "book build"}, project=project)
+        usage.append({"at": at, "command": "publish build"}, project=project)
     rows, _ = usage.read(project, since="30d")
     assert [row["at"][:10] for row in rows] == [today]
     rows, _ = usage.read(project, since="2024-01-01")
@@ -246,7 +246,8 @@ def test_here_means_this_book_in_every_checkout(tmp_path):
     }
     for at, root in made.items():
         usage.append(
-            {"at": at, "command": "book build", "project": str(root)}, project=project
+            {"at": at, "command": "publish build", "project": str(root)},
+            project=project,
         )
     rows, _ = usage.read(project, here=True)
     assert [row["project"] for row in rows] == [str(project.root), str(linked)]
@@ -375,7 +376,7 @@ def test_the_default_store_is_shared_by_every_project_of_one_user(
 
 def test_records_are_json_lines_a_later_reader_can_version(tmp_path):
     project = project_with(tmp_path)
-    with usage.record(("book", "build"), [], project=project) as outcome:
+    with usage.record(("publish", "build"), [], project=project) as outcome:
         outcome.status = 0
     written = next(iter((tmp_path / "records").glob("*.jsonl")))
     lines = written.read_text().splitlines()

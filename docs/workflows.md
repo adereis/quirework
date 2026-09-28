@@ -21,11 +21,11 @@ Most work follows the same loop even when the SOP changes:
 
 1. The human names the aim and the scope.
 2. The companion reads the project guide and the selected SOP.
-3. The companion runs `quirework book notes --primer` to load the spec,
+3. The companion runs `quirework spec notes --primer` to load the spec,
    bindings, guidance, and open work.
 4. The companion retrieves only the prose, sources, and prior human
    decisions the task needs. Where the book keeps a spec trail,
-   `quirework book trail SLUG` leads from a commitment to the author's
+   `quirework spec trail SLUG` leads from a commitment to the author's
    own turns that shaped it.
 5. The companion writes, researches, or prepares a controlled model run.
 6. The companion analyzes the returned evidence against the spec and the
@@ -50,8 +50,8 @@ companion that heard the author adds a breadcrumb for each turn that
 changed a section, because it is the one reader that knows which words
 did it. Backfill is the other task: walking a spec that grew before it
 had a trail and deciding which turns shaped each section. For a small
-corpus that is `book trail suggest SLUG` and provenance search, section
-by section. For a large one, `book trail backfill` has cheap readers
+corpus that is `spec trail suggest SLUG` and provenance search, section
+by section. For a large one, `spec trail backfill` has cheap readers
 flag every session once and leaves the decision, section by section, to
 a strong model. That decision needs the judgment of a strong model, so a
 book gives backfill a procedure of its own. Capturing and curating
@@ -176,7 +176,7 @@ family resolved to the previous generation. The file is used only when
 Codex cannot be asked, and the resolution then states how old it is.
 Every resolution records its `catalog_source`.
 
-`quirework book plan` compiles rendered book packets, comparisons, and
+`quirework publish plan` compiles rendered book packets, comparisons, and
 bundles. `quirework sop panel` compiles a declared panel. These helpers
 live above the generic execution engine.
 
@@ -630,7 +630,7 @@ of that context is the test.
 
 Personas state who is reading. Instruments state what the reader is
 asked. Panels allocate those perspectives across explicit models and
-harnesses. `quirework book plan` prepares the selected book material.
+harnesses. `quirework publish plan` prepares the selected book material.
 `quirework sop panel` compiles the declared panel into a run plan. The
 generic run engine then freezes and executes the seats.
 
@@ -648,19 +648,19 @@ the difference to the human.
 ### Two ways to deliver a whole book
 
 Sequential delivery hands the seat one chapter per launch and the
-operator controls every reveal. `quirework book packet` builds the
-segments and `quirework book plan read` compiles them. The material is
+operator controls every reveal. `quirework publish packet` builds the
+segments and `quirework publish plan read` compiles them. The material is
 frozen into the record, which is what lets the record certify the bytes
 the reader saw, and the cost is one launch per chapter.
 
-A self-driven read launches once. `quirework book packet --prose-dir
+A self-driven read launches once. `quirework publish packet --prose-dir
 DIR` writes the reader-facing projection of each chapter plus the
 figures under the names the chapter text references. It prints no alt
 text: the seat opens the figures themselves, and a description beside
 each embed let a seat rate plates it never opened. Its provenance
 goes beside the directory, never in it, because the directory is what
 the seat mounts: `DIR.manifest.json` records the book state, whether it
-had uncommitted edits, and a digest of every file. `quirework book plan
+had uncommitted edits, and a digest of every file. `quirework publish plan
 selfdriven DIR PLAN --mount PATH` compiles the walk: the seat
 opens each chapter with its own tools, opens the figures that chapter
 references, and writes a reaction file before opening the next one. One
@@ -723,10 +723,10 @@ Consistency has a mechanical layer and a judgment layer. Both belong in
 the default workflow.
 
 The mechanical layer catches relationships that can be stated exactly.
-`quirework book notes --check` validates the spec and the chapter
-sidecars. `quirework book notes bind --slug S` finds every chapter that
-expresses one commitment. `book chapters --check`, `book quotes`,
-`book figures --check`, `text check`, and `dev check` cover the other
+`quirework spec notes --check` validates the spec and the chapter
+sidecars. `quirework spec notes bind --slug S` finds every chapter that
+expresses one commitment. `spec units --check`, `spec quotes`,
+`publish figures --check`, `text check`, and `dev check` cover the other
 declared invariants. A companion should run the checks named by the SOP
 before presenting a change as complete.
 

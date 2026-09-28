@@ -1,9 +1,9 @@
-# Copy to quirework.toml at the root of a book project.
+# Copy to quirework.toml at the root of a writing project.
 # Paths are relative to this file; local overrides go in the ignored
-# quirework.local.toml. Quirework never locates a book from its install.
+# quirework.local.toml. Quirework never locates a project from its install.
 
 # Version of the configuration schema.
-schema = 1
+schema = 2
 
 [project]
 # A display name for reports and configuration inspection.
@@ -13,17 +13,13 @@ scratchpad = "scratchpad"
 # Ignored project material that must never be published.
 private = "private"
 
-[book]
+[manuscript]
 # Contains _quarto.yml and the live manuscript sources.
 source = "manuscript"
-# Quarto project file used for reading order and rendering.
+# Quarto project file used for reading order.
 quarto = "manuscript/_quarto.yml"
 # The chapter directory inside source; change to match your layout.
 chapters = "manuscript/sections"
-# Authoritative SVG assets used to materialize render galleries.
-figures = "manuscript/sections/illustrations"
-# Generated output only. Keep this directory out of Git.
-build = "build"
 # Optional semantic register if your book uses annotation bindings.
 # spec = "manuscript/sections/_spec.md"
 # With a spec, point each section at the conversations that shaped it.
@@ -37,10 +33,16 @@ build = "build"
 companion_dirs = ["companion"]
 # Working material is never treated as an authority by annotation checks.
 noncanonical_roots = ["scratchpad"]
-# Derived editions live outside the canon source tree.
-variants = "variants"
 # Optional project terminology and formatting policy.
 # chapter_policy = "config/chapters.toml"
+
+[publish]
+# Authoritative SVG assets used to materialize render galleries.
+figures = "manuscript/sections/illustrations"
+# Generated output only. Keep this directory out of Git.
+build = "build"
+# Derived editions live outside the canon source tree.
+variants = "variants"
 
 [sops]
 # Project-owned procedures and their required-reading catalog.

@@ -32,7 +32,7 @@ companion then follows this loop:
 1. Read the project's guide and resolve the relevant SOP with
    `quirework sop explain NAME`.
 2. Load the book's commitments, chapter guidance, and bindings with
-   `quirework book notes --primer`.
+   `quirework spec notes --primer`.
 3. Inspect the prose and any prior human decisions needed for this task.
 4. Draft or revise inside the limits of the SOP.
 5. Use a writers room, a prose workshop, or blind readers when the task
@@ -69,7 +69,7 @@ and contextual consistency reviews.
 
 ### Publishes one source to four editions, and proves they agree
 
-`book build` renders a Quarto manuscript to HTML, PDF through Typst,
+`publish build` renders a Quarto manuscript to HTML, PDF through Typst,
 EPUB and DOCX. It stages three trees to do it, because the formats
 disagree about what they will carry, and it checks afterwards that a
 figure has the same number in every edition rather than assuming so. The
@@ -88,16 +88,16 @@ comes out in the wrong face.
 A book that argues something has commitments, and after a year they live
 in one chapter's phrasing and contradict another's. Quirework gives them
 a file. Each commitment is a section with a slug, each chapter names the
-sections it expresses, and `book notes bind --slug S` answers the
+sections it expresses, and `spec notes bind --slug S` answers the
 question that matters when you change one: which other chapters have to
 change with it.
 
 The annotations live in a sidecar beside each chapter rather than in the
 prose, so the rendered book never carries them and reflowing a paragraph
-never disturbs them. `book notes --check` gates eleven invariants: a
+never disturbs them. `spec notes --check` gates eleven invariants: a
 mark left in the prose, a sidecar that no longer mirrors its chapter, a
 binding that names a commitment the spec does not declare, a reading
-order that disagrees with the files on disk. `book quotes` checks that a
+order that disagrees with the files on disk. `spec quotes` checks that a
 phrase quoted in metadata still exists in the book, and `--grep TERM`
 lists every quotation of a term you just retired from the prose.
 
@@ -119,7 +119,7 @@ then reads the human's own turns, by keyword or by meaning; the semantic
 index is built and stored locally, so corpus text never leaves the
 machine.
 
-`book trail` connects that record to the spec without putting any of it
+`spec trail` connects that record to the spec without putting any of it
 in the spec. A trail sidecar, kept beside the private corpus, points
 each spec section at the conversations where the author seeded,
 sharpened or reversed it: a session and the time a turn was logged, not
@@ -172,7 +172,7 @@ python3 -m venv --system-site-packages .venv
 .venv/bin/python -m pip install -e '.[test]'
 ```
 
-Install `.[book]` for Quarto rendering, `.[capture]` for browser
+Install `.[quarto]` for Quarto rendering, `.[capture]` for browser
 capture, or `.[semantic]` for local semantic search. `.[dev]` includes
 all extras. Copy `.envrc.example` to `.envrc` to use direnv.
 
@@ -205,8 +205,8 @@ corpus, or a provider account.
 Common operations include:
 
 ```bash
-quirework book build --to html
-quirework book redpen build --chapter opening
+quirework publish build --to html
+quirework publish redpen build --chapter opening
 quirework text wrap manuscript/opening.qmd
 quirework provenance search 'an earlier idea'
 quirework sop list

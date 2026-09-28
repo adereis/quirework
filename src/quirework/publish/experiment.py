@@ -953,7 +953,9 @@ def prepare(args):
 
 
 def main(argv=None):
-    parser = argparse.ArgumentParser(prog="quirework book compare", description=__doc__)
+    parser = argparse.ArgumentParser(
+        prog="quirework publish compare", description=__doc__
+    )
     sub = parser.add_subparsers(dest="action", required=True)
     prep = sub.add_parser("prepare", help="stage a forked reader comparison")
     prep.add_argument("--record-dir", type=Path, required=True)

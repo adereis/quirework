@@ -6,7 +6,8 @@ Parsing and presentation stay outside the reusable execution engine.
 
 | Namespace | Responsibility |
 |---|---|
-| `book` | Publication structure, rendering, annotations, review artifacts |
+| `manuscript` | Units, spec, marks, quotations, trail: the written work in any format |
+| `publish` | Rendering, figures, editions, rendered review artifacts |
 | `text` | Formatting and editorial inspection |
 | `provenance` | Runtime readers, capture, catalog, retrieval, measurements |
 | `sops` | Procedure discovery, personas, instruments, workflow preparation |
@@ -24,7 +25,7 @@ does not ship a command for is not Quirework's version to choose.
 
 A book depends on Quirework. Quirework never imports a book's extension
 unless that project explicitly selects it. The execution and provider
-layers do not import book workflows. Executor snapshots include their
+layers import neither `manuscript` nor `publish`. Executor snapshots include their
 runtime dependencies without copying publishing code or book content.
 
 ## The jail

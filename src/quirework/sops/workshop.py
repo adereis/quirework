@@ -321,9 +321,11 @@ def _reading_order(repo, files):
     chapter: an experiment supplying one passage needs no order.
     """
     try:
-        from quirework.book import chapters as _chapters
+        from quirework.manuscript import chapters as _chapters
 
-        registry = _chapters.registry(current_project().path_at(repo, "book.source"))
+        registry = _chapters.registry(
+            current_project().path_at(repo, "manuscript.source")
+        )
     except Exception:
         return ""
     staged = {Path(rel).name for rel in files if rel.endswith(".qmd")}

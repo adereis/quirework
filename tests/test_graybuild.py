@@ -7,7 +7,7 @@ is the property these tests hold: whatever the transform cannot convert, the
 check can still see.
 """
 
-from quirework.book import graybuild
+from quirework.publish import graybuild
 
 
 def gray(text):

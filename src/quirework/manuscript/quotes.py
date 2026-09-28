@@ -66,7 +66,7 @@ import sys
 from dataclasses import dataclass, replace
 from pathlib import Path
 
-from quirework.book import notes
+from quirework.manuscript import notes
 
 # Kinds whose bodies assert that something IS in the book. @source and @ref
 # quote the world outside it; @todo is working state and may quote anything,
@@ -168,7 +168,7 @@ def _prose_corpus(docs: Path) -> str:
     appears in no chapter), and their text is what the reader sees.
     """
     parts = [f.read_text() for f in sorted(docs.rglob("*.qmd"))]
-    for key in ("book.spec", "book.review_notes"):
+    for key in ("manuscript.spec", "manuscript.review_notes"):
         f = notes._configured_book_file(docs, key)
         if f is not None and f.exists():
             parts.append(f.read_text())
@@ -193,7 +193,7 @@ def _chapter_corpora(docs: Path) -> tuple[dict[str, str], str]:
     for f in sorted(docs.rglob("*.qmd")):
         per[f.stem] = notes._searchable(f.read_text())
     loose: list[str] = []
-    for key in ("book.spec", "book.review_notes"):
+    for key in ("manuscript.spec", "manuscript.review_notes"):
         f = notes._configured_book_file(docs, key)
         if f is not None and f.exists():
             loose.append(f.read_text())
@@ -212,7 +212,7 @@ def _known_slugs(docs: Path, per_chapter: dict[str, str]) -> set[str]:
     the check compares where words ARE against where a mark SAYS they are, and
     a stem that is not really a chapter fails both halves alike.
     """
-    from quirework.book.chapters import slugs as _chapter_slugs
+    from quirework.manuscript.chapters import slugs as _chapter_slugs
 
     try:
         return _chapter_slugs(docs) & set(per_chapter)
@@ -266,7 +266,9 @@ def _is_forbidden_variant(span: str) -> bool:
 
 def scan(docs: Path | None = None) -> list[Hit]:
     docs = (
-        Path(docs) if docs is not None else notes.current_project().path("book.source")
+        Path(docs)
+        if docs is not None
+        else notes.current_project().path("manuscript.source")
     )
     corpus = _prose_corpus(docs)
     per_chapter, loose = _chapter_corpora(docs)
@@ -349,7 +351,9 @@ def scan_all(docs: Path | None = None, grep: str | None = None, skip=()) -> list
     default scan already reported (`skip`) are left to that report.
     """
     docs = (
-        Path(docs) if docs is not None else notes.current_project().path("book.source")
+        Path(docs)
+        if docs is not None
+        else notes.current_project().path("manuscript.source")
     )
     corpus = _prose_corpus(docs)
     pattern = re.compile(grep, re.I) if grep else None
@@ -451,7 +455,7 @@ def main(argv: list[str] | None = None) -> int:
     import argparse
 
     p = argparse.ArgumentParser(
-        prog="quirework book quotes",
+        prog="quirework spec quotes",
         description="Check that phrases the marks quote still exist in the book.",
     )
     p.add_argument(

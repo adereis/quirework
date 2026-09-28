@@ -10,7 +10,7 @@ different widths, which is where a hand-placed label runs out of its box.
 Nothing fails when that happens, and it looks right on the author's
 machine, because the author has the face.
 
-A font the SVG carries itself does reach it. ``book.figure_fonts`` names
+A font the SVG carries itself does reach it. ``publish.figure_fonts`` names
 font files (any format fontTools reads, WOFF2 included). At build time
 each staged figure gets one ``@font-face`` rule per face it could ask for,
 holding a subset of only the characters that figure letters, as a data
@@ -36,7 +36,7 @@ from pathlib import Path
 
 from quirework.project import ConfigurationError, current_project
 
-SETTING = "book.figure_fonts"
+SETTING = "publish.figure_fonts"
 
 # What a figure has to say before a face is worth embedding. A face that
 # nothing in the file could ask for is left out, and the tests are

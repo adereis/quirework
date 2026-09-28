@@ -26,7 +26,7 @@ should then read the project guide and use
 `quirework sop explain write-a-chapter` to resolve the procedure's
 required reading.
 
-The next command is `quirework book notes --primer`. It puts the spec
+The next command is `quirework spec notes --primer`. It puts the spec
 before the chapter guidance and bindings. That order matters. The
 companion learns what the book holds before it changes how one chapter
 expresses it.
@@ -43,17 +43,17 @@ without the ones below it.
 
 | Layer | What it is | The commands |
 |---|---|---|
-| Canon prose | Quarto chapters in a declared reading order | `book build`, `book chapters` |
-| Spec | one file of numbered commitments, each with a slug | `book notes --primer` |
-| Marks | per-chapter sidecars of `@`-annotations, including which spec section a chapter expresses | `book notes`, `book notes bind` |
-| Companion documents | reader-facing material that cites the spec or canon | `book notes --check` |
-| Variants | derived editions whose master remains the canon | `book variant` |
-| Figures | the book's illustration set, materialized into the build | `book figures` |
+| Canon prose | Quarto chapters in a declared reading order | `publish build`, `spec units` |
+| Spec | one file of numbered commitments, each with a slug | `spec notes --primer` |
+| Marks | per-chapter sidecars of `@`-annotations, including which spec section a chapter expresses | `spec notes`, `spec notes bind` |
+| Companion documents | reader-facing material that cites the spec or canon | `spec notes --check` |
+| Variants | derived editions whose master remains the canon | `publish variant` |
+| Figures | the book's illustration set, materialized into the build | `publish figures` |
 | Scratchpad | disposable working material with no authority | project policy |
 | Private material | ignored sources and records that must not publish | project policy |
 | Procedures | the playbooks an AI companion follows, with personas and questions | `sop list`, `sop explain`, `sop skills` |
 | Provenance | the sessions the book was written in | `provenance search`, `provenance metrics` |
-| Spec trail | pointers from each spec section to the turns that shaped it | `book trail` |
+| Spec trail | pointers from each spec section to the turns that shaped it | `spec trail` |
 
 ## 1. The manuscript
 
@@ -63,24 +63,26 @@ subdirectory, and the installed package's own location never selects a
 book.
 
 ```toml
-schema = 1
+schema = 2
 
 [project]
 name = "A Small Notebook"
 scratchpad = "scratchpad"
 private = "private"
 
-[book]
+[manuscript]
 source = "manuscript"
 quarto = "manuscript/_quarto.yml"
 chapters = "manuscript/sections"
-build = "build"
-variants = "variants"
 companion_dirs = ["companion"]
 noncanonical_roots = ["scratchpad"]
+
+[publish]
+build = "build"
+variants = "variants"
 ```
 
-Quarto owns reading order and publication settings. `book.quarto` names the
+Quarto owns reading order and publication settings. `manuscript.quarto` names the
 file that lists the chapters:
 
 ```yaml
@@ -116,8 +118,8 @@ A kettle boils.
 The whistle is a signal, not a thought.
 ```
 
-Then `quirework book build --to html` renders into `build/`, never back
-into the source. `quirework book chapters` prints the reading order, and
+Then `quirework publish build --to html` renders into `build/`, never back
+into the source. `quirework spec units` prints the reading order, and
 `--check` verifies that the files on disk and the files `_quarto.yml`
 names are the same set.
 
@@ -146,7 +148,7 @@ A kettle reaches the boil by one route and cools by another.
 Point at it and it becomes the binding namespace:
 
 ```toml
-[book]
+[manuscript]
 spec = "manuscript/sections/_spec.md"
 ```
 
@@ -158,7 +160,7 @@ commitment; it names the section it expresses, so changing a commitment
 tells you which chapters have to change with it. The spec is not
 rendered into the book.
 
-`quirework book notes --primer` prints the spec's sections first, then
+`quirework spec notes --primer` prints the spec's sections first, then
 the marks in reading order. That is the one command to run at the start
 of a writing session.
 
@@ -180,7 +182,7 @@ story of an idea, and an agent about to edit it should read them. The
 trail keeps that story outside the spec, in a sidecar of its own:
 
 ```toml
-[book]
+[manuscript]
 spec = "manuscript/sections/_spec.md"
 spec_trail = "private/spec-trail.md"
 ```
@@ -217,13 +219,13 @@ private material. It is context, never authority: the spec states what
 the book holds now, and a request made now outranks anything on the
 trail. Leave `spec_trail` unset and the feature is off.
 
-Reading is one command per depth. `book notes --primer` counts each
+Reading is one command per depth. `spec notes --primer` counts each
 section's breadcrumbs, and every listing of bindings marks a binding
 whose section has any, as `[trail ×2]`, so an agent following one from
 the prose learns there is a history to read. A section with none
-carries no marker. `book trail --chapter opening` lists, one line
+carries no marker. `spec trail --chapter opening` lists, one line
 each, the trails of the sections a chapter binds.
-`book trail cooling-asymmetry` reads one section's trail oldest first,
+`spec trail cooling-asymmetry` reads one section's trail oldest first,
 and prints the `provenance show … --turn N` that opens each turn with
 the reply it drew.
 
@@ -231,7 +233,7 @@ Writing happens while the spec is edited. When your words in the current
 conversation change what a section holds, the agent adds a breadcrumb:
 
 ```bash
-quirework book trail add cooling-asymmetry --kind correct \
+quirework spec trail add cooling-asymmetry --kind correct \
   --find "a route, not a speed" --note "Refuses speed as the difference."
 ```
 
@@ -250,9 +252,9 @@ reply. Never delete a breadcrumb because you moved on: add a `reverse`,
 because the earlier position is part of the story. Delete one only when
 it was wrong about which section the turn shaped.
 
-`book notes --check` fails a trail heading that names a section the spec
+`spec notes --check` fails a trail heading that names a section the spec
 no longer has, so a renamed section takes its trail along in the same
-edit. `book trail --check` follows every breadcrumb to your turn. It
+edit. `spec trail --check` follows every breadcrumb to your turn. It
 fails a pointer that leads to no turn, and one into a session that
 curation removed. It only warns about a session not captured yet, which
 is what pointing at a live conversation costs until that session is
@@ -262,7 +264,7 @@ captured.
 
 A spec that grew before it had a trail needs its history read, and a
 corpus of hundreds of sessions is too much for a strong model to read
-whole. `book trail backfill` splits the work by what it costs. A cheap
+whole. `spec trail backfill` splits the work by what it costs. A cheap
 model reads each session once and flags every turn of yours that might
 have shaped any section. A strong model then takes one section at a
 time, reads everything flagged for it oldest first, and decides.
@@ -271,7 +273,7 @@ for all of them, which is why each session is read once, against the
 whole list.
 
 ```toml
-[book]
+[manuscript]
 spec_trail = "private/spec-trail.md"
 spec_trail_leads = "private/spec-trail-leads"
 ```
@@ -421,8 +423,8 @@ conventional ones:
 
 - `@bind(slug)`: this chapter expresses that spec section. It carries no
   body: it is a relationship, not a note. Several chapters may bind one
-  section, and `book notes bind --slug S` is the reverse lookup that
-  answers "what else does this commitment touch?". `book notes
+  section, and `spec notes bind --slug S` is the reverse lookup that
+  answers "what else does this commitment touch?". `spec notes
   relations` is the same filter, for a shell or harness guard that
   refuses any command containing the word "bind".
 - `@guidance`: how the chapter should read, its length, what it is for.
@@ -431,7 +433,7 @@ conventional ones:
 - `@figure(name)`: a note about a plate.
 - `@see(slug)`: a pointer into book-wide review notes.
 
-`quirework book notes --check` is the gate. It refuses a mark left in
+`quirework spec notes --check` is the gate. It refuses a mark left in
 the prose, a sidecar with no chapter, a sidecar heading that no longer
 matches the chapter, a `@bind` naming a section the spec does not
 declare, and a spec section missing its anchor. Run it before every
@@ -447,7 +449,7 @@ are new first, then only a count of the rest. `--since HEAD` is what a
 pre-commit hook wants: what this change is about to add. An advisory
 that merely moved down because of an edit above it is not new.
 
-`quirework book quotes` checks that wording a mark quotes is still in
+`quirework spec quotes` checks that wording a mark quotes is still in
 the book, and it is narrow on purpose. It checks only a long quotation
 introduced as one (`reads "…"`, `the sentence "…"`), because most quoted
 spans in marks are guards, coinages or outside sources that are meant
@@ -458,7 +460,7 @@ other quoted span in a group of its own. `--grep PATTERN` keeps the
 spans a regular expression matches, so retiring a word is one command:
 
 ```bash
-quirework book quotes --grep '\bbreaker\b'
+quirework spec quotes --grep '\bbreaker\b'
 ```
 
 Most of what `--all` lists is correct. Read it once after the edit it
@@ -469,7 +471,7 @@ was run for.
 Put the illustration sources in one directory and point at it:
 
 ```toml
-[book]
+[publish]
 figures = "manuscript/sections/illustrations"
 ```
 
@@ -479,7 +481,7 @@ A figure counts as part of the book when a chapter references it:
 ![A kettle, and the steam that reports it.](illustrations/kettle.svg){#fig-kettle fig-alt="A rounded kettle in outline with a curl of steam leaving the spout."}
 ```
 
-`quirework book figures list` shows what is embedded, `build`
+`quirework publish figures list` shows what is embedded, `build`
 materializes the set into the build tree, and `--check` validates it.
 The sources stay tracked; the rasters and the derived galleries are
 build output.
@@ -487,20 +489,20 @@ build output.
 Figures often share a definition: a glyph placed with `<use
 href="#steam">`, an arrowhead marker, a gradient. A style guide that
 lists which figures place the glyph goes stale as soon as a figure is
-added or cut. `quirework book figures inventory` counts every such
+added or cut. `quirework publish figures inventory` counts every such
 reference instead, per definition. `--uses steam` gives one
 definition's figures and counts, so the guide can say "run this" in
 place of the list.
 
 Two hooks make the figure pipeline a project's own without touching
-Quirework. `book.grayscale_transform` names a function taking SVG text
+Quirework. `publish.grayscale_transform` names a function taking SVG text
 and an asset name and returning SVG text, for a book that wants its own
 color-to-gray meaning in the EPUB rather than a generic desaturation.
-`book.figure_checks` is a list of functions returning diagnostic
+`publish.figure_checks` is a list of functions returning diagnostic
 strings, for conventions only this book has. Both are installed Python
 in the project's own package, selected explicitly.
 
-`quirework book fonts` reports the families the build needs, read out of
+`quirework publish fonts` reports the families the build needs, read out of
 the Typst template and the figure sources rather than declared anywhere.
 A missing family is a hard stop, because Typst and rsvg both substitute
 silently and the book would render whole in the wrong face. `--any-font`
@@ -509,11 +511,11 @@ overrides it.
 A figure the page shows as an image is drawn in isolation. It can use
 the fonts installed on the reader's device and nothing else, so the
 book's own web fonts never reach its labels, and a reader without the
-face gets a fallback of different widths. `book.figure_fonts` lists font
+face gets a fallback of different widths. `publish.figure_fonts` lists font
 files for the figures to carry instead:
 
 ```toml
-[book]
+[publish]
 figure_fonts = ["manuscript/fonts/Face-Regular.woff2", "manuscript/fonts/Face-Bold.woff2"]
 ```
 
@@ -522,10 +524,10 @@ listed face it could ask for, holding only the characters it letters.
 The sources are left as they are. `figures --check` fails when a face
 cannot draw a character a figure uses, since that glyph would reach the
 reader from a fallback. The setting needs fontTools, with Brotli to
-write WOFF2 (the `book` extra installs both).
+write WOFF2 (the `quarto` extra installs both).
 
 A figure is drawn at one size and printed at another. Where
-`book.typst_template` sets the page, `figures --check` works out how
+`publish.typst_template` sets the page, `figures --check` works out how
 large each figure's type prints across the text block and warns about
 anything under 6pt, the size below which incidental type stops being
 readable. It warns and never fails, because raising a label moves the
@@ -534,7 +536,7 @@ threshold to the size it chose, so a plate that slips back under it is
 reported:
 
 ```toml
-[book]
+[publish]
 figure_type_floor_pt = 7.4
 ```
 

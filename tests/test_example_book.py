@@ -40,20 +40,20 @@ def run(project, command, *argv):
 
 
 def test_the_reading_order_and_the_files_agree(book):
-    assert run(book, "book chapters", "--check") == 0
+    assert run(book, "spec units", "--check") == 0
 
 
 def test_the_marks_mirror_their_chapters_and_bind_the_spec(book):
-    assert run(book, "book notes", "--check") == 0
+    assert run(book, "spec notes", "--check") == 0
 
 
 def test_every_embedded_figure_resolves_and_converts_to_gray(book):
-    assert run(book, "book figures", "--check") == 0
+    assert run(book, "publish figures", "--check") == 0
 
 
 def test_quoted_material_still_appears_in_the_book(book):
-    # `book quotes` is a check and takes no --check flag, unlike its siblings.
-    assert run(book, "book quotes") == 0
+    # `spec quotes` is a check and takes no --check flag, unlike its siblings.
+    assert run(book, "spec quotes") == 0
 
 
 def test_the_procedure_catalog_matches_the_procedures_on_disk(book):
@@ -83,7 +83,7 @@ def test_every_breadcrumb_leads_to_the_turn_it_names(book):
     move the turns out from under the pointers, and this is the one real
     trail in the repository that would notice.
     """
-    assert run(book, "book trail", "--check") == 0
+    assert run(book, "spec trail", "--check") == 0
 
 
 def test_the_personas_and_the_instrument_validate(book):
@@ -103,18 +103,18 @@ def test_the_example_declares_all_four_editions(book):
     silently skips the three that stage differently, which is where the
     disagreements this tool exists to catch actually happen.
     """
-    from quirework.book import render
+    from quirework.publish import render
 
     assert set(render.book_formats()) == {"html", "typst", "epub", "docx"}
 
 
 def test_the_derived_edition_assembles_without_buying_an_answer(book):
-    assert run(book, "book variant", "build", "manager", "--dry-run") == 0
+    assert run(book, "publish variant", "build", "manager", "--dry-run") == 0
 
 
 def test_every_spec_section_is_expressed_by_some_chapter(book):
     """A commitment nothing binds is either unwritten or no longer held."""
-    from quirework.book import notes
+    from quirework.manuscript import notes
 
     declared = notes.spec_slugs()
     bound = {
@@ -140,7 +140,7 @@ def test_a_self_driven_reader_gets_clean_text_and_real_figure_names(book, tmp_pa
     asks for `sidecar.png` by name. The embed is resolved against the chapter
     that carries it, so this works for a project that keeps its illustrations
     somewhere other than beside the front matter."""
-    from quirework.book import panelkit
+    from quirework.publish import panelkit
 
     out = tmp_path / "read"
     assert panelkit.prose_dir(out) == 0
@@ -166,7 +166,7 @@ def test_a_prose_directory_names_its_book_beside_itself(book, tmp_path):
     provenance sits beside it, with a digest a plan can pin."""
     import json
 
-    from quirework.book import panelkit
+    from quirework.publish import panelkit
     from quirework.runs.storage import tree_digest
 
     out = tmp_path / "read"

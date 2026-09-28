@@ -572,7 +572,7 @@ def test_agy_large_text_uses_json_stdin():
 def test_bundle_plan_preserves_manifest_order_and_rejects_reordering(tmp_path):
     import hashlib
 
-    from quirework.book.plans import bundle
+    from quirework.publish.plans import bundle
 
     artifact = tmp_path / "artifact"
     artifact.mkdir()
@@ -620,7 +620,7 @@ def test_bundle_plan_preserves_manifest_order_and_rejects_reordering(tmp_path):
 
 @pytest.mark.parametrize("effort,expected", [(None, "xhigh"), ("high", "high")])
 def test_reader_plan_effort_default_and_explicit_override(tmp_path, effort, expected):
-    from quirework.book.plans import book
+    from quirework.publish.plans import book
 
     kit = tmp_path / "kit"
     kit.mkdir()

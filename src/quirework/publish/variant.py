@@ -2,9 +2,9 @@
 
 Three entry points, dispatched from ``main``:
 
-    quirework book variant                 list the variant kinds
-    quirework book variant <kind>          print the variant SOP (operator playbook)
-    quirework book variant build <kind>    run the MECHANICAL layer of the build
+    quirework publish variant                 list the variant kinds
+    quirework publish variant <kind>          print the variant SOP (operator playbook)
+    quirework publish variant build <kind>    run the MECHANICAL layer of the build
 
 ``build`` is the part the project's ``variant-common`` procedure hands to a
 tool: assemble a *blindness-safe* bundle of the canonical book -- every
@@ -39,7 +39,7 @@ from quirework.providers.blind import MIN_TOOLS
 from quirework.providers.blind import NO_MCP
 from quirework.providers.blind import confine
 from quirework.providers.blind import seat_dir
-from quirework.book import notes as _notes
+from quirework.manuscript import notes as _notes
 
 
 # Blind drafters run headless from a neutral CWD with a minimal tool allow-list,
@@ -84,7 +84,7 @@ def _options():
     from types import SimpleNamespace
 
     DEFAULT_MODEL = (
-        current_project().data("book.variant_policy", {}).get("default_model", None)
+        current_project().data("publish.variant_policy", {}).get("default_model", None)
     )
     return SimpleNamespace(DEFAULT_MODEL=DEFAULT_MODEL)
 
@@ -94,8 +94,8 @@ def _settings():
     from types import SimpleNamespace
 
     SOPS = current_project().path("sops.root")
-    DOCS = current_project().path("book.source")
-    QUARTO = current_project().path("book.quarto")
+    DOCS = current_project().path("manuscript.source")
+    QUARTO = current_project().path("manuscript.quarto")
     return SimpleNamespace(DOCS=DOCS, QUARTO=QUARTO, SOPS=SOPS)
 
 
@@ -299,7 +299,7 @@ def assemble_prompt(
         f'"maybe" the original holds; simpler is allowed, more confident is not.'
     )
     return (
-        f"{current_project().data('book.variant_policy', {}).get('prompt_intro', PROMPT_INTRO).format(KIND=kind_label.upper())}\n\n"
+        f"{current_project().data('publish.variant_policy', {}).get('prompt_intro', PROMPT_INTRO).format(KIND=kind_label.upper())}\n\n"
         f"=== [1] THE WHOLE BOOK (context; rewrite only the one chapter named in part 2) ===\n\n"
         f"{bundle}\n\n"
         f"=== [2] YOUR TASK ===\n\n{task}\n\n"
@@ -375,10 +375,10 @@ def run_blind(prompt: str, model: str, timeout: int) -> tuple[bool, str]:
 def _print_sop(kind: str | None) -> int:
     avail = kinds()
     if kind is None:
-        print("variant kinds (quirework book variant <kind> prints its SOP):")
+        print("variant kinds (quirework publish variant <kind> prints its SOP):")
         for k in avail:
             print(f"  {k}")
-        print("\nbuild the drafts: quirework book variant build <kind>")
+        print("\nbuild the drafts: quirework publish variant build <kind>")
         return 0
     f = procedure(f"variant-{kind}")
     if f is None:
@@ -430,7 +430,7 @@ def cmd_build(argv: list[str]) -> int:
             print(f"build: unknown arg {a!r}", file=sys.stderr)
             return 2
     if kind is None:
-        print("usage: quirework book variant build <kind> [...]", file=sys.stderr)
+        print("usage: quirework publish variant build <kind> [...]", file=sys.stderr)
         return 2
     if procedure(f"variant-{kind}") is None:
         print(f"no SOP 'variant-{kind}.md' to build against", file=sys.stderr)
@@ -446,10 +446,10 @@ def cmd_build(argv: list[str]) -> int:
             print(f"--only {only!r} matched no chapter", file=sys.stderr)
             return 2
     bundle = build_bundle(all_chapters)  # always the WHOLE book for grounding
-    policy = current_project().data("book.variant_policy", {})
+    policy = current_project().data("publish.variant_policy", {})
     assert_blind(bundle, tuple(policy.get("blind_tells", ())))
 
-    out_dir = out_dir or (current_project().path("book.variants") / kind)
+    out_dir = out_dir or (current_project().path("publish.variants") / kind)
     raw_dir = out_dir / "_raw"
     print(
         f"variant build: {kind}  ({len(chapters)} chapter(s), "
@@ -468,7 +468,7 @@ def cmd_build(argv: list[str]) -> int:
     if model is None:
         print(
             "no model selected: pass --model, or set default_model in the file "
-            "book.variant_policy names.",
+            "publish.variant_policy names.",
             file=sys.stderr,
         )
         return 2
@@ -512,22 +512,22 @@ def cmd_build(argv: list[str]) -> int:
     return 1 if fails else 0
 
 
-USAGE = """usage: quirework book variant [KIND | build KIND [OPTIONS]]
+USAGE = """usage: quirework publish variant [KIND | build KIND [OPTIONS]]
 
 Derived editions of the book, one per audience or medium the project declares
 as a variant-KIND procedure. The canonical text is always the master; a variant
 is generated from it, never the other way round.
 
-  quirework book variant                 list the kinds
-  quirework book variant KIND            print that kind's operator playbook (SOP)
-  quirework book variant build KIND      run the mechanical layer: assemble a
+  quirework publish variant                 list the kinds
+  quirework publish variant KIND            print that kind's operator playbook (SOP)
+  quirework publish variant build KIND      run the mechanical layer: assemble a
                                      blindness-safe bundle, then fan out one
                                      blind `claude -p` per chapter into
-                                     book.variants/KIND/_raw/ for the operator's
+                                     publish.variants/KIND/_raw/ for the operator's
                                      analyze + compose pass
 
 build options:
-  --out DIR      output dir (default: book.variants/KIND/)
+  --out DIR      output dir (default: publish.variants/KIND/)
   --model M      model for the per-chapter runs (default: the variant
                  policy's default_model)
   --par N        how many chapters to run in parallel (default: 5)

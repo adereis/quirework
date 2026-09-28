@@ -9,7 +9,7 @@ It is deliberately not a transcript. A record carries the command, the
 procedure's name when the command names one, the project root, the exit
 status and how long it took. COMMAND ARGUMENTS ARE NEVER RECORDED:
 `provenance search` takes a verbatim phrase out of the author's notes and
-`book redpen` takes review prose, so a file that quietly accumulated argv
+`publish redpen` takes review prose, so a file that quietly accumulated argv
 would be a private corpus nobody agreed to keep. The one argument that is
 recorded is a procedure's name, and only once the project has resolved it
 to a file under its own `sops.root`, because "which procedure" is the

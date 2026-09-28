@@ -19,7 +19,7 @@ Java is the one dependency, and its absence is reported rather than guessed
 around. Unlike a missing typeface -- which fails SILENTLY, and is why `render`
 refuses outright -- a missing validator is loud by construction: nothing claims
 the book was checked. So `render` prints how to install it and carries on,
-while `quirework book epubcheck` run directly exits non-zero, since asking for a
+while `quirework publish epubcheck` run directly exits non-zero, since asking for a
 check and getting a shrug is a different thing from rendering without one.
 
 Severity follows EPUBCheck's own exit semantics: FATAL and ERROR fail, WARNING
@@ -153,7 +153,7 @@ def missing_hint() -> str:
         )
     return (
         "epubcheck: the validator is not installed.\n"
-        "  Install the pinned copy with: quirework book epubcheck --install"
+        "  Install the pinned copy with: quirework publish epubcheck --install"
     )
 
 
@@ -195,7 +195,7 @@ def verify(site: Path) -> int:
 
 
 HELP = """\
-usage: quirework book epubcheck [--install] [--force] [EPUB]
+usage: quirework publish epubcheck [--install] [--force] [EPUB]
 
 Validate the built EPUB with the W3C reference checker (EPUBCheck),
 pinned by version and SHA-256 and cached outside the repo. Without an
@@ -228,8 +228,8 @@ def main(argv: list[str] | None = None) -> int:
     if args.install or args.force:
         return install(force=args.force)
 
-    import quirework.book.render as _options_quirework_book_render
-    from quirework.book.render import SITE
+    import quirework.publish.render as _options_quirework_book_render
+    from quirework.publish.render import SITE
 
     if args.epub:
         targets = [Path(args.epub)]
@@ -243,7 +243,7 @@ def main(argv: list[str] | None = None) -> int:
         if not targets:
             print(
                 f"epubcheck: no .epub in {_options_quirework_book_render._options().BUILD_BOOK / SITE} "
-                f"(run `quirework book build --to epub` first).",
+                f"(run `quirework publish build --to epub` first).",
                 file=sys.stderr,
             )
             return 2

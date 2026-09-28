@@ -1,6 +1,6 @@
 """Shared render staging for the Quarto book.
 
-`quirework book build` stages the book and runs Quarto there, never in the
+`quirework publish build` stages the book and runs Quarto there, never in the
 configured source tree. That staging plus Quarto discovery lives here.
 
 A book renders from **three** stages, because screen and print have different
@@ -18,7 +18,7 @@ front matter and two formats mishandle `part:` dividers:
   formats) and materializes a title-only part as a one-line `.unnumbered
   .part-divider` chapter in its slot. The EPUB's per-format Lua filter swaps
   color figures for gray; DOCX keeps color. This is the same fix
-  `quirework book redpen build` applies for its review DOCX
+  `quirework publish redpen build` applies for its review DOCX
   (`flatten_book_parts` / `unnumber_h1`, from bookstage).
 
 All stages also generate the Contents page, which only Typst can build for
@@ -36,9 +36,9 @@ import sys
 from pathlib import Path
 
 from quirework.project import current_project
-from quirework.book import bookstage as _bookstage
-from quirework.book import fignumbers as _fignumbers
-from quirework.book import figures as _figures
+from quirework.publish import bookstage as _bookstage
+from quirework.publish import fignumbers as _fignumbers
+from quirework.publish import figures as _figures
 
 # the screen stage (git-ignored)
 # the parts-flattened stage
@@ -69,7 +69,7 @@ def _options():
 
     BUILD_BOOK = _figures._settings().BUILD_BOOK
     PRINT_DROPS = set(
-        current_project().data("book.render_policy", {}).get("print_drops", set())
+        current_project().data("publish.render_policy", {}).get("print_drops", set())
     )
     return SimpleNamespace(BUILD_BOOK=BUILD_BOOK, PRINT_DROPS=PRINT_DROPS)
 
@@ -78,8 +78,10 @@ def _settings():
     """Resolve paths from the current operation, without import-time state."""
     from types import SimpleNamespace
 
-    BUILD_BOOK_NOPARTS = current_project().path("book.build", "build") / "book-noparts"
-    BUILD_BOOK_PRINT = current_project().path("book.build", "build") / "book-print"
+    BUILD_BOOK_NOPARTS = (
+        current_project().path("publish.build", "build") / "book-noparts"
+    )
+    BUILD_BOOK_PRINT = current_project().path("publish.build", "build") / "book-print"
     return SimpleNamespace(
         BUILD_BOOK_NOPARTS=BUILD_BOOK_NOPARTS, BUILD_BOOK_PRINT=BUILD_BOOK_PRINT
     )
@@ -149,7 +151,7 @@ def stage_book(stage: Path | None = None) -> int:
     on a non-zero result.
     """
     stage = stage or _options().BUILD_BOOK
-    mirror_sources(current_project().path("book.source"), stage)
+    mirror_sources(current_project().path("manuscript.source"), stage)
     _bookstage.render_contents(stage)
     # Print settings that have to take effect partway through the book (the
     # front matter's roman folios giving way to arabic, the back matter set
@@ -197,7 +199,7 @@ def stage_book_noparts() -> int:
     Returns the figure-build return code.
     """
     mirror_sources(
-        current_project().path("book.source"), _settings().BUILD_BOOK_NOPARTS
+        current_project().path("manuscript.source"), _settings().BUILD_BOOK_NOPARTS
     )
     # Before flatten (it wants real parts), and with anchor links: Quarto rewrites
     # a `chapter.qmd` link to the output file for HTML only.
@@ -233,7 +235,10 @@ def book_formats() -> list[str]:
     (nested keys like `theme:` / `filters:` are skipped).
     """
     lines = (
-        current_project().path("book.quarto").read_text(encoding="utf-8").splitlines()
+        current_project()
+        .path("manuscript.quarto")
+        .read_text(encoding="utf-8")
+        .splitlines()
     )
     keys: list[str] = []
     i, n = 0, len(lines)
@@ -267,7 +272,7 @@ def split_to(args: list[str]) -> tuple[list[str] | None, list[str]]:
     itself takes only one `--to`, so a second one riding through used to reach a
     stage whose config had already been trimmed to the first, silently rendering
     the second format without its declared options. Everything that is not a
-    `--to` rides through untouched, so `quirework book build --cache-refresh` still
+    `--to` rides through untouched, so `quirework publish build --cache-refresh` still
     works.
     """
     out: list[str] = []
@@ -371,7 +376,7 @@ def partition_formats(
 
 
 HELP = """\
-usage: quirework book build [--to FMT[,FMT...]] [--any-font] [quarto render args...]
+usage: quirework publish build [--to FMT[,FMT...]] [--any-font] [quarto render args...]
 
 Render the book into build/ (the render workdir), never into configured
 sources. Renders from three staged trees: HTML with the book's parts intact,
@@ -383,11 +388,11 @@ Every final output lands in build/book/_site/.
 options:
   -h, --help        show this help message and exit
   --to FMT[,FMT..]  render only these declared formats (repeatable);
-                    default is everything declared in book.quarto
+                    default is everything declared in manuscript.quarto
   --any-font        render even if a required typeface is missing. Off by
                     default because a missing font does not fail: the
                     renderer substitutes and the book comes out whole and
-                    in the wrong face (`quirework book fonts`)
+                    in the wrong face (`quirework publish fonts`)
 
 Anything else passes straight through to `quarto render`
 (e.g. --cache-refresh). Uses the quarto from the venv or PATH.
@@ -395,7 +400,7 @@ Anything else passes straight through to `quarto render`
 
 
 def main(argv: list[str] | None = None) -> int:
-    """The `quirework book build` orchestration: stage, trim, render, consolidate.
+    """The `quirework publish build` orchestration: stage, trim, render, consolidate.
 
     Hand-parsed rather than argparse because unknown flags are the contract
     here — they pass through to `quarto render` — so only `-h/--help` and
@@ -426,7 +431,7 @@ def main(argv: list[str] | None = None) -> int:
         if unknown:
             # restrict_formats keeps only declared blocks, so an unknown name
             # would silently render nothing it promised.
-            config = current_project().path("book.quarto")
+            config = current_project().path("manuscript.quarto")
             try:
                 named = config.relative_to(current_project().root)
             except ValueError:
@@ -451,7 +456,7 @@ def main(argv: list[str] | None = None) -> int:
     # refusing that render answers a question about a computer this one cannot
     # see.
     if not any_font:
-        from quirework.book import fonts as _fonts
+        from quirework.publish import fonts as _fonts
 
         if _fonts.missing(requested or declared):
             _fonts.report(as_check=False)
@@ -566,7 +571,7 @@ def main(argv: list[str] | None = None) -> int:
     # than a render failure; `epubcheck` owns that call and its reasoning.
     rc_epub = 0
     if "epub" in less:
-        from quirework.book import epubcheck as _epubcheck
+        from quirework.publish import epubcheck as _epubcheck
 
         rc_epub = _epubcheck.verify(_options().BUILD_BOOK / SITE)
     return rc or rc_epub

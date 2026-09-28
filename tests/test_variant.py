@@ -7,7 +7,7 @@ given, and the guard that refuses to hand it the project's own marginalia.
 
 import pytest
 
-from quirework.book import variant
+from quirework.publish import variant
 from quirework.project import Project, project_scope
 
 
@@ -50,10 +50,12 @@ def _book(tmp_path):
 
 def _project(root, **overrides):
     settings = {
-        "book": {
+        "manuscript": {
             "source": "manuscript",
             "quarto": "manuscript/_quarto.yml",
             "chapters": "manuscript/sections",
+        },
+        "publish": {
             "variants": "variants",
         },
         "sops": {"root": "procedures"},
@@ -86,7 +88,7 @@ def test_the_reading_order_comes_from_the_configured_file(tmp_path):
         with pytest.raises(FileNotFoundError):
             variant.chapter_order()
     settings = {
-        "book": {
+        "manuscript": {
             "source": "manuscript",
             "chapters": "manuscript/sections",
             "quarto": "manuscript/book.yml",
