@@ -1105,16 +1105,18 @@ def overview(*, utc=False):
     return lines
 
 
-def chapter_view(chapter, *, utc=False):
-    """The trails of every section a chapter binds, one line per breadcrumb."""
+def unit_view(chapter, *, utc=False):
+    """The trails of every section a unit binds, one line per breadcrumb."""
+    from quirework.manuscript import units
+
     bindings = notes.chapter_bindings()
     stems = [stem for stem in bindings if chapter == stem] or [
         stem for stem in bindings if chapter in stem
     ]
     if not stems:
         raise LookupError(
-            f"no chapter matching '{chapter}' binds a spec section "
-            f"(chapters with bindings: {', '.join(sorted(bindings))})"
+            f"no {units.noun()} matching '{chapter}' binds a spec section "
+            f"({units.noun()}s with bindings: {', '.join(sorted(bindings))})"
         )
     if len(stems) > 1:
         raise LookupError(f"'{chapter}' matches {', '.join(sorted(stems))}")
@@ -1593,7 +1595,7 @@ views:
   quirework spec trail                      which sections have a trail
   quirework spec trail SLUG                 one section's trail, oldest first
   quirework spec trail SLUG --brief         one line per breadcrumb
-  quirework spec trail --chapter CH         the trails of every section CH binds
+  quirework spec trail --unit U             the trails of every section U binds
   quirework spec trail --session ID         which sections a session fed
   quirework spec trail --check              the gate
 
@@ -1692,7 +1694,7 @@ def main(argv=None):
     ap.add_argument("slug", nargs="?", help="a spec section, or 'suggest SLUG'")
     ap.add_argument("rest", nargs="?", help=argparse.SUPPRESS)
     ap.add_argument("--brief", action="store_true", help="one line per breadcrumb")
-    ap.add_argument("--chapter", metavar="CH", help="every section a chapter binds")
+    ap.add_argument("-c", "--unit", metavar="U", help="every section a unit binds")
     ap.add_argument("--session", metavar="ID", help="which sections a session fed")
     ap.add_argument("--check", action="store_true", help="the trail's gate")
     ap.add_argument("--utc", action="store_true", help="date turns in UTC")
@@ -1713,11 +1715,11 @@ def main(argv=None):
         elif args.diff:
             ap.error("--diff goes with suggest SLUG")
         elif args.check:
-            if args.slug or args.chapter or args.session or args.brief:
+            if args.slug or args.unit or args.session or args.brief:
                 ap.error("--check runs the gate and takes no view options")
             return check()
-        elif args.chapter:
-            lines = chapter_view(args.chapter, utc=args.utc)
+        elif args.unit:
+            lines = unit_view(args.unit, utc=args.utc)
         elif args.session:
             lines = session_view(args.session, utc=args.utc)
         elif args.slug:

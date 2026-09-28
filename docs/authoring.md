@@ -223,7 +223,7 @@ Reading is one command per depth. `spec notes --primer` counts each
 section's breadcrumbs, and every listing of bindings marks a binding
 whose section has any, as `[trail ×2]`, so an agent following one from
 the prose learns there is a history to read. A section with none
-carries no marker. `spec trail --chapter opening` lists, one line
+carries no marker. `spec trail --unit opening` lists, one line
 each, the trails of the sections a chapter binds.
 `spec trail cooling-asymmetry` reads one section's trail oldest first,
 and prints the `provenance show … --turn N` that opens each turn with

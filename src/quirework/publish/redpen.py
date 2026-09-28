@@ -96,6 +96,7 @@ from functools import lru_cache
 from pathlib import Path
 
 from quirework.project import current_project
+from quirework.manuscript import quarto as _quarto
 from quirework.publish import bookstage as _bookstage
 from quirework.publish import figures as _figures
 from quirework.manuscript import notes as _notes
@@ -318,7 +319,7 @@ def render_book_notes_block(
 
 @lru_cache(maxsize=8)
 def _chapter_titles_at(root: Path) -> dict[str, str]:
-    from quirework.manuscript.chapters import registry
+    from quirework.manuscript.units import registry
 
     return {c.slug: c.title for c in registry()}
 
@@ -468,7 +469,7 @@ def inject_review_notes(stage: Path) -> int:
     by_slug = _book_notes_by_slug(book_notes(chapter_dir))
     return sum(
         _inject_own_block(stage / rel, by_slug, _settings().SOURCE / rel)
-        for rel in _bookstage.book_chapters(stage)
+        for rel in _quarto.book_chapters(stage)
         if (stage / rel).is_file()
     )
 
@@ -533,7 +534,7 @@ def _first_book_file(stage: Path) -> Path | None:
     return next(
         (
             stage / rel
-            for rel in _bookstage.book_chapters(stage)
+            for rel in _quarto.book_chapters(stage)
             if (stage / rel).is_file()
         ),
         None,
@@ -701,7 +702,7 @@ def _in_reading_order(source: Path) -> list[Path]:
         return [source]
     files = sorted(source.glob("*.qmd"))
     try:
-        order = _bookstage.book_chapters(source.parent)
+        order = _quarto.book_chapters(source.parent)
     except (OSError, ValueError):
         return files
     rank = {Path(r).name: i for i, r in enumerate(order)}

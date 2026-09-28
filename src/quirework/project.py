@@ -280,14 +280,36 @@ class Project:
                 raise ConfigurationError(
                     f"configured manuscript source directory is missing: {source}"
                 )
-            chapters = self.path("manuscript.chapters")
-            if not chapters.is_dir():
+            fmt = self.get("manuscript.format", "quarto")
+            if fmt == "quarto":
+                chapters = self.path("manuscript.chapters")
+                if not chapters.is_dir():
+                    raise ConfigurationError(
+                        f"configured canon directory is missing: {chapters}"
+                    )
+                quarto = self.path("manuscript.quarto")
+                if not quarto.is_file():
+                    raise ConfigurationError(
+                        f"configured Quarto file is missing: {quarto}"
+                    )
+            elif fmt == "pages":
+                # A glob, not a path: it names the pages under the source, and
+                # matching nothing is legitimate for a site with no posts yet.
+                if not self.get("manuscript.pages"):
+                    raise ConfigurationError(
+                        "manuscript.format = 'pages' needs manuscript.pages, a "
+                        "glob under manuscript.source such as 'posts/*/index.md'"
+                    )
+                marks = self.get("manuscript.marks")
+                if marks is not None and "{slug}" not in str(marks):
+                    raise ConfigurationError(
+                        "manuscript.marks must contain {slug}, e.g. "
+                        "'specs/{slug}/marks.md'"
+                    )
+            else:
                 raise ConfigurationError(
-                    f"configured canon directory is missing: {chapters}"
+                    f"manuscript.format must be 'quarto' or 'pages', not {fmt!r}"
                 )
-            quarto = self.path("manuscript.quarto")
-            if not quarto.is_file():
-                raise ConfigurationError(f"configured Quarto file is missing: {quarto}")
             for key, kind in (
                 ("manuscript.spec", "spec file"),
                 ("manuscript.review_notes", "review-notes file"),

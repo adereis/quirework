@@ -1,11 +1,11 @@
 """Extract in-source annotations from the document source.
 
 The volatile half of the old map (to-dos, guidance, genesis, conversation
-references, spec bindings) lives as structured HTML comments in a per-chapter
-sidecar beside the prose they concern. They are invisible in the Quarto render
-and survive a semantic rewrap, but a tool can harvest them into the grouped
-views the map used to hold -- always in sync, because they are read from the
-text itself.
+references, spec bindings) lives as structured HTML comments in a per-unit
+sidecar: beside a book's chapter, or wherever a site keeps its pages' marks
+(`units` owns the layout). They never reach the rendered text and survive a
+semantic rewrap, but a tool can harvest them into the grouped views the map
+used to hold -- always in sync, because they are read from the text itself.
 
 Convention (one tag per comment; the parenthetical and body are optional):
 
@@ -33,6 +33,7 @@ from collections import Counter
 from dataclasses import dataclass
 from pathlib import Path
 
+from quirework.manuscript import frontmatter, units
 from quirework.project import current_project
 
 # <!-- @kind(args)  body --> , possibly multi-line.
@@ -52,7 +53,6 @@ _WS = re.compile(r"\s+")
 # frontmatter is not a heading, but the line-anchored regex cannot tell.
 # Masking preserves length and newlines, so offsets stay comparable.
 _COMMENT = re.compile(r"(?s)<!--.*?-->")
-_FRONTMATTER = re.compile(r"(?s)\A---\s*\n.*?\n---[ \t]*(?:\n|\Z)")
 # Fenced code blocks: annotation *examples* in documentation live in fences and
 # must not be harvested as real annotations.
 _FENCE = re.compile(r"(?ms)^[ \t]*(`{3,}|~{3,}).*?^[ \t]*\1[ \t]*$")
@@ -146,7 +146,7 @@ _BIND_TOKEN = re.compile(r"@bind\(([^)]*)\)")
 # ``{#anchor}`` attributes; those name document locations, not commitments.
 _SPEC_REF = re.compile(r"(?<![\w{/])#([A-Za-z][\w-]*)\b")
 
-# `@ch(slug)`: the metadata layer's chapter pointer, resolved by chapters.py.
+# `@ch(slug)`: the metadata layer's chapter pointer, resolved by units.py.
 # A reference form only, never a mark kind -- `<!-- @ch(x) -->` would be
 # harvested as a new kind and would join the vocabulary by accident, so
 # `check()` rejects it as invariant 9.
@@ -279,11 +279,16 @@ def _mask_fences(text: str) -> str:
 
 
 def _mask_nonprose(text: str) -> str:
-    """Blank HTML comments and YAML frontmatter, for heading detection only.
+    """Blank HTML comments and frontmatter, for heading detection only.
 
-    Length-preserving like _mask_fences, so heading offsets computed on the
-    masked text index straight into the unmasked one."""
-    return _COMMENT.sub(_blank, _FRONTMATTER.sub(_blank, text))
+    Frontmatter is either convention, YAML or TOML: a TOML comment line starts
+    with `#` exactly like a heading. Length-preserving like _mask_fences, so
+    heading offsets computed on the masked text index straight into the
+    unmasked one."""
+    found = frontmatter.block(text)
+    if found:
+        text = _blank(found) + text[found.end() :]
+    return _COMMENT.sub(_blank, text)
 
 
 DEFAULT_GLOBS = ("*.qmd", "*.md")
@@ -292,14 +297,13 @@ DEFAULT_GLOBS = ("*.qmd", "*.md")
 # `<!-- @see(slug) rider -->` in AGENTS.md), not book content. Skip them when
 # globbing a directory, so the harvest is the book's marks, not the repo's own
 # guidance. An explicitly named --path still reads them (nothing is masked).
-SKIP_NAMES = {"AGENTS.md", "CLAUDE.md", "GEMINI.md"}
+SKIP_NAMES = units.SKIP_NAMES
 
-# A chapter's metadata marks live in a sidecar `<dir>/_marks/<stem>.md` beside
-# it, never inline in the prose. scan() attributes a sidecar's marks to the
-# sibling chapter `<dir>/<stem>.qmd`; `notes --check` verifies the layout stays
-# honest. A configured book-wide review manifest is the target a chapter's
-# @see(slug) resolves against.
-MARKS_DIR = "_marks"
+# A unit's metadata marks live in a sidecar, never inline in the prose. scan()
+# attributes a sidecar's marks to the unit it belongs to (`units.attributed`);
+# `notes --check` verifies the layout stays honest. A configured book-wide
+# review manifest is the target a unit's @see(slug) resolves against.
+MARKS_DIR = units.MARKS_DIR
 
 # The spec is the central commitments register. Its
 # level-2 sections (`## Title {#slug}`) are the binding namespace — a chapter's
@@ -414,16 +418,12 @@ def scan_text(text: str, rel: str, source: str | None = None) -> list[Annotation
 
 
 def _chapter_for(f: Path) -> Path:
-    """The prose file a source path is attributed to. A sidecar
-    `<dir>/_marks/<stem>.md` is attributed to its sibling chapter
-    `<dir>/<stem>.qmd`; every other file is attributed to itself. This is the one
-    place the sidecar↔chapter mapping lives — the harvest reads the sidecar's
-    text (so its mirrored headings drive section attribution) but stamps every
-    mark with the chapter path, so `--by chapter`, reading order, and the chapter
-    title all resolve exactly as they did when the marks were inline."""
-    if f.parent.name == MARKS_DIR:
-        return f.parent.parent / (f.stem + ".qmd")
-    return f
+    """The prose file a source path is attributed to: a sidecar's unit, and
+    every other file itself. The harvest reads the sidecar's text (so its
+    mirrored headings drive section attribution) but stamps every mark with the
+    unit's path, so `--by unit`, reading order, and the title all resolve
+    exactly as they would if the marks were inline. `units` owns the mapping."""
+    return units.attributed(f)
 
 
 def _configured_book_file(docs, key):
@@ -491,8 +491,8 @@ def spec_slugs(docs: Path | None = None) -> set[str]:
 
 
 def scan(paths: list[Path] | None = None) -> list[Annotation]:
-    """Harvest annotations below the given paths or configured book source."""
-    roots = paths or [current_project().path("manuscript.source")]
+    """Harvest annotations below the given paths or the manuscript's own files."""
+    roots = paths or units.harvest()
     out: list[tuple[Path, str, str]] = []  # (file to read, chapter, source)
     for root in roots:
         root = Path(root)
@@ -514,51 +514,37 @@ def scan(paths: list[Path] | None = None) -> list[Annotation]:
     return annos
 
 
-_QMD_TOKEN = re.compile(r"([\w./-]+\.qmd)")
-_FRONT_TITLE = re.compile(r'(?m)^title:\s*["\']?(.+?)["\']?\s*$')
-
-
 def _reading_order() -> dict[str, int]:
-    """Map each relative path to its position in the configured book.
+    """Map each unit's relative path to its position in the manuscript.
 
-    Lets `--by chapter` follow the book's order (the welcome landing first, part
-    dividers in place) instead of a lexical filename sort, which misplaces
-    index.qmd and part-two.qmd. Empty if the config is absent (e.g. a custom
-    --path scan), in which case the caller falls back to sorting by path.
+    Lets `--by unit` follow the reading order (a book's welcome landing
+    first, part dividers in place; a site's pages by date) instead of a lexical
+    filename sort. Empty when the order cannot be read (e.g. a custom --path
+    scan of a tree with no Quarto file), in which case the caller falls back to
+    sorting by path.
     """
-    project = current_project()
     try:
-        text = project.path("manuscript.quarto").read_text()
-        prefix = project.path("manuscript.source").relative_to(project.root)
-    except OSError:
+        return {u.rel: i for i, u in enumerate(units.registry())}
+    except (OSError, ValueError):
         return {}
-    except ValueError:
-        prefix = Path()
-    order: dict[str, int] = {}
-    for line in text.splitlines():
-        if line.lstrip().startswith("#"):  # skip YAML comments
-            continue
-        m = _QMD_TOKEN.search(line)
-        if m:
-            order.setdefault(str(prefix / m.group(1)), len(order))
-    return order
 
 
 def _chapter_title(rel: str) -> str:
-    """A human label for a source file: its first heading, else a frontmatter
-    title (some front-matter pages are titled via YAML, with no `#`), else the stem."""
+    """A human label for a source file: a frontmatter title, else its first
+    heading, else the stem."""
     try:
         text = _mask_fences((current_project().root / rel).read_text())
     except OSError:
         return Path(rel).stem
+    try:
+        title = frontmatter.as_text(frontmatter.fields(text).get("title"))
+    except ValueError:
+        title = None
+    if title:
+        return title
     m = _HEADING.search(_mask_nonprose(text))
     if m:
         return m.group(2).strip()
-    fm = re.match(r"(?s)\A---\s*\n(.*?)\n---\s*\n", text)
-    if fm:
-        tm = _FRONT_TITLE.search(fm.group(1))
-        if tm:
-            return tm.group(1).strip()
     return Path(rel).stem
 
 
@@ -650,7 +636,7 @@ def _render_by_chapter(annos: list[Annotation]) -> None:
             suffix = f"  {a.body}" if a.body else ""
             suffix += _trail_marker(a, held)
             print(f"  L{a.line:<4} @{a.kind}{argstr}{suffix}")
-    print(f"\ntotal: {len(annos)} mark(s) across {len(by_file)} chapter(s)")
+    print(f"\ntotal: {len(annos)} mark(s) across {len(by_file)} {units.noun()}(s)")
 
 
 def _rel(p: Path) -> str:
@@ -699,11 +685,15 @@ def _canon_corpus(docs: Path) -> str:
     bodies so a quotation that straddles a comment or a heading still matches;
     the collapse is what makes a sidecar's hanging-indented mark body
     searchable as the single sentence it is."""
-    parts: list[str] = []
+    files: set[Path] = set()
     for pat in ("*.qmd", "*.md"):
-        for f in sorted(docs.rglob(pat)):
-            parts.append(f.read_text())
-    return _searchable("\n".join(parts))
+        files.update(docs.rglob(pat))
+    # A site keeps its marks and its spec outside the source it renders.
+    files.update(units.sidecars(docs))
+    spec = _configured_book_file(docs, "manuscript.spec")
+    if spec is not None and spec.exists():
+        files.add(spec)
+    return _searchable("\n".join(f.read_text() for f in sorted(files)))
 
 
 def _blocks(text: str) -> list[tuple[str, int]]:
@@ -766,12 +756,12 @@ def _attributed_spans(
 
 
 def chapter_bindings(docs: Path | None = None) -> dict[str, set[str]]:
-    """chapter stem -> the spec slugs its sidecar actually binds."""
+    """unit slug -> the spec slugs its sidecar actually binds."""
     out: dict[str, set[str]] = {}
-    roots = [docs] if docs is not None else None
+    roots = units.harvest(docs) if docs is not None else None
     for a in scan(roots):
         if a.kind == "bind" and a.args:
-            out.setdefault(Path(a.file).stem, set()).add(a.args[0])
+            out.setdefault(units.slug_of(a.file), set()).add(a.args[0])
     return out
 
 
@@ -838,7 +828,7 @@ def coverage(
         Path(docs) if docs is not None else current_project().path("manuscript.source")
     )
     spec = spec_slugs(docs)
-    stems = {p.stem for p in docs.rglob("*.qmd")}
+    stems = units.names(docs)
     by_slug: dict[str, list[str]] = {}
     for f in companion_files(root if root is not None else docs.parent):
         if f.name == "README.md":
@@ -874,7 +864,7 @@ def companion_check(
     advisories: list[str] = []
     anchors: list[str] = []
     corpus = _canon_corpus(docs)
-    stems = {p.stem for p in docs.rglob("*.qmd")}
+    stems = units.names(docs)
     binds = chapter_bindings(docs)
     for f in companion_files(root):
         if f.name == "README.md":
@@ -963,10 +953,10 @@ def _findings(docs: Path) -> tuple[list[str], list[tuple[str, list[str]]]]:
     """Lint the split-metadata layout; replaces physical co-location as the
     drift guard. Eleven hard invariants (any failure → exit 1):
 
-      1. no canon `.qmd` carries an @-mark (marks live in sidecars);
-      2. every `_marks/<stem>.md` has a sibling `<stem>.qmd` (no orphan sidecar);
+      1. no prose file carries an @-mark (marks live in sidecars);
+      2. every sidecar belongs to a unit on disk (no orphan sidecar);
       3. every heading in a sidecar resolves to a real heading/anchor in its
-         chapter (the mirror can never drift from the prose it indexes);
+         unit (the mirror can never drift from the prose it indexes);
       4. the spec's level-2 sections each carry an {#slug} anchor,
          unique across the spec (they are the binding namespace);
       5. every @bind is bodyless and its slug names a spec section (any
@@ -985,10 +975,10 @@ def _findings(docs: Path) -> tuple[list[str], list[tuple[str, list[str]]]]:
          never used as a mark kind. A chapter-shaped token that resolves to
          nothing used to be skipped in silence, which turned invariant 8 into
          a no-op rather than a failure.
-     10. the configured Quarto file and chapter files on disk are a bijection.
-         The dual of invariant 2: every listed file exists, and every chapter
-         on disk is listed, so nothing renders nowhere and nothing is named
-         that is not there.
+     10. the units on disk are the manuscript's units: for a book, the Quarto
+         file and the chapter files are a bijection (every listed file
+         exists, every chapter on disk is listed); for a site, no two pages
+         share a slug. The dual of invariant 2.
      11. where `manuscript.spec_trail` is set, the trail sidecar parses and each of
          its headings names a spec section. It points into the sessions that
          shaped the spec, and `spec trail --check` follows those pointers.
@@ -1042,35 +1032,36 @@ def _findings(docs: Path) -> tuple[list[str], list[tuple[str, list[str]]]]:
     )
     problems: list[str] = []
 
-    # 1. every book .qmd is mark-free.
-    for qmd in sorted(docs.rglob("*.qmd")):
-        text = _mask_fences(qmd.read_text())
+    # 1. every prose file is mark-free.
+    for prose in units.prose_files(docs):
+        text = _mask_fences(prose.read_text())
         for m in _ANNO.finditer(text):
             ln = text.count("\n", 0, m.start()) + 1
+            home = units.marks_path(units.slug_of(prose), docs)
+            where = _rel(home) if home is not None else "a marks sidecar"
             problems.append(
-                f"{_rel(qmd)}:{ln}: @{m.group(1).lower()} mark left in prose — "
-                f"move it to {MARKS_DIR}/{qmd.stem}.md"
+                f"{_rel(prose)}:{ln}: @{m.group(1).lower()} mark left in prose — "
+                f"move it to {where}"
             )
-
-    sidecars = sorted(docs.rglob(f"{MARKS_DIR}/*.md"))
 
     # 2. no orphan sidecars; 3. mirror integrity.
-    for side in sidecars:
-        chapter = side.parent.parent / (side.stem + ".qmd")
-        if not chapter.exists():
+    for side in units.sidecars(docs):
+        unit = units.prose_for_sidecar(side, docs)
+        if unit is None or not unit.exists():
+            named = _rel(unit) if unit is not None else f"'{units.sidecar_slug(side)}'"
             problems.append(
-                f"{_rel(side)}: orphan sidecar — no chapter {_rel(chapter)} beside it"
+                f"{_rel(side)}: orphan sidecar — no {units.noun()} {named} for it"
             )
             continue
-        ch_labels = {lbl for _, lbl in _headings(_mask_fences(chapter.read_text()))}
+        ch_labels = {lbl for _, lbl in _headings(_mask_fences(unit.read_text()))}
         for _, lbl in _headings(_mask_fences(side.read_text())):
             if lbl not in ch_labels:
                 problems.append(
                     f"{_rel(side)}: heading '{lbl}' has no matching heading or "
-                    f"{{#anchor}} in {_rel(chapter)} (the mirror has drifted)"
+                    f"{{#anchor}} in {_rel(unit)} (the mirror has drifted)"
                 )
 
-    annos = scan([docs])
+    annos = scan(units.harvest(docs))
 
     # 4. the spec's binding namespace: anchored, unique level-2 sections.
     spec_rel = _rel(_spec_path(docs))
@@ -1165,12 +1156,11 @@ def _findings(docs: Path) -> tuple[list[str], list[tuple[str, list[str]]]]:
                 f"not a mark kind — put the pointer in a mark's body"
             )
 
-    # 10. `_quarto.yml` <-> disk, both directions. The dual of invariant 2, and
-    # under slug-only the only remaining way to orphan a chapter: rename the
-    # file and forget the config. Owned by chapters.py, which owns the registry.
-    from quirework.manuscript.chapters import bijection_problems
-
-    problems += bijection_problems(docs)
+    # 10. the units on disk are the manuscript's units. The dual of invariant
+    # 2: under slug-only, the remaining way to orphan a book chapter is to
+    # rename the file and forget the config. Owned by units, which owns the
+    # registry.
+    problems += units.order_problems(docs)
 
     # 7/8. the companion collections resolve back into the spec, their
     # quotations still exist in the book they quote, and each entry's
@@ -1416,11 +1406,16 @@ def _findings_at(ref: str, docs: Path):
     outlive the call, and checked in a project rooted there with today's
     settings, so both trees answer to the same rules and name their files
     relative to their own root. Nothing touches the index or adds a worktree.
+
+    The project is rebuilt from its settings rather than copied with a new
+    root: a copy keeps each setting's origin, so every configured path would
+    still resolve into the live checkout. A site's marks and spec sit outside
+    its source, and would then be read from today's tree while its pages came
+    from the revision.
     """
-    import dataclasses
     import tempfile
 
-    from quirework.project import private_tmp_parent, project_scope
+    from quirework.project import Project, private_tmp_parent, project_scope
 
     project = current_project()
     try:
@@ -1445,7 +1440,8 @@ def _findings_at(ref: str, docs: Path):
     ) as tmp:
         root = Path(tmp).resolve()
         _extract(top, ref, prefix, root)
-        with project_scope(dataclasses.replace(project, root=root)):
+        then = Project.from_settings(root, project.describe()["settings"])
+        with project_scope(then):
             return _findings(root / inside)
 
 
@@ -1490,19 +1486,19 @@ def check(docs: Path | None = None, since: str | None = None) -> int:
 def main(argv=None) -> int:
     ap = argparse.ArgumentParser(
         prog="quirework spec notes",
-        description="Harvest the book's @-annotations from the source. "
+        description="Harvest the manuscript's @-annotations from its sidecars. "
         "Positional args filter by kind (bind, guidance, todo, ...); "
         "run `quirework spec notes --list` to see the kinds and their counts.",
         epilog="examples:\n"
         "  quirework spec notes                     all marks, grouped by kind\n"
         "  quirework spec notes bind                only @bind relationships\n"
         "  quirework spec notes --primer            the fresh-session primer\n"
-        "                                       (bind+guidance, by chapter)\n"
+        "                                       (bind+guidance, by unit)\n"
         "  quirework spec notes bind --slug authorship-by-log\n"
         "                                       who binds that spec section\n"
         "  quirework spec notes relations --slug authorship-by-log\n"
         "                                       the same, without the word bind\n"
-        "  quirework spec notes --by chapter        the whole book's marks, in order\n"
+        "  quirework spec notes --by unit           every unit's marks, in order\n"
         "  quirework spec notes --list              the kind vocabulary + counts",
         formatter_class=argparse.RawDescriptionHelpFormatter,
     )
@@ -1521,15 +1517,15 @@ def main(argv=None) -> int:
     )
     ap.add_argument(
         "--by",
-        choices=("kind", "chapter"),
+        choices=("kind", "unit"),
         default=None,
-        help="group output by kind (default) or by chapter, in reading order",
+        help="group output by kind (default) or by unit, in reading order",
     )
     ap.add_argument(
         "-c",
-        "--chapter",
+        "--unit",
         metavar="SUBSTR",
-        help="only marks in files whose path matches this substring "
+        help="only marks of units whose path matches this substring "
         "(e.g. the-sidecar, sidecar)",
     )
     ap.add_argument(
@@ -1546,7 +1542,7 @@ def main(argv=None) -> int:
     ap.add_argument(
         "--primer",
         action="store_true",
-        help="shortcut: @bind + @guidance, by chapter (fresh-session context)",
+        help="shortcut: @bind + @guidance, by unit (fresh-session context)",
     )
     ap.add_argument(
         "--list",
@@ -1590,7 +1586,7 @@ def main(argv=None) -> int:
             for name, val in (
                 ("KIND", args.kinds or args.kind),
                 ("--by", args.by),
-                ("-c/--chapter", args.chapter),
+                ("-c/--unit", args.unit),
                 ("--section", args.section),
                 ("--slug", args.slug),
                 ("--primer", args.primer),
@@ -1677,7 +1673,7 @@ def main(argv=None) -> int:
         explicit += [p.strip().lower() for p in spec.split(",") if p.strip()]
     explicit = list(dict.fromkeys(explicit))  # de-dup, preserve order
 
-    by = args.by or ("chapter" if args.primer else "kind")
+    by = args.by or ("unit" if args.primer else "kind")
 
     # An explicitly named kind the corpus doesn't hold is a typo -- error loudly
     # (the tag set is open, so "valid" == "present"). A preset (--primer) is not a
@@ -1704,12 +1700,13 @@ def main(argv=None) -> int:
     else:
         requested = []  # no kind filter: every kind
 
-    # Validate the chapter filter against the scanned files, likewise.
+    # Validate the unit filter against the scanned files, likewise.
     all_files = sorted({a.file for a in annos})
-    if args.chapter:
-        sub = args.chapter.lower()
+    if args.unit:
+        sub = args.unit.lower()
         if not any(sub in f.lower() for f in all_files):
-            print(f"no chapter matches '{args.chapter}'. chapters:", file=sys.stderr)
+            kind = units.noun()
+            print(f"no {kind} matches '{args.unit}'. {kind}s:", file=sys.stderr)
             for f in all_files:
                 print(f"  {f}", file=sys.stderr)
             return 2
@@ -1717,8 +1714,8 @@ def main(argv=None) -> int:
     if requested:
         want = set(requested)
         annos = [a for a in annos if a.kind in want]
-    if args.chapter:
-        sub = args.chapter.lower()
+    if args.unit:
+        sub = args.unit.lower()
         annos = [a for a in annos if sub in a.file.lower()]
     # --slug and --section are validated against what the earlier filters
     # left, so the error is scoped to the kinds/chapter actually asked for
@@ -1750,8 +1747,8 @@ def main(argv=None) -> int:
         active = []
         if requested:
             active.append("kind(s) " + ", ".join(requested))
-        if args.chapter:
-            active.append(f"chapter ~ '{args.chapter}'")
+        if args.unit:
+            active.append(f"{units.noun()} ~ '{args.unit}'")
         if args.slug:
             active.append(f"slug ~ '{args.slug}'")
         if args.section:
@@ -1762,7 +1759,7 @@ def main(argv=None) -> int:
 
     if args.primer and not args.path:
         _print_spec_toc()  # a custom --path scan has no spec of its own
-    if by == "chapter":
+    if by == "unit":
         _render_by_chapter(annos)
     else:
         _render_by_kind(annos)

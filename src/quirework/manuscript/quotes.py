@@ -66,7 +66,7 @@ import sys
 from dataclasses import dataclass, replace
 from pathlib import Path
 
-from quirework.manuscript import notes
+from quirework.manuscript import notes, units
 
 # Kinds whose bodies assert that something IS in the book. @source and @ref
 # quote the world outside it; @todo is working state and may quote anything,
@@ -167,7 +167,7 @@ def _prose_corpus(docs: Path) -> str:
     readily as the caption ("and not all of it" is a label on ch2's dial and
     appears in no chapter), and their text is what the reader sees.
     """
-    parts = [f.read_text() for f in sorted(docs.rglob("*.qmd"))]
+    parts = [f.read_text() for f in units.prose_files(docs)]
     for key in ("manuscript.spec", "manuscript.review_notes"):
         f = notes._configured_book_file(docs, key)
         if f is not None and f.exists():
@@ -190,8 +190,8 @@ def _chapter_corpora(docs: Path) -> tuple[dict[str, str], str]:
     misattribution is declared.
     """
     per: dict[str, str] = {}
-    for f in sorted(docs.rglob("*.qmd")):
-        per[f.stem] = notes._searchable(f.read_text())
+    for f in units.prose_files(docs):
+        per[units.slug_of(f)] = notes._searchable(f.read_text())
     loose: list[str] = []
     for key in ("manuscript.spec", "manuscript.review_notes"):
         f = notes._configured_book_file(docs, key)
@@ -212,10 +212,8 @@ def _known_slugs(docs: Path, per_chapter: dict[str, str]) -> set[str]:
     the check compares where words ARE against where a mark SAYS they are, and
     a stem that is not really a chapter fails both halves alike.
     """
-    from quirework.manuscript.chapters import slugs as _chapter_slugs
-
     try:
-        return _chapter_slugs(docs) & set(per_chapter)
+        return units.slugs(docs) & set(per_chapter)
     except (FileNotFoundError, OSError):
         return set(per_chapter)
 

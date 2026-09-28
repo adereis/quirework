@@ -43,7 +43,7 @@ COMMANDS = {
         "manuscript.quotes", "Check quotations in annotations", "manuscript"
     ),
     ("spec", "units"): Command(
-        "manuscript.chapters",
+        "manuscript.units",
         "List the units and check references to them",
         "manuscript",
     ),

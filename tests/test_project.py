@@ -12,7 +12,7 @@ from quirework.project import (
     project_scope,
     submit,
 )
-from quirework.manuscript import chapters, notes
+from quirework.manuscript import notes, units
 from quirework.publish import fonts, graybuild
 from quirework.sops import catalog, commands, personas
 
@@ -37,7 +37,7 @@ def book(root, slug):
 def test_different_layout_and_no_private_corpus(tmp_path):
     project = book(tmp_path / "novel", "arrival")
     with project_scope(project):
-        assert [c.slug for c in chapters.registry()] == ["arrival"]
+        assert [c.slug for c in units.registry()] == ["arrival"]
         assert not (project.root / "private").exists()
 
 
@@ -64,7 +64,7 @@ def test_parallel_projects_have_separate_paths_and_policy(tmp_path):
     a, b = book(tmp_path / "a", "arrival"), book(tmp_path / "b", "departure")
 
     def read():
-        return current_project().root, [c.slug for c in chapters.registry()]
+        return current_project().root, [c.slug for c in units.registry()]
 
     with ThreadPoolExecutor(max_workers=2) as pool:
         with project_scope(a):
@@ -573,4 +573,4 @@ def test_book_can_check_metadata_without_migration_tables(tmp_path):
         },
     )
     with project_scope(project):
-        assert chapters.scan_layers(known={"arrival"}) == []
+        assert units.scan_layers(known={"arrival"}) == []

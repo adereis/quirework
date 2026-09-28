@@ -40,6 +40,7 @@ import subprocess
 import zipfile
 from pathlib import Path
 
+from quirework.manuscript import quarto as _quarto
 from quirework.publish import bookstage as _bookstage
 from quirework.publish import figures as _figures
 from quirework.project import current_project
@@ -130,7 +131,7 @@ def expected_count(stage: Path) -> tuple[int, set[str]]:
     """
     numbered = 0
     unnumbered: set[str] = set()
-    for rel in _bookstage.book_chapters(stage):
+    for rel in _quarto.book_chapters(stage):
         src = stage / rel
         if not src.exists():
             continue

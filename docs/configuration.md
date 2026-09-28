@@ -82,6 +82,47 @@ generated skill, for a project whose guide is not `AGENTS.md`. Setting
 it to an empty string leaves the generated skills pointing only at the
 procedure itself.
 
+## Manuscript formats
+
+`manuscript.format` says how the written work is laid out, and so how
+its units are found. A unit is a chapter of a book or a post on a site.
+Its slug is its identity: the name of its marks sidecar, what an
+`@ch(slug)` reference resolves, and the key its bindings are kept
+under.
+
+`quarto`, the default, reads the chapters a Quarto book project lists
+under `book.chapters` in `manuscript.quarto`, in that order. A chapter's
+slug is its file stem, its marks sit beside it as `_marks/<stem>.md`,
+and a printed number is derived from its position.
+
+`pages` reads the Markdown pages of a site, such as a Hugo blog:
+
+```toml
+[manuscript]
+format = "pages"
+source = "content"
+pages = "posts/*/index.md"
+marks = "specs/{slug}/marks.md"
+unit_name = "post"
+```
+
+`pages` is a glob under `manuscript.source`. A page named `index.md` is
+a page bundle and takes its slug from its directory, and any other page
+from its file stem. A file starting with `_`, such as a section's
+`_index.md` list page, is never a unit. Each page opens with TOML
+frontmatter between `+++` lines or YAML between `---` lines. Its `date`
+orders it, its `title` names it, and its `draft` flag is shown by
+`spec units`. YAML is read for top-level scalars only, which is all
+those three fields need.
+
+`marks` is where a page's sidecar lives, as a path pattern containing
+`{slug}`, relative to the project root. Put it outside the source. A
+site generator reads everything inside its source, and marks are
+metadata no reader should be served. Leaving `marks` unset keeps the
+site's spec commands working without sidecars. `unit_name` is the noun
+messages use for a unit, when "page" is not what the project calls its
+posts.
+
 ## Configuration layers
 
 Quirework loads `quirework.toml`, then the optional
@@ -98,7 +139,7 @@ working directory.
 
 ```python
 from quirework.project import Project, project_scope
-from quirework.manuscript.chapters import registry
+from quirework.manuscript.units import registry
 
 project = Project.load("/path/to/a/book")
 with project_scope(project):

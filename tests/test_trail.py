@@ -414,7 +414,7 @@ def test_a_binding_says_when_its_section_has_a_trail(book, capsys):
     trail.add("kettle-signal", "seed", session=SESSION, turn=1)
     notes.main(["bind"])
     assert "(kettle-signal)  [trail ×1]" in capsys.readouterr().out
-    notes.main(["bind", "--by", "chapter"])
+    notes.main(["bind", "--by", "unit"])
     assert "@bind(kettle-signal)  [trail ×1]" in capsys.readouterr().out
 
 
@@ -423,7 +423,7 @@ def test_a_chapter_reads_the_trails_of_the_sections_it_binds(book):
         "kettle-signal", "seed", session=SESSION, turn=1, note="The opening image."
     )
     trail.add("cooling-asymmetry", "seed", session=SESSION, turn=2)
-    text = "\n".join(trail.chapter_view("opening"))
+    text = "\n".join(trail.unit_view("opening"))
     assert "#kettle-signal" in text and "The opening image." in text
     assert "#cooling-asymmetry" not in text, "opening binds only kettle-signal"
 

@@ -27,6 +27,22 @@ def test_execution_and_providers_do_not_import_writing_workflows():
                 assert not any(name.startswith(forbidden) for name in names), path
 
 
+def test_the_manuscript_never_imports_a_publisher():
+    """The spec layer serves a project that renders elsewhere, so it cannot
+    lean on the Quarto publisher to read its own reading order."""
+    root = Path(quirework.__file__).parent / "manuscript"
+    for path in root.glob("*.py"):
+        for node in ast.walk(ast.parse(path.read_text())):
+            names = (
+                [alias.name for alias in node.names]
+                if isinstance(node, ast.Import)
+                else [node.module or ""]
+                if isinstance(node, ast.ImportFrom)
+                else []
+            )
+            assert not any(n.startswith("quirework.publish") for n in names), path
+
+
 def test_package_has_no_static_dependency_on_a_consumer():
     root = Path(quirework.__file__).parent
     for path in root.rglob("*.py"):
