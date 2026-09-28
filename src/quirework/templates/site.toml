@@ -1,0 +1,83 @@
+# Copy to quirework.toml at the root of a site, such as a Hugo blog.
+# Paths are relative to this file; local overrides go in the ignored
+# quirework.local.toml. Quirework never locates a project from its install.
+# For a book, start from `quirework config template book` instead.
+
+# Version of the configuration schema.
+schema = 2
+
+[project]
+# A display name for reports and configuration inspection.
+name = "Example Site"
+# Ignored project material that must never be published.
+private = "private"
+
+[manuscript]
+# The site's pages are the units of the work.
+format = "pages"
+# The directory the site generator renders.
+source = "content"
+# Each post is a page bundle, content/posts/<slug>/index.md, named by
+# its directory. Name collections instead to make other pages units too.
+pages = "posts/*/index.md"
+# [manuscript.collections.posts]
+# pages = "posts/*/index.md"
+# [manuscript.collections.pages]
+# pages = "*.md"
+# order = "title"
+# What messages call one unit.
+unit_name = "post"
+# Marks live outside the rendered tree, so no reader is ever served them.
+marks = "specs/{slug}/marks.md"
+# What several posts lean on, and what each post commits to on its own.
+spec = "specs/_site.md"
+unit_spec = "specs/{slug}/spec.md"
+# Briefs a post may grow from; `spec units` lists the ones not taken up.
+# ideas = "ideas/*/brief.md"
+# Working material is never treated as an authority by annotation checks.
+noncanonical_roots = ["ideas/"]
+# The frontmatter field a published post's revision is recorded in.
+# revision_field = "lastmod"
+# The sources the posts stand on, and plain-text captures of them.
+# sources = "research/sources.md"
+# source_copies = "research/copies/{slug}.txt"
+# With a spec, point each section at the conversations that shaped it.
+# spec_trail = "private/spec-trail.md"
+
+[publish]
+# The site's own configuration decides the render; Quirework builds it
+# into build/site and never into the directory the site deploys from.
+backend = "hugo"
+build = "build"
+# Where hugo.toml lives, when it is not the project root.
+# site = "."
+
+[text]
+# Posts one sentence per line, other Markdown at 72 columns, generated
+# trees left alone. The first matching row wins.
+modes = [
+  ["content/**/*.md", "sentence"],
+  ["public/**", "skip"],
+  ["resources/**", "skip"],
+  ["build/**", "skip"],
+  ["**/*.md", "column"],
+]
+# Voice rules a machine can hold: `quirework config template terminology`.
+# terminology = "quirework/terms.toml"
+
+[sops]
+# Project-owned procedures and their required-reading catalog.
+root = "procedures"
+catalog = "procedures/catalog.json"
+# The prefix belongs to the site, not to the installed tool.
+skill_prefix = "example-"
+
+[provenance]
+# A site can publish and run model plans without a private corpus.
+enabled = false
+# root = "private/provenance"
+
+[usage]
+# Which commands and procedures this project runs, recorded on this
+# machine and read back by `quirework usage`. Nothing is sent anywhere.
+# enabled = true

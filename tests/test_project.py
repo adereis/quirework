@@ -481,7 +481,7 @@ def test_bundled_templates_are_commented_and_parseable():
     from importlib.resources import files
     import tomllib
 
-    for name in ("project", "run", "terminology"):
+    for name in ("book", "site", "run", "terminology"):
         text = files("quirework").joinpath("templates", name + ".toml").read_text()
         assert text.startswith("# ")
         assert sum(line.startswith("#") for line in text.splitlines()) >= 5
@@ -512,9 +512,9 @@ def test_template_command_does_not_overwrite_configuration(tmp_path, capsys):
     from quirework.cli import main
 
     target = tmp_path / "quirework.toml"
-    assert main(["config", "template", "project", "--out", str(target)]) == 0
+    assert main(["config", "template", "site", "--out", str(target)]) == 0
     original = target.read_bytes()
-    assert main(["config", "template", "project", "--out", str(target)]) == 2
+    assert main(["config", "template", "book", "--out", str(target)]) == 2
     assert target.read_bytes() == original
 
 
@@ -574,3 +574,30 @@ def test_book_can_check_metadata_without_migration_tables(tmp_path):
     )
     with project_scope(project):
         assert units.scan_layers(known={"arrival"}) == []
+
+
+@pytest.mark.parametrize("kind", ["book", "site"])
+def test_a_project_template_is_a_configuration_quirework_reads(tmp_path, kind):
+    """Each project template loads as written, with every directory it names
+    made, so a new book or site starts from a file that works."""
+    from importlib.resources import files
+
+    root = tmp_path / kind
+    root.mkdir()
+    text = files("quirework").joinpath("templates", f"{kind}.toml").read_text()
+    (root / "quirework.toml").write_text(text)
+    project = Project.load(root)
+    source = project.path("manuscript.source")
+    source.mkdir(parents=True)
+    if kind == "book":
+        project.path("manuscript.chapters").mkdir(parents=True)
+        project.path("manuscript.quarto").write_text(
+            "book:\n  chapters:\n    - index.qmd\n"
+        )
+        project.path("publish.figures").mkdir(parents=True)
+    else:
+        (root / "hugo.toml").write_text("title = 'Example'\n")
+        (root / "specs").mkdir()
+        project.path("manuscript.spec").write_text("# Site\n")
+    project.require("manuscript")
+    project.require("publish")

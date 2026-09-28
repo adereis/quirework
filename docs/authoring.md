@@ -774,7 +774,7 @@ this part.
   followed its last part.
 - [configuration.md](configuration.md): every setting, the layering
   rules, and the annotated templates
-  (`quirework config template project`).
+  (`quirework config template book` or `site`).
 - [workflows.md](workflows.md): procedures, personas, panels, model
   runs, recovery and evidence.
 - [development.md](development.md): the architecture and the tests, for

@@ -1,6 +1,7 @@
-# Copy to quirework.toml at the root of a writing project.
+# Copy to quirework.toml at the root of a book written with Quarto.
 # Paths are relative to this file; local overrides go in the ignored
 # quirework.local.toml. Quirework never locates a project from its install.
+# For a site, start from `quirework config template site` instead.
 
 # Version of the configuration schema.
 schema = 2

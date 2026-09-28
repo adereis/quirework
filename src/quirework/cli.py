@@ -285,17 +285,13 @@ def main(argv=None):
                 # Not every template is TOML: the cache-cleanup rule is a
                 # systemd-tmpfiles drop-in and has to keep that extension.
                 names = {
-                    "project": "project.toml",
+                    "book": "book.toml",
+                    "site": "site.toml",
                     "run": "run.toml",
                     "terminology": "terminology.toml",
                     "tmpfiles": "tmpfiles.conf",
                 }
-                p.add_argument(
-                    "kind",
-                    choices=tuple(names),
-                    nargs="?",
-                    default="project",
-                )
+                p.add_argument("kind", choices=tuple(names))
                 p.add_argument(
                     "--out", type=Path, help="create a new file instead of printing"
                 )

@@ -664,10 +664,11 @@ build output stays inside the configured build tree.
 
 ## Annotated templates
 
-`quirework config template project` prints a commented project template.
-Use `template run` for a tiny model plan, `template terminology` for an
-advisory word policy, or `template tmpfiles` for the cache-cleanup rule
-above. Add `--out PATH` to create a new file; an existing file is never
+`quirework config template book` prints a commented configuration for
+a Quarto book, and `template site` one for a site of Markdown pages
+built by Hugo. Use `template run` for a tiny model plan,
+`template terminology` for an advisory word policy, or
+`template tmpfiles` for the cache-cleanup rule above. Add `--out PATH` to create a new file; an existing file is never
 overwritten. Every template is bundled in the wheel.
 
 Run plans accept TOML or JSON. Preparation still freezes canonical JSON
