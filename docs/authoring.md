@@ -722,12 +722,16 @@ its title, its date, which orders the posts, and whether it is a draft.
 `quirework spec units` lists them.
 
 The post's spec is `specs/why-the-lamp-turns/spec.md`, written like any
-spec: its reader, its thesis, its boundaries, each a section with a
-slug. A post binds its own sections without a mark, because it is the
-post they describe. The shared spec holds what several posts lean on,
-and a post binds one of those with `@bind` in its sidecar, under the
-heading that carries it. When a shared claim changes,
-`spec notes bind --slug S` names every post that has to be read again.
+spec: its reader, its thesis, its boundaries, each a section with an
+anchor. The anchors can be short, `{#reader}` and `{#thesis}`, because
+each is named with its post: `why-the-lamp-turns/thesis`. A post binds
+its own sections without a mark, because it is the post they describe,
+and in its own sidecar `@bind(thesis)` means its own thesis. The shared
+spec holds what several posts lean on, and a post binds one of those
+with `@bind` in its sidecar, under the heading that carries it. Another
+post shares a post's claim by naming it in full. When a shared claim
+changes, `spec notes bind --slug S` names every post that has to be
+read again.
 A spec may come before its post: a post is often specified long before
 it is drafted, and `spec notes --check` lists such specs as an advisory
 so a mistyped slug does not hide among them.
@@ -737,7 +741,7 @@ one post. It prints that post's spec, the shared sections it binds, and
 its marks, rather than every post's commitments.
 
 The trail works as it does for a book, over one register: breadcrumbs
-are kept by slug, whichever file holds the section. A post often begins
+are kept by a section's full name, whichever file holds it. A post often begins
 in a conversation held in another project. Point at that project with a
 `@genesis` mark rather than copying its sessions into this corpus, which
 captures the sessions run here.

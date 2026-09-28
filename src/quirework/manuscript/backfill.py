@@ -296,27 +296,34 @@ def menu():
     """The spec's sections as a reader names them.
 
     Each line gives the slug, the title, how the section opens, and the
-    chapters that bind it. A conversation often names the chapter it was
+    units that bind it. A conversation often names the chapter or post it was
     working on rather than the idea, and the binding is how a reader gets from
-    one to the other.
+    one to the other. The wording changes nothing a read is keyed on: reads
+    are current by `PACKET_VERSION`.
     """
+    from quirework.manuscript import units
+
+    noun = units.noun()
     bound = {}
-    for chapter, slugs in notes.chapter_bindings().items():
+    for unit, slugs in notes.chapter_bindings().items():
         for slug in slugs:
-            bound.setdefault(slug, set()).add(chapter)
+            bound.setdefault(slug, set()).add(unit)
     lines = [
         "# The spec's sections",
         "",
         (
             "Name a section only by its slug. Each line gives the section's "
-            "title, how it opens, and the chapters that express it."
+            f"title, how it opens, and the {noun}s that express it."
         ),
         "",
     ]
-    for slug, title, body, _ in notes.spec_sections():
-        if slug:
-            chapters = ", ".join(sorted(bound.get(slug, ()))) or "none"
-            lines.append(f"- `{slug}`: {title}. {_gist(body)} [chapters: {chapters}]")
+    for section in notes.spec_sections():
+        if section.slug:
+            named = ", ".join(sorted(bound.get(section.slug, ()))) or "none"
+            lines.append(
+                f"- `{section.slug}`: {section.title}. {_gist(section.body)} "
+                f"[{noun}s: {named}]"
+            )
     return "\n".join(lines) + "\n"
 
 

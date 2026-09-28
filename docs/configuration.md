@@ -156,22 +156,33 @@ unit_spec = "specs/{slug}/spec.md"
 `unit_spec` is a path pattern with `{slug}`, relative to the project
 root. `spec` becomes the shared file, holding what several units lean
 on, and either setting may stand alone. Together they are one register.
-A slug is unique across every file, because a binding names a slug and
-never a file. The shared file is read first, then each unit's own in
-reading order, then the specs of units not written yet, since a post is
-often specified before it is drafted. `spec notes --check` reports those
-as an advisory, because a mistyped slug looks the same.
+The shared file is read first, then each unit's own in reading order,
+then the specs of units not written yet, since a post is often
+specified before it is drafted. `spec notes --check` reports those as an
+advisory, because a mistyped slug looks the same.
+
+A section of the shared spec is named by its anchor, and a section of a
+unit's own spec by the unit and its anchor. Two posts can each write
+`## The turn is the message {#thesis}`, and the register holds
+`why-the-lamp-turns/thesis` and `what-the-fog-signal-is-for/thesis`. An
+anchor is unique within its file, a shared anchor across the shared
+spec, and no anchor contains `/`.
 
 A unit binds every section of its own spec without saying so. It is the
 post those commitments describe. A `@bind` in its sidecar still says
-which heading carries a commitment, and binding a shared section, or
-another post's, is how two posts come to share a claim. `spec notes
---primer -c SLUG` then lists only what that unit touches: its own spec
-whole, and the shared sections it binds.
+which heading carries a commitment, and there the bare anchor is
+enough: `@bind(thesis)` in a post's own marks means that post's thesis.
+Everywhere else a unit's section is named in full, which is how another
+post comes to share the claim: `@bind(why-the-lamp-turns/thesis)`. A
+post's anchor may not repeat a shared one, since a bare name in its
+marks could then mean either. `spec notes --primer -c SLUG` lists only
+what that unit touches: its own spec whole, and the shared sections it
+binds.
 
-One trail serves the whole register, because breadcrumbs are kept by
-slug. `spec trail suggest SLUG` follows the history of whichever file
-holds the section.
+One trail serves the whole register, because breadcrumbs are kept by a
+section's full name. `spec trail why-the-lamp-turns/thesis` reads one,
+and `spec trail suggest` follows the history of whichever file holds
+the section.
 
 ## Publishing backends
 

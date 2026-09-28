@@ -57,9 +57,9 @@ def test_quoted_material_still_appears_in_the_posts(site):
 def test_a_post_s_primer_is_its_own_spec_and_what_it_binds(site, capsys):
     assert run(site, "spec notes", "--primer", "-c", "why-the-lamp-turns") == 0
     out = capsys.readouterr().out
-    assert "#lamp-thesis" in out
+    assert "#why-the-lamp-turns/thesis" in out
     assert "#recognizable-signal" in out
-    assert "#fog-thesis" not in out
+    assert "#what-the-fog-signal-is-for/thesis" not in out
     assert "#no-real-rescues" not in out
 
 

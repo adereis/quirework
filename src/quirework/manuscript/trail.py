@@ -1285,7 +1285,7 @@ def _commits(slug, *, patches=False):
         head = _git(root, "show", f"HEAD:{relative}")
     except subprocess.CalledProcessError:
         return [], "the spec has no committed history"
-    lines = _section_range(head, slug)
+    lines = _section_range(head, notes.anchor_of(slug))
     if lines is None:
         return [], f"'#{slug}' is not in the committed spec yet"
     out = _git(

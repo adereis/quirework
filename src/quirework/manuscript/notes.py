@@ -36,7 +36,7 @@ from typing import NamedTuple
 
 from quirework.core import frontmatter
 from quirework.manuscript import formats, units
-from quirework.project import current_project
+from quirework.project import ConfigurationError, current_project
 
 # <!-- @kind(args)  body --> , possibly multi-line.
 _ANNO = re.compile(
@@ -48,7 +48,10 @@ _ANNO = re.compile(
 # an anchor with classes beside it still resolves and a class-only block never
 # leaks into the heading text.
 _HEADING = re.compile(r"(?m)^(#{1,6})\s+(.*?)\s*(?:\{([^{}]*)\})?\s*$")
-_ATTR_ID = re.compile(r"#([\w:.-]+)")
+# A `/` is admitted so a trail heading can carry a unit's section by its full
+# name (`{#the-kettle/thesis}`); a spec anchor that contains one is refused,
+# since `/` is what separates the unit from its section.
+_ATTR_ID = re.compile(r"#([\w:./-]+)")
 _WS = re.compile(r"\s+")
 # Heading detection must not read non-prose regions: a `# ...` line inside a
 # multi-line HTML comment (a sidecar banner) or a YAML comment inside
@@ -142,11 +145,11 @@ _LINE_PIN = re.compile(
 
 # The structural `@bind(slug)` token, used by bodyless sidecar relationships and
 # by companion `Anchors:` joins. Semantic prose cites the spec as `#slug`.
-_BIND_REF = re.compile(r"@bind\(([\w-]+)\)")
+_BIND_REF = re.compile(r"@bind\(([\w-]+(?:/[\w-]+)?)\)")
 _BIND_TOKEN = re.compile(r"@bind\(([^)]*)\)")
 # A semantic citation of the spec section itself. Exclude Pandoc
 # ``{#anchor}`` attributes; those name document locations, not commitments.
-_SPEC_REF = re.compile(r"(?<![\w{/])#([A-Za-z][\w-]*)\b")
+_SPEC_REF = re.compile(r"(?<![\w{/])#([A-Za-z][\w-]*(?:/[A-Za-z][\w-]*)?)\b")
 
 # `@unit(slug)`: the metadata layer's pointer to a chapter or a post,
 # resolved by units.py. A reference form only, never a mark kind -- `<!--
@@ -457,12 +460,35 @@ def _configured_book_file(docs, key):
 
 
 class Section(NamedTuple):
-    """One commitment: a level-2 section of a spec file."""
+    """One commitment: a level-2 section of a spec file.
 
-    slug: str | None  # the {#anchor}; None is a hard `check()` problem
+    A section of the shared spec is named by its anchor. A section of a unit's
+    own spec is named `unit/anchor`, so two posts can each have a `#thesis`
+    and a binding still names exactly one of them.
+    """
+
+    slug: str | None  # the full name; None is a hard `check()` problem
     title: str
     body: str
     path: Path  # the spec file that holds it
+    anchor: str | None = None  # the {#anchor} as written in that file
+
+
+def anchor_of(slug: str) -> str:
+    """The anchor a section's full name carries in its own file."""
+    return slug.split("/", 1)[1] if "/" in slug else slug
+
+
+def resolve(slug: str, unit: str | None, known: set[str]) -> str:
+    """The section a name means where it is written.
+
+    In a unit's own marks, a bare name finds that unit's own section first,
+    so a post's sidecar can bind `thesis` rather than spell out its own slug.
+    Everywhere else a name means what it says, and a unit's section is named
+    in full."""
+    if unit and "/" not in slug and f"{unit}/{slug}" in known:
+        return f"{unit}/{slug}"
+    return slug
 
 
 def _unit_spec_pattern() -> str | None:
@@ -507,8 +533,6 @@ def spec_files(docs=None) -> list[Path]:
     shared = _configured_book_file(docs, "manuscript.spec")
     pattern = _unit_spec_pattern()
     if shared is None and pattern is None:
-        from quirework.project import ConfigurationError
-
         raise ConfigurationError(
             "configure manuscript.spec or manuscript.unit_spec in quirework.toml"
         )
@@ -555,10 +579,12 @@ def _sections_of(spec: Path) -> list[Section]:
                 anchor.group(1) if anchor else None,
             )
         )
+    owner = spec_owner(spec)
     out = []
     for i, (_, end, title, anchor) in enumerate(lvl2):
         stop = lvl2[i + 1][0] if i + 1 < len(lvl2) else len(text)
-        out.append(Section(anchor, title, text[end:stop].strip(), spec))
+        slug = f"{owner}/{anchor}" if owner and anchor else anchor
+        out.append(Section(slug, title, text[end:stop].strip(), spec, anchor))
     return out
 
 
@@ -672,6 +698,8 @@ def _print_spec_toc(docs: Path | None = None, only: set[str] | None = None) -> N
     by_file: dict[Path, list[Section]] = {}
     for s in sections:
         by_file.setdefault(s.path, []).append(s)
+    width = max((len(s.slug or "") + 3 for s in sections), default=0)
+    width = max(width, 26)
     for path, group in by_file.items():
         owner = spec_owner(path)
         whose = f"{units.noun()} {owner}" if owner else "shared"
@@ -682,7 +710,7 @@ def _print_spec_toc(docs: Path | None = None, only: set[str] | None = None) -> N
         for s in group:
             anchor = f"#{s.slug}" if s.slug else "(no anchor)"
             mark = f"  [trail ×{held[s.slug]}]" if held.get(s.slug) else ""
-            print(f"  {anchor:<26} {s.title}{mark}")
+            print(f"  {anchor:<{width}} {s.title}{mark}")
     if trail.configured():
         with_trail = sum(1 for s in sections if held.get(s.slug))
         print(
@@ -691,7 +719,7 @@ def _print_spec_toc(docs: Path | None = None, only: set[str] | None = None) -> N
         )
 
 
-def _trail_marker(a: Annotation, held: dict[str, int]) -> str:
+def _trail_marker(a: Annotation, held: dict[str, int], known: set[str]) -> str:
     """``  [trail ×N]`` after a binding whose section has breadcrumbs.
 
     A binding is how a reader gets from prose to a commitment, so it is where
@@ -700,15 +728,23 @@ def _trail_marker(a: Annotation, held: dict[str, int]) -> str:
     something to follow, and a trail still being filled never teaches a
     reader to skip it.
     """
-    if a.kind == "bind" and a.args and held.get(a.args[0]):
-        return f"  [trail ×{held[a.args[0]]}]"
-    return ""
+    if a.kind != "bind" or not a.args:
+        return ""
+    slug = resolve(a.args[0], units.slug_of(a.file), known)
+    return f"  [trail ×{held[slug]}]" if held.get(slug) else ""
 
 
-def _render_by_kind(annos: list[Annotation]) -> None:
+def _held():
+    """Breadcrumb counts per section, and the names a binding resolves against.
+    Both empty where no trail is kept, which is also where no spec need be."""
     from quirework.manuscript import trail
 
     held = trail.counts()
+    return held, (spec_slugs() if held else set())
+
+
+def _render_by_kind(annos: list[Annotation]) -> None:
+    held, known = _held()
     by_kind: dict[str, list[Annotation]] = {}
     for a in annos:
         by_kind.setdefault(a.kind, []).append(a)
@@ -721,15 +757,13 @@ def _render_by_kind(annos: list[Annotation]) -> None:
             sec = f"  [{a.section}]" if a.section else ""
             # source, not file: the mark lives in the sidecar, and the sidecar's
             # name carries the chapter stem, so nothing is lost by naming it.
-            payload = f"{argstr}{a.body}".rstrip() + _trail_marker(a, held)
+            payload = f"{argstr}{a.body}".rstrip() + _trail_marker(a, held, known)
             print(f"  {a.source or a.file}:{a.line}{sec}\n    {payload}")
     print(f"\ntotal: {len(annos)} mark(s) across {len(by_kind)} kind(s)")
 
 
 def _render_by_chapter(annos: list[Annotation]) -> None:
-    from quirework.manuscript import trail
-
-    held = trail.counts()
+    held, known = _held()
     by_file: dict[str, list[Annotation]] = {}
     for a in annos:
         by_file.setdefault(a.file, []).append(a)
@@ -748,7 +782,7 @@ def _render_by_chapter(annos: list[Annotation]) -> None:
         for a in items:
             argstr = f"({', '.join(a.args)})" if a.args else ""
             suffix = f"  {a.body}" if a.body else ""
-            suffix += _trail_marker(a, held)
+            suffix += _trail_marker(a, held, known)
             print(f"  L{a.line:<4} @{a.kind}{argstr}{suffix}")
     print(f"\ntotal: {len(annos)} mark(s) across {len(by_file)} {units.noun()}(s)")
 
@@ -873,12 +907,16 @@ def chapter_bindings(docs: Path | None = None) -> dict[str, set[str]]:
     """
     out: dict[str, set[str]] = {}
     roots = units.harvest(docs) if docs is not None else None
+    own = _unit_spec_pattern() is not None
+    sections = spec_sections(docs) if own else []
+    known = {x.slug for x in sections if x.slug}
     for a in scan(roots):
         if a.kind == "bind" and a.args:
-            out.setdefault(units.slug_of(a.file), set()).add(a.args[0])
-    if _unit_spec_pattern() is not None:
+            unit = units.slug_of(a.file)
+            out.setdefault(unit, set()).add(resolve(a.args[0], unit, known))
+    if own:
         present = units.names(docs)
-        for s in spec_sections(docs):
+        for s in sections:
             owner = spec_owner(s.path)
             if owner in present and s.slug:
                 out.setdefault(owner, set()).add(s.slug)
@@ -1180,14 +1218,30 @@ def _findings(docs: Path) -> tuple[list[str], list[tuple[str, list[str]]]]:
     annos = scan(units.harvest(docs))
 
     # 4. the register's binding namespace: anchored level-2 sections, unique
-    # across every spec file, since a binding names a slug and not a file.
+    # by full name, since a binding names a section and not a file. A unit's
+    # own sections are named `unit/anchor`, so they only need to be unique in
+    # their file; the shared spec's are unique across the register.
     sections = spec_sections(docs)
     spec_seen: dict[str, Section] = {}
+    shared = {s.slug for s in sections if s.slug and spec_owner(s.path) is None}
     for s in sections:
         if not s.slug:
             problems.append(
                 f"{_rel(s.path)}: section '{s.title}' has no {{#slug}} "
                 f"anchor (level-2 sections are the binding namespace)"
+            )
+        elif "/" in (s.anchor or ""):
+            problems.append(
+                f"{_rel(s.path)}: anchor '#{s.anchor}' contains '/', which "
+                f"separates a {units.noun()} from its section; drop it"
+            )
+        elif spec_owner(s.path) is not None and s.anchor in shared:
+            # In the unit's own marks a bare name finds its own section first,
+            # so the shared one would be out of that unit's reach.
+            problems.append(
+                f"{_rel(s.path)}: anchor '#{s.anchor}' is also a shared section; "
+                f"in this {units.noun()}'s marks the name could mean either, so "
+                f"rename one"
             )
         elif s.slug in spec_seen:
             first = spec_seen[s.slug]
@@ -1213,11 +1267,11 @@ def _findings(docs: Path) -> tuple[list[str], list[tuple[str, list[str]]]]:
         problems.extend(trail.structure_problems(spec))
 
     # 5. every @bind slug resolves to a spec section. Duplicates across
-    # chapters are the point: any number of chapters may express one section.
+    # units are the point: any number of units may express one section.
     for a in annos:
         if a.kind != "bind":
             continue
-        slug = a.args[0] if a.args else None
+        slug = resolve(a.args[0], units.slug_of(a.file), spec) if a.args else None
         # The sidecar and line the mark actually lives at, so a gate failure
         # under pre-commit pressure points at the editable file (a.file is the
         # chapter, whose line numbers do not apply).
@@ -1432,7 +1486,7 @@ def _findings(docs: Path) -> tuple[list[str], list[tuple[str, list[str]]]]:
                 for a in annos
                 if a.body
                 for slug in _SPEC_REF.findall(a.body)
-                if slug not in spec
+                if resolve(slug, units.slug_of(a.file), spec) not in spec
             ],
         )
     )
@@ -1873,7 +1927,20 @@ def main(argv=None) -> int:
     # (a typo errors with rc 2 like -c; an empty *combination* stays rc 0).
     if args.slug:
         sub = args.slug.lower()
-        matching = [a for a in annos if any(sub in arg.lower() for arg in a.args)]
+        # A bare name in a unit's own marks means that unit's section, so the
+        # filter matches the full name a binding resolves to as well.
+        try:
+            known = spec_slugs()
+        except ConfigurationError:
+            known = set()
+
+        def names(a):
+            return [
+                *a.args,
+                *(resolve(x, units.slug_of(a.file), known) for x in a.args),
+            ]
+
+        matching = [a for a in annos if any(sub in n.lower() for n in names(a))]
         if not matching and annos:
             slugs = sorted({arg for a in annos for arg in a.args})
             sugg = difflib.get_close_matches(args.slug, slugs, n=3)
