@@ -152,37 +152,25 @@ def _options():
     """Read policy from the selected project for this operation."""
     from types import SimpleNamespace
 
-    project = current_project()
-    declared = [
-        project.get("manuscript.source"),
-        *(project.get("manuscript.companion_dirs", ()) or ()),
-        *(project.get("manuscript.noncanonical_roots", ()) or ()),
-    ]
-    default_dirs = []
-    for value in declared:
-        if not value:
-            continue
-        path = Path(value)
-        try:
-            relative = path.relative_to(project.root) if path.is_absolute() else path
-        except ValueError:
-            continue
-        default_dirs.append(str(relative).strip("/") + "/")
     MODEL = current_project().data("provenance.coldread_policy", {}).get("model", None)
     CLI_MODEL = (
         current_project().data("provenance.coldread_policy", {}).get("cli_model", None)
     )
-    _DOC_PREFIXES = tuple(
-        current_project().data("provenance.coldread_policy", {}).get("doc_prefixes", ())
-    )
-    _DOC_DIRS = tuple(
-        current_project()
-        .data("provenance.coldread_policy", {})
-        .get("doc_dirs", default_dirs)
-    )
+    policy = current_project().data("provenance.coldread_policy", {})
+    _DOC_PREFIXES = tuple(policy.get("doc_prefixes", ()))
+    _DOC_DIRS = tuple(policy.get("doc_dirs", ()))
+    # Undeclared, the document is the work's footprint, working roots
+    # included: drafting in a scratch directory is still authorship. A policy
+    # that names its directories replaces it rather than adding to it.
+    FOOTPRINT = None
+    if "doc_dirs" not in policy:
+        from quirework.manuscript.footprint import footprint
+
+        FOOTPRINT = footprint(current_project())
     return SimpleNamespace(
         CLI_MODEL=CLI_MODEL,
         MODEL=MODEL,
+        FOOTPRINT=FOOTPRINT,
         _DOC_DIRS=_DOC_DIRS,
         _DOC_PREFIXES=_DOC_PREFIXES,
     )
@@ -1340,8 +1328,12 @@ def _repo_relative(fp):
 
 
 def _classify_edit(fp):
-    s = _repo_relative(fp).lower()
-    if s.startswith(_options()._DOC_PREFIXES) or s.startswith(_options()._DOC_DIRS):
+    rel = _repo_relative(fp)
+    options = _options()
+    s = rel.lower()
+    if s.startswith(options._DOC_PREFIXES) or s.startswith(options._DOC_DIRS):
+        return "doc"
+    if options.FOOTPRINT is not None and options.FOOTPRINT.covers(rel, working=True):
         return "doc"
     return "meta"
 

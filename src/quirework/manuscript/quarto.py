@@ -309,6 +309,14 @@ class Quarto(Format):
             return (f"**/{MARKS_DIR}/*.md",)
         return (f"{relative}/**/{MARKS_DIR}/*.md",)
 
+    def footprint(self, project: Project) -> tuple[str, ...]:
+        # Everything under the source: the chapters, the sidecars beside
+        # them, and the figures and front matter the book is made of.
+        source = formats.relative(project, "manuscript.source")
+        if source is None:
+            return ()
+        return ("**",) if source == "." else (f"{source}/**",)
+
     def listing(self, units: list[Unit]) -> list[str]:
         return [
             f"  {u.number:>2}  {u.slug:26} {u.title}"

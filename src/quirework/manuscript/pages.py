@@ -150,6 +150,24 @@ class Pages(Format):
         pattern = _marks()
         return (pattern.replace("{slug}", "*"),) if pattern else ()
 
+    def footprint(self, project: Project) -> tuple[str, ...]:
+        # The pages, each bundle whole (its figures are the post's too), and
+        # the marks. Not the whole source: a site's source holds list pages,
+        # taxonomies and whatever else the generator reads.
+        source = formats.relative(project, "manuscript.source")
+        pattern = project.get("manuscript.pages")
+        out: list[str] = []
+        if source is not None and pattern:
+            prefix = "" if source == "." else f"{source}/"
+            out.append(prefix + pattern)
+            head, _, name = pattern.rpartition("/")
+            if name == "index.md" and head:
+                out.append(f"{prefix}{head}/**")
+        marks = project.get("manuscript.marks")
+        if marks:
+            out.append(str(marks).replace("{slug}", "*"))
+        return tuple(out)
+
     def listing(self, units: list[Unit]) -> list[str]:
         return [
             f"  {u.date or '-':<25} {'draft' if u.draft else '     '}  "

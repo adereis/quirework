@@ -420,7 +420,8 @@ and visual choices out of Quirework's implementation:
 - `text.terminology`: `terms`, `retired`, `allow`, `scope_glob`, and
   `exclude_names`. A term warns and waits for the author's ruling; a
   `retired` phrase is a ruling already made, so `text check` fails while
-  one is back in reader-facing prose.
+  one is back in reader-facing prose. Without `scope_glob`, the scope is
+  the manuscript's prose files.
 - `sops.persona_policy`: the optional `default` persona ID.
 - `sops.review_policy`: review frames, reviewable source paths, and
   `hidden`, the checkout paths a jailed reviewer must not read.
@@ -440,6 +441,30 @@ reported. `runs.evidence_roots` names every directory holding saved run
 records. A project that keeps one needs only `runs.reviews`. Files
 inside a run record are never reflowed by `text wrap` and never read as
 authority, which is the guarantee these three settings buy.
+
+### Where the work lives
+
+Several tools ask whether a file is part of the work: the catalog and
+`coldread triage` when they split a session's edits into writing and
+tooling, `sop review audit` when it lists commits a reviewer must see,
+`provenance metrics` when it follows the history of the prose, and
+`text check` when no `scope_glob` names its scope. They share one
+answer, built from what the project already declares:
+
+- the units and their marks, as the format lays them out: a book's
+  whole source, or a site's pages, their bundles and `manuscript.marks`;
+- the register: `manuscript.spec`, each `manuscript.unit_spec`, and the
+  references and review notes;
+- `manuscript.companion_dirs`;
+- and `manuscript.noncanonical_roots`, kept apart as writing without
+  authority. Authorship counts it, and a reviewer is not owed it.
+
+A site whose spec lives in `specs/` therefore has its spec edits counted
+as writing and reviewed, the same as a book whose spec sits beside its
+chapters. A policy that names its own paths still wins:
+`coldread_policy.doc_dirs`, `review_policy.reviewable`, and
+`metrics_policy.canonical_dir` and `essay_paths`. The metrics report
+counts the words of every prose file, without frontmatter or comments.
 
 `text.modes` chooses how `text wrap` treats each file without any code.
 It is a list of `[glob, mode]` rows over project-relative paths, and the

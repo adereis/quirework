@@ -91,24 +91,19 @@ def _options():
             "Review the supplied changes and their procedures. Report concrete findings. Put anything noticed outside the delta in a separate section, as a lead rather than a finding.\n\n{brief}\n\n{delta}\n\nWrite the report to {report}.",
         )
     )
-    project = current_project()
-    declared = [
-        project.get("manuscript.source"),
-        *(project.get("manuscript.companion_dirs", ()) or ()),
-    ]
-    default_reviewable = []
-    for value in declared:
-        if not value:
-            continue
-        path = Path(value)
-        try:
-            relative = path.relative_to(project.root) if path.is_absolute() else path
-        except ValueError:
-            continue
-        default_reviewable.append(str(relative).strip("/") + "/")
-    REVIEWABLE = tuple(
-        project.data("sops.review_policy", {}).get("reviewable", default_reviewable)
-    )
+    # Declared, `reviewable` is a list of path prefixes. Undeclared, it is the
+    # work's footprint without its working roots: the prose, the marks, the
+    # spec and the companions, wherever the format keeps them.
+    declared = current_project().data("sops.review_policy", {}).get("reviewable")
+    if declared is not None:
+        prefixes = tuple(declared)
+
+        def REVIEWABLE(path):
+            return path.startswith(prefixes)
+    else:
+        from quirework.manuscript.footprint import footprint
+
+        REVIEWABLE = footprint(current_project()).covers
     return SimpleNamespace(
         FRAME=FRAME,
         OWN_OUTPUT=OWN_OUTPUT,
@@ -1600,10 +1595,10 @@ def handoff(entry, name, harness, record):
     return {"report_path": report, "checks": checks, "next": step}
 
 
-# Where an edit is reviewable: the book, the spec and the companions that
+# Where an edit is reviewable: the work, its spec and the companions that
 # reason from it. Tooling and records are outside, not because they matter
 # less, but because the reviewer this procedure describes checks claims against
-# what the book holds.
+# what the work holds.
 
 
 def _trailer(rev, key):
@@ -1641,7 +1636,7 @@ def audit(since=None):
         touched = [
             f
             for f in git("show", "--name-only", "--format=", rev).split()
-            if f.startswith(_options().REVIEWABLE)
+            if _options().REVIEWABLE(f)
         ]
         if touched and not _trailer(rev, "Reviewed-by"):
             unreviewed.append(

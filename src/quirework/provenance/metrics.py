@@ -116,18 +116,16 @@ def _options():
         .data("provenance.metrics_policy", {})
         .get("source_of_truth", None)
     )
-    # The book configuration answers where the canon lives. Policy may narrow
-    # the history paths when a project needs a different measurement boundary.
-    CANONICAL_DIR = (
-        current_project()
-        .data("provenance.metrics_policy", {})
-        .get("canonical_dir", _configured_relative("manuscript.chapters"))
-    )
-    ESSAY_PATHS = (
-        current_project()
-        .data("provenance.metrics_policy", {})
-        .get("essay_paths", [_configured_relative("manuscript.source")])
-    )
+    # The manuscript answers where the work lives, in whatever format it is
+    # laid out. Policy may name a canon directory or history paths instead,
+    # when a project needs a different measurement boundary.
+    policy = current_project().data("provenance.metrics_policy", {})
+    CANONICAL_DIR = policy.get("canonical_dir")
+    ESSAY_PATHS = policy.get("essay_paths")
+    if ESSAY_PATHS is None:
+        from quirework.manuscript.footprint import footprint
+
+        ESSAY_PATHS = list(footprint(current_project()).units)
     return SimpleNamespace(
         CANONICAL_DIR=CANONICAL_DIR,
         ESSAY_PATHS=ESSAY_PATHS,
@@ -138,6 +136,17 @@ def _options():
 
 def words(s):
     return len(WORDS.findall(s or ""))
+
+
+def _prose(text):
+    """A unit's text without what a reader never sees: its frontmatter, which
+    is metadata, and its comments."""
+    from quirework.manuscript import frontmatter
+
+    found = frontmatter.block(text)
+    if found:
+        text = text[found.end() :]
+    return re.sub(r"<!--.*?-->", "", text, flags=re.DOTALL)
 
 
 class Acc:
@@ -497,17 +506,25 @@ def _count(*args):
     return len([x for x in out.splitlines() if x])
 
 
+def _pathspecs(paths):
+    """History paths as git pathspecs. A pattern is passed with git's `glob`
+    magic, whose `*` and `**/` mean what they mean in the footprint."""
+    return [f":(glob){p}" if any(c in str(p) for c in "*?[") else p for p in paths]
+
+
 def git_metrics():
     g = {}
     g["commits_total"] = _count("rev-list", "--count", "HEAD") and int(
         _git("rev-list", "--count", "HEAD").strip() or 0
     )
-    g["commits_sot"] = _count("log", "--format=%H", "--", *_options().ESSAY_PATHS)
+    # With nothing to measure, git would count every commit as one that
+    # touches the work, so an empty set of paths measures nothing.
+    essay = _pathspecs(_options().ESSAY_PATHS)
+    g["commits_sot"] = _count("log", "--format=%H", "--", *essay) if essay else 0
     # net churn on the source of truth
     add = rem = 0
-    for ln in _git(
-        "log", "--numstat", "--format=", "--", *_options().ESSAY_PATHS
-    ).splitlines():
+    numstat = _git("log", "--numstat", "--format=", "--", *essay) if essay else ""
+    for ln in numstat.splitlines():
         p = ln.split("\t")
         if len(p) == 3 and p[0].isdigit() and p[1].isdigit():
             add += int(p[0])
@@ -524,14 +541,17 @@ def git_metrics():
 # ---- output / distillation -------------------------------------------------
 def output_metrics():
     o = {}
-    chapters = sorted(
-        glob.glob(str(current_project().root / _options().CANONICAL_DIR / "*.qmd"))
-    )
+    canonical = _options().CANONICAL_DIR
+    if canonical is not None:
+        chapters = sorted(glob.glob(str(current_project().root / canonical / "*.qmd")))
+    elif current_project().get("manuscript.source") is not None:
+        from quirework.manuscript import units
+
+        chapters = [str(p) for p in units.prose_files()]
+    else:
+        chapters = []
     if chapters:
-        o["essay_words"] = sum(
-            words(re.sub(r"<!--.*?-->", "", open(c).read(), flags=re.DOTALL))
-            for c in chapters
-        )
+        o["essay_words"] = sum(words(_prose(Path(c).read_text())) for c in chapters)
     else:
         # A book with no chapter files may still be a single document. Without
         # one declared there is simply nothing to count, which is a report of
@@ -998,7 +1018,7 @@ def report_repo(g, o, total):
     )
     print(f"Commits, repo total                : {g['commits_total']:,}")
     essay = ", ".join(str(path) for path in _options().ESSAY_PATHS)
-    print(f"Commits touching the book ({essay}): {g['commits_sot']:,}")
+    print(f"Commits touching the work ({essay}): {g['commits_sot']:,}")
     print(
         f"Source-of-truth churn              : +{g['sot_added']:,} / "
         f"-{g['sot_removed']:,} lines (semantic-line-wrapped, ~1 sentence/line)"

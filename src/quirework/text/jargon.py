@@ -330,16 +330,23 @@ def scan_retired(text: str, path: str) -> list[Hit]:
 
 
 def _targets(root: Path) -> list[Path]:
-    found: list[Path] = []
-    for sub, glob in _options().SCOPE_GLOB:
-        d = root / sub
-        if not d.is_dir():
-            continue
-        for p in sorted(d.glob(glob)):
-            if p.name in _options().EXCLUDE_NAMES or p.name.startswith("_"):
-                continue
-            found.append(p)
-    return found
+    """The reader-facing scope: `scope_glob` where the policy declares one,
+    else the manuscript's prose, in whatever format it is laid out."""
+    candidates: list[Path] = []
+    if _options().SCOPE_GLOB:
+        for sub, glob in _options().SCOPE_GLOB:
+            d = root / sub
+            if d.is_dir():
+                candidates += sorted(d.glob(glob))
+    elif current_project().get("manuscript.source") is not None:
+        from quirework.manuscript import units
+
+        candidates = units.prose_files()
+    return [
+        p
+        for p in candidates
+        if p.name not in _options().EXCLUDE_NAMES and not p.name.startswith("_")
+    ]
 
 
 def _expand(paths: list[str]) -> tuple[list[Path], list[str]]:

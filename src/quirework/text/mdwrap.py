@@ -34,9 +34,11 @@ import sys
 from pathlib import Path
 
 if __package__:
+    from quirework.core import globs
     from quirework.core.artifact_paths import run_evidence
-else:  # Direct script invocation loads the stdlib-only sibling helper.
+else:  # Direct script invocation loads the stdlib-only sibling helpers.
     sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
+    from quirework.core import globs
     from quirework.core.artifact_paths import run_evidence
 
 DEFAULT_WIDTH = 72
@@ -726,33 +728,6 @@ def project_relative(path: str) -> str:
 _MODE_NAMES = ("sentence", "column", "trailing", "skip")
 
 
-def _glob_regex(pattern: str) -> re.Pattern:
-    """A path glob as a regex over project-relative POSIX paths.
-
-    `**/` matches any number of directories, including none; `*` and `?` stay
-    inside one path segment. `fnmatch` lets `*` cross a slash, which would make
-    `content/*.md` claim every file under `content/`.
-    """
-    out, i = [], 0
-    while i < len(pattern):
-        if pattern.startswith("**/", i):
-            out.append("(?:[^/]+/)*")
-            i += 3
-        elif pattern.startswith("**", i):
-            out.append(".*")
-            i += 2
-        elif pattern[i] == "*":
-            out.append("[^/]*")
-            i += 1
-        elif pattern[i] == "?":
-            out.append("[^/]")
-            i += 1
-        else:
-            out.append(re.escape(pattern[i]))
-            i += 1
-    return re.compile("".join(out) + r"\Z")
-
-
 def _declared_mode(path: str, table) -> str | None:
     """The first `[glob, mode]` row of `text.modes` matching the path, if any."""
     rel = project_relative(path)
@@ -764,7 +739,7 @@ def _declared_mode(path: str, table) -> str | None:
             raise ValueError(
                 f"text.modes: {mode!r} is not a mode ({', '.join(_MODE_NAMES)})"
             )
-        if _glob_regex(glob).match(rel):
+        if globs.matches(rel, glob):
             return mode
     return None
 

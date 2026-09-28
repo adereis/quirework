@@ -108,6 +108,12 @@ class Format:
         """The rows `spec units` prints, one per unit."""
         return [f"  {u.slug:34} {u.title}" for u in units]
 
+    def footprint(self, project: Project) -> tuple[str, ...]:
+        """Where the units and their marks live, as globs over project-relative
+        paths (`core.globs`). Everything else in a work's footprint, its spec
+        and companions, is the project's to declare and `footprint` adds it."""
+        return ()
+
 
 def get(name: str) -> Format:
     """The format ``name`` names: a built-in, or an extension's."""
@@ -160,6 +166,18 @@ def h1(text: str) -> tuple[str, str]:
         if m:
             return m.group(1).strip(), (m.group(2) or "")
     return "", ""
+
+
+def relative(project: Project, key: str) -> str | None:
+    """A configured path as a project-relative POSIX path; None when it is
+    unset or lies outside the project, where no project-relative glob can
+    name it."""
+    if project.get(key) is None:
+        return None
+    try:
+        return project.path(key).relative_to(project.root).as_posix()
+    except ValueError:
+        return None
 
 
 def slug_pattern(key: str) -> str | None:
