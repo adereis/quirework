@@ -44,10 +44,11 @@ without the ones below it.
 
 | Layer | What it is | The commands |
 |---|---|---|
-| Canon prose | Quarto chapters in a declared reading order, or a site's pages | `publish build`, `spec units` |
+| Canon prose | Quarto chapters in a declared reading order, or a site's pages and where each stands | `publish build`, `spec units` |
 | Spec | numbered commitments, each with a slug, in one file or one per unit | `spec notes --primer` |
 | Marks | per-chapter sidecars of `@`-annotations, including which spec section a chapter expresses | `spec notes`, `spec notes bind` |
 | Companion documents | reader-facing material that cites the spec or canon | `spec notes --check` |
+| Sources | a register of what the work stands on, cited by slug from the marks | `spec sources` |
 | Variants | derived editions whose master remains the canon | `publish variant` |
 | Figures | the book's illustration set, materialized into the build | `publish figures` |
 | Scratchpad | disposable working material with no authority | project policy |

@@ -6,15 +6,15 @@ Parsing and presentation stay outside the reusable execution engine.
 
 | Namespace | Responsibility |
 |---|---|
-| `manuscript` | Units, spec, marks, quotations, trail: the written work in any format |
-| `publish` | Rendering, figures, editions, rendered review artifacts |
+| `manuscript` | Formats and units, spec, marks, sources, quotations, trail, lifecycle, footprint: the written work in any format |
+| `publish` | Backends and targets; for Quarto, rendering, figures, editions, rendered review artifacts |
 | `text` | Formatting and editorial inspection |
 | `provenance` | Runtime readers, capture, catalog, retrieval, measurements |
 | `sops` | Procedure discovery, personas, instruments, workflow preparation |
 | `runs` | Execution state, recovery, checkpoints, evidence |
 | `providers` | Native invocation, model resolution, receipts, isolation |
 | `delivery` | Frozen material transforms and turn delivery |
-| `core` | Artifact classification, project check dispatch, pinned tools, usage records |
+| `core` | Artifact classification, check dispatch, pinned tools, usage records, path globs, frontmatter |
 
 Some operations need a program too large to vendor: an EPUB validator,
 an e-reader renderer. `core.pinned` fetches one by version, URL and
@@ -23,8 +23,13 @@ unpacked so a substituted download never lands as an executable. A
 consumer keeps its own pin and calls `pinned.ensure`; a tool Quirework
 does not ship a command for is not Quirework's version to choose.
 
-A book depends on Quirework. Quirework never imports a book's extension
-unless that project explicitly selects it. The execution and provider
+A book or a site depends on Quirework. Quirework never imports a
+project's extension unless that project explicitly selects it. A format
+(`manuscript.formats.Format`) and a backend (`publish.backends.Backend`)
+are objects registered by name, and a project may select its own as an
+extension; everything above them asks the selected one rather than
+testing which it is. Which files are the work is answered once, by
+`manuscript.footprint`. The execution and provider
 layers import neither `manuscript` nor `publish`. Executor snapshots
 include their runtime dependencies without copying publishing code or
 book content.
