@@ -1,0 +1,34 @@
+schema = 2
+
+[project]
+name = "The Lighthouse Log"
+
+[manuscript]
+# A Hugo site: each post is a page bundle, content/posts/<slug>/index.md.
+format = "pages"
+source = "content"
+pages = "posts/*/index.md"
+unit_name = "post"
+# Outside content/, so Hugo never reads them and no reader is served them.
+marks = "specs/{slug}/marks.md"
+# What several posts lean on, and what each post commits to on its own.
+spec = "specs/_site.md"
+unit_spec = "specs/{slug}/spec.md"
+
+[publish]
+# Hugo builds the site with its own configuration, into build/site.
+backend = "hugo"
+build = "build"
+
+[text]
+# Posts are one sentence per line; everything else hard-wraps.
+modes = [
+  ["content/**/*.md", "sentence"],
+  ["**/*.md", "column"],
+]
+terminology = "quirework/terms.toml"
+
+[sops]
+root = "procedures"
+catalog = "procedures/catalog.json"
+skill_prefix = "lh-"

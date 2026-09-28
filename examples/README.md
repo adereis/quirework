@@ -38,11 +38,21 @@ pip install -e examples/demo-book/cvc_checks
 quirework dev check                # the book's own prose rules
 ```
 
-## Why it is in this repository
+## demo-site
 
-It is documentation and a test at once. `tests/test_example_book.py`
-runs these gates on every test run, so a change to Quirework that would
-break a working project fails here rather than in somebody's book.
+`demo-site` is a small blog built by Hugo: two posts in page bundles,
+one of them a draft, a spec of its own for each post and a shared one
+for what they both lean on, marks kept outside the tree Hugo renders,
+and a voice policy that fails the check on an em-dash. A third post has
+a spec and no text yet. It is fiction, the log of a lighthouse keeper,
+and its README lists the commands a companion runs on it.
+
+## Why they are in this repository
+
+Each is documentation and a test at once. `tests/test_example_book.py`
+and `tests/test_example_site.py` run these gates on every test run, so
+a change to Quirework that would break a working project fails here
+rather than in somebody's book or site.
 
 Writing it is also what found the bugs it was written to find. A
 directory named `docs`, a font stack read as a single family, a figure

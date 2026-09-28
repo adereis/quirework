@@ -1,0 +1,29 @@
+{
+  "version": 1,
+  "families": [
+    {
+      "id": "authoring",
+      "label": "Authoring",
+      "question": "What do I do when I sit down to write a post?"
+    }
+  ],
+  "entries": {
+    "write-a-post": {
+      "family": "authoring",
+      "kind": "procedure",
+      "skill": true,
+      "requires": [],
+      "mechanics": [
+        "quirework spec notes --primer",
+        "quirework spec notes bind",
+        "quirework text wrap --check",
+        "quirework text check",
+        "quirework spec units --check",
+        "quirework spec notes --check",
+        "quirework publish build --drafts"
+      ],
+      "followups": [],
+      "note": ""
+    }
+  }
+}

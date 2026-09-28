@@ -1,0 +1,16 @@
+# The Lighthouse Log's reader-facing words, read by `quirework text check`.
+
+# Pairs of project-relative directory and filename glob to inspect.
+scope_glob = [["content/posts", "*/index.md"]]
+# Explicit exceptions: path suffix, nearby text, and rationale triples.
+allow = []
+exclude_names = []
+
+# Candidates for judgment: each warns and waits for the keeper's ruling.
+[terms]
+"\\butili[sz](e|es|ed|ing)\\b" = "use"
+
+# Rulings already made: `text check` fails while one is back in a post.
+[retired]
+"—" = "a period, a comma, or parentheses"
+"let's dive in" = "start with the thing itself"
