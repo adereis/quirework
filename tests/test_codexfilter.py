@@ -6,7 +6,7 @@ import json
 from quirework.provenance import codexfilter as codex
 
 
-SID = "01a01272-de83-7753-a634-fbdc4cc56e90"
+SID = "0c0dec0d-0000-7000-8000-000000000000"
 
 
 def _write(path, rows):

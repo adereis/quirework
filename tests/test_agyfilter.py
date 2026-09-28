@@ -128,7 +128,7 @@ def test_a_subagents_relayed_words_are_kept(tmp_path):
             _row(
                 "SYSTEM_MESSAGE",
                 source="SYSTEM",
-                content="sender=system content=Subagent 8da2f7cc has gone idle. "
+                content="sender=system content=Subagent 8a8a8a8a has gone idle. "
                 "This was the subagent's most recent response: I have "
                 "completed the blind rewrite of Chapter 3.",
             ),
