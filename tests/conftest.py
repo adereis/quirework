@@ -21,6 +21,16 @@ def patch_setting(monkeypatch, module, accessor, key, value):
     monkeypatch.setattr(module, accessor, configured)
 
 
+def patch_project_path(monkeypatch, module, key, value):
+    """Give `module` the current project with one path setting replaced."""
+    original = module.current_project()
+    settings = original.describe()["settings"]
+    section, field = key.split(".", 1)
+    settings.setdefault(section, {})[field] = str(value)
+    selected = Project.from_settings(original.root, settings)
+    monkeypatch.setattr(module, "current_project", lambda: selected)
+
+
 @pytest.fixture(autouse=True)
 def isolated_project(tmp_path):
     with project_scope(Project.from_settings(tmp_path / "project", {})):

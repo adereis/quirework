@@ -1,0 +1,415 @@
+"""Hermetic tests for the three-stage render wiring (no real repo tree, no Quarto).
+
+The book renders from separate screen, print and parts-less staged trees.
+Print omits screen-only front matter; EPUB/DOCX flatten the parts -- otherwise
+Quarto silently drops the file-based Part Two opener. These cover the format
+routing and the `_quarto.yml` transforms; the flatten/unnumber themselves are
+covered in test_bookstage, and the end-to-end render by running it for real.
+"""
+
+from conftest import patch_setting
+from quirework.runs import commands as run_commands
+import json
+import zipfile
+
+import pytest
+
+from quirework.project import Project, project_scope
+from quirework.publish import render
+
+
+def project_at(root):
+    """A Quarto book laid out as the configuration guide teaches, at `root`.
+
+    Its render policy keeps the landing page out of print and strips the one
+    EPUB style include, which is what the staged trees below are checked for.
+    """
+    policy = root / "render.toml"
+    if not policy.exists():
+        root.mkdir(parents=True, exist_ok=True)
+        policy.write_text(
+            'print_drops = ["index.qmd"]\nepub_style_headers = ["epub-styles.html"]\n'
+        )
+    return Project.from_settings(
+        root,
+        {
+            "manuscript": {
+                "source": "docs",
+                "chapters": "docs/canon",
+                "quarto": "docs/_quarto.yml",
+            },
+            "publish": {
+                "render_policy": "render.toml",
+                "figures": "docs/canon/illustrations",
+            },
+        },
+    )
+
+
+@pytest.fixture(autouse=True)
+def quarto_book(tmp_path):
+    """Every module the render reaches sees the same book, not only `render`."""
+    with project_scope(project_at(tmp_path)):
+        yield
+
+
+_QUARTO = """\
+project:
+  type: book
+book:
+  title: "T"
+  chapters:
+    - index.qmd
+    - part: "Part One"
+      chapters:
+        - canon/01.qmd
+    - part: canon/part-two.qmd
+      chapters:
+        - canon/08.qmd
+
+format:
+  html:
+    theme: cosmo
+  # a comment inside the format block rides along
+  typst:
+    toc: false
+    template-partials:
+      - typst-show.typ
+  epub:
+    toc: true
+    filters:
+      - _gray-illustrations.lua
+  docx: default
+"""
+
+
+def _quarto_dir(tmp_path):
+    (tmp_path / "_quarto.yml").write_text(_QUARTO, encoding="utf-8")
+    return tmp_path
+
+
+# --------------------------------------------------------------------------- #
+# split_to: pulling `--to` out of the pass-through render args
+# --------------------------------------------------------------------------- #
+def test_split_to_none_when_absent():
+    assert render.split_to([]) == (None, [])
+    assert render.split_to(["--cache-refresh"]) == (None, ["--cache-refresh"])
+
+
+def test_split_to_space_and_equals_forms():
+    assert render.split_to(["--to", "epub"]) == (["epub"], [])
+    assert render.split_to(["--to=html,epub", "--cache-refresh"]) == (
+        ["html", "epub"],
+        ["--cache-refresh"],
+    )
+
+
+def test_split_to_consumes_every_to_and_unions():
+    """A second --to used to ride through to Quarto, which rendered it inside a
+    stage whose config had been trimmed to the first format only — the second
+    format silently lost its declared options (the EPUB its gray-figure
+    filter). All --to flags are consumed and their formats unioned."""
+    req, rest = render.split_to(["-v", "--to", "docx", "--to", "epub"])
+    assert req == ["docx", "epub"]
+    assert rest == ["-v"]
+    req, rest = render.split_to(["--to=docx", "--to", "docx,epub"])
+    assert req == ["docx", "epub"]  # de-duped, in order
+    assert rest == []
+
+
+# --------------------------------------------------------------------------- #
+# partition_formats: screen vs print vs parts-less
+# --------------------------------------------------------------------------- #
+def test_partition_explicit_request():
+    assert render.partition_formats(["html", "epub", "docx"]) == (
+        ["html"],
+        [],
+        ["epub", "docx"],
+    )
+    assert render.partition_formats(["typst"]) == ([], ["typst"], [])
+    # print is its own stage because its front matter differs from the screen's
+    assert render.partition_formats(["html", "typst"]) == (["html"], ["typst"], [])
+
+
+def test_partition_unknown_routes_parts_safe():
+    # partition is pure routing; an undeclared name is main()'s to reject
+    # (test_main_rejects_an_undeclared_format below)
+    assert render.partition_formats(["pdff"]) == (["pdff"], [], [])
+
+
+def test_partition_none_reads_quarto(tmp_path, monkeypatch):
+    monkeypatch.setattr(render, "current_project", lambda: project_at(tmp_path))
+    (tmp_path / "docs").mkdir()
+    (tmp_path / "docs" / "_quarto.yml").write_text(_QUARTO, encoding="utf-8")
+    assert render.book_formats() == ["html", "typst", "epub", "docx"]
+    assert render.partition_formats(None) == (["html"], ["typst"], ["epub", "docx"])
+
+
+# --------------------------------------------------------------------------- #
+# restrict_formats: trim the staged format block to one stage's formats
+# --------------------------------------------------------------------------- #
+def _format_keys(text):
+    import re
+
+    keys, i, lines, ci = [], 0, text.splitlines(), None
+    while i < len(lines) and lines[i].rstrip() != "format:":
+        i += 1
+    i += 1
+    while i < len(lines):
+        s = lines[i].strip()
+        ind = len(lines[i]) - len(lines[i].lstrip())
+        i += 1
+        if not s or s.startswith("#"):
+            continue
+        if ind == 0:
+            break
+        if ci is None:
+            ci = ind
+        if ind != ci:
+            continue
+        m = re.match(r"([A-Za-z][\w-]*)\s*:", s)
+        if m:
+            keys.append(m.group(1))
+    return keys
+
+
+def test_restrict_to_parts_safe_drops_epub_docx_and_filter(tmp_path):
+    d = _quarto_dir(tmp_path)
+    render.restrict_formats(d, ["html", "typst"])
+    text = (d / "_quarto.yml").read_text()
+    assert _format_keys(text) == ["html", "typst"]
+    assert "- _gray-illustrations.lua" not in text  # epub's filter directive gone
+    assert "- typst-show.typ" in text  # typst's nested block kept
+    assert (
+        "book:" in text and "part: canon/part-two.qmd" in text
+    )  # other blocks untouched
+
+
+def test_restrict_to_parts_less_keeps_epub_filter(tmp_path):
+    d = _quarto_dir(tmp_path)
+    render.restrict_formats(d, ["epub", "docx"])
+    text = (d / "_quarto.yml").read_text()
+    assert _format_keys(text) == ["epub", "docx"]
+    assert "- _gray-illustrations.lua" in text  # the EPUB gray-swap filter survives
+
+
+def test_restrict_to_single_format(tmp_path):
+    d = _quarto_dir(tmp_path)
+    render.restrict_formats(d, ["epub"])
+    assert _format_keys((d / "_quarto.yml").read_text()) == ["epub"]
+
+
+# --------------------------------------------------------------------------- #
+# stage_book_noparts: composes mirror + figures + flatten + unnumber
+# --------------------------------------------------------------------------- #
+def test_stage_book_noparts_flattens_and_unnumbers(tmp_path, monkeypatch):
+    # a minimal docs/ tree with a file-based part
+    docs = tmp_path / "docs"
+    (docs / "canon").mkdir(parents=True)
+    (docs / "_quarto.yml").write_text(_QUARTO, encoding="utf-8")
+    (docs / "index.qmd").write_text("# Welcome\n")
+    (docs / "canon" / "01.qmd").write_text("# One {#sec-one}\n")
+    (docs / "canon" / "08.qmd").write_text("# Weight {#sec-weight}\n")
+    (docs / "canon" / "part-two.qmd").write_text(
+        "# Part Two: What we pay them {#sec-part-two}\n\nOpener prose.\n"
+    )
+    # The epub include-in-header, which this stage reduces to its rules. It is
+    # required, not optional: a rename must break the render rather than
+    # silently ship the commentary again, so the fixture carries a real one.
+    (docs / "epub-styles.html").write_text(
+        "<!-- banner -->\n<style>/* why */\np { margin: 0; }\n</style>\n",
+        encoding="utf-8",
+    )
+
+    stage = tmp_path / "build" / "book-noparts"
+    monkeypatch.setattr(render, "current_project", lambda: project_at(tmp_path))
+    patch_setting(monkeypatch, render, "_settings", "BUILD_BOOK_NOPARTS", stage)
+    monkeypatch.setattr(
+        render._figures, "build", lambda stage=None, gray=False: 0
+    )  # skip figure I/O
+
+    assert render.stage_book_noparts() == 0
+    cfg = (stage / "_quarto.yml").read_text()
+    assert "part:" not in cfg  # every part flattened
+    assert "- canon/part-two.qmd" in cfg  # opener promoted, in place
+    h1 = (stage / "canon" / "part-two.qmd").read_text().splitlines()[0]
+    assert ".unnumbered" in h1  # numbering preserved
+    styles = (stage / "epub-styles.html").read_text()
+    assert "banner" not in styles and "why" not in styles  # comments never ship
+    assert "p { margin: 0; }" in styles  # the rules do
+
+
+# --------------------------------------------------------------------------- #
+# main(): the orchestration owns validation the stages cannot do
+# --------------------------------------------------------------------------- #
+def test_main_help_exits_zero(capsys):
+    assert render.main(["--help"]) == 0
+    out = capsys.readouterr().out
+    assert "usage: quirework publish build" in out and "quarto render" in out
+
+
+def test_main_rejects_an_undeclared_format(monkeypatch, capsys):
+    """restrict_formats silently drops names the config does not declare, so a
+    typo must error up front instead of rendering nothing it promised."""
+    monkeypatch.setattr(render, "find_quarto", lambda: "quarto")
+    monkeypatch.setattr(
+        render, "book_formats", lambda: ["html", "typst", "epub", "docx"]
+    )
+    rc = render.main(["--to", "pdfx"])
+    assert rc == 2
+    err = capsys.readouterr().err
+    assert "unknown format" in err and "pdfx" in err and "typst" in err
+
+
+@pytest.fixture
+def render_run(tmp_path, monkeypatch):
+    """Real staging, consolidation and numbering checks; synthetic writer output."""
+    from quirework.publish import epubcheck
+    from quirework.publish import fonts
+
+    docs = tmp_path / "docs"
+    (docs / "canon").mkdir(parents=True)
+    (docs / "_quarto.yml").write_text(_QUARTO)
+    (docs / "index.qmd").write_text("# Welcome\n")
+    (docs / "epub-styles.html").write_text("<style>p { margin: 0; }</style>\n")
+    (docs / "canon" / "part-two.qmd").write_text("# Part Two\n\nAn opener.\n")
+    for name, caption in (("01", "first plate"), ("08", "second plate")):
+        (docs / "canon" / f"{name}.qmd").write_text(
+            f"# Chapter {name}\n\n"
+            f"![{caption}](illustrations/{name}.svg){{#fig-{name}}}\n"
+        )
+
+    monkeypatch.setattr(render, "current_project", lambda: project_at(tmp_path))
+    for attr, folder in (
+        ("BUILD_BOOK", "book"),
+        ("BUILD_BOOK_PRINT", "book-print"),
+        ("BUILD_BOOK_NOPARTS", "book-noparts"),
+    ):
+        patch_setting(
+            monkeypatch,
+            render,
+            "_options" if attr == "BUILD_BOOK" else "_settings",
+            attr,
+            tmp_path / "build" / folder,
+        )
+    monkeypatch.setattr(render, "find_quarto", lambda: "quarto")
+    # `missing` takes the formats about to be rendered: only the formats
+    # typeset or rasterized here depend on this machine's fonts.
+    monkeypatch.setattr(fonts, "missing", lambda formats=None: [])
+    monkeypatch.setattr(render._figures, "build", lambda **kwargs: 0)
+    monkeypatch.setattr(epubcheck, "verify", lambda site: 0)
+    # PDF extraction is external I/O. Other artifact readers and the actual
+    # expected-count/numbering guard remain real, including its failure paths.
+    monkeypatch.setitem(
+        render._fignumbers._READERS,
+        "typst",
+        (".pdf", lambda path: json.loads(path.read_text())),
+    )
+
+    def run(formats, *, stale_html=False, incomplete=False, disagree=False):
+        if stale_html:
+            old = render._options().BUILD_BOOK
+            old.mkdir(parents=True)
+            (old / "_quarto.yml").write_text("book:\n  chapters:\n    - old.qmd\n")
+            (old / "old.qmd").write_text(
+                "# Old\n\n![old plate](illustrations/old.svg){#fig-old}\n"
+            )
+            (old / "_site").mkdir()
+            (old / "_site" / "old.html").write_text(
+                "<figcaption>Figure 9.1: stale plate</figcaption>"
+            )
+        calls = []
+
+        def quarto(args, *, cwd):
+            calls.append(cwd)
+            site = cwd / "_site"
+            site.mkdir(exist_ok=True)
+            # Quarto refreshes a stage's output directory when it renders it.
+            for path in site.iterdir():
+                path.unlink()
+            for fmt in _format_keys((cwd / "_quarto.yml").read_text()):
+                pairs = [("1.1", "first plate"), ("2.1", "second plate")]
+                if incomplete:
+                    pairs.pop()
+                if disagree and fmt == "epub":
+                    pairs[0] = ("3.1", "first plate")
+                captions = "".join(
+                    f"<figcaption>Figure {n}: {cap}</figcaption>" for n, cap in pairs
+                )
+                if fmt == "html":
+                    (site / "book.html").write_text(captions)
+                elif fmt == "typst":
+                    (site / "book.pdf").write_text(
+                        json.dumps(
+                            [
+                                (n, render._fignumbers.caption_key(cap))
+                                for n, cap in pairs
+                            ]
+                        )
+                    )
+                elif fmt == "epub":
+                    with zipfile.ZipFile(site / "book.epub", "w") as archive:
+                        archive.writestr("EPUB/chapter.xhtml", captions)
+                elif fmt == "docx":
+                    with zipfile.ZipFile(site / "book.docx", "w") as archive:
+                        archive.writestr(
+                            "word/document.xml",
+                            "".join(
+                                f"<w:p><w:r><w:t>Figure {n}: {cap}</w:t></w:r></w:p>"
+                                for n, cap in pairs
+                            ),
+                        )
+                else:
+                    raise AssertionError(fmt)
+            return 0
+
+        monkeypatch.setattr(render.subprocess, "call", quarto)
+        return render.main(["--to", formats]), calls
+
+    return run
+
+
+@pytest.mark.parametrize(
+    "formats",
+    [
+        "typst",
+        "epub",
+        "docx",
+        "html",
+        "typst,epub",
+        "epub,docx",
+        "html,typst,epub,docx",
+    ],
+)
+@pytest.mark.parametrize("stale_html", [False, True], ids=["fresh", "stale-html"])
+def test_render_validates_only_requested_stages(render_run, formats, stale_html):
+    rc, calls = render_run(formats, stale_html=stale_html)
+    assert rc == 0
+    selected = set(formats.split(","))
+    expected = []
+    if "html" in selected:
+        expected.append(render._options().BUILD_BOOK)
+    if "typst" in selected:
+        expected.append(render._settings().BUILD_BOOK_PRINT)
+    if selected & {"epub", "docx"}:
+        expected.append(render._settings().BUILD_BOOK_NOPARTS)
+    assert calls == expected
+    if "html" not in selected:
+        config = render._options().BUILD_BOOK / "_quarto.yml"
+        assert config.exists() == stale_html
+        if stale_html:
+            assert "old.qmd" in config.read_text()
+            assert (render._options().BUILD_BOOK / "_site" / "old.html").exists()
+
+
+@pytest.mark.parametrize("formats", ["typst", "epub", "docx"])
+def test_stale_html_cannot_hide_a_missing_figure(render_run, formats, capsys):
+    rc, _ = render_run(formats, stale_html=True, incomplete=True)
+    assert rc == 1
+    assert "1 numbered figure(s), but the book numbers 2" in capsys.readouterr().out
+
+
+def test_non_html_editions_still_have_to_agree(render_run, capsys):
+    rc, _ = render_run("typst,epub", disagree=True)
+    assert rc == 1
+    assert "figure numbered 3.1 in epub but 1.1 in typst" in capsys.readouterr().out

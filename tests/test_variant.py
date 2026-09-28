@@ -192,3 +192,51 @@ def test_the_prompt_carries_the_book_the_task_the_reader_and_the_voice(tmp_path)
     assert "A reader in a hurry." in prompt
     assert "Short sentences. No jokes." in prompt
     assert "No illustration is assigned" in prompt
+
+
+# --- the pure helpers the builder is made of ------------------------------- #
+
+
+def test_strip_comments_drops_all_marks_and_collapses_blanks():
+    src = (
+        "# Title {#sec-x}\n"
+        "<!-- @bind(kettle-signal) -->\n"
+        "<!-- @figure(whistle)  the whistle. Built: derived/illustrations/whistle.svg -->\n\n"
+        "A kettle has states.\n\n"
+        "<!-- @todo rephrase -->\n\n"
+        "The whistle is the signal.\n"
+    )
+    out = variant.strip_comments(src)
+    assert "@bind" not in out and "@figure" not in out and "@todo" not in out
+    assert "<!--" not in out
+    assert "A kettle has states." in out and "The whistle is the signal." in out
+    assert "\n\n\n" not in out  # blank runs collapsed
+
+
+def test_section_body_extracts_block_to_next_heading():
+    md = "## Blind-draft brief\n\n- rule one\n- rule two\n\n## Convention\n\nboilerplate\n"
+    body = variant.section_body(md, "Blind-draft brief")
+    assert body is not None
+    assert body.startswith("- rule one")
+    assert "rule two" in body
+    assert "Convention" not in body and "boilerplate" not in body
+
+
+def test_section_body_missing_returns_none():
+    assert variant.section_body("# just a title\n\nbody\n", "Blind-draft brief") is None
+
+
+def test_clean_figure_splits_desc_and_drops_metadata():
+    body = (
+        "the whistle as a gauge, not a switch. "
+        "Built: derived/illustrations/the-whistle.svg. Reader panel: all 6."
+    )
+    desc, built = variant.clean_figure(body)
+    assert desc == "the whistle as a gauge, not a switch"
+    assert built == "derived/illustrations/the-whistle.svg"
+    assert "Reader panel" not in desc
+
+
+def test_figures_for_without_a_sidecar_is_empty(tmp_path):
+    (tmp_path / "ch.qmd").write_text("# Ch\n\nProse.\n")
+    assert variant.figures_for(tmp_path / "ch.qmd") == []
