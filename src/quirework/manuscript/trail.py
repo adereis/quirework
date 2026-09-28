@@ -365,7 +365,7 @@ def _banner():
     return (
         f"<!--\n  Trail sidecar for {spec}: the conversations that shaped each\n"
         "  section, as pointers into the sessions. Context for whoever edits\n"
-        "  the spec, never authority over it. Written by `quirework book\n"
+        "  the spec, never authority over it. Written by `quirework spec\n"
         "  trail add`; the headings mirror the spec's.\n-->"
     )
 
@@ -410,8 +410,8 @@ def dump(sidecar, spec=None):
     from quirework.text import mdwrap
 
     spec = notes.spec_sections() if spec is None else spec
-    order = {slug: i for i, (slug, _, _) in enumerate(spec) if slug}
-    titles = {slug: title for slug, title, _ in spec if slug}
+    order = {s.slug: i for i, s in enumerate(spec) if s.slug}
+    titles = {s.slug: s.title for s in spec if s.slug}
     parts = [sidecar.preamble or _banner()]
     held = [s for s in sidecar.sections if s.crumbs]
     days = _days([c for s in held for c in s.crumbs])
@@ -775,7 +775,7 @@ def locate(crumb, corpus, removed=frozenset()):
 # adding a breadcrumb
 # --------------------------------------------------------------------------- #
 def _spec_titles():
-    return {slug: title for slug, title, _ in notes.spec_sections() if slug}
+    return {s.slug: s.title for s in notes.spec_sections() if s.slug}
 
 
 def _known_slug(slug, titles):
@@ -1091,7 +1091,7 @@ def overview(*, utc=False):
     days = _days([c for s in held.values() for c in s.crumbs])
     lines = [f"spec trail: {_rel(sidecar.path)}"]
     width = max((len(slug) for slug in held), default=0) + 1
-    for slug, _, _ in sections:
+    for slug in (s.slug for s in sections):
         if slug in held:
             crumbs = held[slug].crumbs
             lines.append(
@@ -1124,7 +1124,7 @@ def unit_view(chapter, *, utc=False):
     sidecar = load()
     states = _states([c for s, c in sidecar.crumbs() if s.slug in bound]) or {}
     lines = [f"{stems[0]} binds {len(bound)} spec section(s)"]
-    for slug, _, _ in notes.spec_sections():
+    for slug in (s.slug for s in notes.spec_sections()):
         if slug in bound:
             lines.append("")
             lines += story(slug, brief=True, utc=utc, sidecar=sidecar, states=states)
@@ -1272,7 +1272,10 @@ def _commits(slug, *, patches=False):
     Each is ``(sha, when, subject, body, patch)``; ``patch`` is the change to
     the section's lines when ``patches`` is asked for, and empty otherwise.
     """
-    spec = notes._spec_path().resolve()
+    spec = notes.spec_file_of(slug)
+    if spec is None:
+        return [], f"'#{slug}' is in no spec file"
+    spec = spec.resolve()
     try:
         root = Path(_git(spec.parent, "rev-parse", "--show-toplevel").strip())
     except (subprocess.CalledProcessError, OSError):

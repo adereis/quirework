@@ -32,6 +32,7 @@ import sys
 from collections import Counter
 from dataclasses import dataclass
 from pathlib import Path
+from typing import NamedTuple
 
 from quirework.manuscript import frontmatter, units
 from quirework.project import current_project
@@ -437,33 +438,98 @@ def _configured_book_file(docs, key):
     return configured
 
 
-def _spec_path(docs=None) -> Path:
-    """This project's configured spec file."""
+class Section(NamedTuple):
+    """One commitment: a level-2 section of a spec file."""
+
+    slug: str | None  # the {#anchor}; None is a hard `check()` problem
+    title: str
+    body: str
+    path: Path  # the spec file that holds it
+
+
+def _unit_spec_pattern() -> str | None:
+    """`manuscript.unit_spec`, a path pattern with {slug}, or None."""
+    pattern = current_project().get("manuscript.unit_spec")
+    if pattern is not None and "{slug}" not in pattern:
+        from quirework.project import ConfigurationError
+
+        raise ConfigurationError(
+            "manuscript.unit_spec must contain {slug}, e.g. 'specs/{slug}/spec.md'"
+        )
+    return pattern
+
+
+def unit_spec_path(slug: str) -> Path | None:
+    """Where the unit ``slug`` keeps its own spec, or would; None if units keep none."""
+    pattern = _unit_spec_pattern()
+    if pattern is None:
+        return None
+    return current_project().root / pattern.replace("{slug}", slug)
+
+
+def spec_owner(path: Path) -> str | None:
+    """The unit whose own spec ``path`` is, or None for the shared spec."""
+    pattern = _unit_spec_pattern()
+    if pattern is None:
+        return None
+    root = current_project().root.resolve()
+    try:
+        rel = Path(path).resolve().relative_to(root).as_posix()
+    except ValueError:
+        return None
+    m = units._pattern_regex(pattern).match(rel)
+    return m.group("slug") if m else None
+
+
+def spec_files(docs=None) -> list[Path]:
+    """Every file of the register, in the order its sections are read.
+
+    A project states its commitments in one shared spec (`manuscript.spec`),
+    in one spec per unit (`manuscript.unit_spec`), or both. The shared file
+    comes first, because it holds what several units lean on; then each
+    unit's own, in reading order; then the specs of units that do not exist
+    yet, by slug, since a post is often specified before it is drafted.
+    """
     docs = (
         Path(docs) if docs is not None else current_project().path("manuscript.source")
     )
-    spec = _configured_book_file(docs, "manuscript.spec")
-    if spec is None:
+    shared = _configured_book_file(docs, "manuscript.spec")
+    pattern = _unit_spec_pattern()
+    if shared is None and pattern is None:
         from quirework.project import ConfigurationError
 
-        raise ConfigurationError("configure manuscript.spec in quirework.toml")
-    return spec
+        raise ConfigurationError(
+            "configure manuscript.spec or manuscript.unit_spec in quirework.toml"
+        )
+    files = [shared] if shared is not None and shared.exists() else []
+    if pattern is not None:
+        root = current_project().root
+        found = {}
+        for path in root.glob(pattern.replace("{slug}", "*")):
+            owner = spec_owner(path)
+            if path.is_file() and owner is not None:
+                found[owner] = path
+        try:
+            order = [u.slug for u in units.registry(docs)]
+        except (OSError, ValueError):
+            order = []
+        files += [found.pop(slug) for slug in order if slug in found]
+        files += [found[slug] for slug in sorted(found)]
+    return files
 
 
 def _spec_name(docs=None) -> str:
-    return _spec_path(docs).name
+    """How messages name the register: its file when there is one, else "the spec"."""
+    files = spec_files(docs)
+    return files[0].name if len(files) == 1 else "the spec"
 
 
-def spec_sections(docs: Path | None = None) -> list[tuple[str | None, str, str]]:
-    """(anchor, title, body) for each level-2 section of the spec,
-    in file order. The anchor is None where a section is missing its {#slug}
-    (a hard `check()` problem). Empty if the spec does not exist."""
-    docs = (
-        Path(docs) if docs is not None else current_project().path("manuscript.source")
-    )
-    spec = _spec_path(docs)
-    if not spec.exists():
-        return []
+def _spec_names(docs=None) -> tuple[str, ...]:
+    """Every register file's name, which is how an entry cites the spec."""
+    return tuple(f.name for f in spec_files(docs))
+
+
+def _sections_of(spec: Path) -> list[Section]:
     text = _mask_fences(spec.read_text())
     lvl2 = []
     for m in _HEADING.finditer(_mask_nonprose(text)):
@@ -481,13 +547,28 @@ def spec_sections(docs: Path | None = None) -> list[tuple[str | None, str, str]]
     out = []
     for i, (_, end, title, anchor) in enumerate(lvl2):
         stop = lvl2[i + 1][0] if i + 1 < len(lvl2) else len(text)
-        out.append((anchor, title, text[end:stop].strip()))
+        out.append(Section(anchor, title, text[end:stop].strip(), spec))
     return out
 
 
+def spec_sections(docs: Path | None = None) -> list[Section]:
+    """Every level-2 section of the register, file by file in `spec_files`
+    order. A section's slug is None where it is missing its {#slug} (a hard
+    `check()` problem). Empty while no spec file exists."""
+    return [s for spec in spec_files(docs) for s in _sections_of(spec)]
+
+
 def spec_slugs(docs: Path | None = None) -> set[str]:
-    """The binding namespace: every anchored level-2 section of the spec."""
-    return {slug for slug, _, _ in spec_sections(docs) if slug}
+    """The binding namespace: every anchored level-2 section of the register."""
+    return {s.slug for s in spec_sections(docs) if s.slug}
+
+
+def spec_file_of(slug: str, docs: Path | None = None) -> Path | None:
+    """The spec file whose section is anchored ``slug``."""
+    for s in spec_sections(docs):
+        if s.slug == slug:
+            return s.path
+    return None
 
 
 def scan(paths: list[Path] | None = None) -> list[Annotation]:
@@ -548,31 +629,53 @@ def _chapter_title(rel: str) -> str:
     return Path(rel).stem
 
 
-def _print_spec_toc(docs: Path | None = None) -> None:
-    """The spec's table of contents, printed at the top of the
-    primer: the commitments register is the book's skeleton, so a fresh
-    session reads it before the per-chapter marks. Silent while the spec has
-    no sections (early in the migration)."""
+def _print_spec_toc(docs: Path | None = None, only: set[str] | None = None) -> None:
+    """The register's table of contents, printed at the top of the primer:
+    the commitments are the work's skeleton, so a fresh session reads them
+    before the per-unit marks. Silent while the register has no sections.
+
+    With ``only``, a set of unit slugs, the listing is the part of the
+    register those units touch: their own spec files whole, and the shared
+    sections they bind. A site with a spec per post would otherwise hand a
+    session every post's commitments to change one.
+    """
     sections = spec_sections(docs)
+    if only is not None:
+        bound = set().union(
+            *(v for k, v in chapter_bindings(docs).items() if k in only)
+        )
+        sections = [
+            s
+            for s in sections
+            if spec_owner(s.path) in only
+            or (spec_owner(s.path) is None and s.slug in bound)
+        ]
     if not sections:
         return
-    print(
-        f"spec — {_rel(_spec_path(docs))} "
-        f"({len(sections)} section(s); read it before the marks):"
-    )
     # Where a trail is kept, each section says how many breadcrumbs lead back
     # to the conversations that shaped it. Counting reads only the sidecar, so
     # the primer stays as cheap as it was; following them is `spec trail`.
     from quirework.manuscript import trail
 
     held = trail.counts()
-    for slug, title, _ in sections:
-        anchor = f"#{slug}" if slug else "(no anchor)"
-        mark = f"  [trail ×{held[slug]}]" if held.get(slug) else ""
-        print(f"  {anchor:<26} {title}{mark}")
-    if trail.configured():
+    by_file: dict[Path, list[Section]] = {}
+    for s in sections:
+        by_file.setdefault(s.path, []).append(s)
+    for path, group in by_file.items():
+        owner = spec_owner(path)
+        whose = f"{units.noun()} {owner}'s own" if owner else "shared"
         print(
-            f"  {len(held)} of {len(sections)} section(s) have a trail of the "
+            f"spec — {_rel(path)} ({whose}; {len(group)} section(s); "
+            f"read it before the marks):"
+        )
+        for s in group:
+            anchor = f"#{s.slug}" if s.slug else "(no anchor)"
+            mark = f"  [trail ×{held[s.slug]}]" if held.get(s.slug) else ""
+            print(f"  {anchor:<26} {s.title}{mark}")
+    if trail.configured():
+        with_trail = sum(1 for s in sections if held.get(s.slug))
+        print(
+            f"  {with_trail} of {len(sections)} section(s) have a trail of the "
             f"sessions that shaped them: quirework spec trail SLUG"
         )
 
@@ -690,9 +793,7 @@ def _canon_corpus(docs: Path) -> str:
         files.update(docs.rglob(pat))
     # A site keeps its marks and its spec outside the source it renders.
     files.update(units.sidecars(docs))
-    spec = _configured_book_file(docs, "manuscript.spec")
-    if spec is not None and spec.exists():
-        files.add(spec)
+    files.update(spec_files(docs))
     return _searchable("\n".join(f.read_text() for f in sorted(files)))
 
 
@@ -712,7 +813,7 @@ def _blocks(text: str) -> list[tuple[str, int]]:
 
 
 def _attributed_spans(
-    block: str, stems: set[str], spec_name: str
+    block: str, stems: set[str], spec_names: tuple[str, ...]
 ) -> list[tuple[str, int]]:
     """Quotations in one block that are attributed to canon, with offsets.
 
@@ -747,7 +848,7 @@ def _attributed_spans(
             _BIND_REF.search(window)
             or _code_spec_refs(window)
             or _CH_REF.search(window)
-            or spec_name in window
+            or any(name in window for name in spec_names)
             or any(s in window for s in stems)
         ):
             continue
@@ -756,12 +857,24 @@ def _attributed_spans(
 
 
 def chapter_bindings(docs: Path | None = None) -> dict[str, set[str]]:
-    """unit slug -> the spec slugs its sidecar actually binds."""
+    """unit slug -> the spec slugs it expresses.
+
+    A unit binds what its sidecar's `@bind` marks name, and, where units keep
+    their own spec files, every section of its own: a post expresses its own
+    commitments by being the post they describe. An explicit `@bind` of an
+    own section is still how a sidecar says which heading carries it.
+    """
     out: dict[str, set[str]] = {}
     roots = units.harvest(docs) if docs is not None else None
     for a in scan(roots):
         if a.kind == "bind" and a.args:
             out.setdefault(units.slug_of(a.file), set()).add(a.args[0])
+    if _unit_spec_pattern() is not None:
+        present = units.names(docs)
+        for s in spec_sections(docs):
+            owner = spec_owner(s.path)
+            if owner in present and s.slug:
+                out.setdefault(owner, set()).add(s.slug)
     return out
 
 
@@ -838,9 +951,9 @@ def coverage(
             if slug in spec:
                 by_slug.setdefault(slug, []).append(f.stem)
     unexercised = [
-        (anchor, title)
-        for anchor, title, _ in spec_sections(docs)
-        if anchor and anchor not in by_slug
+        (s.slug, s.title)
+        for s in spec_sections(docs)
+        if s.slug and s.slug not in by_slug
     ]
     return by_slug, unexercised
 
@@ -935,7 +1048,7 @@ def companion_check(
                 f"missing."
             )
         for block, offset in _blocks(text):
-            for span, pos in _attributed_spans(block, stems, _spec_name(docs)):
+            for span, pos in _attributed_spans(block, stems, _spec_names(docs)):
                 quote = _norm(span)
                 # An elided quotation is deliberately partial; measure its
                 # longest piece, or the ellipsis alone reports it as absent.
@@ -1063,23 +1176,28 @@ def _findings(docs: Path) -> tuple[list[str], list[tuple[str, list[str]]]]:
 
     annos = scan(units.harvest(docs))
 
-    # 4. the spec's binding namespace: anchored, unique level-2 sections.
-    spec_rel = _rel(_spec_path(docs))
+    # 4. the register's binding namespace: anchored level-2 sections, unique
+    # across every spec file, since a binding names a slug and not a file.
     sections = spec_sections(docs)
-    spec_seen: dict[str, str] = {}
-    for slug, title, _ in sections:
-        if not slug:
+    spec_seen: dict[str, Section] = {}
+    for s in sections:
+        if not s.slug:
             problems.append(
-                f"{spec_rel}: section '{title}' has no {{#slug}} "
+                f"{_rel(s.path)}: section '{s.title}' has no {{#slug}} "
                 f"anchor (level-2 sections are the binding namespace)"
             )
-        elif slug in spec_seen:
+        elif s.slug in spec_seen:
+            first = spec_seen[s.slug]
+            also = (
+                f"'{first.title}'"
+                if first.path == s.path
+                else f"'{first.title}' in {_rel(first.path)}"
+            )
             problems.append(
-                f"{spec_rel}: duplicate section anchor '#{slug}' "
-                f"(also on '{spec_seen[slug]}')"
+                f"{_rel(s.path)}: duplicate section anchor '#{s.slug}' (also on {also})"
             )
         else:
-            spec_seen[slug] = title
+            spec_seen[s.slug] = s
     spec = set(spec_seen)
 
     # 11. the trail sidecar, where the project keeps one, mirrors the spec. A
@@ -1118,7 +1236,7 @@ def _findings(docs: Path) -> tuple[list[str], list[tuple[str, list[str]]]]:
             continue
         problems.append(
             f"{at}: @bind('{slug}') binds no section of "
-            f"{spec_rel}. Every @bind names a spec section: "
+            f"{_spec_name(docs)}. Every @bind names a spec section: "
             f"name the section the chapter expresses, or add it."
         )
 
@@ -1195,6 +1313,21 @@ def _findings(docs: Path) -> tuple[list[str], list[tuple[str, list[str]]]]:
     # prints) is announced with its own number.
     groups: list[tuple[str, list[str]]] = []
 
+    # A unit's own spec written before the unit is legitimate, which is why
+    # this is an advisory. It is also exactly what a mistyped slug looks like.
+    present = units.names(docs)
+    groups.append(
+        (
+            f"{{n}} spec file(s) belong to no {units.noun()} yet; a planned "
+            f"{units.noun()} is fine, a mistyped slug is not",
+            [
+                f"  {_rel(f)}"
+                for f in spec_files(docs)
+                if (owner := spec_owner(f)) is not None and owner not in present
+            ],
+        )
+    )
+
     # Directories whose contents are working material rather than authority. A
     # mark that rests on one has put a commitment somewhere the book does not
     # carry. Which directories those are is the book's own placement, so an
@@ -1235,10 +1368,10 @@ def _findings(docs: Path) -> tuple[list[str], list[tuple[str, list[str]]]]:
             m = _JOURNALING.search(a.body)
             if m:
                 journ.append(f"  {at(a)} — '{m.group(0)}'")
-    for slug, title, body in sections:
-        m = _JOURNALING.search(body)
+    for s in sections:
+        m = _JOURNALING.search(s.body)
         if m:
-            journ.append(f"  {spec_rel}#{slug or title} — '{m.group(0)}'")
+            journ.append(f"  {_rel(s.path)}#{s.slug or s.title} — '{m.group(0)}'")
     groups.append(
         (
             "{n} contract mark(s)/spec section(s) carry decision-journaling; "
@@ -1256,9 +1389,9 @@ def _findings(docs: Path) -> tuple[list[str], list[tuple[str, list[str]]]]:
         if a.body:
             for m in _LINE_PIN.finditer(a.body):
                 pins.append(f"  {at(a)} — '{m.group(0)}'")
-    for slug, title, body in sections:
-        for m in _LINE_PIN.finditer(body):
-            pins.append(f"  {spec_rel}#{slug or title} — '{m.group(0)}'")
+    for s in sections:
+        for m in _LINE_PIN.finditer(s.body):
+            pins.append(f"  {_rel(s.path)}#{s.slug or s.title} — '{m.group(0)}'")
     groups.append(
         (
             "{n} mark(s)/spec section(s) pin a line distance; the next "
@@ -1300,10 +1433,12 @@ def _findings(docs: Path) -> tuple[list[str], list[tuple[str, list[str]]]]:
     # The spec is prose and is held to both tells. Bindings are bodyless
     # relationships, so only the spec can carry an imperative here.
     spec_register: list[str] = []
-    for slug, title, body in sections:
-        m = _IMPERATIVE.search(body) or _CAPS_RUN.search(body)
+    for s in sections:
+        m = _IMPERATIVE.search(s.body) or _CAPS_RUN.search(s.body)
         if m:
-            spec_register.append(f"  {spec_rel}#{slug or title} — '{m.group(0)}'")
+            spec_register.append(
+                f"  {_rel(s.path)}#{s.slug or s.title} — '{m.group(0)}'"
+            )
     groups.append(
         (
             "{n} spec section(s) in the imperative or contract register; the "
@@ -1700,11 +1835,21 @@ def main(argv=None) -> int:
     else:
         requested = []  # no kind filter: every kind
 
-    # Validate the unit filter against the scanned files, likewise.
+    # Validate the unit filter against the scanned files, likewise. A unit
+    # with no marks yet still matches when the registry has it: a post is
+    # specified before its sidecar exists, and the primer is how a session
+    # reads that spec.
     all_files = sorted({a.file for a in annos})
+    scoped: set[str] | None = None
     if args.unit:
         sub = args.unit.lower()
-        if not any(sub in f.lower() for f in all_files):
+        try:
+            listed = units.registry()
+        except (OSError, ValueError):
+            listed = []
+        scoped = {u.slug for u in listed if sub in u.rel.lower()}
+        scoped |= {units.slug_of(f) for f in all_files if sub in f.lower()}
+        if not scoped:
             kind = units.noun()
             print(f"no {kind} matches '{args.unit}'. {kind}s:", file=sys.stderr)
             for f in all_files:
@@ -1741,6 +1886,8 @@ def main(argv=None) -> int:
             return 2
         annos = matching
 
+    if args.primer and not args.path:
+        _print_spec_toc(only=scoped)  # a custom --path scan has no spec of its own
     if not annos:
         # Every filter here was already validated as matching *something*, so an
         # empty result means the combination is empty -- say which combination.
@@ -1757,8 +1904,6 @@ def main(argv=None) -> int:
         print(f"no marks match ({where}).")
         return 0
 
-    if args.primer and not args.path:
-        _print_spec_toc()  # a custom --path scan has no spec of its own
     if by == "unit":
         _render_by_chapter(annos)
     else:

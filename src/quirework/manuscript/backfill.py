@@ -313,7 +313,7 @@ def menu():
         ),
         "",
     ]
-    for slug, title, body in notes.spec_sections():
+    for slug, title, body, _ in notes.spec_sections():
         if slug:
             chapters = ", ".join(sorted(bound.get(slug, ()))) or "none"
             lines.append(f"- `{slug}`: {title}. {_gist(body)} [chapters: {chapters}]")
@@ -567,7 +567,7 @@ def plan(
     ledger()
     corpus = trail.Corpus()
     kept = _kept(corpus)
-    slugs = [s for s, _, _ in notes.spec_sections() if s]
+    slugs = [s.slug for s in notes.spec_sections() if s.slug]
     if sessions:
         chosen, cover = [], {}
         for prefix in sessions:
@@ -1528,7 +1528,7 @@ def status():
 
     corpus = trail.Corpus()
     kept = _kept(corpus)
-    slugs = [s for s, _, _ in notes.spec_sections() if s]
+    slugs = [s.slug for s in notes.spec_sections() if s.slug]
     reads = _reads()
     cover = _coverage(reads)
     older = {r["session"] for r in reads} - set(cover)

@@ -168,14 +168,23 @@ def _prose_corpus(docs: Path) -> str:
     appears in no chapter), and their text is what the reader sees.
     """
     parts = [f.read_text() for f in units.prose_files(docs)]
-    for key in ("manuscript.spec", "manuscript.review_notes"):
-        f = notes._configured_book_file(docs, key)
-        if f is not None and f.exists():
-            parts.append(f.read_text())
+    parts += [f.read_text() for f in _register(docs)]
     for svg in sorted(docs.rglob("illustrations/*.svg")):
         # element text only; the geometry would match anything by accident
         parts.extend(re.findall(r">([^<>]+)<", svg.read_text()))
     return notes._searchable("\n".join(parts))
+
+
+def _register(docs: Path) -> list[Path]:
+    """The spec files and the book-wide notes: text that belongs to no unit."""
+    try:
+        files = notes.spec_files(docs)
+    except ValueError:
+        files = []  # a project that keeps no spec has none to quote
+    notes_file = notes._configured_book_file(docs, "manuscript.review_notes")
+    if notes_file is not None and notes_file.exists():
+        files.append(notes_file)
+    return files
 
 
 def _chapter_corpora(docs: Path) -> tuple[dict[str, str], str]:
@@ -192,11 +201,7 @@ def _chapter_corpora(docs: Path) -> tuple[dict[str, str], str]:
     per: dict[str, str] = {}
     for f in units.prose_files(docs):
         per[units.slug_of(f)] = notes._searchable(f.read_text())
-    loose: list[str] = []
-    for key in ("manuscript.spec", "manuscript.review_notes"):
-        f = notes._configured_book_file(docs, key)
-        if f is not None and f.exists():
-            loose.append(f.read_text())
+    loose = [f.read_text() for f in _register(docs)]
     for svg in sorted(docs.rglob("illustrations/*.svg")):
         loose.extend(re.findall(r">([^<>]+)<", svg.read_text()))
     return per, notes._searchable("\n".join(loose))

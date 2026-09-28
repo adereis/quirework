@@ -318,14 +318,21 @@ class Project:
                     raise ConfigurationError(
                         f"configured {kind} is missing: {self.path(key)}"
                     )
+            unit_spec = self.get("manuscript.unit_spec")
+            if unit_spec is not None and "{slug}" not in str(unit_spec):
+                raise ConfigurationError(
+                    "manuscript.unit_spec must contain {slug}, e.g. "
+                    "'specs/{slug}/spec.md'"
+                )
             if self.get("manuscript.spec_trail") is not None:
                 # The trail mirrors the spec's sections, so it means nothing
                 # without one. The file itself may not exist yet: the first
                 # breadcrumb creates it.
-                if self.get("manuscript.spec") is None:
+                if self.get("manuscript.spec") is None and unit_spec is None:
                     raise ConfigurationError(
                         "manuscript.spec_trail follows the spec's sections; configure "
-                        "manuscript.spec too, or remove manuscript.spec_trail"
+                        "manuscript.spec or manuscript.unit_spec too, or remove "
+                        "manuscript.spec_trail"
                     )
                 trail = self.path("manuscript.spec_trail")
                 if trail.is_dir():

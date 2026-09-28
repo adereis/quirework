@@ -54,7 +54,8 @@ against the configured semantic register; a book need not adopt another
 project's claims or vocabulary.
 
 `manuscript.spec_trail` names the spec's trail sidecar, which points each spec
-section at the conversations that shaped it. It requires `manuscript.spec`,
+section at the conversations that shaped it. It requires a register,
+`manuscript.spec` or `manuscript.unit_spec`,
 and the file need not exist yet: the first `spec trail add` creates it,
 readable by its owner only. Put it with the private material, since it
 points into the private corpus, or in `quirework.local.toml` where the
@@ -122,6 +123,37 @@ metadata no reader should be served. Leaving `marks` unset keeps the
 site's spec commands working without sidecars. `unit_name` is the noun
 messages use for a unit, when "page" is not what the project calls its
 posts.
+
+### A spec per unit
+
+A book argues one thing, so it keeps one spec. A site argues one thing
+per post, so each post can state its own commitments in its own file:
+
+```toml
+[manuscript]
+spec = "specs/_site.md"
+unit_spec = "specs/{slug}/spec.md"
+```
+
+`unit_spec` is a path pattern with `{slug}`, relative to the project
+root. `spec` becomes the shared file, holding what several units lean
+on, and either setting may stand alone. Together they are one register.
+A slug is unique across every file, because a binding names a slug and
+never a file. The shared file is read first, then each unit's own in
+reading order, then the specs of units not written yet, since a post is
+often specified before it is drafted. `spec notes --check` reports those
+as an advisory, because a mistyped slug looks the same.
+
+A unit binds every section of its own spec without saying so. It is the
+post those commitments describe. A `@bind` in its sidecar still says
+which heading carries a commitment, and binding a shared section, or
+another post's, is how two posts come to share a claim. `spec notes
+--primer -c SLUG` then lists only what that unit touches: its own spec
+whole, and the shared sections it binds.
+
+One trail serves the whole register, because breadcrumbs are kept by
+slug. `spec trail suggest SLUG` follows the history of whichever file
+holds the section.
 
 ## Configuration layers
 
