@@ -80,3 +80,18 @@ def test_the_list_names_the_retired_phrases(book, capsys):
     out = capsys.readouterr().out
     assert "retired (gated):" in out
     assert "cold signal" in out and "the kettle's whistle" in out
+
+
+def test_a_retired_mark_of_punctuation_is_found_between_words(tmp_path):
+    """An em-dash is written touching both words. Word guards around it would
+    make the ruling unmatchable in the one place it is ever broken."""
+    (tmp_path / "manuscript").mkdir()
+    (tmp_path / "terms.toml").write_text(
+        'scope_glob = [["manuscript", "*.md"]]\n[retired]\n"—" = "a period"\n'
+    )
+    settings = {"text": {"terminology": "terms.toml"}}
+    with project_scope(Project.from_settings(tmp_path, settings)):
+        page = tmp_path / "manuscript" / "post.md"
+        page.write_text("The lamp—the light—turns.\n\nA dash — spaced — too.\n")
+        hits = jargon.retired(paths=[str(page)])
+        assert [h.line for h in hits] == [1, 1, 3, 3]

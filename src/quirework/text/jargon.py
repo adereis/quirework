@@ -298,7 +298,13 @@ def scan_text(text: str, path: str) -> list[Hit]:
 def _phrase(phrase: str) -> re.Pattern:
     """A retired phrase as written, in any case, across any line break."""
     body = r"\s+".join(re.escape(w) for w in phrase.split())
-    return re.compile(r"(?<!\w)" + body + r"(?!\w)", re.I)
+    # The word guards keep "al" out of "real". They belong only at an end that
+    # is a word character: a retired mark of punctuation is written touching
+    # the words on both sides ("the lamp—the light"), and a guard there would
+    # make the ruling unmatchable in the one place it is ever broken.
+    head = r"(?<!\w)" if re.match(r"\w", phrase.strip()) else ""
+    tail = r"(?!\w)" if re.search(r"\w\Z", phrase.strip()) else ""
+    return re.compile(head + body + tail, re.I)
 
 
 def scan_retired(text: str, path: str) -> list[Hit]:
