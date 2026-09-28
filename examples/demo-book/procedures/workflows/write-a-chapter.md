@@ -16,7 +16,7 @@ expresses, update its `@bind` lines in its sidecar to match, and say so.
 A `@bind` that used to be true and no longer is is worse than none.
 
 Before changing what a commitment says, read how it got there:
-`quirework spec trail --chapter NAME` for every section the chapter
+`quirework spec trail --unit NAME` for every section the chapter
 binds, then `quirework spec trail SLUG` for the one you are touching.
 The trail points at the author's own turns, oldest first. It is context,
 never a ruling: what the human asks today wins. When the human's words

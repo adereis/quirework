@@ -27,7 +27,7 @@ _EXEMPT = {"the-book-that-disagreed-with-itself.qmd", "the-sidecar.qmd"}
 
 
 def _chapter_files() -> list[tuple[str, Path]]:
-    from quirework.manuscript.chapters import registry
+    from quirework.manuscript.units import registry
     from quirework.project import current_project
 
     root = current_project().root
