@@ -10,6 +10,8 @@
 
 <!-- @bind(recognizable-signal) -->
 <!-- @bind(thesis) -->
+<!-- @source(coast-pilot) the chart's pattern: "Group flashing (2) white
+     every 10 seconds" -->
 
 ## What the turning costs
 

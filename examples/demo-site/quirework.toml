@@ -14,6 +14,12 @@ marks = "specs/{slug}/marks.md"
 # What several posts lean on, and what each post commits to on its own.
 spec = "specs/_site.md"
 unit_spec = "specs/{slug}/spec.md"
+# The keeper's briefs; `spec units` lists the ones no post has taken up.
+ideas = "ideas/*/brief.md"
+noncanonical_roots = ["ideas/"]
+# What the posts stand on, and plain-text captures of what was read.
+sources = "research/sources.md"
+source_copies = "research/copies/{slug}.txt"
 
 [publish]
 # Hugo builds the site with its own configuration, into build/site.
