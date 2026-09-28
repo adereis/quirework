@@ -18,6 +18,8 @@ class Command:
     summary: str
     component: str | None = None
     prefix: tuple[str, ...] = ()
+    # The publisher a command is built on, when it is one backend's alone.
+    backend: str | None = None
 
 
 GROUPS = {
@@ -48,29 +50,49 @@ COMMANDS = {
         "manuscript",
     ),
     ("publish", "build"): Command(
-        "publish.render", "Render the manuscript's editions", "publish"
+        "publish.build", "Render the manuscript through its backend", "publish"
     ),
     ("publish", "figures"): Command(
-        "publish.figures", "Build and inspect figure galleries", "publish"
+        "publish.figures",
+        "Build and inspect figure galleries",
+        "publish",
+        backend="quarto",
     ),
     ("publish", "fonts"): Command(
-        "publish.fonts", "Inspect required typefaces", "publish"
+        "publish.fonts",
+        "Inspect required typefaces",
+        "publish",
+        backend="quarto",
     ),
     ("publish", "epubcheck"): Command("publish.epubcheck", "Validate an EPUB artifact"),
     ("publish", "redpen"): Command(
-        "publish.redpen", "Create and read review documents", "publish"
+        "publish.redpen",
+        "Create and read review documents",
+        "publish",
+        backend="quarto",
     ),
     ("publish", "packet"): Command(
-        "publish.panelkit", "Prepare a rendered review packet", "publish"
+        "publish.panelkit",
+        "Prepare a rendered review packet",
+        "publish",
+        backend="quarto",
     ),
     ("publish", "variant"): Command(
-        "publish.variant", "Prepare a configured derived edition", "publish"
+        "publish.variant",
+        "Prepare a configured derived edition",
+        "publish",
+        backend="quarto",
     ),
     ("publish", "plan"): Command(
-        "publish.plans", "Compile rendered artifacts into run plans"
+        "publish.plans",
+        "Compile rendered artifacts into run plans",
+        backend="quarto",
     ),
     ("publish", "compare"): Command(
-        "publish.experiment", "Prepare and operate chapter comparisons", "publish"
+        "publish.experiment",
+        "Prepare and operate chapter comparisons",
+        "publish",
+        backend="quarto",
     ),
     ("sop", "panel"): Command(
         "sops.composition", "Compile declared panels into run plans"
@@ -217,6 +239,10 @@ def invoke(command, argv=(), *, project):
         help_only = any(a in ("--help", "-h") for a in argv)
         if item.component and not help_only:
             project.require(item.component)
+        if item.backend and not help_only:
+            from .publish import backends
+
+            backends.require(item.backend, " ".join(key), project)
         module = importlib.import_module("quirework." + item.module)
         if help_only:
             # Asking what a command does is not using it, and help stays free

@@ -414,7 +414,7 @@ def main(argv: list[str] | None = None) -> int:
     quarto = find_quarto()
     if not quarto:
         print(
-            "render: quarto not found. Install it (`pip install -e '.[docs]'`), "
+            "render: quarto not found. Install it (`pip install -e '.[quarto]'`), "
             "then re-run.",
             file=sys.stderr,
         )

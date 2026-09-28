@@ -356,6 +356,16 @@ class Project:
             # A publisher renders the manuscript, so it needs everything the
             # manuscript does before anything of its own.
             self.require("manuscript")
+            backend = self.get("publish.backend", "quarto")
+            if backend == "hugo":
+                from quirework.publish import hugo
+
+                with project_scope(self):
+                    hugo.check_site(hugo.site_root())
+            elif backend != "quarto":
+                raise ConfigurationError(
+                    f"publish.backend must be 'quarto' or 'hugo', not {backend!r}"
+                )
             if (
                 self.get("publish.figures") is not None
                 and not self.path("publish.figures").is_dir()

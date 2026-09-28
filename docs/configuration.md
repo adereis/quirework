@@ -155,6 +155,31 @@ One trail serves the whole register, because breadcrumbs are kept by
 slug. `spec trail suggest SLUG` follows the history of whichever file
 holds the section.
 
+## Publishing backends
+
+`publish.backend` names what renders the manuscript. `quarto`, the
+default, stages a book and renders HTML, a Typst PDF, EPUB and DOCX,
+and every other `publish` command is built on that staging: figures,
+fonts, red-pen copies, reader packets, derived editions and chapter
+comparisons.
+
+`hugo` builds a site with its own Hugo configuration:
+
+```toml
+[publish]
+backend = "hugo"
+build = "build"
+# site = "."       # the directory holding hugo.toml; the project root by default
+```
+
+`publish build` then runs `hugo build` into `<publish.build>/site`, so a
+build Quirework runs never overwrites the directory the site deploys
+from. `--drafts` includes draft pages, and any flag the command does not
+know goes to Hugo. That is the whole backend. A site's figures, theme and
+deploy stay the site's own, and a Quarto-only command on a Hugo project
+is refused by name rather than attempted. A project that renders some
+other way leaves `[publish]` out and simply runs no `publish` command.
+
 ## Configuration layers
 
 Quirework loads `quirework.toml`, then the optional
