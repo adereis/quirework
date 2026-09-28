@@ -511,7 +511,7 @@ def test_an_answer_that_ends_is_not_cut_off():
 def test_status_counts_the_sessions_read_and_the_sections_flagged(book, tmp_path):
     _read(tmp_path, [ANSWER])
     text = "\n".join(backfill.status())
-    assert "claude-code  book       1 of    2 read" in text
+    assert "claude-code  work       1 of    2 read" in text
     assert "#cooling-asymmetry" in text and "1 flagged" in text
 
 

@@ -176,11 +176,11 @@ def test_two_posts_sharing_a_slug_are_refused(site, capsys):
 def test_a_reference_to_a_post_resolves_by_slug(site):
     marks = site / "specs" / "notes-on-a-kettle" / "marks.md"
     marks.write_text(
-        KETTLE_MARKS + "<!-- @guidance read after @ch(cooling-down) -->\n"
-        "<!-- @guidance and after @ch(no-such-post) -->\n"
+        KETTLE_MARKS + "<!-- @guidance read after @unit(cooling-down) -->\n"
+        "<!-- @guidance and after @unit(no-such-post) -->\n"
     )
     unresolved = units.scan_layers()
-    assert [h.token for h in unresolved] == ["@ch(no-such-post)"]
+    assert [h.token for h in unresolved] == ["@unit(no-such-post)"]
     assert unresolved[0].note.startswith("no such post")
 
 

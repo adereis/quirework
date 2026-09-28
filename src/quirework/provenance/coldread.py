@@ -95,7 +95,7 @@ def _render_base():
 # over-invalidation the render-hash revalidation exists to undo (see
 # `render_sha256`), reintroduced one layer up.
 PROMPT_VERSIONS = {
-    SCOPE.BOOK: 2,
+    SCOPE.WORK: 2,
     # 3: states the standing-instructions baseline -- the assistant works under
     # rules it did not author in-session, so conformance to a convention reads
     # as prior human direction and only the edges are diagnostic (2026-08-13).
@@ -189,7 +189,7 @@ def _settings():
         / "manifest.json"
     )
     ANALYST_PROMPTS = {
-        SCOPE.BOOK: current_project().path(
+        SCOPE.WORK: current_project().path(
             "provenance.coldread", ".quirework/provenance/coldread"
         )
         / "analyst-prompt.md",
@@ -198,7 +198,7 @@ def _settings():
         )
         / "analyst-prompt-making.md",
     }
-    ANALYST_PROMPT = ANALYST_PROMPTS[SCOPE.BOOK]
+    ANALYST_PROMPT = ANALYST_PROMPTS[SCOPE.WORK]
     LOCK = (
         current_project().path("provenance.coldread", ".quirework/provenance/coldread")
         / ".lock"
@@ -292,18 +292,18 @@ def _untracked_codex():
     )
 
 
-def iter_sources(scope=SCOPE.BOOK):
+def iter_sources(scope=SCOPE.WORK):
     """Yield ``(path, era)`` for every analyzable source transcript on disk.
 
     The corpus is curated by *presence*: a session that should not be in it at
     all is removed from the repo working tree (it lives on in ~/.claude), so
     whatever remains here is, by decision, evidence.
 
-    Presence does not say evidence *for what*, and ``scope`` does: ``'book'``
+    Presence does not say evidence *for what*, and ``scope`` does: ``'work'``
     (the default, and every era-A web dialogue) or ``'making'`` for the
     apparatus half, listed in ``making-sessions.txt``. Pass ``None`` for the
     whole corpus regardless of scope -- which is what ``metrics`` wants, since
-    the effort ledger that only counts the book half understates a project that
+    the effort ledger that only counts the work's half understates a project that
     was about half instruments.
     """
     making = SCOPE.making_ids()
@@ -404,7 +404,7 @@ def load_manifest():
     return {
         "schema": 1,
         "filter_version": FILTER_VERSION,
-        "prompt_version": PROMPT_VERSIONS[SCOPE.BOOK],
+        "prompt_version": PROMPT_VERSIONS[SCOPE.WORK],
         "default_model": _options().MODEL,
         "updated": None,
         "sources": {},
@@ -496,8 +496,10 @@ def persist_revalidations(m):
                     and ce.get("filter_version") != current
                     and all(
                         ce.get(k) == e.get(k)
-                        for k in ("sha256", "prompt_version", "scope", "report")
+                        for k in ("sha256", "prompt_version", "report")
                     )
+                    and SCOPE.normalize(ce.get("scope"))
+                    == SCOPE.normalize(e.get("scope"))
                 ):
                     ce["filter_version"] = current
                     ce["render_sha256"] = e["render_sha256"]
@@ -525,7 +527,7 @@ def _lock_holder(fh):
 def save_manifest(m):
     m.pop("_dirty", None)
     m["filter_version"] = FILTER_VERSION
-    m["prompt_version"] = PROMPT_VERSIONS[SCOPE.BOOK]
+    m["prompt_version"] = PROMPT_VERSIONS[SCOPE.WORK]
     # The corpus is mixed-model by design; only the per-source entries say
     # which model read which source. The top level records the default.
     m.pop("model", None)
@@ -598,7 +600,7 @@ def render_sha256(path):
     return hashlib.sha256(text.encode("utf-8")).hexdigest()
 
 
-def report_name(sha, scope=SCOPE.BOOK, filter_version=None, persona=None):
+def report_name(sha, scope=SCOPE.WORK, filter_version=None, persona=None):
     """Cache filename for one source's report under one scope."""
     tag = f"-{scope}"
     version = FILTER_VERSION if filter_version is None else filter_version
@@ -628,11 +630,13 @@ def is_hit(manifest, relpath, sha, path=None, persona=None):
         return False
     # A report answers the question its scope's brief asked. If the source has
     # since changed scope, the cached report is about the other question and is
-    # not a hit -- entries written before scopes existed are book by default,
-    # which is what they were. The prompt version is then checked against *that
-    # scope's* brief, so an edit to one brief never invalidates the other's.
+    # not a hit -- entries written before scopes existed are the work's by
+    # default, which is what they were, and so are entries recorded under the
+    # label the work's scope once had. The prompt version is then checked
+    # against *that scope's* brief, so an edit to one brief never invalidates
+    # the other's.
     scope = SCOPE.scope_of_id(Path(relpath).stem)
-    if e.get("scope", SCOPE.BOOK) != scope:
+    if SCOPE.normalize(e.get("scope", SCOPE.WORK)) != scope:
         return False
     if e.get("sha256") != sha or e.get("prompt_version") != PROMPT_VERSIONS[scope]:
         return False
@@ -751,7 +755,7 @@ def cmd_status(_args):
     # that reports "0 misses" reads as a finished corpus when half of it was
     # never in this run's frame.
     if scope is not None:
-        other = SCOPE.MAKING if scope == SCOPE.BOOK else SCOPE.BOOK
+        other = SCOPE.MAKING if scope == SCOPE.WORK else SCOPE.WORK
         n_other = sum(1 for _ in iter_sources(other))
         print(
             f"note: {n_other} source(s) are scope={other} and are not in this "
@@ -764,22 +768,22 @@ def cmd_status(_args):
             "still-growing logs; they never cache-hit, even on an idle corpus."
         )
     if n["MISS"] or n["UNSEALED"]:
-        flag = "" if scope in (None, SCOPE.BOOK) else f" --scope {scope}"
+        flag = "" if scope in (None, SCOPE.WORK) else f" --scope {scope}"
         print(
             f"next: quirework provenance coldread render{flag}   then spawn blind "
             f"analysts from",
-            _render_out(scope or SCOPE.BOOK),
+            _render_out(scope or SCOPE.WORK),
         )
 
 
-def _render_out(scope=SCOPE.BOOK):
+def _render_out(scope=SCOPE.WORK):
     """Staging directory for one analysis scope."""
     return _render_base().with_name(_render_base().name + f"-{scope}")
 
 
 def _parse_scope(args):
-    """Pull `--scope book|making|all` out of an arg list; returns (scope, rest)."""
-    scope, rest, i = SCOPE.BOOK, [], 0
+    """Pull `--scope work|making|all` out of an arg list; returns (scope, rest)."""
+    scope, rest, i = SCOPE.WORK, [], 0
     while i < len(args):
         if args[i] == "--scope":
             want = args[i + 1]
@@ -881,7 +885,7 @@ def _write_corpus_index(singles, batches, out=None):
 def cmd_render(args):
     scope, args = _parse_scope(args)
     batch_under, batch_max = _parse_render_flags(args)
-    out = _render_out(scope or SCOPE.BOOK)
+    out = _render_out(scope or SCOPE.WORK)
     manifest = load_manifest()
     unsealed = unsealed_set()
     out.mkdir(parents=True, exist_ok=True)
@@ -1047,7 +1051,7 @@ def cmd_record_batch(args, model=None, persona=None):
     # A batch is rendered within one era *and* one scope (see `cmd_render`), so
     # the members agree; take the scope from the first and tag the file with it.
     scope = SCOPE.scope_of_path(paths[0])
-    tag = "" if scope == SCOPE.BOOK else f"-{scope}"
+    tag = "" if scope == SCOPE.WORK else f"-{scope}"
     # A batch is one era, so one reader and one recipe version (see above).
     version = filter_version_for(paths[0])
     _settings().REPORTS.mkdir(parents=True, exist_ok=True)
@@ -1081,7 +1085,7 @@ def cmd_record_batch(args, model=None, persona=None):
     return 0
 
 
-def _load_brief(scope=SCOPE.BOOK):
+def _load_brief(scope=SCOPE.WORK):
     text = _settings().ANALYST_PROMPTS[scope].read_text(encoding="utf-8")
     # Everything before the first '---' rule is maintainer-facing preamble (it
     # names the meta-purpose of the analysis) and must NOT reach the analyst.
@@ -1134,7 +1138,7 @@ def cmd_analyze(args):
     from quirework.sops import personas
 
     scope, args = _parse_scope(args)
-    stage = _render_out(scope or SCOPE.BOOK)
+    stage = _render_out(scope or SCOPE.WORK)
     parser = argparse.ArgumentParser(prog="quirework provenance coldread analyze")
     parser.add_argument("--only")
     parser.add_argument("--model", default=_options().CLI_MODEL)
@@ -1503,7 +1507,7 @@ def cmd_triage(args):
     print(
         "'keep' is a prioritization signal, not a final verdict: confirm the top-edited"
     )
-    print("Confirm that the top-edited column shows configured book material,")
+    print("Confirm that the top-edited column shows configured work material,")
     print("not only project guides or tooling files.")
     print("web/era-a sessions are not shown; judge those manually.")
     if short_untracked:

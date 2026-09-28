@@ -316,8 +316,10 @@ def prepare(plan_path, destination, *, resolve=True):
             scope = supplied.get(
                 "scope", (instrument or {}).get("default_scope", "artifact")
             )
-            if scope not in ("book", "artifact", "passage", "changes"):
-                raise ValueError("scope must be book, artifact, passage or changes")
+            if scope not in instruments.SCOPES:
+                raise ValueError(
+                    f"scope must be one of {', '.join(instruments.SCOPES)}"
+                )
             exposure = supplied.get(
                 "exposure", "project" if p["read_roots"] else "packet"
             )

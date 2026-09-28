@@ -95,15 +95,6 @@ from quirework.project import current_project
 WORDS = re.compile(r"\S+")
 
 
-def _configured_relative(key):
-    """A configured book path as the project names it."""
-    configured = current_project().path(key)
-    try:
-        return str(configured.relative_to(current_project().root))
-    except ValueError:
-        return str(configured)
-
-
 def _options():
     """Read policy from the selected project for this operation."""
     from types import SimpleNamespace
@@ -875,12 +866,12 @@ def report(accs, total, pst=None, scope=None):
     bd = scope_breakdown()
     print(f"Corpus: the configured curated corpus, scope={scope or 'all'}.")
     print(
-        f"  book={bd.get(SCOPE.BOOK, 0)} session(s) (the book's ideas and prose) · "
+        f"  work={bd.get(SCOPE.WORK, 0)} session(s) (the work's ideas and prose) · "
         f"making={bd.get(SCOPE.MAKING, 0)} (the apparatus: tools, guards, process)."
     )
     print("  Both halves are counted here by default. Scope decides which blind")
     print("  cold-read reads a session, never whether it is real effort; filter with")
-    print("  `--scope book|making` to attribute the halves separately.")
+    print("  `--scope work|making` to attribute the halves separately.")
     print(
         "Still a FLOOR, not the whole: stubs, aborted starts and synthetic experiment"
     )
@@ -1088,7 +1079,7 @@ def main(argv=None):
         "--scope",
         choices=(*SCOPE.SCOPES, "all"),
         default="all",
-        help="corpus half to count: book, making, or all (default)",
+        help="corpus half to count: work, making, or all (default)",
     )
     sub.add_parser("metrics", help="conversation + repo metrics (default)")
     sub.add_parser("all", help="metrics + the full paste audit")

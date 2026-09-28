@@ -30,7 +30,7 @@ which two were real: quotations off by a single word, which is the shape a
 reading pass misses every time.
 
 **Where it also asks WHICH chapter.** Existing-in-the-book is the weaker
-half of the question. A mark says `@ch(a-chapter)` prints a line; the line
+half of the question. A mark says `@unit(a-chapter)` prints a line; the line
 exists, so the check passed, while the chapter naming it was wrong -- which
 is precisely what a chapter SPLIT produces, because the prose moves and the
 quotation does not. Two consecutive rounds had that as their dominant
@@ -40,7 +40,7 @@ unchecked for dozens of commits.
 So a span whose quotation is attributed to a named chapter is checked
 against *that chapter*, and a quotation that resolves in some other chapter
 is reported as a misattribution, naming where the words actually live. The
-attribution is only trusted when it is unambiguous: an `@ch(slug)` within
+attribution is only trusted when it is unambiguous: an `@unit(slug)` within
 ATTR_WINDOW characters of the quotation, or a mark whose body names no
 chapter at all and therefore speaks about its own. A body that names
 chapters but none near the quotation falls back to the book-wide check,
@@ -111,20 +111,20 @@ MIN_WORDS = 4
 # A span mostly in capitals is the house convention for a forbidden variant.
 CAPS_RATIO = 0.30
 
-# How far back from the cue verb to look for the `@ch(slug)` that is its
+# How far back from the cue verb to look for the `@unit(slug)` that is its
 # subject. This is a search window, NOT the adjacency test -- `_SUBJECT_BREAK`
 # is that -- so it has to be wide enough to contain the whole token, and a
-# descriptive slug readily makes an `@ch(...)` citation thirty characters or
+# descriptive slug readily makes an `@unit(...)` citation thirty characters or
 # more. Sizing this as if it were the gap silently blinded the check to
 # every long-slug citation, which is most of the ones worth catching.
 ATTR_GAP = 96
 
 # What may stand between the cited chapter and the cue verb without displacing
 # it as the subject. A possessive noun phrase does NOT displace it -- the
-# caption in "@ch(x)'s own caption reads Q" is x's, so Q is being attributed to
-# x exactly as in the bare "@ch(x) reads Q". What displaces it is a new subject,
+# caption in "@unit(x)'s own caption reads Q" is x's, so Q is being attributed to
+# x exactly as in the bare "@unit(x) reads Q". What displaces it is a new subject,
 # and the tells for that are a comma, a preposition, or a relativizer:
-# "@ch(x)'s own positions, on the page that says Q" cites the page, not x.
+# "@unit(x)'s own positions, on the page that says Q" cites the page, not x.
 _SUBJECT_HOLDS = re.compile(r"(?:'s)?(?:\s+\w+){0,3}\s*\Z")
 _SUBJECT_LOST = re.compile(
     r"[,;:]|\b(on|in|at|from|for|to|by|with|of|that|which|who|where|when|"
@@ -208,7 +208,7 @@ def _chapter_corpora(docs: Path) -> tuple[dict[str, str], str]:
 
 
 def _known_slugs(docs: Path, per_chapter: dict[str, str]) -> set[str]:
-    """The slugs an `@ch()` may name, narrowed to the book where we can tell.
+    """The slugs an `@unit()` may name, narrowed to the book where we can tell.
 
     `_quarto.yml` is the sole source of what is in the book, so it is the right
     filter -- but it is absent from any tree that is not the live one, and the
@@ -231,14 +231,14 @@ def _attributed_chapter(
 
     The attribution is grammatical, not positional: `_CUE` has already found
     the verb introducing the quotation, so the chapter being cited is the one
-    that is the SUBJECT of that verb -- an `@ch(slug)` sitting immediately
+    that is the SUBJECT of that verb -- an `@unit(slug)` sitting immediately
     before it, separated by nothing but a possessive or whitespace.
 
     Nearness alone is not a usable proxy, and the four candidates the first
     cut produced were all it getting this wrong. Two shapes defeat it. The
-    citation may read "@ch(x) says Q" with an unrelated "@ch(y)" a few words
+    citation may read "@unit(x) says Q" with an unrelated "@unit(y)" a few words
     the other side of Q, so the nearest chapter is the one NOT doing the
-    saying. And the subject may be something else entirely -- "@ch(x)'s own
+    saying. And the subject may be something else entirely -- "@unit(x)'s own
     positions, on the page that says Q" cites *this* mark's page, not x, and
     the intervening "the page" is the whole signal.
 
@@ -246,7 +246,7 @@ def _attributed_chapter(
     annotates, which is what a mark is talking about when it names nobody.
     """
     gap_start = max(0, cue_start - ATTR_GAP)
-    for m in reversed(list(notes._CH_REF.finditer(body, gap_start, cue_start))):
+    for m in reversed(list(notes._UNIT_REF.finditer(body, gap_start, cue_start))):
         if not _subject_survives(body[m.end() : cue_start]):
             continue
         slug = m.group(1).strip()
@@ -398,8 +398,8 @@ def _group(hits: list[Hit], stream, header: str, tail: str) -> None:
             )
             if h.misattributed:
                 print(
-                    f"          cited as @ch({h.target}) — but the words are in "
-                    f"{', '.join('@ch(%s)' % s for s in h.found_in)}",
+                    f"          cited as @unit({h.target}) — but the words are in "
+                    f"{', '.join('@unit(%s)' % s for s in h.found_in)}",
                     file=stream,
                 )
     print(tail, file=stream)

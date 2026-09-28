@@ -335,18 +335,18 @@ def _chapter_titles() -> dict[str, str]:
 
 
 def resolve_ch_refs(text: str) -> str:
-    """`@ch(the-sidecar)` -> "The sidecar", for the author-facing block only.
+    """`@unit(the-sidecar)` -> "The sidecar", for the author-facing block only.
 
-    The metadata layer names a chapter by `@ch(slug)` because that is the one
+    The metadata layer names a chapter by `@unit(slug)` because that is the one
     form a guard can resolve. The three block kinds are a *register*, though,
     not just a filter: they are the only marks the author reads, and they are
     written in plain human prose. A metadata sigil in one is normally miscast;
-    the source keeps the checkable `@ch` form and the review
+    the source keeps the checkable `@unit` form and the review
     copy gets the chapter's name, which is what AGENTS.md tells reader-facing
     prose to use anyway. An unknown slug is left verbatim rather than blanked,
     so a bad pointer is visible instead of silently vanishing."""
     titles = _chapter_titles()
-    return _notes._CH_REF.sub(lambda m: titles.get(m.group(1), m.group(0)), text)
+    return _notes._UNIT_REF.sub(lambda m: titles.get(m.group(1), m.group(0)), text)
 
 
 def _anno_lines(annos, kind: str) -> list[str]:

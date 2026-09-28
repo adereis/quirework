@@ -164,7 +164,7 @@ def compile_plan(spec, *, directory, root=None):
         raise ValueError("declare exactly one of materials, segments or turns")
     preset, preset_hash = panel(spec["panel"], root=root)
     scope = spec.get("scope", "artifact")
-    if scope not in ("book", "artifact", "passage", "changes"):
+    if scope not in instruments.SCOPES:
         raise ValueError("invalid panel scope")
     models = spec.get("models", [])
     if not isinstance(models, list) or not models:
@@ -272,12 +272,12 @@ def compile_plan(spec, *, directory, root=None):
                         "materials": segment["materials"],
                     }
                 )
-            if scope == "book" and sequence.get("wrap"):
+            if scope == "work" and sequence.get("wrap"):
                 turns.append({"id": "wrap", "ask": sequence["wrap"]})
         else:
-            if scope == "book" and (instrument or {}).get("sequence"):
+            if scope == "work" and (instrument or {}).get("sequence"):
                 raise ValueError(
-                    "a progressive whole-book read requires segments or explicit turns"
+                    "a progressive whole-work read requires segments or explicit turns"
                 )
             turns = [
                 {

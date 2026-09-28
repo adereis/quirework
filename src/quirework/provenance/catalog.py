@@ -631,9 +631,9 @@ def render_md(index):
         f"**{len(codex)}** Codex sessions · **{len(web)}** web dialogues · "
         f"**{len(removed)}** curated out.",
         "",
-        f"Of those, **{sum(1 for e in src.values() if e.get('scope', SCOPE.BOOK) == SCOPE.MAKING)}** "
+        f"Of those, **{sum(1 for e in src.values() if e.get('scope', SCOPE.WORK) == SCOPE.MAKING)}** "
         f"are scope `making` (the apparatus: tools, guards, process rules) and the "
-        f"rest are scope `book`. Scope decides which blind cold-read reads a "
+        f"rest are scope `work`. Scope decides which blind cold-read reads a "
         f"session, nothing else -- see each session directory's "
         f"`making-sessions.txt`.",
         "",
@@ -645,7 +645,7 @@ def render_md(index):
     for e in cc:
         L.append(
             f"| {e['date']} | `{_short_id(e['id'])}` | {_esc(e['title'])} | {e['model']} "
-            f"| {_tok(e['tokens'])} | {e['doc_edits']}/{e['meta_edits']} | {e.get('scope', SCOPE.BOOK)} "
+            f"| {_tok(e['tokens'])} | {e['doc_edits']}/{e['meta_edits']} | {e.get('scope', SCOPE.WORK)} "
             f"| {'✓' if e['coldread'] else '—'} | {'★' if e['highlight'] else ''} |"
         )
     L += [
@@ -658,7 +658,7 @@ def render_md(index):
     for e in agy:
         L.append(
             f"| {e['date']} | `{_short_id(e['id'])}` | {_esc(e['title'])} | {e['model']} "
-            f"| {_tok(e['tokens'])} | {e['doc_edits']}/{e['meta_edits']} | {e.get('scope', SCOPE.BOOK)} "
+            f"| {_tok(e['tokens'])} | {e['doc_edits']}/{e['meta_edits']} | {e.get('scope', SCOPE.WORK)} "
             f"| {'✓' if e['coldread'] else '—'} | {'★' if e['highlight'] else ''} |"
         )
     L += [
@@ -672,7 +672,7 @@ def render_md(index):
         L.append(
             f"| {e['date']} | `{_short_id(e['id'])}` | {_esc(e['title'])} | {e['model']} "
             f"| {e.get('source_kind', 'main')} | {_tok(e['tokens'])} "
-            f"| {e['doc_edits']}/{e['meta_edits']} | {e.get('scope', SCOPE.BOOK)} "
+            f"| {e['doc_edits']}/{e['meta_edits']} | {e.get('scope', SCOPE.WORK)} "
             f"| {'✓' if e['coldread'] else '—'} | {'★' if e['highlight'] else ''} |"
         )
     L += [

@@ -79,7 +79,7 @@ def test_only_what_the_change_introduced_is_listed(book, capsys):
     new = err[err.index("new since HEAD:") : err.index("standing")]
     assert "author's call" in new
     assert "2031-04-02" not in new
-    assert "1 standing advisory line(s) the book already had at HEAD" in err
+    assert "1 standing advisory line(s) the work already had at HEAD" in err
 
 
 def test_nothing_new_says_so(book, capsys):

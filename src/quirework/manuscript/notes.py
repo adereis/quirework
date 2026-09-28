@@ -72,7 +72,7 @@ _CAPS_RUN = re.compile(r"\b[A-Z][A-Z'-]{2,}(\s+[A-Z][A-Z'-]{2,}){2,}")
 # NOT matched, each a live false positive in the corpus: bare years and
 # year-ranges ("a 2025-2026 frontier run" is a world-fact, not a stamp);
 # "retired / refused / withdrawn" (the legitimate present-tense guard idiom);
-# "ratified" (content: the New York Declaration); "caught" (chapter vocabulary
+# "ratified" (a word the prose itself uses); "caught" (chapter vocabulary
 # -- real journaling hits co-occur with a date); bare "panel" (quoted book
 # prose: "when we opened the panel"); `conv:`-prefixed ids (corpus pointers,
 # the @ref convention -- content, not a commit sha).
@@ -107,7 +107,7 @@ _JOURNALING = re.compile(
 # Three forms were added after the first cut shipped and six live pins walked
 # straight past it. "thirteen lines later" slipped because the number-word list
 # stopped at twelve, which is the whole failure: a word list is a hole with an
-# edge. And the colon address -- `preface:3`, `@ch(the-sidecar):69`,
+# edge. And the colon address -- `preface:3`, `@unit(the-sidecar):69`,
 # `the-sidecar.qmd:71` -- carries no "line" keyword at all, so nothing in
 # the original pattern could see it; the one live instance was already wrong by
 # two. The left side is required to look like a slug, a chapter pointer or a
@@ -131,9 +131,9 @@ _LINE_PIN = re.compile(
         | apart|further|past|ahead|from|on )\b
     | \blines?\s+\d+(?:\s*[-–]\s*\d+)?\b            # "line 22", "lines 8-9"
     | \b\d+\s*[-–]\s*\d+\s+(?: says|reads|prints|carries )\b
-    | (?: @ch\([a-z0-9-]+\)                         # the colon-address forms:
+    | (?: @unit\([a-z0-9-]+\)                         # the colon-address forms:
         | \b[a-z][a-z0-9-]*\.(?:qmd|md|svg)         #   the-sidecar.qmd:71
-        | \b[a-z]+(?:-[a-z0-9]+)+                   #   @ch(the-sidecar):69
+        | \b[a-z]+(?:-[a-z0-9]+)+                   #   @unit(the-sidecar):69
         | \bpreface )                               #   preface:3
       \s*:\s*\d+(?:\s*[-–]\s*\d+)?\b
     """,
@@ -148,22 +148,24 @@ _BIND_TOKEN = re.compile(r"@bind\(([^)]*)\)")
 # ``{#anchor}`` attributes; those name document locations, not commitments.
 _SPEC_REF = re.compile(r"(?<![\w{/])#([A-Za-z][\w-]*)\b")
 
-# `@ch(slug)`: the metadata layer's chapter pointer, resolved by units.py.
-# A reference form only, never a mark kind -- `<!-- @ch(x) -->` would be
-# harvested as a new kind and would join the vocabulary by accident, so
-# `check()` rejects it as invariant 9.
-_CH_REF = re.compile(r"@ch\(([^)]*)\)")
+# `@unit(slug)`: the metadata layer's pointer to a chapter or a post,
+# resolved by units.py. A reference form only, never a mark kind -- `<!--
+# @unit(x) -->` would be harvested as a new kind and would join the vocabulary
+# by accident, so `check()` rejects it as invariant 9.
+_UNIT_REF = units.UNIT_REF
 
 
-# Tokens in an **Anchors:** run that are unmistakably chapter pointers use
-# `@ch(slug)` or a `.qmd` filename. Other tokens are ordinary prose.
+# Tokens in an **Anchors:** run that are unmistakably unit pointers use
+# `@unit(slug)` or the unit's file, as the format writes it
+# (`the-sidecar.qmd`, `posts/the-kettle/index.md`). Other tokens are prose.
 def _bare(tok: str) -> str:
-    """A run's token reduced to a chapter stem: `the-sidecar.qmd` -> `the-sidecar`."""
-    return tok[:-4] if tok.endswith(".qmd") else tok
+    """A run's token reduced to the slug it names: its file's slug when it is
+    written as a prose file, else the token itself."""
+    return formats.current().prose_token(tok) or tok
 
 
-def _chapter_shaped(tok: str) -> bool:
-    return tok.endswith(".qmd")
+def _unit_shaped(tok: str) -> bool:
+    return formats.current().prose_token(tok) is not None
 
 
 # The imperative register the spec must not use: a commitment is stated
@@ -336,15 +338,15 @@ CONTRACT_KINDS = ("guidance",)
 # only shows kinds actually present. A new kind lists without a gloss until one
 # is added here.
 KIND_DESCRIPTIONS = {
-    "bind": "chapter-to-spec bindings",
-    "guidance": "how a chapter should read (the author's intent)",
-    "genesis": "where a chapter came from (origin, not direction)",
+    "bind": "unit-to-spec bindings",
+    "guidance": "how a unit should read (the author's intent)",
+    "genesis": "where a unit came from (origin, not direction)",
     "todo": "open working state / the agent's worklist",
     "variant": "what a derived edition should do differently here",
     "figure": "built illustrations",
     "ref": "prior-art / conversation pointers",
     "source": "per-claim citation",
-    "see": "pointer to a book-wide review note",
+    "see": "pointer to a work-wide review note",
 }
 
 # Other names a kind answers to on the command line. A harness that guards a
@@ -833,7 +835,7 @@ def _attributed_spans(
         ):
             continue  # the entry's own heading
         window = before[-200:]
-        # `@ch()` is read alongside the bare stems: attribution is what decides
+        # `@unit()` is read alongside the bare stems: attribution is what decides
         # whether a span is measured against the book at all, so a form this
         # predicate does not know makes the advisory quietly NARROWER -- fewer
         # quotations checked, and no message saying so. That is the same silent
@@ -841,7 +843,7 @@ def _attributed_spans(
         if not (
             _BIND_REF.search(window)
             or _code_spec_refs(window)
-            or _CH_REF.search(window)
+            or _UNIT_REF.search(window)
             or any(name in window for name in spec_names)
             or any(s in window for s in stems)
         ):
@@ -895,12 +897,12 @@ def anchor_pairs(
     for t in _BACKTICKED.finditer(run):
         tok = t.group(1).strip()
         binding = _BIND_REF.search(tok)
-        ch = _CH_REF.search(tok)
+        ref = _UNIT_REF.search(tok)
         if binding:
             pairs.append((current, binding.group(1)))
-        elif ch:
-            if ch.group(1) in stems:
-                current = ch.group(1)
+        elif ref:
+            if ref.group(1) in stems:
+                current = ref.group(1)
             else:
                 current = None
                 unresolved.append(tok)
@@ -910,7 +912,7 @@ def anchor_pairs(
             # A run may name a file with its extension. The stem is
             # what the binding map is keyed by.
             current = _bare(tok)
-        elif _chapter_shaped(tok):
+        elif _unit_shaped(tok):
             current = None
             unresolved.append(tok)
     return pairs, unresolved
@@ -922,14 +924,12 @@ def coverage(
     """Which commitments the companion collections actually exercise.
 
     Returns (slug -> the entries anchored to it, unexercised (anchor, title)
-    pairs in spec order). This is the measure the project did not have: the
-    marks say which chapters *express* a commitment, and this says which ones
-    have been *worked* against a case or a thought experiment.
+    pairs in spec order). The marks say which units *express* a commitment,
+    and this says which ones have been *worked* in a companion entry.
 
     It is a map and never a scorecard. A section with no entry is not a gap by
-    itself -- the vocabulary-discipline, positioning and spec-organizing
-    sections belong to no chapter and to no exercise either ("The reverse
-    direction is not an invariant" in AGENTS.md, for the same reason).
+    itself: a section about the spec's own organization or vocabulary belongs
+    to no unit and to no entry either.
     """
     docs = (
         Path(docs) if docs is not None else current_project().path("manuscript.source")
@@ -989,9 +989,9 @@ def companion_check(
         pairs, unresolved = anchor_pairs(text, stems, spec)
         for tok in unresolved:
             problems.append(
-                f"{rel}: **Anchors:** names `{tok}`, which is no chapter. The "
-                f"anchors after it are attributed to nothing, so the join that "
-                f"holds this entry to the book is silently broken."
+                f"{rel}: **Anchors:** names `{tok}`, which is no {units.noun()}. "
+                f"The anchors after it are attributed to nothing, so the join "
+                f"that holds this entry to the work is silently broken."
             )
         if not pairs:
             # A README indexes the collection and anchors nothing; every other
@@ -1009,8 +1009,8 @@ def companion_check(
                 problems.append(
                     f"{rel}: anchored to `{chapter}` `@bind({slug})`, which "
                     f"{chapter} does not bind. Bound by: "
-                    f"{', '.join(holder) or 'no chapter'}. Repoint the anchor "
-                    f"at the chapter that expresses it."
+                    f"{', '.join(holder) or f'no {units.noun()}'}. Repoint the "
+                    f"anchor at the {units.noun()} that expresses it."
                 )
         for m in _BIND_REF.finditer(text):
             if m.group(1) in spec:
@@ -1078,7 +1078,7 @@ def _findings(docs: Path) -> tuple[list[str], list[tuple[str, list[str]]]]:
          really binds that slug. Invariant 7 gates the slug; this gates the
          chapter attributed to it, which nothing checked, so an anchor could
          name a chapter that had never expressed the commitment.
-      9. every chapter reference in an **Anchors:** run resolves, and `@ch` is
+      9. every chapter reference in an **Anchors:** run resolves, and `@unit` is
          never used as a mark kind. A chapter-shaped token that resolves to
          nothing used to be skipped in silence, which turned invariant 8 into
          a no-op rather than a failure.
@@ -1231,7 +1231,7 @@ def _findings(docs: Path) -> tuple[list[str], list[tuple[str, list[str]]]]:
         problems.append(
             f"{at}: @bind('{slug}') binds no section of "
             f"{_spec_name(docs)}. Every @bind names a spec section: "
-            f"name the section the chapter expresses, or add it."
+            f"name the section the {units.noun()} expresses, or add it."
         )
 
     # 6. @see resolves to a book-wide note.
@@ -1254,18 +1254,18 @@ def _findings(docs: Path) -> tuple[list[str], list[tuple[str, list[str]]]]:
             )
         elif slug not in rn_slugs:
             problems.append(
-                f"{at}: @see('{slug}') resolves to no book-wide note in {rn.name}"
+                f"{at}: @see('{slug}') resolves to no work-wide note in {rn.name}"
             )
 
-    # 9. `@ch` is a reference form, never a mark kind. A comment that opens
-    # with it (`<!-- @ch(a-chapter) ... -->`) is harvested as a new kind by
+    # 9. `@unit` is a reference form, never a mark kind. A comment that opens
+    # with it (`<!-- @unit(a-chapter) ... -->`) is harvested as a new kind by
     # _ANNO and would quietly join the vocabulary, which is how the tag set
     # grows by accident. The pointer belongs inside a mark's body.
     for a in annos:
-        if a.kind == "ch":
+        if a.kind == "unit":
             problems.append(
-                f"{a.source or a.file}:{a.line}: @ch is a chapter *reference*, "
-                f"not a mark kind — put the pointer in a mark's body"
+                f"{a.source or a.file}:{a.line}: @unit is a *reference* to a "
+                f"{units.noun()}, not a mark kind — put the pointer in a mark's body"
             )
 
     # 10. the units on disk are the manuscript's units. The dual of invariant
@@ -1555,7 +1555,7 @@ def _findings_at(ref: str, docs: Path):
         inside = Path(docs).resolve().relative_to(project.root)
     except ValueError:
         raise ValueError(
-            f"--since needs the book source inside the project: {docs}"
+            f"--since needs the manuscript source inside the project: {docs}"
         ) from None
 
     def git(*args):
@@ -1601,7 +1601,7 @@ def check(docs: Path | None = None, since: str | None = None) -> int:
         else:
             print(f"\nno advisory new since {since}.", file=sys.stderr)
         print(
-            f"\n{standing} standing advisory line(s) the book already had at "
+            f"\n{standing} standing advisory line(s) the work already had at "
             f"{since}; run without --since to list them.",
             file=sys.stderr,
         )
@@ -1670,7 +1670,7 @@ def main(argv=None) -> int:
         "--slug",
         metavar="SUBSTR",
         help="only marks whose parenthetical slug matches this substring "
-        "(`notes bind --slug X` = which chapters bind spec section X)",
+        "(`notes bind --slug X` = which units bind spec section X)",
     )
     ap.add_argument(
         "--primer",
@@ -1692,7 +1692,7 @@ def main(argv=None) -> int:
         "--since",
         metavar="REF",
         default=None,
-        help="with --check, print first the advisories the book did not have "
+        help="with --check, print first the advisories the work did not have "
         "at this git revision, then only a count of the standing ones",
     )
     ap.add_argument(
@@ -1767,10 +1767,9 @@ def main(argv=None) -> int:
             for anchor, title in unexercised:
                 print(f"      {anchor:<34} {title}")
             print(
-                "\n  A map, not a scorecard. The vocabulary-discipline, "
-                "positioning and\n  spec-organizing sections belong to no "
-                'chapter and to no exercise\n  either; see AGENTS.md, "The '
-                'reverse direction is not an invariant".'
+                "\n  A map, not a scorecard. A section about the spec's own "
+                "organization or\n  vocabulary belongs to no entry, and that "
+                "is not a gap."
             )
         return 0
 
@@ -1796,7 +1795,7 @@ def main(argv=None) -> int:
         # Guessing which one was meant would answer a different question.
         for k in clash:
             print(
-                f"'{k}' is both a kind in this book and an alias for "
+                f"'{k}' is both a kind in this project and an alias for "
                 f"'{KIND_ALIASES[k]}'; name the one you mean with --kind",
                 file=sys.stderr,
             )

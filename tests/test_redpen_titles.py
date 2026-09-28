@@ -1,6 +1,6 @@
 """Chapter titles in the review copy belong to the selected project.
 
-`resolve_ch_refs` turns `@ch(slug)` into a chapter's name for the one block
+`resolve_ch_refs` turns `@unit(slug)` into a chapter's name for the one block
 the author reads, and it caches the lookup because a build resolves it once
 per mark. The cache is the hazard: a single process can select more than one
 project -- a test suite does, and so does any caller that opens a second book
@@ -34,13 +34,14 @@ def test_a_second_project_gets_its_own_chapter_titles(tmp_path):
     second = _book(tmp_path / "second", "the-sidecar", "A different chapter")
 
     with project_scope(first):
-        assert redpen.resolve_ch_refs("see @ch(the-sidecar)") == "see The sidecar"
+        assert redpen.resolve_ch_refs("see @unit(the-sidecar)") == "see The sidecar"
     with project_scope(second):
         assert (
-            redpen.resolve_ch_refs("see @ch(the-sidecar)") == "see A different chapter"
+            redpen.resolve_ch_refs("see @unit(the-sidecar)")
+            == "see A different chapter"
         )
 
 
 def test_an_unknown_slug_stays_visible(tmp_path):
     with project_scope(_book(tmp_path / "book", "the-sidecar", "The sidecar")):
-        assert "@ch(absent)" in redpen.resolve_ch_refs("see @ch(absent)")
+        assert "@unit(absent)" in redpen.resolve_ch_refs("see @unit(absent)")

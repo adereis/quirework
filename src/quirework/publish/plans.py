@@ -134,7 +134,7 @@ def book(
                 effort=effort,
                 instrument=instrument,
                 **({"persona": persona} if persona is not None else {}),
-                scope="book",
+                scope="work",
                 policy=policy,
                 turns=turns,
                 **({"tier": tier} if tier is not None else {}),
@@ -220,7 +220,7 @@ def selfdriven(
         )
     wrap_ask = wrap_ask or preset.get("wrap_ask") or sequence.get("wrap")
     chosen = persona or questions.get("default_persona_reference")
-    scope = questions.get("default_scope", "book")
+    scope = questions.get("default_scope", "work")
     per_chapter, _ = _instruments.prompt(
         {"ask": ask},
         questions,
@@ -390,8 +390,8 @@ def _check_mount(mount):
     The containment check always runs. Name matching needs declared data, so it
     reads `mount_markers` from the isolation policy: path words that would
     identify this project. It is deliberately not `project_markers`, which the
-    blind canary matches against a seat's ANSWER -- a book about consciousness
-    wants that word to fire in a path and never in a verdict."""
+    blind canary matches against a seat's ANSWER -- a book about kettles wants
+    that word to fire in a path and never in a verdict."""
     project = current_project()
     root = project.root.resolve()
     if mount == root or root in mount.parents or mount in root.parents:
@@ -478,7 +478,7 @@ def bundle(
                 "model": model,
                 "effort": effort,
                 "persona": persona,
-                "scope": "book",
+                "scope": "work",
                 "policy": {
                     "filesystem": "audited" if harness == "agy" else "enforced",
                     "tools": "read" if images and harness == "agy" else "none",

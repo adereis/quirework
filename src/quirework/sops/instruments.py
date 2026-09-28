@@ -7,7 +7,7 @@ from quirework.runs.storage import identifier
 UNSET = object()
 
 
-SCOPES = ("book", "artifact", "passage", "changes")
+SCOPES = ("work", "artifact", "passage", "changes")
 
 
 def load(name, *, root=None, _active=()):

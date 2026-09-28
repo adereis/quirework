@@ -655,7 +655,7 @@ An instrument under `sops.instruments` is one JSON file of questions:
   "id": "first-reader",
   "revision": "1",
   "default_persona": "reader",
-  "default_scope": "book",
+  "default_scope": "work",
   "prompts": {
     "first": {"text": "{{persona}} Read the opening. What do you expect next?"},
     "next": {"text": "Keep reading. Where did you stop believing it?"},
@@ -666,7 +666,10 @@ An instrument under `sops.instruments` is one JSON file of questions:
 ```
 
 Every ask is an object with `text`, not a bare string, so an ask can
-also carry `scopes` and `headings` later without changing shape.
+also carry `scopes` and `headings` later without changing shape. A
+scope says how much of the work the seat is given: `work` for a
+progressive read of all of it, `artifact` for one unit or file,
+`passage` for part of one, and `changes` for a diff.
 `sequence` names which ask opens, which repeats, and which closes; it is
 what makes a set of questions an order rather than a collection.
 `{{persona}}` is where the selected profile's prompt lands. `revision`

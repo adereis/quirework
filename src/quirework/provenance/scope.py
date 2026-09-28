@@ -2,27 +2,29 @@
 
 The corpus is curated by *presence* -- a session in the working tree is part
 of it -- and presence answers "is this evidence?" but not "evidence for
-what?". Two artifacts now read the same corpus and want different halves.
-The **book** cold-read asks who originated the book's ideas and prose; the
-**making** cold-read asks the same of the instruments, guards and process
-the book's Part Three describes. A session spent on the ingest tooling is
-real evidence for the second and pure dilution in the first, and before this
-module existed the only way to keep it out of the first was to delete it,
-which took it out of ``search``, ``show`` and ``metrics`` too. One switch was
-doing three jobs.
+what?". Two questions read the same corpus and want different halves. The
+**work** cold-read asks who originated the work's ideas and prose; the
+**making** cold-read asks the same of the instruments, guards and process the
+work was made with. A session spent on the ingest tooling is real evidence
+for the second and pure dilution in the first, and before this module existed
+the only way to keep it out of the first was to delete it, which took it out
+of ``search``, ``show`` and ``metrics`` too. One switch was doing three jobs.
 
 So scope is a second axis, orthogonal to presence. ``making-sessions.txt``
 lists the apparatus half, in the same house form as the ``removed-sessions.txt``
-beside it; anything not listed is ``book``. Being listed is **not** a
+beside it; anything not listed is ``work``. Being listed is **not** a
 demotion and gates nothing outside the cold-read: ``search``, ``show`` and
 ``metrics`` read the whole corpus, which is the entire point of keeping both
-halves on disk. Era-A web dialogues have no scope entry and are always
-``book`` -- they predate every instrument.
+halves on disk. Web dialogues have no scope entry and are always ``work``.
 
 Entries are matched by session **id**, never by literal filename, for the
 reason ``sync_sessions.load_removed`` documents at length: the two list
 readers must agree about what a line names, or one silently disagrees with
 the other and neither can say so.
+
+The work's scope was once called ``book``. A cached report or a catalog row
+that still says so is read as ``work`` (`normalize`), because a cache that
+missed on a renamed label would buy every report again.
 """
 
 from __future__ import annotations
@@ -32,9 +34,17 @@ import sys
 
 from quirework.project import current_project
 
-BOOK = "book"
+WORK = "work"
 MAKING = "making"
-SCOPES = (BOOK, MAKING)
+SCOPES = (WORK, MAKING)
+
+# Labels a scope was recorded under before it was renamed.
+_LEGACY = {"book": WORK}
+
+
+def normalize(value):
+    """A recorded scope label as the scope it names today."""
+    return _LEGACY.get(value, value)
 
 
 # a scope-list entry: a session uuid, with or without the `.jsonl` suffix
@@ -105,13 +115,13 @@ def making_ids():
 
 
 def scope_of_id(sid, making=None):
-    """``'making'`` or ``'book'`` for a session id."""
+    """``'making'`` or ``'work'`` for a session id."""
     ids = making_ids() if making is None else making
-    return MAKING if str(sid).lower() in ids else BOOK
+    return MAKING if str(sid).lower() in ids else WORK
 
 
 def scope_of_path(path, making=None):
-    """``'making'`` or ``'book'`` for a source path (web sources are always book)."""
+    """``'making'`` or ``'work'`` for a source path (web sources are always work)."""
     from pathlib import Path
 
     return scope_of_id(Path(path).stem, making)

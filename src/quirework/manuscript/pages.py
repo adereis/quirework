@@ -15,7 +15,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from quirework.core import frontmatter
+from quirework.core import frontmatter, globs
 from quirework.manuscript import formats
 from quirework.manuscript.formats import SKIP_NAMES, SLUG_OK, Format, Unit
 from quirework.project import ConfigurationError, Project, current_project
@@ -86,7 +86,7 @@ class Pages(Format):
             if not SLUG_OK.match(u.slug):
                 problems.append(
                     f"{u.rel}: slug '{u.slug}' is not lowercase words joined by "
-                    f"hyphens, so no @ch() reference can name it"
+                    f"hyphens, so no @unit() reference can name it"
                 )
         return problems
 
@@ -105,6 +105,18 @@ class Pages(Format):
         its stem."""
         path = Path(path)
         return path.parent.name if path.stem == "index" else path.stem
+
+    def prose_token(self, token: str) -> str | None:
+        # Written as the pages glob names a page, from the source or from the
+        # project root: `posts/the-kettle/index.md`.
+        pattern = _glob()
+        source = formats.relative(current_project(), "manuscript.source")
+        shapes = [pattern] + (
+            [f"{source}/{pattern}"] if source not in (None, ".") else []
+        )
+        if any(globs.matches(token, shape) for shape in shapes):
+            return self.slug_of(Path(token))
+        return None
 
     def marks_path(self, slug: str, docs: Path) -> Path | None:
         pattern = _marks()

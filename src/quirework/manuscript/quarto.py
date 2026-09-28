@@ -270,6 +270,9 @@ class Quarto(Format):
     def slug_of(self, path: Path) -> str:
         return Path(path).stem
 
+    def prose_token(self, token: str) -> str | None:
+        return Path(token).stem if token.endswith(".qmd") else None
+
     def marks_path(self, slug: str, docs: Path) -> Path | None:
         # A sidecar's place is beside its chapter, so a slug no chapter
         # carries has none.

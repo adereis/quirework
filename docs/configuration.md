@@ -91,7 +91,7 @@ procedure itself.
 `manuscript.format` says how the written work is laid out, and so how
 its units are found. A unit is a chapter of a book or a post on a site.
 Its slug is its identity: the name of its marks sidecar, what an
-`@ch(slug)` reference resolves, and the key its bindings are kept
+`@unit(slug)` reference resolves, and the key its bindings are kept
 under.
 
 `quarto`, the default, reads the chapters a Quarto book project lists
@@ -548,8 +548,8 @@ every launch command.
 would tell a seat whose book it is reading. A self-driven read refuses a
 mount matching one. They are deliberately separate from
 `project_markers`, which the blind canary matches against a seat's
-answer. A book about consciousness wants that word to fail a mount path
-and never to fail a verdict, and one list cannot do both.
+answer. A book about kettles wants that word to fail a mount path and
+never to fail a verdict, and one list cannot do both.
 
 ## From schema 1
 
@@ -584,3 +584,17 @@ The commands moved the same way:
 A project's own procedures, guides and generated skills name these
 commands too. Regenerate the skills with `quirework sop skills` after
 editing the procedures.
+
+Three names in a project's own files changed with the vocabulary, since
+a site's post is no chapter and a site is no book:
+
+| Before | Now | Where it is written |
+|---|---|---|
+| `@ch(slug)` | `@unit(slug)` | marks, spec, companion entries |
+| scope `book` | scope `work` | instruments, panels, run plans |
+| `--scope book` | `--scope work` | `provenance metrics`, `provenance coldread`, `spec trail backfill plan` |
+
+Saved evidence keeps its words. A prepared run keeps the scope it was
+prepared with, and a cold-read report cached under the corpus scope
+`book` is read as `work` and still hits, so none is bought again. A
+committed catalog is rebuilt once, since its rows now say `work`.

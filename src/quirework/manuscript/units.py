@@ -2,7 +2,7 @@
 
 A unit is one piece of the written work: a chapter of a book, a post on a
 site. Its slug is its durable identity, the name its marks sidecar carries,
-the name an `@ch(slug)` reference resolves, and the key its bindings are
+the name an `@unit(slug)` reference resolves, and the key its bindings are
 kept under. A title may drift from the slug and that is fine.
 
 The selected format (`manuscript.format`, see `formats`) answers every
@@ -30,9 +30,9 @@ from quirework.project import current_project
 # a figure name, a book title or an author, so "anything unit-shaped that
 # does not resolve is an error" is only sayable with the tag attached.
 #
-# NOTE this is a reference FORM, never a mark kind. `<!-- @ch(x) ... -->` would
+# NOTE this is a reference FORM, never a mark kind. `<!-- @unit(x) ... -->` would
 # be harvested as a new kind by notes._ANNO; `notes.check()` rejects it.
-CH_REF = re.compile(r"@ch\(([^)]*)\)")
+UNIT_REF = re.compile(r"@unit\(([^)]*)\)")
 
 
 def manuscript_format() -> str:
@@ -160,7 +160,7 @@ class Hit:
 
 
 def scan_layers(root: Path | None = None, known: set[str] | None = None) -> list[Hit]:
-    """Unresolved `@ch` references in the configured metadata layers."""
+    """Unresolved `@unit` references in the configured metadata layers."""
     from quirework.manuscript import notes
 
     base = Path(root) if root is not None else current_project().root
@@ -175,7 +175,7 @@ def scan_layers(root: Path | None = None, known: set[str] | None = None) -> list
         # the sidecar banners already use for @-marks.
         text = notes._mask_fences(f.read_text(encoding="utf-8"))
         for n, line in enumerate(text.splitlines(), 1):
-            for m in CH_REF.finditer(line):
+            for m in UNIT_REF.finditer(line):
                 if m.group(1) not in known:
                     near = ", ".join(
                         sorted(s for s in known if m.group(1) and m.group(1) in s)[:3]
@@ -257,13 +257,13 @@ def main(argv=None) -> int:
         "one resolvable.",
         epilog="examples:\n"
         "  quirework spec units            reading order: number or date, slug, title\n"
-        "  quirework spec units --check    units on disk agree; every @ch() resolves",
+        "  quirework spec units --check    units on disk agree; every @unit() resolves",
         formatter_class=argparse.RawDescriptionHelpFormatter,
     )
     ap.add_argument(
         "--check",
         action="store_true",
-        help="report units missing from the reading order and unresolved @ch()",
+        help="report units missing from the reading order and unresolved @unit()",
     )
     args = ap.parse_args(argv)
 
@@ -278,7 +278,9 @@ def main(argv=None) -> int:
 
     unresolved = scan_layers()
     if unresolved:
-        print(f"\n✗ {len(unresolved)} unresolved @ch() reference(s):", file=sys.stderr)
+        print(
+            f"\n✗ {len(unresolved)} unresolved @unit() reference(s):", file=sys.stderr
+        )
         for h in unresolved:
             print(f"  {h.rel}:{h.line}: {h.token} — {h.note}", file=sys.stderr)
         problems += len(unresolved)
@@ -298,7 +300,7 @@ def main(argv=None) -> int:
         return 1
     print(
         f"✓ units --check: {len(registry())} {noun()}(s) in reading order, "
-        f"every @ch() resolves."
+        f"every @unit() resolves."
     )
     return 0
 

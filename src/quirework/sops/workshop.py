@@ -24,7 +24,7 @@ from quirework.providers import blind
 from quirework.sops import personas
 from quirework.providers import quota
 from quirework.providers import models as drivers
-from quirework.project import current_project, submit
+from quirework.project import ConfigurationError, current_project, submit
 
 SCHEMA = 1
 # `quota` owns the tier vocabulary and the order it implies, because the
@@ -264,13 +264,18 @@ def prepare(plan_path, destination, *, resolve_models=True):
                     raise ValueError(f"source is a symlink: {p}")
                 content = p.read_bytes()
         files[str(rel)] = content
-    order_path = plan.get("reading_order", "book/READING_ORDER.md")
+    order_path = plan.get("reading_order", "READING_ORDER.md")
     if order_path and str(safe_rel(order_path)) not in files:
         # A library's order is visible in no file it contains, so it is the
         # kind of convention that cannot transmit: a writer given thirty
         # chapters cannot tell which follows which. Generated rather than
         # asked for, because the one packet built by hand forgot it.
-        listing = _reading_order(repo, files)
+        sources = [
+            safe_rel(entry["source"]).as_posix()
+            for entry in plan.get("files", [])
+            if "source" in entry
+        ]
+        listing = _reading_order(repo, sources)
         if listing:
             files[str(safe_rel(order_path))] = listing.encode()
     for rel in plan.get("required_reads", []):
@@ -314,28 +319,30 @@ def prepare(plan_path, destination, *, resolve_models=True):
     return frozen
 
 
-def _reading_order(repo, files):
-    """Chapter order for the staged book files, from the book's own config.
+def _reading_order(repo, sources):
+    """The order of the staged units, from the work's own registry.
 
-    Silent when no book source is configured, or when nothing staged is a
-    chapter: an experiment supplying one passage needs no order.
+    Matched by the path each file was staged from, never by its name, since
+    every post of a site is an `index.md`. Silent when no manuscript is
+    configured, or when fewer than three staged files are units: an
+    experiment supplying one passage needs no order.
     """
-    try:
-        from quirework.manuscript import units as _units
+    from quirework.manuscript import units as _units
 
+    try:
         registry = _units.registry(current_project().path_at(repo, "manuscript.source"))
-    except Exception:
+    except (ConfigurationError, OSError):
         return ""
-    staged = {Path(rel).name for rel in files if rel.endswith(".qmd")}
-    rows = [c for c in registry if Path(c.rel).name in staged]
+    staged = set(sources)
+    rows = [c for c in registry if c.rel in staged]
     if len(rows) < 3:
         return ""
     lines = ["# Reading order", ""]
     for c in rows:
-        number = getattr(c, "number", None)
-        lines.append(f"{number:>3}. {c.title}" if number else f"     {c.title}")
-    lines += ["", "Front and back matter carry no number.", ""]
-    return "\n".join(lines)
+        lines.append(f"{c.number:>3}. {c.title}" if c.number else f"     {c.title}")
+    if any(c.number for c in rows):
+        lines += ["", "Front and back matter carry no number."]
+    return "\n".join(lines + [""])
 
 
 def anonymize(root, output=None, *, seed=None, include_partial=False):

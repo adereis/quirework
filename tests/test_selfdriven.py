@@ -10,7 +10,7 @@ from quirework.project import Project, project_scope
 INSTRUMENT = {
     "id": "reader-selfdriven",
     "revision": "1",
-    "default_scope": "book",
+    "default_scope": "work",
     "sequence": {"first": "first", "next": "next", "wrap": "wrap"},
     "prompts": {
         "first": {"text": "Open the chapter yourself and read all of it."},

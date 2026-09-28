@@ -104,6 +104,12 @@ class Format:
         """Where the metadata sidecars are, as globs relative to the root."""
         raise NotImplementedError
 
+    def prose_token(self, token: str) -> str | None:
+        """The slug a token names when it is written as a prose file's path
+        (`the-sidecar.qmd`, `posts/the-kettle/index.md`), else None. A run of
+        prose that cites units reads such a token as a pointer."""
+        return None
+
     def listing(self, units: list[Unit]) -> list[str]:
         """The rows `spec units` prints, one per unit."""
         return [f"  {u.slug:34} {u.title}" for u in units]
