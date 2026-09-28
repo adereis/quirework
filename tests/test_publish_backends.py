@@ -77,14 +77,22 @@ def test_an_unknown_backend_is_refused(tmp_path):
 
 
 PRESS = """
+from quirework.project import current_project
 from quirework.publish.backends import Backend
 
 
 class Press(Backend):
+    \"\"\"A publisher that prints a small book: a page and two editions.\"\"\"
+
     name = "press"
 
-    def build(self, argv):
-        print("pressed", *(argv or []))
+    def build(self, argv, target):
+        out = self.output(current_project(), target)
+        out.mkdir(parents=True, exist_ok=True)
+        (out / "index.html").write_text("<p>The kettle.</p>")
+        (out / "kettle.pdf").write_text("%PDF")
+        (out / "kettle.epub").write_text("EPUB")
+        print("pressed", target, *(argv or []))
         return 0
 
 
@@ -103,8 +111,10 @@ def test_a_backend_can_be_an_installed_extension(tmp_path, monkeypatch, capsys):
     settings = {**SITE, "publish": {"backend": "kettle_press:press"}}
     project = Project.from_settings(root, settings)
     assert project.invoke("publish build", ["--proof"]) == 0
-    assert capsys.readouterr().out == "pressed --proof\n"
-    with pytest.raises(ConfigurationError, match="publishes with press"):
+    assert capsys.readouterr().out == "pressed press --proof\n"
+    with pytest.raises(
+        ConfigurationError, match="no target of this project is one: press"
+    ):
         project.invoke("publish figures", ["--check"])
 
 
@@ -154,3 +164,144 @@ def test_a_missing_hugo_is_said_plainly(site, monkeypatch, tmp_path, capsys):
 def test_the_site_itself_is_never_the_destination(site, fake_hugo):
     with pytest.raises(ConfigurationError, match="refusing to build into the site"):
         hugo.main(["--out", ".."])
+
+
+# --------------------------------------------------------------------------- #
+# a project that publishes more than one thing
+# --------------------------------------------------------------------------- #
+TWO = {
+    **SITE,
+    "publish": {
+        "targets": {
+            "book": {"backend": "kettle_press:press"},
+            "site": {
+                "backend": "hugo",
+                "site": "website",
+                "needs": ["book"],
+                "copy": [
+                    ["book:.", "book/"],
+                    ["book:*.pdf", "downloads/the-kettle.pdf"],
+                    ["book:*.epub", "downloads/"],
+                ],
+            },
+        }
+    },
+}
+
+
+@pytest.fixture
+def two(tmp_path, monkeypatch, fake_hugo):
+    (tmp_path / "ext").mkdir()
+    (tmp_path / "ext" / "kettle_press.py").write_text(PRESS)
+    monkeypatch.syspath_prepend(str(tmp_path / "ext"))
+    root = _site(tmp_path / "project")
+    (root / "website").mkdir()
+    (root / "website" / "hugo.toml").write_text("title = 'The Kettle'\n")
+    return Project.from_settings(root, TWO)
+
+
+def test_a_target_is_built_after_what_it_needs_and_takes_its_output(two, fake_hugo):
+    assert two.invoke("publish build") == 0
+    args = fake_hugo()
+    # The site's own directory, named in its table, relative to the project.
+    assert args[args.index("--source") + 1] == str(two.root / "website")
+    site = two.root / "build" / "site"
+    assert args[args.index("--destination") + 1] == str(site)
+    assert (site / "book" / "index.html").read_text() == "<p>The kettle.</p>"
+    assert (site / "downloads" / "the-kettle.pdf").read_text() == "%PDF"
+    assert (site / "downloads" / "kettle.epub").read_text() == "EPUB"
+    # The site's source is never written into.
+    assert not (two.root / "website" / "book").exists()
+
+
+def test_arguments_go_to_the_target_named(two, fake_hugo, capsys):
+    assert two.invoke("publish build", ["site", "--drafts"]) == 0
+    assert "--buildDrafts" in fake_hugo()
+    # The book it needs was built first, without the site's arguments.
+    assert "pressed book\n" in capsys.readouterr().out
+
+
+def test_with_several_targets_arguments_need_a_name(two):
+    with pytest.raises(ConfigurationError, match="name the target"):
+        two.invoke("publish build", ["--drafts"])
+
+
+def test_a_target_alone_uses_its_needs_last_build(two):
+    with pytest.raises(ConfigurationError, match="has no output"):
+        two.invoke("publish build", ["site", "--no-needs"])
+    assert two.invoke("publish build", ["book"]) == 0
+    assert two.invoke("publish build", ["site", "--no-needs"]) == 0
+
+
+def test_a_file_destination_takes_exactly_one_file(two):
+    table = TWO["publish"]["targets"]
+    rows = [["book:*", "downloads/the-kettle.pdf"]]
+    settings = {
+        **TWO,
+        "publish": {"targets": {**table, "site": {**table["site"], "copy": rows}}},
+    }
+    project = Project.from_settings(two.root, settings)
+    with pytest.raises(ConfigurationError, match="matched 3"):
+        project.invoke("publish build")
+
+
+@pytest.mark.parametrize(
+    "change, message",
+    [
+        ({"site": {"needs": ["cover"]}}, "which is no target"),
+        ({"book": {"needs": ["site"]}}, "need each other: book -> site -> book"),
+        ({"site": {"needs": []}}, "does not list in needs"),
+        ({"site": {"copy": [["book:x", "../out"]]}}, "leaves the target's output"),
+        ({"site": {"copy": [["book", "out/"]]}}, "TARGET:GLOB"),
+        ({"cover": {"site": "."}}, "needs a backend"),
+    ],
+)
+def test_targets_are_refused_when_they_cannot_all_be_built(two, change, message):
+    table = {k: dict(v) for k, v in TWO["publish"]["targets"].items()}
+    for name, keys in change.items():
+        table.setdefault(name, {}).update(keys)
+    settings = {**TWO, "publish": {"targets": table}}
+    with pytest.raises(ConfigurationError, match=message):
+        Project.from_settings(two.root, settings).require("publish")
+
+
+def test_one_backend_is_named_once(two):
+    settings = {**TWO, "publish": {**TWO["publish"], "backend": "hugo"}}
+    with pytest.raises(ConfigurationError, match="name the backend in each target"):
+        Project.from_settings(two.root, settings).require("publish")
+
+
+def test_a_project_has_one_quarto_target(tmp_path):
+    (tmp_path / "content").mkdir()
+    settings = {
+        **SITE,
+        "publish": {
+            "targets": {"print": {"backend": "quarto"}, "web": {"backend": "quarto"}}
+        },
+    }
+    with pytest.raises(ConfigurationError, match="one Quarto target"):
+        Project.from_settings(tmp_path, settings).require("publish")
+
+
+def test_a_quarto_command_runs_as_the_quarto_target_sees_the_project(tmp_path):
+    """A Quarto-only command reads `publish.*` as the Quarto target declares
+    it, laid over the shared keys."""
+    from quirework.publish import targets
+
+    settings = {
+        "publish": {
+            "build": "out",
+            "targets": {
+                "book": {"backend": "quarto", "figures": "art"},
+                "site": {"backend": "hugo", "needs": ["book"]},
+            },
+        }
+    }
+    project = Project.from_settings(tmp_path, settings)
+    scoped = targets.for_backend("quarto", "publish figures", project)
+    assert scoped.path("publish.figures") == tmp_path / "art"
+    assert scoped.path("publish.build") == tmp_path / "out"
+    assert scoped.get("publish.targets") is None
+    hugo_only = Project.from_settings(tmp_path, SITE)
+    with pytest.raises(ConfigurationError, match=r"is one: site \(hugo\)"):
+        targets.for_backend("quarto", "publish figures", hugo_only)

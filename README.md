@@ -75,7 +75,10 @@ and contextual consistency reviews.
 Publishing is a backend the project names. A site built by Hugo keeps
 its own configuration, theme and deploy, and `publish build` builds it
 into the project's build tree, where it cannot overwrite the directory
-the site deploys from. A book gets the rest of this section.
+the site deploys from. A project that publishes more than one thing,
+such as a book and the site that serves its editions, names each as a
+target, and a target can take another's output into its own. A book
+gets the rest of this section.
 
 `publish build` renders a Quarto manuscript to HTML, PDF through Typst,
 EPUB and DOCX. It stages three trees to do it, because the formats

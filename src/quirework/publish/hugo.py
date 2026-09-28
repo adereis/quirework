@@ -55,7 +55,7 @@ def check_site(site) -> None:
         )
 
 
-def main(argv: list[str] | None = None) -> int:
+def main(argv: list[str] | None = None, target: str = "site") -> int:
     ap = argparse.ArgumentParser(
         prog="quirework publish build",
         description="Build the Hugo site into the project's build tree. "
@@ -75,7 +75,7 @@ def main(argv: list[str] | None = None) -> int:
     ap.add_argument(
         "--out",
         metavar="DIR",
-        help="where the site is written (default: <publish.build>/site)",
+        help="where the site is written (default: <publish.build>/<target>)",
     )
     args, passthru = ap.parse_known_args(argv)
 
@@ -93,7 +93,7 @@ def main(argv: list[str] | None = None) -> int:
     out = (
         project.root / args.out
         if args.out
-        else project.path("publish.build", "build") / "site"
+        else project.path("publish.build", "build") / target
     ).resolve()
     if out == site.resolve() or site.resolve().is_relative_to(out):
         raise ConfigurationError(f"refusing to build into the site itself: {out}")

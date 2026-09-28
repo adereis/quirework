@@ -239,10 +239,14 @@ def invoke(command, argv=(), *, project):
         help_only = any(a in ("--help", "-h") for a in argv)
         if item.component and not help_only:
             project.require(item.component)
+        scoped = project
         if item.backend and not help_only:
-            from .publish import backends
+            # A command built on one backend's staging runs as the target that
+            # backend builds sees the project, and is refused by name where no
+            # target uses it.
+            from .publish import targets
 
-            backends.require(item.backend, " ".join(key), project)
+            scoped = targets.for_backend(item.backend, " ".join(key), project)
         module = importlib.import_module("quirework." + item.module)
         if help_only:
             # Asking what a command does is not using it, and help stays free
@@ -250,7 +254,7 @@ def invoke(command, argv=(), *, project):
             return module.main([*item.prefix, *argv]) or 0
         from .core.usage import record
 
-        with record(key, argv, project=project) as outcome:
+        with record(key, argv, project=project) as outcome, project_scope(scoped):
             outcome.status = module.main([*item.prefix, *argv]) or 0
             return outcome.status
 

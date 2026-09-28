@@ -255,9 +255,62 @@ command.
 
 A publisher Quirework does not ship is an installed extension:
 `publish.backend = "module:function"`, where the function returns a
-`quirework.publish.backends.Backend`. It validates its own settings and
-builds when `publish build` runs. The commands built on Quarto staging
-stay refused, as they are on a Hugo site.
+`quirework.publish.backends.Backend`. It validates its own settings,
+builds a target when `publish build` runs, and says where that target's
+output lands, which is what another target copies from. The commands
+built on Quarto staging stay refused, as they are on a Hugo site.
+
+### Several targets
+
+A project may publish more than one thing: a book in its editions, and
+the site that serves them. Each is a target with its own table, and
+`[publish]` keeps what they share:
+
+```toml
+[publish]
+build = "build"
+
+[publish.targets.book]
+backend = "quarto"
+
+[publish.targets.site]
+backend = "hugo"
+site = "website"
+needs = ["book"]
+copy = [
+  ["book:.", "book/"],
+  ["book:*.pdf", "downloads/the-book.pdf"],
+  ["book:*.epub", "downloads/the-book.epub"],
+]
+```
+
+A target reads its own table laid over `[publish]`, so a key it
+declares replaces the shared one, and a relative path in it resolves
+from the file that declares it. `publish.backend` is then not set: each
+target names its own. A project without `targets` has one, named for
+its backend's product: `book` for Quarto, `site` for Hugo.
+
+`needs` names the targets built first. `copy` takes their output into
+this target's once it has built, one `["TARGET:GLOB", "DESTINATION"]`
+row at a time. The glob is relative to that target's output, and `.` is
+all of it. A destination ending in `/` is a directory that receives
+every match; any other destination is one file, and the glob must then
+match exactly one. A Hugo target's output is `<publish.build>/<target>`
+and the Quarto target's is `<publish.build>/book/_site`. Nothing is
+copied into a site's source, so a site that deploys the build tree
+deploys what the copy put there.
+
+```bash
+quirework publish build                  # every target, each after its needs
+quirework publish build site             # the site, after the book
+quirework publish build site --no-needs  # the site, from the book's last build
+quirework publish build book --to html   # arguments follow the target they are for
+```
+
+A project has at most one Quarto target, since the Quarto commands
+(figures, fonts, red-pen copies, packets, editions, comparisons) all
+work on its one staging. They run as that target sees the project, and
+are refused by name where no target is Quarto.
 
 ## Configuration layers
 

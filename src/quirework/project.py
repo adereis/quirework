@@ -332,10 +332,33 @@ class Project:
             # A publisher renders the manuscript, so it needs everything the
             # manuscript does before anything of its own.
             self.require("manuscript")
-            from quirework.publish import backends
+            from quirework.publish import targets
 
-            with project_scope(self):
-                backends.selected(self).validate(self)
+            targets.validate(self)
+
+    def overlay(self, prefix, table_key, drop=()):
+        """This project with the table at ``table_key`` laid over ``prefix``.
+
+        A publish target's table is read as its `[publish]`: each key it
+        declares replaces the shared one, and keeps the origin of the file that
+        declared it, so a relative path still resolves against that file. The
+        keys in ``drop`` leave ``prefix`` first. The result is a project like
+        any other; nothing is mutated.
+        """
+        values = copy.deepcopy(_plain(self.settings))
+        origins = dict(self.origins)
+        table = self.get(table_key) or {}
+        section = values.setdefault(prefix, {})
+        for key in drop:
+            section.pop(key, None)
+        for key, value in table.items():
+            section[key] = copy.deepcopy(value)
+            declared = f"{table_key}.{key}"
+            for origin_key in self.origins:
+                if origin_key == declared or origin_key.startswith(declared + "."):
+                    rest = origin_key[len(table_key) + 1 :]
+                    origins[f"{prefix}.{rest}"] = self.origins[origin_key]
+        return Project(self.root, _freeze(values), _freeze(origins), self.config_file)
 
     def describe(self):
         return {

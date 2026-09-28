@@ -22,21 +22,33 @@ from quirework.project import ConfigurationError, Project, current_project, exte
 
 
 class Backend:
-    """One publisher. Subclasses validate their configuration and build."""
+    """One publisher. Subclasses validate their configuration and build.
+
+    Every method runs with the target's view of the project current: the
+    target's own table laid over `[publish]` (see `publish.targets`).
+    """
 
     name: str = ""
+    # The name the project's one target takes when it declares no targets.
+    target: str = ""
 
     def validate(self, project: Project) -> None:
         """Refuse a configuration this backend cannot build. Called by
-        `Project.require("publish")` inside the project's scope."""
+        `Project.require("publish")` inside the target's scope."""
 
-    def build(self, argv: list[str] | None) -> int:
-        """`quirework publish build` for this backend, with its arguments."""
+    def build(self, argv: list[str] | None, target: str) -> int:
+        """Build ``target`` with the arguments `publish build` passed on."""
         raise NotImplementedError
+
+    def output(self, project: Project, target: str):
+        """The directory a finished build of ``target`` leaves its output in,
+        which is what another target copies from."""
+        return project.path("publish.build", "build") / target
 
 
 class Quarto(Backend):
     name = "quarto"
+    target = "book"
 
     def validate(self, project: Project) -> None:
         if (
@@ -48,24 +60,30 @@ class Quarto(Backend):
                 f"{project.path('publish.figures')}"
             )
 
-    def build(self, argv: list[str] | None) -> int:
+    def build(self, argv: list[str] | None, target: str) -> int:
         from quirework.publish import render
 
         return render.main(argv)
 
+    def output(self, project: Project, target: str):
+        # The renderer consolidates every edition here, whatever the target
+        # is called, which is one reason a project has one Quarto target.
+        return project.path("publish.build", "build") / "book" / "_site"
+
 
 class Hugo(Backend):
     name = "hugo"
+    target = "site"
 
     def validate(self, project: Project) -> None:
         from quirework.publish import hugo
 
         hugo.check_site(hugo.site_root())
 
-    def build(self, argv: list[str] | None) -> int:
+    def build(self, argv: list[str] | None, target: str) -> int:
         from quirework.publish import hugo
 
-        return hugo.main(argv)
+        return hugo.main(argv, target)
 
 
 BUILTIN = {"quarto": Quarto(), "hugo": Hugo()}
@@ -89,15 +107,6 @@ def get(name: str) -> Backend:
 
 
 def selected(project=None) -> Backend:
+    """The backend of a project, or of one target's view of it."""
     project = project or current_project()
     return get(project.get("publish.backend", "quarto"))
-
-
-def require(backend: str, command: str, project=None) -> None:
-    """Refuse ``command`` unless the project publishes with ``backend``."""
-    have = selected(project).name
-    if have != backend:
-        raise ConfigurationError(
-            f"`quirework {command}` works on a {backend} build, and this "
-            f"project publishes with {have} (publish.backend)"
-        )
