@@ -363,7 +363,7 @@ KIND_DESCRIPTIONS = {
     "variant": "what a derived edition should do differently here",
     "figure": "built illustrations",
     "ref": "prior-art / conversation pointers",
-    "source": "per-claim citation",
+    "source": "a citation; @source(slug) names one in the sources register",
     "see": "pointer to a work-wide review note",
 }
 
@@ -1103,7 +1103,7 @@ def companion_check(
 
 def _findings(docs: Path) -> tuple[list[str], list[tuple[str, list[str]]]]:
     """Lint the split-metadata layout; replaces physical co-location as the
-    drift guard. Eleven hard invariants (any failure → exit 1):
+    drift guard. Twelve hard invariants (any failure → exit 1):
 
       1. no prose file carries an @-mark (marks live in sidecars);
       2. every sidecar belongs to a unit on disk (no orphan sidecar);
@@ -1136,6 +1136,8 @@ def _findings(docs: Path) -> tuple[list[str], list[tuple[str, list[str]]]]:
      11. where `manuscript.spec_trail` is set, the trail sidecar parses and each of
          its headings names a spec section. It points into the sessions that
          shaped the spec, and `spec trail --check` follows those pointers.
+     12. where `manuscript.sources` is set, every @source(slug) names a source
+         in that register, and every source has a slug of its own.
 
     Plus six advisories, printed but never fatal.
 
@@ -1330,6 +1332,13 @@ def _findings(docs: Path) -> tuple[list[str], list[tuple[str, list[str]]]]:
                 f"{a.source or a.file}:{a.line}: @unit is a *reference* to a "
                 f"{units.noun()}, not a mark kind — put the pointer in a mark's body"
             )
+
+    # 12. where a sources register is declared, every @source(slug) names a
+    # source in it, and its slugs are an identity, as the spec's are.
+    from quirework.manuscript import sources
+
+    if sources.configured():
+        problems += sources.problems()
 
     # 10. the units on disk are the manuscript's units. The dual of invariant
     # 2: under slug-only, the remaining way to orphan a book chapter is to

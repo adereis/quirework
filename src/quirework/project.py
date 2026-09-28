@@ -294,6 +294,19 @@ class Project:
                     raise ConfigurationError(
                         f"configured {kind} is missing: {self.path(key)}"
                     )
+            sources = self.get("manuscript.sources")
+            if sources is not None and not any(c in str(sources) for c in "*?["):
+                if not self.path("manuscript.sources").is_file():
+                    raise ConfigurationError(
+                        f"configured sources register is missing: "
+                        f"{self.path('manuscript.sources')}"
+                    )
+            copies = self.get("manuscript.source_copies")
+            if copies is not None and "{slug}" not in str(copies):
+                raise ConfigurationError(
+                    "manuscript.source_copies must contain {slug}, e.g. "
+                    "'research/copies/{slug}.txt'"
+                )
             unit_spec = self.get("manuscript.unit_spec")
             if unit_spec is not None and "{slug}" not in str(unit_spec):
                 raise ConfigurationError(

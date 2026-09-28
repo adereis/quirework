@@ -112,12 +112,22 @@ The annotations live in a sidecar rather than in the prose, so the
 rendered text never carries them and reflowing a paragraph never
 disturbs them. A book keeps them beside each chapter, and a site keeps
 them outside the tree its generator renders. `spec notes --check` gates
-eleven invariants: a mark left in the prose, a sidecar that no longer
+twelve invariants: a mark left in the prose, a sidecar that no longer
 mirrors its chapter, a binding that names a commitment the spec does not
 declare, a reading order that disagrees with the files on disk.
 `spec quotes` checks that a phrase quoted in metadata still exists in
 the work, and `--grep TERM` lists every quotation of a term you just
 retired from the prose.
+
+### Keeps track of what the work stands on
+
+Research gets a register too. Each source has a slug, in one file of
+sections or one file per source, and a mark cites it as
+`@source(slug)`. `spec sources --slug S` then lists every chapter or
+post that leans on a source, and the gate refuses a citation of a source
+the register does not hold. A source can keep a plain-text capture of
+itself, and a quotation from it is checked against that capture, so a
+misremembered line is caught the way a misquoted chapter is.
 
 ### Formats and inspects the prose
 

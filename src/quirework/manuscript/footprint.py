@@ -9,8 +9,8 @@ site that keeps them outside the tree its generator renders. This module is
 the one answer, and it is built from what the project already declares:
 
 - the units and their marks, as the format lays them out;
-- the register: the shared spec, each unit's own spec, the references and the
-  review notes;
+- the register: the shared spec, each unit's own spec, the sources, the
+  references and the review notes;
 - the companion collections;
 - and, kept apart, the working roots (`manuscript.noncanonical_roots`), which
   are writing without authority. A caller measuring effort counts them; a
@@ -74,6 +74,9 @@ def footprint(project: Project | None = None) -> Footprint:
     unit_spec = project.get("manuscript.unit_spec")
     if unit_spec:
         register += (str(unit_spec).replace("{slug}", "*"),)
+    from quirework.manuscript import sources
+
+    register += sources.footprint_patterns(project)
     return Footprint(
         units,
         register,

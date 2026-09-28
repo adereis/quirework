@@ -227,6 +227,38 @@ section's full name. `spec trail why-the-lamp-turns/thesis` reads one,
 and `spec trail suggest` follows the history of whichever file holds
 the section.
 
+### Sources
+
+`manuscript.sources` declares a register of what the work stands on, the
+research half of the spec. It is a file, where each level-2 section
+`## Title {#slug}` is one source and its body says what the source is:
+
+```toml
+[manuscript]
+sources = "research/sources.md"
+source_copies = "research/copies/{slug}.txt"
+```
+
+Or it is a glob with one file per source, such as `"research/*.md"`,
+each named by its file stem, or by its directory when the glob names a
+fixed file (`"research/*/notes.md"`). A file's title is its
+frontmatter `title` or its first heading. A `README.md` and a
+`_`-prefixed file are not sources.
+
+A mark cites a source as `<!-- @source(slug) what it supports -->`.
+`spec notes --check` refuses a slug the register does not hold, and two
+sources with one slug. A `@source` with no slug stays free prose, since
+a passing reference need not be registered. `spec sources` lists each
+source with the units that cite it; `--slug S` and `-c UNIT` narrow
+the list, and `--check` adds two advisories: a source no unit cites,
+and a quotation that is not in the source.
+
+`source_copies` is a path pattern with `{slug}` naming a plain-text
+capture of each source as it was read. A quoted span of five words or
+more in a mark citing that source is checked against it, with case,
+whitespace and closing punctuation ignored. A source without a capture
+is not checked, and `--check` says how many quotations that left.
+
 ## Publishing backends
 
 `publish.backend` names what renders the manuscript. `quarto`, the

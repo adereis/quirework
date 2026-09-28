@@ -23,7 +23,7 @@ class Command:
 
 
 GROUPS = {
-    "spec": "Read and check the spec, marks, quotations and trail",
+    "spec": "Read and check the spec, marks, sources, quotations and trail",
     "publish": "Render the manuscript and inspect its editions",
     "text": "Format and inspect writing",
     "provenance": "Capture, organize, and search source history",
@@ -43,6 +43,11 @@ COMMANDS = {
     ),
     ("spec", "quotes"): Command(
         "manuscript.quotes", "Check quotations in annotations", "manuscript"
+    ),
+    ("spec", "sources"): Command(
+        "manuscript.sources",
+        "List the sources the work stands on and check citations of them",
+        "manuscript",
     ),
     ("spec", "units"): Command(
         "manuscript.units",
