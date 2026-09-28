@@ -460,13 +460,13 @@ def main(argv: list[str] | None = None) -> int:
 
     p = argparse.ArgumentParser(
         prog="quirework spec quotes",
-        description="Check that phrases the marks quote still exist in the book.",
+        description="Check that phrases the marks quote still exist in the work.",
     )
     p.add_argument(
         "--source",
         type=Path,
         default=None,
-        help="book source root (default: configured)",
+        help="manuscript source root (default: configured)",
     )
     p.add_argument(
         "--all",

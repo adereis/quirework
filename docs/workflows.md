@@ -13,7 +13,7 @@ packet through a selected harness and returns evidence to the companion.
 For example, you might ask Codex to revise a chapter whose central claim
 has changed. Codex can load the spec and find every bound chapter. It
 can then ask blind readers what the revision communicates. You decide
-whether their reaction should change the book.
+whether their reaction should change the work.
 
 ## The authoring loop
 
@@ -24,7 +24,7 @@ Most work follows the same loop even when the SOP changes:
 3. The companion runs `quirework spec notes --primer` to load the spec,
    bindings, guidance, and open work.
 4. The companion retrieves only the prose, sources, and prior human
-   decisions the task needs. Where the book keeps a spec trail,
+   decisions the task needs. Where the project keeps a spec trail,
    `quirework spec trail SLUG` leads from a commitment to the author's
    own turns that shaped it.
 5. The companion writes, researches, or prepares a controlled model run.
@@ -35,13 +35,13 @@ Most work follows the same loop even when the SOP changes:
 
 The spec gives this loop a stable center. A sentence can move during a
 rewrite. A commitment should move only when the author means to change
-what the book holds. Bindings let the companion propagate that change
-through the whole book instead of polishing one chapter into
+what the work holds. Bindings let the companion propagate that change
+through the whole work instead of polishing one chapter or post into
 disagreement with the rest.
 
 The spec also gives outside model work a reference point. A workshop
 draft or blind review can reveal a problem. It cannot silently redefine
-the book's position. The companion must reconcile the finding with the
+the work's position. The companion must reconcile the finding with the
 spec before it proposes an edit.
 
 A spec trail records where that center came from. It is kept in two
@@ -54,10 +54,10 @@ corpus that is `spec trail suggest SLUG` and provenance search, section
 by section. For a large one, `spec trail backfill` has cheap readers
 flag every session once and leaves the decision, section by section, to
 a strong model. That decision needs the judgment of a strong model, so a
-book gives backfill a procedure of its own. Capturing and curating
+project gives backfill a procedure of its own. Capturing and curating
 sessions is different work, mechanical enough for a small model, and a
-book's ingest procedure may name backfill as a follow-up without ever
-running it.
+project's ingest procedure may name backfill as a follow-up without
+ever running it.
 
 ## Procedures and skills
 
@@ -114,7 +114,7 @@ key is metered spend that its receipt does not price.
 
 ## Rooms, workshops, and reviews
 
-Each book owns the exact procedure and its editorial rules. Quirework
+Each project owns the exact procedure and its editorial rules. Quirework
 supplies the mechanics for several recurring patterns.
 
 The useful workflows differ mainly in who may see what:
@@ -125,7 +125,7 @@ The useful workflows differ mainly in who may see what:
 | Have several models work together as themselves | Roundtable | The shared packet, then every turn as it happens, its own mail and a shared folder | An attributed board, mail and a shared folder with its history |
 | Produce genuinely independent alternatives | Prose workshop | One frozen packet, never another writer's draft | Anonymous drafts with a sealed identity key |
 | Learn what the page tells a reader | Blind reader panel | Only the selected reader-facing material | Reports tied to personas, questions, and receipts |
-| Test an edit against the whole book | Consistency review | The project guide, spec, marks, brief, and Git delta | An independent findings report |
+| Test an edit against the whole work | Consistency review | The project guide, spec, marks, brief, and Git delta | An independent findings report |
 
 ## Run plans
 
@@ -235,7 +235,7 @@ editorial judgment has been recorded.
 A useful workshop SOP therefore separates four jobs. The companion
 prepares the shared packet. Independent writers make alternatives. A
 blind editor compares the anonymous drafts. The human chooses what, if
-anything, enters the book.
+anything, enters the work.
 
 ## Writers rooms
 
@@ -743,7 +743,7 @@ declared invariants. A companion should run the checks named by the SOP
 before presenting a change as complete.
 
 The judgment layer asks whether a coherent edit is actually coherent
-with the rest of the book. `quirework sop review` gives an independent
+with the rest of the work. `quirework sop review` gives an independent
 reviewer the project guide, the spec, the marks, a brief, and a concrete
 Git delta. By default, the reviewer sees the repository read-only,
 history included. A linked worktree keeps its git directory in the main

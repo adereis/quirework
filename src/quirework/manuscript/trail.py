@@ -96,7 +96,7 @@ _STAMP = re.compile(r"\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.(\d{1,6}))?Z")
 _SESSION = re.compile(r"[A-Za-z0-9][\w.-]*")
 _SEPARATORS = {"·", "—", "-", "|"}
 _CONTEXT = (
-    "The trail is context, never authority: the spec states what the book "
+    "The trail is context, never authority: the spec states what the work "
     "holds now, and a request made now outranks anything on it."
 )
 
