@@ -9,13 +9,13 @@ pending captures awaiting triage are absent by construction.
 
 **1** Claude Code sessions · **0** Antigravity sessions · **0** Codex sessions · **0** web dialogues · **0** curated out.
 
-Of those, **0** are scope `making` (the apparatus: tools, guards, process rules) and the rest are scope `book`. Scope decides which blind cold-read reads a session, nothing else -- see each session directory's `making-sessions.txt`.
+Of those, **0** are scope `making` (the apparatus: tools, guards, process rules) and the rest are scope `work`. Scope decides which blind cold-read reads a session, nothing else -- see each session directory's `making-sessions.txt`.
 
 ## Claude Code sessions (`cc-sessions/`)
 
 | date | id | title | model | ~tok | doc/meta | scope | cold | ★ |
 | --- | --- | --- | --- | --: | --- | --- | :-: | :-: |
-| 2026-09-16 | `893d06b2` | Chapter and Verse Control manuscript layer | sonnet-5 | 22k | 34/31 | book | — |  |
+| 2026-09-16 | `893d06b2` | Chapter and Verse Control manuscript layer | sonnet-5 | 22k | 34/31 | work | — |  |
 
 ## Antigravity sessions (`agy-sessions/`)
 

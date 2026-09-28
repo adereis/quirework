@@ -2,7 +2,7 @@
   "id": "first-read",
   "revision": "1",
   "default_persona": "colin-meaning",
-  "default_scope": "book",
+  "default_scope": "work",
   "sequence": {"first": "first", "next": "next", "wrap": "wrap"},
   "prompts": {
     "first": {
