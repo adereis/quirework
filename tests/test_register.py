@@ -252,6 +252,16 @@ def test_a_project_with_no_register_says_how_to_declare_one(tmp_path):
             notes.spec_sections()
 
 
+def test_a_bare_anchor_outside_its_marks_is_answered_with_the_full_name(site):
+    """Outside a post's marks a bare anchor names nothing, and `thesis` is too
+    far from `notes-on-a-kettle/thesis` for a fuzzy match to offer it."""
+    with pytest.raises(LookupError, match="named in full: a-planned-post/thesis, "):
+        trail._known_slug("thesis", trail._spec_titles())
+    with pytest.raises(LookupError, match="close: kettle-signal"):
+        trail._known_slug("kettle-signl", trail._spec_titles())
+    trail._known_slug("notes-on-a-kettle/thesis", trail._spec_titles())
+
+
 def test_a_trail_heading_carries_a_post_s_section_in_full(site):
     """Breadcrumbs are kept by a section's full name, so the trail's heading
     for a post's own section reads `{#post/anchor}` and parses back to it."""

@@ -779,10 +779,20 @@ def _spec_titles():
 
 
 def _known_slug(slug, titles):
-    if slug not in titles:
+    if slug in titles:
+        return
+    # A unit's own section is named with its unit, and outside its marks a
+    # bare anchor names nothing. Short anchors are the point, so `thesis` is
+    # the likeliest miss, and too far from `post/thesis` for difflib.
+    owned = [] if "/" in slug else sorted(t for t in titles if t.endswith(f"/{slug}"))
+    if owned:
+        from quirework.manuscript import units
+
+        hint = f" (a {units.noun()}'s own section is named in full: {', '.join(owned)})"
+    else:
         close = difflib.get_close_matches(slug, sorted(titles), n=3)
         hint = f" (close: {', '.join(close)})" if close else ""
-        raise LookupError(f"the spec has no section '#{slug}'{hint}")
+    raise LookupError(f"the spec has no section '#{slug}'{hint}")
 
 
 def _target(corpus, *, find, session, turn):
@@ -1626,7 +1636,10 @@ def _add_main(argv):
         description="Put a breadcrumb to one of the author's turns on a "
         "spec section's trail.",
     )
-    ap.add_argument("slug", help="the spec section, by its {#slug}")
+    ap.add_argument(
+        "slug",
+        help="the spec section: a shared anchor, or UNIT/ANCHOR for a unit's own",
+    )
     ap.add_argument("--kind", required=True, choices=tuple(KINDS))
     ap.add_argument(
         "--find",
