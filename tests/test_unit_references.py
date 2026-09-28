@@ -188,3 +188,35 @@ def test_a_workshop_orders_a_site_s_posts_by_where_they_came_from(tmp_path):
     ]
     # Pages carry no printed number, so nothing is said about numbering.
     assert "number" not in listing
+
+
+def test_a_collection_s_apparatus_is_not_held_to_the_entry_gate(tmp_path, capsys):
+    """A README indexes a collection and a `_`-prefixed file is its apparatus,
+    as it is among a site's pages; neither is an entry."""
+    project = _site(tmp_path, "**Anchors:** `@bind(kettle-signal)`\n")
+    (tmp_path / "notes" / "_draft.md").write_text("**Anchors:** `@bind(no-such)`\n")
+    (tmp_path / "notes" / "README.md").write_text("**Anchors:** `@bind(no-such)`\n")
+    rc, err = _check(project, capsys)
+    assert rc == 0, err
+
+
+def test_a_project_names_its_own_anchors_label(tmp_path, capsys):
+    project = _site(
+        tmp_path, "**Rests on:** `@unit(notes-on-a-kettle)` `@bind(kettle-signal)`\n"
+    )
+    settings = project.describe()["settings"]
+    settings["manuscript"]["companion_anchors"] = "Rests on"
+    project = Project.from_settings(tmp_path, settings)
+    rc, err = _check(project, capsys)
+    assert rc == 0, err
+    with project_scope(project):
+        by_slug, _ = notes.coverage(root=tmp_path)
+    assert by_slug == {"kettle-signal": ["a-kettle-at-sea"]}
+
+
+def test_an_entry_under_another_label_anchors_nothing(tmp_path, capsys):
+    project = _site(tmp_path, "**Anchors:** `@bind(kettle-signal)`\n")
+    settings = project.describe()["settings"]
+    settings["manuscript"]["companion_anchors"] = "Rests on"
+    rc, err = _check(Project.from_settings(tmp_path, settings), capsys)
+    assert "no **Rests on:** run resolves" in err

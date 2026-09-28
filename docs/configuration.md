@@ -442,6 +442,22 @@ records. A project that keeps one needs only `runs.reviews`. Files
 inside a run record are never reflowed by `text wrap` and never read as
 authority, which is the guarantee these three settings buy.
 
+Each Markdown file directly inside a companion directory is an entry,
+except a `README.md`, which indexes the collection, and a file whose
+name starts with `_`, such as a template. An entry names what it rests
+on in a visible run in its header paragraph, labelled `**Anchors:**`
+unless `manuscript.companion_anchors` names another label:
+
+```markdown
+**Anchors:** `@unit(why-the-lamp-turns)` `@bind(lamp-period)`
+```
+
+A unit is named by `@unit(slug)`, by its bare slug, or by its file as
+the format writes it (`opening.qmd`, `posts/why-the-lamp-turns/index.md`).
+Each `@bind(slug)` after it must be a section that unit binds.
+`spec notes --coverage` then maps which commitments the entries work
+through.
+
 ### Where the work lives
 
 Several tools ask whether a file is part of the work: the catalog and

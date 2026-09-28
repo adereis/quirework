@@ -179,19 +179,24 @@ _IMPERATIVE = re.compile(r"\b(NEVER|DO NOT|DON'T|MUST NOT|MAY NOT|BANNED)\b")
 # can cite the spec by slug and quote the canon by passage, so the check follows
 # both directions without assuming their directory names.
 def companion_dirs() -> tuple[str, ...]:
-    """The reader-facing companion collections this book declares, if any.
+    """The reader-facing companion collections this project declares, if any.
 
-    `manuscript.companion_dirs` names them. The default is none: a book with no
+    `manuscript.companion_dirs` names them. The default is none: a work with no
     companion collection has nothing here to check, and naming another
     project's directories would check a tree this one does not have.
     """
     return tuple(current_project().get("manuscript.companion_dirs", ()) or ())
 
 
-# `_template.md` carries placeholder citations (`<chapter files and @bind
-# slugs>`), not real ones; it is skipped so a template edit cannot fail a gate
-# about the entries.
-COMPANION_SKIP = {"_template.md"}
+def _is_entry(path: Path) -> bool:
+    """Whether a file in a companion collection is one of its entries.
+
+    A README indexes the collection, and a `_`-prefixed file is its apparatus
+    (a template carrying placeholder citations, a partial), so neither is
+    held to the gate about entries. It is the same rule a site's pages
+    follow."""
+    return path.name != "README.md" and not path.name.startswith("_")
+
 
 # A quotation attributed to the book. Both forms are used by the entries and
 # both have failed: a double-quoted span lifted from a chapter, and a bolded
@@ -202,12 +207,22 @@ COMPANION_SKIP = {"_template.md"}
 # them: the book wraps one sentence per line and the entries wrap at 72
 # columns, so a quotation spanning a sentence boundary is wrapped differently
 # on each side.
-# An entry's header paragraph carries a "**Anchors:**" run naming the chapters
-# and commitments its position rests on. It is READER-FACING prose and stays
-# that way: minting a parallel @-mark would put the same fact in two places, and
-# a duplicated fact is the drift this whole layer exists to prevent. So the
-# visible run is the single owner and the check reads it where it stands.
-_ANCHORS_RUN = re.compile(r"\*\*Anchors:\*\*(.*?)(?:\n[ \t]*\n|\Z)", re.S)
+# An entry's header paragraph carries a bold-labelled run naming the units
+# and commitments its position rests on, "**Anchors:**" unless the project
+# names its own label (`manuscript.companion_anchors`). It is READER-FACING
+# prose and stays that way: minting a parallel @-mark would put the same fact in
+# two places, and a duplicated fact is the drift this whole layer exists to
+# prevent. So the visible run is the single owner and the check reads it where
+# it stands.
+def _anchors_label() -> str:
+    return str(current_project().get("manuscript.companion_anchors", "Anchors"))
+
+
+def _anchors_run(text: str) -> re.Match | None:
+    label = re.escape(_anchors_label())
+    return re.search(rf"\*\*{label}:\*\*(.*?)(?:\n[ \t]*\n|\Z)", text, re.S)
+
+
 _BACKTICKED = re.compile(r"`([^`]+)`")
 
 
@@ -751,7 +766,7 @@ def _norm(text: str) -> str:
 
 
 def _searchable(quote: str) -> str:
-    """A quotation reduced to what must actually exist in canon.
+    """A quotation reduced to what must actually exist in the work.
 
     Case is dropped and trailing punctuation trimmed, because both differ
     legitimately in a correct quotation: lifting a sentence into the middle of
@@ -769,11 +784,7 @@ def companion_files(root: Path | None = None) -> list[Path]:
     out: list[Path] = []
     for d in companion_dirs():
         if (base / d).is_dir():
-            out += [
-                p
-                for p in sorted((base / d).glob("*.md"))
-                if p.name not in COMPANION_SKIP
-            ]
+            out += [p for p in sorted((base / d).glob("*.md")) if _is_entry(p)]
     return out
 
 
@@ -811,7 +822,7 @@ def _blocks(text: str) -> list[tuple[str, int]]:
 def _attributed_spans(
     block: str, stems: set[str], spec_names: tuple[str, ...]
 ) -> list[tuple[str, int]]:
-    """Quotations in one block that are attributed to canon, with offsets.
+    """Quotations in one block that are attributed to the work, with offsets.
 
     Two filters do the discriminating, and both were forced by real false
     positives on the live collections. A bold span opening a block or a list
@@ -877,7 +888,7 @@ def chapter_bindings(docs: Path | None = None) -> dict[str, set[str]]:
 def anchor_pairs(
     text: str, stems: set[str], spec: set[str]
 ) -> tuple[list[tuple[str | None, str]], list[str]]:
-    """(pairs, unresolved) for the anchors in an entry's **Anchors:** run.
+    """(pairs, unresolved) for the anchors in an entry's anchors run.
 
     The run is prose, so it is read positionally: a chapter reference sets the
     chapter that the `@bind(slug)` tokens after it belong to, until the next
@@ -887,7 +898,7 @@ def anchor_pairs(
     A token is a chapter reference, a spec slug, or inert prose. An explicit
     chapter pointer that resolves to nothing is returned in `unresolved`.
     """
-    m = _ANCHORS_RUN.search(text)
+    m = _anchors_run(text)
     if not m:
         return [], []
     run = _WS.sub(" ", m.group(1))
@@ -938,8 +949,6 @@ def coverage(
     stems = units.names(docs)
     by_slug: dict[str, list[str]] = {}
     for f in companion_files(root if root is not None else docs.parent):
-        if f.name == "README.md":
-            continue
         pairs, _ = anchor_pairs(_mask_fences(f.read_text()), stems, spec)
         for _, slug in pairs:
             if slug in spec:
@@ -955,7 +964,7 @@ def coverage(
 def companion_check(
     docs: Path, spec: set[str], root: Path | None = None
 ) -> tuple[list[str], list[str], list[str]]:
-    """Resolve the companion collections against canon, in both directions.
+    """Resolve the companion collections against the work, in both directions.
 
     Returns (problems, advisories). A `@bind(slug)` citation that names no
     spec section is a hard problem: it is a broken pointer with one right
@@ -973,12 +982,11 @@ def companion_check(
     corpus = _canon_corpus(docs)
     stems = units.names(docs)
     binds = chapter_bindings(docs)
+    label = f"**{_anchors_label()}:**"
     for f in companion_files(root):
-        if f.name == "README.md":
-            continue
         text = _mask_fences(f.read_text())
         rel = _rel(f)
-        anchor_run = _ANCHORS_RUN.search(text)
+        anchor_run = _anchors_run(text)
         for m in _BIND_TOKEN.finditer(text):
             if not re.fullmatch(r"\s*[\w-]+\s*", m.group(1)):
                 ln = text.count("\n", 0, m.start()) + 1
@@ -989,17 +997,16 @@ def companion_check(
         pairs, unresolved = anchor_pairs(text, stems, spec)
         for tok in unresolved:
             problems.append(
-                f"{rel}: **Anchors:** names `{tok}`, which is no {units.noun()}. "
+                f"{rel}: {label} names `{tok}`, which is no {units.noun()}. "
                 f"The anchors after it are attributed to nothing, so the join "
                 f"that holds this entry to the work is silently broken."
             )
         if not pairs:
-            # A README indexes the collection and anchors nothing; every other
-            # file is an entry, and an entry with no resolving anchors has
-            # nothing holding it to the book.
+            # An entry with no resolving anchors has nothing holding it to
+            # the work.
             anchors.append(
-                f"  {rel}: no **Anchors:** run resolves, so nothing holds this "
-                f"entry to a commitment when canon moves"
+                f"  {rel}: no {label} run resolves, so nothing holds this "
+                f"entry to a commitment when the work moves"
             )
         for chapter, slug in pairs:
             if chapter is None or slug not in spec:
@@ -1021,7 +1028,7 @@ def companion_check(
                     ln = text.count("\n", 0, m.start()) + 1
                     problems.append(
                         f"{rel}:{ln}: @bind({m.group(1)}) appears outside the "
-                        f"**Anchors:** run. Use '#{m.group(1)}' in semantic "
+                        f"{label} run. Use '#{m.group(1)}' in semantic "
                         f"prose; @bind is only the relationship join."
                     )
                 continue
@@ -1068,18 +1075,20 @@ def _findings(docs: Path) -> tuple[list[str], list[tuple[str, list[str]]]]:
          unique across the spec (they are the binding namespace);
       5. every @bind is bodyless and its slug names a spec section (any
          number of chapters may bind the same one);
-      6. every @see(slug) resolves to a book-wide note in _review-notes.md
-         (pointers into the spec are bindings or inline #slug refs,
-         never @see);
+      6. every @see(slug) resolves to a work-wide note in
+         `manuscript.review_notes` (pointers into the spec are bindings or
+         inline #slug refs, never @see);
       7. every @bind(slug) cited in the companion collections
-         (`manuscript.companion_dirs`) names a spec section — the entries are canon's
-         one licensed outward dependency, and the citation runs back in.
-      8. every anchor in an entry's **Anchors:** run names a chapter that
-         really binds that slug. Invariant 7 gates the slug; this gates the
-         chapter attributed to it, which nothing checked, so an anchor could
-         name a chapter that had never expressed the commitment.
-      9. every chapter reference in an **Anchors:** run resolves, and `@unit` is
-         never used as a mark kind. A chapter-shaped token that resolves to
+         (`manuscript.companion_dirs`) names a spec section — the entries are
+         the work's one licensed outward dependency, and the citation runs
+         back in.
+      8. every anchor in an entry's anchors run (`**Anchors:**`, or the label
+         `manuscript.companion_anchors` names) names a unit that really binds
+         that slug. Invariant 7 gates the slug; this gates the unit
+         attributed to it, which nothing checked, so an anchor could name a
+         unit that had never expressed the commitment.
+      9. every unit reference in an anchors run resolves, and `@unit` is
+         never used as a mark kind. A unit-shaped token that resolves to
          nothing used to be skipped in silence, which turned invariant 8 into
          a no-op rather than a failure.
      10. the units on disk are the manuscript's units: for a book, the Quarto
@@ -1401,16 +1410,16 @@ def _findings(docs: Path) -> tuple[list[str], list[tuple[str, list[str]]]]:
 
     groups.append(
         (
-            "{n} companion quotation(s) appear nowhere in canon; a quote is "
+            "{n} companion quotation(s) appear nowhere in the work; a quote is "
             "primary evidence and is never paraphrased into existence",
             comp_quotes,
         )
     )
     groups.append(
         (
-            "{n} companion entry/entries anchor nothing; an entry with no "
-            "resolving **Anchors:** run is invisible to the join that keeps the "
-            "collection in step",
+            f"{{n}} companion entry/entries anchor nothing; an entry with no "
+            f"resolving **{_anchors_label()}:** run is invisible to the join "
+            f"that keeps the collection in step",
             comp_anchors,
         )
     )
