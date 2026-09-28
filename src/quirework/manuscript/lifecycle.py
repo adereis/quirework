@@ -120,16 +120,25 @@ def _git(root, *args):
     )
 
 
-def unrevised() -> list[str] | None:
-    """Advisory lines: a published unit whose own spec was revised after the
-    page was last dated. None when the project has no git history to read.
+def _claims(text: str) -> str:
+    """A spec's text as its claims: without comments, anchors or the spacing
+    a reflow changes. Renaming an anchor or rewrapping a paragraph revises
+    nothing a reader was told."""
+    text = re.sub(r"(?s)<!--.*?-->", " ", text)
+    text = re.sub(r"\{[^{}\n]*\}", " ", text)
+    return re.sub(r"\s+", " ", text).strip()
 
-    Creating a spec is not revising one: a spec written for a post already
-    published describes it, and the first change that counts is the one
-    after that. So a spec not yet tracked is never named, a tracked spec with
-    uncommitted edits is named unless the page is being redated too, and a
-    committed spec is named when a commit after the page's last dating
-    changed it, other than the commit that created it.
+
+def unrevised() -> list[str] | None:
+    """Advisory lines: a published unit whose own spec's claims changed after
+    the page was last dated. None when the project has no git history.
+
+    The spec is compared as it stood at the commit that last dated the page,
+    or, for a spec written after that, as it was first committed: writing a
+    spec for a post already published describes it, and only a change after
+    that revises it. The comparison is of claims, not bytes (`_claims`), and
+    of the working file, so an uncommitted revision is named before it is
+    committed and a page being redated in the same change is not.
     """
     project = current_project()
     root = project.root
@@ -146,25 +155,20 @@ def unrevised() -> list[str] | None:
         spec_rel = spec.relative_to(root).as_posix()
         if redating.search(_git(root, "diff", "HEAD", "-U0", "--", u.rel).stdout):
             continue  # being redated now
-        status = _git(root, "status", "--porcelain", "--", spec_rel).stdout
-        if status.startswith("??"):
-            continue  # being written, not revised
-        if status.strip():
-            stale = True
-        else:
-            last_dated = _git(
-                root, "log", "-1", "--format=%H", "-G", dated, "--", u.rel
-            ).stdout.strip()
-            if not last_dated:
-                continue  # the page has no dated history yet
-            created = _git(
+        last_dated = _git(
+            root, "log", "-1", "--format=%H", "-G", dated, "--", u.rel
+        ).stdout.strip()
+        if not last_dated:
+            continue  # the page has no dated history yet
+        then = _git(root, "show", f"{last_dated}:./{spec_rel}")
+        if then.returncode:
+            first = _git(
                 root, "log", "--diff-filter=A", "--format=%H", "--", spec_rel
             ).stdout.split()
-            since = _git(
-                root, "log", "--format=%H", f"{last_dated}..HEAD", "--", spec_rel
-            ).stdout.split()
-            stale = any(c not in created[-1:] for c in since)
-        if stale:
+            if not first:
+                continue  # being written, not revised
+            then = _git(root, "show", f"{first[-1]}:./{spec_rel}")
+        if _claims(then.stdout) != _claims(spec.read_text(encoding="utf-8")):
             out.append(
                 f"  {u.rel}: {spec_rel} changed after the {units.noun()} was last "
                 f"dated; revise it, set {field}, and tell a reader what changed"

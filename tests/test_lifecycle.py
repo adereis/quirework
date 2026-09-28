@@ -255,3 +255,17 @@ def test_a_spec_written_for_a_published_post_describes_it(site):
     spec.write_text(text + "\n## A lid {#lid}\n\nx\n")
     git(site, "commit", "-qam", "Add a claim")
     assert len(_stale(site)) == 1
+
+
+def test_renaming_an_anchor_or_rewrapping_revises_nothing(site):
+    """A reader was told the claims, not their anchors or their line breaks."""
+    git(site, "init", "-q")
+    git(site, "add", ".")
+    git(site, "commit", "-qm", "Publish the kettle")
+    spec = site / "specs" / "the-kettle" / "spec.md"
+    spec.write_text(
+        "<!-- a banner the keeper added -->\n# The Kettle\n\n"
+        "## A whistle is a report {#the-whistle}\n\nIt\nreports.\n"
+    )
+    git(site, "commit", "-qam", "Rename an anchor and rewrap")
+    assert _stale(site) == []
