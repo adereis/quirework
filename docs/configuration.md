@@ -416,10 +416,27 @@ A project that keeps one needs only `runs.reviews`. Files inside a run
 record are never reflowed by `text wrap` and never read as authority,
 which is the guarantee these three settings buy.
 
+`text.modes` chooses how `text wrap` treats each file without any code.
+It is a list of `[glob, mode]` rows over project-relative paths, and the
+first match wins:
+
+```toml
+[text]
+modes = [["content/**/*.md", "sentence"], ["**/*.md", "column"]]
+```
+
+A mode is `sentence`, `column`, `trailing` or `skip`. `**/` crosses any
+number of directories, and `*` stays inside one. An unmatched file falls
+back to the built-in rule, which puts `.qmd` in sentence mode and other
+Markdown in column mode. A file inside a saved run record is skipped
+whatever the table says. Both modes copy either frontmatter convention
+verbatim and pass a Hugo shortcode line through untouched.
+
 A project can select installed Python extensions. `checks.command` names
 its check-suite function as `module:function`. `text.classifier` selects
 a function returning `sentence`, `column`, `trailing`, or `skip` for a
-source path; it receives an absolute path, and
+source path, for a rule `text.modes` cannot state; a project uses one or
+the other. The function receives an absolute path, and
 `quirework.text.mdwrap.project_relative` turns that into the path as the
 project names it, which is what a rule about location needs.
 `publish.grayscale_transform` accepts SVG text and its asset name and

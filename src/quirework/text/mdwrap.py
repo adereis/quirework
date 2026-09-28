@@ -97,8 +97,10 @@ def _protect(text: str) -> str:
     """Replace dots that are not sentence ends with a sentinel."""
     text = _ABBREV_RE.sub(lambda m: m.group(0).replace(".", _SENT), text)
     text = _NUMERO_RE.sub("No" + _SENT, text)
-    # Single-capital-letter initials: "W. V. O. Quine".
-    text = re.sub(r"\b([A-Z])\.(?=\s)", r"\1" + _SENT, text)
+    # Single-capital-letter initials: "W. V. O. Quine", "U.S. Army". A capital
+    # after a slash or a hyphen is the end of a term, not an initial: "I/O."
+    # closes a sentence as surely as "disk." does.
+    text = re.sub(r"(?<![\w/-])([A-Z])\.(?=\s)", r"\1" + _SENT, text)
     return text
 
 
@@ -118,14 +120,45 @@ def _restore(text: str) -> str:
 # `?"`/`!"` before a capital is genuinely ambiguous (title mid-sentence vs. a
 # quoted question ending a sentence), and any heuristic trades this cosmetic
 # miss for an equally cosmetic one.
-_BOUNDARY = re.compile(r'(?:(?<=[.!?])|(?<=[.!?]["”’\')]))\s+(?=[A-Z0-9"“(\[*])')
+#
+# What may trail the terminal punctuation and still belong to the sentence it
+# ends: a closing quote or parenthesis, and footnote references, which
+# Markdown writes as `[^label]` right after the period ("...a resource.[^intro]
+# That"). A bare `]` is not on the list: a Pandoc inline note `^[...]` closes
+# on one, and whether a sentence ends after the note is the author's call, so
+# the text around it is left as written.
+_TRAILERS = re.compile(r"""(?:\[\^[^\]\s]+\]|["”’')])*\Z""")
+_STARTER = re.compile(r'[A-Z0-9"“(\[*]')
 _SEMI = re.compile(r"(?<=;)\s+")
+
+
+def _ends_sentence(protected: str) -> bool:
+    """Whether protected text ends with terminal punctuation, trailers aside.
+
+    Abbreviations and initials were turned into sentinels by `_protect`, so a
+    period still standing here is one a sentence ends on.
+    """
+    core = protected[: _TRAILERS.search(protected).start()]
+    return core[-1:] in (".", "!", "?")
+
+
+def _sentences(protected: str) -> list[str]:
+    """Split protected text at whitespace that ends a sentence and precedes
+    something that can start one."""
+    out, start = [], 0
+    for gap in re.finditer(r"\s+", protected):
+        after = protected[gap.end() : gap.end() + 1]
+        if _STARTER.match(after) and _ends_sentence(protected[start : gap.start()]):
+            out.append(protected[start : gap.start()])
+            start = gap.end()
+    out.append(protected[start:])
+    return out
 
 
 def _split_paragraph(text: str) -> list[str]:
     """One prose paragraph (already joined to a single string) -> lines."""
     protected = _protect(text)
-    sentences = _BOUNDARY.split(protected)
+    sentences = _sentences(protected)
     lines: list[str] = []
     for s in sentences:
         s = s.strip()
@@ -156,6 +189,7 @@ _PASSTHROUGH = re.compile(
         ---+\s*$      |   # thematic break / front-matter rule
         \*\*\*+\s*$   |   # thematic break
         ___+\s*$      |   # thematic break
+        \{\{[<%]       |   # a Hugo shortcode on its own line
         \[[^\]]+\]:       # link reference definition
     )""",
     re.VERBOSE,
@@ -172,11 +206,13 @@ def _passthrough_line(line: str) -> bool:
 
 
 def _consume_frontmatter(lines: list[str], out: list[str]) -> list[str]:
-    """If `lines` opens with a YAML `---` block, copy it verbatim to `out`.
+    """If `lines` opens with a frontmatter block, copy it verbatim to `out`.
 
+    Either convention: YAML between `---` lines, or TOML between `+++` lines,
+    which is what Hugo writes by default. The block closes on its own fence.
     Returns the remaining lines. Shared by both modes so a multi-key block is
     never reflowed into prose. Leading single-line HTML comments (such as the
-    ``Added:`` stamp) are skipped when looking for the opening ``---``.
+    ``Added:`` stamp) are skipped when looking for the opening fence.
     """
     start = 0
     while (
@@ -185,7 +221,8 @@ def _consume_frontmatter(lines: list[str], out: list[str]) -> list[str]:
         and lines[start].strip().endswith("-->")
     ):
         start += 1
-    if start < len(lines) and lines[start].strip() == "---":
+    if start < len(lines) and lines[start].strip() in ("---", "+++"):
+        fence = lines[start].strip()
         for j in range(start):
             out.append(lines[j])
         out.append(lines[start])
@@ -193,7 +230,7 @@ def _consume_frontmatter(lines: list[str], out: list[str]) -> list[str]:
         while i < len(lines):
             out.append(lines[i])
             i += 1
-            if lines[i - 1].strip() == "---":
+            if lines[i - 1].strip() == fence:
                 break
         return lines[i:]
     return lines
@@ -284,10 +321,19 @@ def rewrap(text: str) -> str:
     lines = _split_comment_lines(_consume_frontmatter(lines, out))
 
     def flush() -> None:
-        if para:
-            joined = " ".join(s.strip() for s in para)
-            out.extend(_split_paragraph(joined))
-            para.clear()
+        # A line the author already ended on a sentence end stays ended, even
+        # when the next one opens in lowercase or code ("virtio-blk is a block
+        # device.", "`cache=none` is ..."), which no capital-letter rule can
+        # recognize as a new sentence. Only the lines between are joined.
+        group: list[str] = []
+        for line in para:
+            group.append(line.strip())
+            if _ends_sentence(_protect(line.rstrip() + " ").rstrip()):
+                out.extend(_split_paragraph(" ".join(group)))
+                group = []
+        if group:
+            out.extend(_split_paragraph(" ".join(group)))
+        para.clear()
 
     for line in lines:
         # Fenced code blocks: copy verbatim.
@@ -382,6 +428,7 @@ _PASS_COL = re.compile(
         ---+\s*$      |   # thematic break
         \*\*\*+\s*$   |   # thematic break
         ___+\s*$      |   # thematic break
+        \{\{[<%]       |   # a Hugo shortcode on its own line
         \[[^\]]+\]:       # link reference definition
     )""",
     re.VERBOSE,
@@ -676,22 +723,81 @@ def project_relative(path: str) -> str:
         return p.as_posix()
 
 
-def classify(path: str) -> str:
-    """Choose a format, with project-specific classification explicitly selected."""
-    from quirework.project import current_project, extension
+_MODE_NAMES = ("sentence", "column", "trailing", "skip")
 
-    configured = current_project().get("text.classifier")
+
+def _glob_regex(pattern: str) -> re.Pattern:
+    """A path glob as a regex over project-relative POSIX paths.
+
+    `**/` matches any number of directories, including none; `*` and `?` stay
+    inside one path segment. `fnmatch` lets `*` cross a slash, which would make
+    `content/*.md` claim every file under `content/`.
+    """
+    out, i = [], 0
+    while i < len(pattern):
+        if pattern.startswith("**/", i):
+            out.append("(?:[^/]+/)*")
+            i += 3
+        elif pattern.startswith("**", i):
+            out.append(".*")
+            i += 2
+        elif pattern[i] == "*":
+            out.append("[^/]*")
+            i += 1
+        elif pattern[i] == "?":
+            out.append("[^/]")
+            i += 1
+        else:
+            out.append(re.escape(pattern[i]))
+            i += 1
+    return re.compile("".join(out) + r"\Z")
+
+
+def _declared_mode(path: str, table) -> str | None:
+    """The first `[glob, mode]` row of `text.modes` matching the path, if any."""
+    rel = project_relative(path)
+    for row in table:
+        if not (isinstance(row, (list, tuple)) and len(row) == 2):
+            raise ValueError(f"text.modes rows are [glob, mode] pairs, not {row!r}")
+        glob, mode = row
+        if mode not in _MODE_NAMES:
+            raise ValueError(
+                f"text.modes: {mode!r} is not a mode ({', '.join(_MODE_NAMES)})"
+            )
+        if _glob_regex(glob).match(rel):
+            return mode
+    return None
+
+
+def classify(path: str) -> str:
+    """Choose a format: a saved run record is never touched, then the project's
+    own rule (an extension or a table of globs), then the built-in default."""
+    from quirework.project import ConfigurationError, current_project, extension
+
+    project = current_project()
+    configured = project.get("text.classifier")
+    table = project.get("text.modes")
+    if configured and table:
+        raise ConfigurationError(
+            "text.classifier and text.modes both choose wrap modes; keep one"
+        )
     if configured:
         mode = extension(configured)(path)
-        if mode not in {"sentence", "column", "trailing", "skip"}:
+        if mode not in _MODE_NAMES:
             raise ValueError(f"text classifier returned an unknown mode: {mode}")
         return mode
+    if run_evidence(project_relative(path)):
+        return "skip"
+    if table:
+        mode = _declared_mode(path, table)
+        if mode is not None:
+            return mode
     if Path(path).name == "GEMINI.md":
         return "trailing"
     if path.endswith(".qmd"):
         return "sentence"
     if path.endswith(".md"):
-        return "skip" if run_evidence(project_relative(path)) else "column"
+        return "column"
     return "skip"
 
 
@@ -748,9 +854,16 @@ The mode is chosen by path, so just pass files and each gets the right one:
   skip       never touched
              files inside a saved run record, which stay verbatim
 
-A project chooses differently by selecting text.classifier in its
-configuration: a function that takes a path and returns one of these
-four names. That is where a book puts rules only it has.
+A project chooses differently in its configuration. text.modes is a
+list of [glob, mode] rows over project-relative paths, first match
+wins, and anything unmatched falls back to the rules above:
+
+  [text]
+  modes = [["content/**/*.md", "sentence"], ["**/*.md", "column"]]
+
+text.classifier instead selects a function that takes a path and
+returns one of these four names, for rules a glob cannot say.
+Files inside a saved run record are skipped under either.
 """
 
 

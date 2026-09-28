@@ -678,9 +678,10 @@ the questions it actually asked.
 `checks.command` names a function in the project's package, and
 `quirework dev check` runs it. That is where a book's own rules live:
 prose guards, vocabulary rules, anything Quirework has no business
-knowing. `text.classifier` similarly selects a function deciding each
-source path's formatting mode, so a project can wrap its guides at 72
-columns and keep its chapters one sentence per line.
+knowing. `text.modes` maps paths to formatting modes, so a project can
+wrap its guides at 72 columns and keep its chapters one sentence per
+line; `text.classifier` selects a function instead, for a rule a glob
+cannot say.
 
 ## Where to go next
 

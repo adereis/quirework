@@ -495,3 +495,134 @@ def test_the_numero_sign_still_holds_its_number():
         "It came in at No.7 on the list.",
     ):
         assert mdwrap.rewrap(src) == src
+
+
+# --------------------------------------------------------------------------
+# A site's Markdown: TOML frontmatter, shortcodes, and technical prose.
+# --------------------------------------------------------------------------
+
+
+def test_toml_frontmatter_is_kept_verbatim_in_both_modes():
+    src = (
+        "+++\ntitle = 'A. Kettle. Blog.'\n# a comment, not a heading\n+++\n\n"
+        "The kettle sat. The lid rattled."
+    )
+    assert mdwrap.rewrap(src).startswith(
+        "+++\ntitle = 'A. Kettle. Blog.'\n# a comment, not a heading\n+++\n"
+    )
+    assert mdwrap.rewrap(src).endswith("The kettle sat.\nThe lid rattled.")
+    assert mdwrap.reflow_columns(src, 72).startswith(src.split("\n\n")[0])
+
+
+def test_a_shortcode_line_passes_through():
+    src = '{{< figure src="kettle.svg" caption="One. Two. Three." >}}'
+    assert mdwrap.rewrap(src) == src
+    assert mdwrap.reflow_columns(src, 20) == src
+
+
+def test_a_footnote_reference_stays_with_its_sentence():
+    src = "It shows up on the bill.[^bill] That is the difference."
+    assert mdwrap.rewrap(src) == (
+        "It shows up on the bill.[^bill]\nThat is the difference."
+    )
+
+
+def test_an_author_s_break_before_a_lowercase_sentence_is_kept():
+    """No capital-letter rule can see `virtio-blk` start a sentence, so a
+    break the author already put after a sentence end is not undone."""
+    src = "The distinction is between two options.\nvirtio-blk is a block device."
+    assert mdwrap.rewrap(src) == src
+    joined = "One option is a bus.\n`cache=none` is the usual choice."
+    assert mdwrap.rewrap(joined) == joined
+
+
+def test_a_joined_lowercase_sentence_is_left_joined():
+    """The same pair on one line has no break to keep, and guessing one from a
+    lowercase word would split every "e.g. virtio" the abbreviation list
+    missed. The line stays as written."""
+    src = "One option is a bus. virtio-blk is a block device."
+    assert mdwrap.rewrap(src) == src
+
+
+def test_io_ends_a_sentence_but_initials_do_not():
+    assert mdwrap.rewrap("It uses direct I/O. It has five answers.") == (
+        "It uses direct I/O.\nIt has five answers."
+    )
+    assert mdwrap.rewrap("W. V. O. Quine wrote it. U.S. Army files agree.") == (
+        "W. V. O. Quine wrote it.\nU.S. Army files agree."
+    )
+
+
+def test_an_inline_note_is_left_where_the_author_put_it():
+    """Pandoc's `^[...]` closes on a bracket; whether a sentence ends after the
+    note is the author's call, so the text around it is left as written."""
+    src = "So the position has a name.^[Held to it at the back.] Each step is walked."
+    assert mdwrap.rewrap(src) == src
+
+
+# --------------------------------------------------------------------------
+# Wrap modes declared as a table of globs.
+# --------------------------------------------------------------------------
+
+
+def _modes(tmp_path, **text):
+    from quirework.project import Project
+
+    return Project.from_settings(tmp_path, {"text": text})
+
+
+def test_declared_modes_are_read_first_match_wins(tmp_path):
+    from quirework.project import project_scope
+
+    table = [["content/**/*.md", "sentence"], ["**/*.md", "column"]]
+    with project_scope(_modes(tmp_path, modes=table)):
+        assert mdwrap.classify(str(tmp_path / "content/posts/a/index.md")) == "sentence"
+        assert mdwrap.classify(str(tmp_path / "content/about.md")) == "sentence"
+        assert mdwrap.classify(str(tmp_path / "ideas/a/brief.md")) == "column"
+        assert mdwrap.classify(str(tmp_path / "AGENTS.md")) == "column"
+        # Unmatched falls back to the built-in rule.
+        assert mdwrap.classify(str(tmp_path / "notes.txt")) == "skip"
+
+
+def test_a_single_star_stays_inside_one_directory(tmp_path):
+    from quirework.project import project_scope
+
+    table = [["content/*.md", "sentence"]]
+    with project_scope(_modes(tmp_path, modes=table)):
+        assert mdwrap.classify(str(tmp_path / "content/about.md")) == "sentence"
+        assert mdwrap.classify(str(tmp_path / "content/posts/a.md")) == "column"
+
+
+def test_a_saved_run_record_is_never_reflowed_whatever_the_table_says(tmp_path):
+    from quirework.project import Project, project_scope
+
+    project = Project.from_settings(
+        tmp_path,
+        {
+            "text": {"modes": [["**/*.md", "sentence"]]},
+            "runs": {"evidence_roots": ["reads"]},
+        },
+    )
+    with project_scope(project):
+        assert mdwrap.classify(str(tmp_path / "reads/one/answer.md")) == "skip"
+
+
+def test_an_unknown_mode_in_the_table_is_refused(tmp_path):
+    import pytest
+
+    from quirework.project import project_scope
+
+    with project_scope(_modes(tmp_path, modes=[["**/*.md", "prose"]])):
+        with pytest.raises(ValueError, match="'prose' is not a mode"):
+            mdwrap.classify(str(tmp_path / "a.md"))
+
+
+def test_a_table_and_a_classifier_together_are_refused(tmp_path):
+    import pytest
+
+    from quirework.project import ConfigurationError, project_scope
+
+    project = _modes(tmp_path, modes=[["**/*.md", "column"]], classifier="x:y")
+    with project_scope(project):
+        with pytest.raises(ConfigurationError, match="keep one"):
+            mdwrap.classify(str(tmp_path / "a.md"))
