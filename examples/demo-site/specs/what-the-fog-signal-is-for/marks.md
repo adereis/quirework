@@ -13,6 +13,6 @@
 
 ## What fog does to a sound
 
-<!-- @bind(fog-thesis) -->
+<!-- @bind(thesis) -->
 <!-- @todo a ship in the fog would help; a composite, labeled as one -->
 <!-- @bind(no-real-rescues) -->

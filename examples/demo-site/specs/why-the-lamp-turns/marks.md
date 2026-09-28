@@ -9,7 +9,7 @@
 ## A light has to say which light it is
 
 <!-- @bind(recognizable-signal) -->
-<!-- @bind(lamp-thesis) -->
+<!-- @bind(thesis) -->
 
 ## What the turning costs
 
