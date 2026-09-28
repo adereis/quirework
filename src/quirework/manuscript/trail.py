@@ -212,7 +212,7 @@ def parse(text, path):
     sidecar = Sidecar(Path(path))
     where = _rel(path)
     lines = text.split("\n")
-    shown = notes._mask_nonprose(notes._mask_fences(text)).split("\n")
+    shown = notes._mask_nonprose(notes.mask_fences(text)).split("\n")
     preamble, item = [], None
 
     def close():
@@ -1261,7 +1261,7 @@ def _git(root, *args):
 
 def _section_range(text, slug):
     """``(first, last)`` 1-based lines of the section anchored ``slug``."""
-    masked = notes._mask_nonprose(notes._mask_fences(text))
+    masked = notes._mask_nonprose(notes.mask_fences(text))
     heads = [m for m in notes._HEADING.finditer(masked) if len(m.group(1)) == 2]
     for i, m in enumerate(heads):
         anchor = notes._ATTR_ID.search(m.group(3) or "")

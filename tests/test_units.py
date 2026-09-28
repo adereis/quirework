@@ -27,14 +27,14 @@ def test_sidecars_are_found_under_a_source_not_named_docs(tmp_path):
     root, sidecar = _book(tmp_path, "manuscript")
     project = _project(root, source="manuscript", chapters="manuscript/sections")
     with project_scope(project):
-        assert units._layer_files() == [sidecar]
+        assert units.layer_files() == [sidecar]
 
 
 def test_a_source_named_docs_resolves(tmp_path):
     root, sidecar = _book(tmp_path, "docs")
     project = _project(root, source="docs", chapters="docs/sections")
     with project_scope(project):
-        assert units._layer_files() == [sidecar]
+        assert units.layer_files() == [sidecar]
 
 
 def test_a_sidecar_beside_the_front_matter_is_included(tmp_path):
@@ -46,7 +46,7 @@ def test_a_sidecar_beside_the_front_matter_is_included(tmp_path):
     preface.write_text("# Preface {#sec-preface}\n")
     project = _project(root, source="manuscript", chapters="manuscript/sections")
     with project_scope(project):
-        assert units._layer_files() == sorted([sidecar, preface])
+        assert units.layer_files() == sorted([sidecar, preface])
 
 
 def test_a_declared_policy_still_wins(tmp_path):
@@ -62,8 +62,8 @@ def test_a_declared_policy_still_wins(tmp_path):
         chapter_policy="chapters.toml",
     )
     with project_scope(project):
-        assert units._layer_files() == [other]
-        assert sidecar not in units._layer_files()
+        assert units.layer_files() == [other]
+        assert sidecar not in units.layer_files()
 
 
 def test_a_declared_policy_needs_no_book_source(tmp_path):
@@ -78,4 +78,4 @@ def test_a_declared_policy_needs_no_book_source(tmp_path):
     policy.write_text('metadata_layers = ["notes.md"]\n')
     project = _project(root, chapter_policy="chapters.toml")
     with project_scope(project):
-        assert units._layers() == ("notes.md",)
+        assert units.layers() == ("notes.md",)

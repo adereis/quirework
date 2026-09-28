@@ -554,7 +554,11 @@ and visual choices out of Quirework's implementation:
 
 - `manuscript.chapter_policy`: `metadata_layers`. The metadata layers
   default to the sidecar directories under `manuscript.source`, so a
-  project declares this only to scan something else.
+  project declares this only to scan something else. An extension that
+  runs a guard of its own over the same files asks
+  `manuscript.units.layer_files()` for them and blanks fenced examples
+  with `manuscript.notes.mask_fences()`, so it reads exactly what
+  `spec units --check` reads.
 - `publish.layout_policy`: `typst_prologues` and `typst_epilogues`.
 - `publish.render_policy`: `print_drops` and `epub_style_headers`
   requiring CSS-comment cleanup in staged EPUB headers.

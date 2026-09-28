@@ -133,7 +133,14 @@ def _default_layers() -> tuple[str, ...]:
     return formats.current().default_layers(current_project())
 
 
-def _layers() -> tuple[str, ...]:
+def layers() -> tuple[str, ...]:
+    """The metadata layers, as globs relative to the project root.
+
+    What `manuscript.chapter_policy` declares under `metadata_layers`, else
+    the format's sidecar layout. An extension scanning these layers for a
+    guard of its own asks here, so it reads exactly what `spec units --check`
+    reads.
+    """
     configured = (
         current_project().data("manuscript.chapter_policy", {}).get("metadata_layers")
     )
@@ -143,10 +150,12 @@ def _layers() -> tuple[str, ...]:
     return tuple(configured) if configured is not None else _default_layers()
 
 
-def _layer_files(root: Path | None = None) -> list[Path]:
+def layer_files(root: Path | None = None) -> list[Path]:
+    """Every file the metadata layers match, sorted, under `root` (the
+    project root by default)."""
     base = Path(root) if root is not None else current_project().root
     out: list[Path] = []
-    for pattern in _layers():
+    for pattern in layers():
         out += sorted(p for p in base.glob(pattern) if p.is_file())
     return sorted(set(out))
 
@@ -166,14 +175,14 @@ def scan_layers(root: Path | None = None, known: set[str] | None = None) -> list
     base = Path(root) if root is not None else current_project().root
     known = known if known is not None else slugs()
     unresolved: list[Hit] = []
-    for f in _layer_files(base):
+    for f in layer_files(base):
         rel = str(f.relative_to(base))
         # Fenced code is masked, length-preserving, exactly as notes.scan does:
         # a documented *example* of the pointer form is not a live reference,
         # and the guide has to be able to show one. Prose that needs to name
         # the tag does it without the delimiters, which is the same convention
         # the sidecar banners already use for @-marks.
-        text = notes._mask_fences(f.read_text(encoding="utf-8"))
+        text = notes.mask_fences(f.read_text(encoding="utf-8"))
         for n, line in enumerate(text.splitlines(), 1):
             for m in UNIT_REF.finditer(line):
                 if m.group(1) not in known:

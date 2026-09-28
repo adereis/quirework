@@ -295,8 +295,13 @@ def _blank(m: re.Match) -> str:
     return "".join(c if c == "\n" else " " for c in m.group(0))
 
 
-def _mask_fences(text: str) -> str:
-    """Blank fenced code (keeping length + newlines, so offsets/lines are stable)."""
+def mask_fences(text: str) -> str:
+    """Blank fenced code (keeping length + newlines, so offsets/lines are stable).
+
+    A fenced block holds examples, never live marks or references, which is
+    how a guide can show the form it documents. An extension scanning the
+    same files for a guard of its own masks them here, so the two agree on
+    what counts as an example."""
     return _FENCE.sub(_blank, text)
 
 
@@ -304,7 +309,7 @@ def _mask_nonprose(text: str) -> str:
     """Blank HTML comments and frontmatter, for heading detection only.
 
     Frontmatter is either convention, YAML or TOML: a TOML comment line starts
-    with `#` exactly like a heading. Length-preserving like _mask_fences, so
+    with `#` exactly like a heading. Length-preserving like mask_fences, so
     heading offsets computed on the masked text index straight into the
     unmasked one."""
     found = frontmatter.block(text)
@@ -422,7 +427,7 @@ def scan_text(text: str, rel: str, source: str | None = None) -> list[Annotation
     """Harvest one file's marks. `rel` is what the marks are attributed to (the
     chapter); `source` is where they were read from (the sidecar), and defaults
     to `rel` for a file that indexes itself."""
-    text = _mask_fences(text)  # offsets/line numbers preserved; fenced examples blanked
+    text = mask_fences(text)  # offsets/line numbers preserved; fenced examples blanked
     headings = _headings(text)
     src = source or rel
     out = []
@@ -565,7 +570,7 @@ def _spec_names(docs=None) -> tuple[str, ...]:
 
 
 def _sections_of(spec: Path) -> list[Section]:
-    text = _mask_fences(spec.read_text())
+    text = mask_fences(spec.read_text())
     lvl2 = []
     for m in _HEADING.finditer(_mask_nonprose(text)):
         if len(m.group(1)) != 2:
@@ -651,7 +656,7 @@ def _chapter_title(rel: str) -> str:
     """A human label for a source file: a frontmatter title, else its first
     heading, else the stem."""
     try:
-        text = _mask_fences((current_project().root / rel).read_text())
+        text = mask_fences((current_project().root / rel).read_text())
     except OSError:
         return Path(rel).stem
     try:
@@ -987,7 +992,7 @@ def coverage(
     stems = units.names(docs)
     by_slug: dict[str, list[str]] = {}
     for f in companion_files(root if root is not None else docs.parent):
-        pairs, _ = anchor_pairs(_mask_fences(f.read_text()), stems, spec)
+        pairs, _ = anchor_pairs(mask_fences(f.read_text()), stems, spec)
         for _, slug in pairs:
             if slug in spec:
                 by_slug.setdefault(slug, []).append(f.stem)
@@ -1022,7 +1027,7 @@ def companion_check(
     binds = chapter_bindings(docs)
     label = f"**{_anchors_label()}:**"
     for f in companion_files(root):
-        text = _mask_fences(f.read_text())
+        text = mask_fences(f.read_text())
         rel = _rel(f)
         anchor_run = _anchors_run(text)
         for m in _BIND_TOKEN.finditer(text):
@@ -1190,7 +1195,7 @@ def _findings(docs: Path) -> tuple[list[str], list[tuple[str, list[str]]]]:
 
     # 1. every prose file is mark-free.
     for prose in units.prose_files(docs):
-        text = _mask_fences(prose.read_text())
+        text = mask_fences(prose.read_text())
         for m in _ANNO.finditer(text):
             ln = text.count("\n", 0, m.start()) + 1
             home = units.marks_path(units.slug_of(prose), docs)
@@ -1209,8 +1214,8 @@ def _findings(docs: Path) -> tuple[list[str], list[tuple[str, list[str]]]]:
                 f"{_rel(side)}: orphan sidecar — no {units.noun()} {named} for it"
             )
             continue
-        ch_labels = {lbl for _, lbl in _headings(_mask_fences(unit.read_text()))}
-        for _, lbl in _headings(_mask_fences(side.read_text())):
+        ch_labels = {lbl for _, lbl in _headings(mask_fences(unit.read_text()))}
+        for _, lbl in _headings(mask_fences(side.read_text())):
             if lbl not in ch_labels:
                 problems.append(
                     f"{_rel(side)}: heading '{lbl}' has no matching heading or "
