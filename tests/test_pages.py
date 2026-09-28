@@ -256,3 +256,21 @@ def test_since_reads_marks_outside_the_source_from_the_revision(site, capsys):
     new = err[err.index("new since HEAD:") : err.index("standing")]
     assert "author's call" in new
     assert "2031-04-02" not in new
+
+
+def test_an_origin_in_working_material_is_history_not_a_commitment(site, capsys):
+    """@genesis names the brief a post grew from; @guidance resting on the
+    same directory has put a commitment somewhere the site does not carry."""
+    settings = {
+        "manuscript": {**SETTINGS["manuscript"], "noncanonical_roots": ["ideas/"]}
+    }
+    marks = site / "specs" / "notes-on-a-kettle" / "marks.md"
+    marks.write_text(
+        "<!-- @genesis the brief in ideas/kettle -->\n"
+        "<!-- @guidance as ideas/kettle says -->\n" + KETTLE_MARKS
+    )
+    with project_scope(Project.from_settings(site, settings)):
+        assert notes.check() == 0
+    err = capsys.readouterr().err
+    assert "@guidance" in err[err.index("reference ideas/") :]
+    assert "@genesis" not in err

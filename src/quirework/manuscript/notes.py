@@ -1343,7 +1343,11 @@ def _findings(docs: Path) -> tuple[list[str], list[tuple[str, list[str]]]]:
             [
                 f"  {at(a)}"
                 for a in annos
-                if any(root in a.body for root in noncanonical)
+                # An origin story names where the material came from, which
+                # is often a brief in working material. That records history
+                # rather than resting a commitment on it, the same reason
+                # @genesis is exempt from the journaling lint.
+                if a.kind != "genesis" and any(root in a.body for root in noncanonical)
             ],
         )
     )
