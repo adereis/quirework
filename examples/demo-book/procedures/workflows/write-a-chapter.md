@@ -3,7 +3,7 @@
 <!-- @skill: Write or revise a chapter of Chapter and Verse Control,
      from the primer through the gates. -->
 
-Read `quirework book notes --primer` before touching any prose. It
+Read `quirework spec notes --primer` before touching any prose. It
 prints the spec's commitments and every chapter's guidance and bindings;
 know what a chapter is supposed to express before changing what it says.
 
@@ -16,22 +16,22 @@ expresses, update its `@bind` lines in its sidecar to match, and say so.
 A `@bind` that used to be true and no longer is is worse than none.
 
 Before changing what a commitment says, read how it got there:
-`quirework book trail --chapter NAME` for every section the chapter
-binds, then `quirework book trail SLUG` for the one you are touching.
+`quirework spec trail --chapter NAME` for every section the chapter
+binds, then `quirework spec trail SLUG` for the one you are touching.
 The trail points at the author's own turns, oldest first. It is context,
 never a ruling: what the human asks today wins. When the human's words
 in this session change what a spec section holds, add a breadcrumb for
 that turn with
-`quirework book trail add SLUG --kind KIND --find "words they typed" --note "..."`,
+`quirework spec trail add SLUG --kind KIND --find "words they typed" --note "..."`,
 and say so.
 
 Before calling the work done, run the gates in this order and fix
 whatever they report:
 
-1. `quirework book chapters --check`
-2. `quirework book notes --check`
-3. `quirework book trail --check`
-4. `quirework book figures --check`
+1. `quirework spec units --check`
+2. `quirework spec notes --check`
+3. `quirework spec trail --check`
+4. `quirework publish figures --check`
 5. `quirework config check`
 
 All five have to pass. None of them reads the prose for whether it is

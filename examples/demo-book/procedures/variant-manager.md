@@ -8,7 +8,7 @@ manages him but has not read a word he has written, and has four minutes
 between two other meetings to find out why he keeps mentioning a tool
 called Quirework.
 
-Run `quirework book variant build manager` to fan out one blind drafter
+Run `quirework publish variant build manager` to fan out one blind drafter
 per chapter. Each drafter reads the whole book for context and rewrites
 only its own chapter for Della, informed by `variant-common.md`'s voice
 rules and the reader profile below. The tool stops at raw drafts in

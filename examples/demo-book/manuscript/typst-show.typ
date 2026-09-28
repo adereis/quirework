@@ -9,8 +9,8 @@
 // copy that opens on a blank title page is worse than one that opens on
 // the cover.
 //
-// `book.typst_template` in quirework.toml names this file, which is where
-// `quirework book fonts` looks for the faces the print build requires. It
+// `publish.typst_template` in quirework.toml names this file, which is where
+// `quirework publish fonts` looks for the faces the print build requires. It
 // declares none, so the build asks only for the faces the figures use.
 
 #import "@preview/orange-book:0.7.1": book, part, chapter, appendices

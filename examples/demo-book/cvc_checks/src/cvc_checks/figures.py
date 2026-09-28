@@ -3,7 +3,7 @@
 STYLE.md (manuscript/sections/illustrations/STYLE.md) states the
 palette, the stroke widths and the type size as exact numbers on
 purpose: "it exists to be checked, not admired." This is that check.
-Wired in as `book.figure_checks`, so `quirework book figures check`
+Wired in as `publish.figure_checks`, so `quirework publish figures check`
 runs it alongside the built-in embed/grayscale gates.
 """
 
@@ -25,7 +25,7 @@ _FONT_FAMILY = re.compile(r'font-family="([^"]*)"')
 def check_style() -> list[str]:
     from quirework.project import current_project
 
-    illustrations = current_project().path("book.figures")
+    illustrations = current_project().path("publish.figures")
     problems: list[str] = []
     for svg in sorted(illustrations.glob("*.svg")):
         text = svg.read_text(encoding="utf-8")

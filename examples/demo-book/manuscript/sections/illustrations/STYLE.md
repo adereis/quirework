@@ -48,7 +48,7 @@ for a looser join, or a second label instead of a longer one.
 
 ## Grayscale edition
 
-`quirework book figures build` derives the gray gallery from these exact
+`quirework publish figures build` derives the gray gallery from these exact
 hex values; nothing is drawn twice. Two colors that read apart by hue
 alone (marginalia against strike, here) still have to read apart by
 weight or position once hue is gone, because the e-ink edition keeps

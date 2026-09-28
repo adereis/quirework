@@ -24,11 +24,11 @@
       "skill": true,
       "requires": [],
       "mechanics": [
-        "quirework book notes --primer",
-        "quirework book chapters --check",
-        "quirework book notes --check",
-        "quirework book trail --check",
-        "quirework book figures --check",
+        "quirework spec notes --primer",
+        "quirework spec units --check",
+        "quirework spec notes --check",
+        "quirework spec trail --check",
+        "quirework publish figures --check",
         "quirework config check"
       ],
       "followups": [],
@@ -51,7 +51,7 @@
         "variant-common"
       ],
       "mechanics": [
-        "quirework book variant build manager"
+        "quirework publish variant build manager"
       ],
       "followups": [],
       "note": ""
@@ -62,13 +62,13 @@
       "skill": true,
       "requires": [],
       "mechanics": [
-        "quirework book trail",
-        "quirework book trail suggest SLUG",
+        "quirework spec trail",
+        "quirework spec trail suggest SLUG",
         "quirework provenance search",
         "quirework provenance show",
-        "quirework book trail add",
-        "quirework book trail --check",
-        "quirework book notes --check"
+        "quirework spec trail add",
+        "quirework spec trail --check",
+        "quirework spec notes --check"
       ],
       "followups": [],
       "note": ""

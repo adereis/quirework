@@ -1,4 +1,4 @@
-# Read by `quirework book build` through the matching setting in
+# Read by `quirework publish build` through the matching setting in
 # quirework.toml. Project policy, not a change to the reusable tool.
 
 # Chapters emptied in the print stage only. Quarto pins index.qmd to

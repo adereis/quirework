@@ -18,12 +18,12 @@ instead of finishing his book. Read it in five minutes, or run it:
 
 ```bash
 cd examples/demo-book
-quirework book notes --primer      # what a writing session reads first
-quirework book chapters --check    # the files and the reading order agree
-quirework book notes --check       # the marks still describe the prose
-quirework book figures --check     # every embed resolves and converts to gray
+quirework spec notes --primer      # what a writing session reads first
+quirework spec units --check       # the files and the reading order agree
+quirework spec notes --check       # the marks still describe the prose
+quirework publish figures --check  # every embed resolves and converts to gray
 quirework sop list                 # the procedures this book keeps
-quirework book build               # all four editions, and they agree
+quirework publish build            # all four editions, and they agree
 ```
 
 That last one stages the book three times, renders HTML, a PDF through

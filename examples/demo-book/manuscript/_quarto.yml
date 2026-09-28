@@ -16,7 +16,7 @@ book:
     - sections/preface.qmd
     - sections/the-book-that-disagreed-with-itself.qmd
     - sections/the-sidecar.qmd
-# Four editions from one source. `quirework book build` stages each of
+# Four editions from one source. `quirework publish build` stages each of
 # them separately, because they disagree about front matter and about
 # parts, and it checks afterwards that a figure carries the same number
 # in all four.
@@ -25,8 +25,8 @@ format:
     theme: cosmo
   # The print interior. Page size and margins come from Quarto's own book
   # template, which applies them after any `papersize` set here and wins;
-  # a book that wants its own geometry supplies book.typst_template, which
-  # is also where `quirework book fonts` reads the faces the build needs.
+  # a book that wants its own geometry supplies publish.typst_template, which
+  # is also where `quirework publish fonts` reads the faces the build needs.
   typst:
     template-partials:
       - typst-show.typ
