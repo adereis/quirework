@@ -176,9 +176,9 @@ family resolved to the previous generation. The file is used only when
 Codex cannot be asked, and the resolution then states how old it is.
 Every resolution records its `catalog_source`.
 
-`quirework publish plan` compiles rendered book packets, comparisons, and
-bundles. `quirework sop panel` compiles a declared panel. These helpers
-live above the generic execution engine.
+`quirework publish plan` compiles rendered book packets, comparisons,
+and bundles. `quirework sop panel` compiles a declared panel. These
+helpers live above the generic execution engine.
 
 A panel model allocation accepts `tier: cheap | premium | standard`.
 Every seat built from that allocation inherits its tier. For example, a
@@ -649,22 +649,23 @@ the difference to the human.
 
 Sequential delivery hands the seat one chapter per launch and the
 operator controls every reveal. `quirework publish packet` builds the
-segments and `quirework publish plan read` compiles them. The material is
-frozen into the record, which is what lets the record certify the bytes
-the reader saw, and the cost is one launch per chapter.
+segments and `quirework publish plan read` compiles them. The material
+is frozen into the record, which is what lets the record certify the
+bytes the reader saw, and the cost is one launch per chapter.
 
-A self-driven read launches once. `quirework publish packet --prose-dir
-DIR` writes the reader-facing projection of each chapter plus the
-figures under the names the chapter text references. It prints no alt
-text: the seat opens the figures themselves, and a description beside
-each embed let a seat rate plates it never opened. Its provenance
-goes beside the directory, never in it, because the directory is what
-the seat mounts: `DIR.manifest.json` records the book state, whether it
-had uncommitted edits, and a digest of every file. `quirework publish plan
-selfdriven DIR PLAN --mount PATH` compiles the walk: the seat
-opens each chapter with its own tools, opens the figures that chapter
-references, and writes a reaction file before opening the next one. One
-session's prefix only grows, so most of its input is served from cache.
+A self-driven read launches once.
+`quirework publish packet --prose-dir DIR` writes the reader-facing
+projection of each chapter plus the figures under the names the chapter
+text references. It prints no alt text: the seat opens the figures
+themselves, and a description beside each embed let a seat rate plates
+it never opened. Its provenance goes beside the directory, never in it,
+because the directory is what the seat mounts: `DIR.manifest.json`
+records the book state, whether it had uncommitted edits, and a digest
+of every file. `quirework publish plan selfdriven DIR PLAN --mount PATH`
+compiles the walk: the seat opens each chapter with its own tools, opens
+the figures that chapter references, and writes a reaction file before
+opening the next one. One session's prefix only grows, so most of its
+input is served from cache.
 
 The two are not interchangeable, and the differences belong in the
 charter. The self-driven material is mounted rather than frozen, so the

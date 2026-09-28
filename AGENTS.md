@@ -1,20 +1,25 @@
 # Quirework contributor guide
 
-Quirework is a reusable book-writing and research companion. Books are
-consumers of this package and supply their own content, configuration,
-personas, procedures, and editorial rules.
+Quirework is a reusable writing and research companion. Books and sites
+are consumers of this package and supply their own content,
+configuration, personas, procedures, and editorial rules.
 
-Quirework is the tool, never a book. Do not import a consumer's
-vocabulary, claims, or private material into this repository, and do not
-carry a consumer's guidance into a change here. A session is usually
-driven from a book checkout, so this is the boundary an assistant
-arriving with that project's instructions is most likely to cross.
+Quirework is the tool, never a book or a site. Do not import a
+consumer's vocabulary, claims, or private material into this repository,
+and do not carry a consumer's guidance into a change here. A session is
+usually driven from a consumer's checkout, so this is the boundary an
+assistant arriving with that project's instructions is most likely to
+cross.
 
 ## Architecture
 
 Keep one distribution and one Python namespace. Domain modules expose
 services independently of command parsing. Provider adapters and the run
-engine must not import book-specific workflows. Resolve project settings
+engine import neither the manuscript nor a publisher, and the manuscript
+never imports a publisher, since a project may render with none of
+them. A format or a backend is added behind `manuscript.units` or
+`publish.backends`, never by teaching a caller a file extension.
+Resolve project settings
 at the operation boundary, never from the installed package location.
 Preserve isolation across projects, worktrees, threads, and processes.
 
@@ -40,33 +45,38 @@ book content, private transcripts, credentials, or runtime homes into
 this repository.
 
 Keep the public API and command interface understandable to an author
-using a different book project, and verify independent installation and
+using a different project, a book or a site, and verify independent
+installation and
 project isolation. Preserve execution evidence through refactors. An
 uncertain provider request must be reconciled before any resubmission. A
 completed answer with a failed run condition remains available with its
 limitations.
 
-## The example
+## The examples
 
 `examples/demo-book` is a book that consumes this package: a manuscript
 with a spec and marks, a figure and its style guide, its own procedures,
-an installed extension, a derived edition and a captured corpus. It is
-documentation and a fixture at once, and `tests/test_example_book.py`
-runs an author's gates against it on every test run.
+an installed extension, a derived edition and a captured corpus.
+`examples/demo-site` is a site that does: posts in page bundles, a spec
+per post beside a shared one, marks outside the rendered tree, declared
+wrap modes and a voice policy. Each is documentation and a fixture at
+once, and `tests/test_example_book.py` and `tests/test_example_site.py`
+run an author's gates against them on every test run.
 
-Treat it as a consumer. Its vocabulary, characters and editorial rules
-stay inside that directory and never enter `src/`, and its content is
-fiction written for the purpose. When a change to Quirework breaks it,
-the example is usually right: it is the only project here that was not
-designed around the implementation.
+Treat them as consumers. Each one's vocabulary, characters and
+editorial rules stay inside its directory and never enter `src/`, and
+its content is fiction written for the purpose. When a change to
+Quirework breaks one, the example is usually right: the examples are
+the only projects here that were not designed around the
+implementation.
 
 ## Git
 
 Stage only reviewed files. Keep each commit on one side of the
 tool-and-consumer boundary: a change to Quirework under `src/`, `docs/`
-or `tests/` never shares a commit with a change to an example book under
+or `tests/` never shares a commit with a change to an example under
 `examples/`, so the tool's own history can be reviewed without reading
-around a book's content. Keep commit subjects within 50 columns and
+around an example's content. Keep commit subjects within 50 columns and
 prose body lines within 72 columns. Non-trivial commits explain their
 motivation and important invariants. End commits with a Co-Authored-By
 trailer identifying the model established by the harness. Do not push

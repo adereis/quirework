@@ -25,8 +25,9 @@ does not ship a command for is not Quirework's version to choose.
 
 A book depends on Quirework. Quirework never imports a book's extension
 unless that project explicitly selects it. The execution and provider
-layers import neither `manuscript` nor `publish`. Executor snapshots include their
-runtime dependencies without copying publishing code or book content.
+layers import neither `manuscript` nor `publish`. Executor snapshots
+include their runtime dependencies without copying publishing code or
+book content.
 
 ## The jail
 

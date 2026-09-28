@@ -409,7 +409,8 @@ def report(hits: list[Hit], stream=None) -> None:
     stream = stream or sys.stderr
     if not hits:
         print(
-            "✓ quotes: every cited phrase resolves, in the chapter that cites it.",
+            f"✓ quotes: every cited phrase resolves, in the {units.noun()} "
+            "that cites it.",
             file=stream,
         )
         return
@@ -419,19 +420,19 @@ def report(hits: list[Hit], stream=None) -> None:
         _group(
             wrong,
             stream,
-            f"{len(wrong)} quotation(s) attributed to the wrong chapter",
-            "\n  The words are in the book, but not where the mark says. This is\n"
-            "  what a chapter split leaves behind: the prose moved and the\n"
-            "  citation did not. Repoint the mark, or fix the chapter it names.",
+            f"{len(wrong)} quotation(s) attributed to the wrong {units.noun()}",
+            "\n  The words are in the work, but not where the mark says. This is\n"
+            "  what a split leaves behind: the prose moved and the citation\n"
+            "  did not. Repoint the mark, or fix the unit it names.",
         )
     if absent:
         _group(
             absent,
             stream,
-            f"{len(absent)} cited phrase(s) not found in the book",
+            f"{len(absent)} cited phrase(s) not found in the work",
             "\n  Each is a quotation the prose no longer matches, a phrase the\n"
             "  mark is pinning as forbidden, or a quotation of something outside\n"
-            "  the book. Only the first is a defect. The author rules.",
+            "  the work. Only the first is a defect. The author rules.",
         )
 
 
@@ -440,14 +441,14 @@ def report_all(hits: list[Hit], grep: str | None, stream=None) -> None:
     scope = f" matching {grep!r}" if grep else ""
     if not hits:
         print(
-            f"✓ quotes --all: every other quoted phrase{scope} is in the book.",
+            f"✓ quotes --all: every other quoted phrase{scope} is in the work.",
             file=stream,
         )
         return
     _group(
         hits,
         stream,
-        f"{len(hits)} other quoted phrase(s){scope} not found in the book",
+        f"{len(hits)} other quoted phrase(s){scope} not found in the work",
         "\n  Every quoted span, with no filter for guards, outside sources or\n"
         "  short coinages, so most of these are correct. The ones to fix are\n"
         "  quotations of wording the prose has since changed.",

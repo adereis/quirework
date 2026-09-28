@@ -1,10 +1,11 @@
-# Writing a book with Quirework
+# Writing a book or a site with Quirework
 
 This is the path from an empty directory to a book an AI companion can
 work on without keeping the whole project in one conversation. The
 finished project separates its spec, canon prose, variants, companion
-documents, scratchpad, and private material. Every command below was run against a throwaway project.
-Nothing here is specific to a particular book.
+documents, scratchpad, and private material. The last part walks a site
+of posts through the same layers. Every command below was run against a
+throwaway project. Nothing here is specific to a particular book.
 
 You can follow this guide at a terminal. The expected use is to open the
 book project in Claude Code or Codex and let that companion operate the
@@ -43,8 +44,8 @@ without the ones below it.
 
 | Layer | What it is | The commands |
 |---|---|---|
-| Canon prose | Quarto chapters in a declared reading order | `publish build`, `spec units` |
-| Spec | one file of numbered commitments, each with a slug | `spec notes --primer` |
+| Canon prose | Quarto chapters in a declared reading order, or a site's pages | `publish build`, `spec units` |
+| Spec | numbered commitments, each with a slug, in one file or one per unit | `spec notes --primer` |
 | Marks | per-chapter sidecars of `@`-annotations, including which spec section a chapter expresses | `spec notes`, `spec notes bind` |
 | Companion documents | reader-facing material that cites the spec or canon | `spec notes --check` |
 | Variants | derived editions whose master remains the canon | `publish variant` |
@@ -82,8 +83,8 @@ build = "build"
 variants = "variants"
 ```
 
-Quarto owns reading order and publication settings. `manuscript.quarto` names the
-file that lists the chapters:
+Quarto owns reading order and publication settings. `manuscript.quarto`
+names the file that lists the chapters:
 
 ```yaml
 lang: en-US
@@ -118,10 +119,10 @@ A kettle boils.
 The whistle is a signal, not a thought.
 ```
 
-Then `quirework publish build --to html` renders into `build/`, never back
-into the source. `quirework spec units` prints the reading order, and
-`--check` verifies that the files on disk and the files `_quarto.yml`
-names are the same set.
+Then `quirework publish build --to html` renders into `build/`, never
+back into the source. `quirework spec units` prints the reading order,
+and `--check` verifies that the files on disk and the files
+`_quarto.yml` names are the same set.
 
 A chapter's file name is its identifier. Retitling a chapter does not
 rename it, and inserting one does not renumber anything, because numbers
@@ -495,24 +496,24 @@ definition's figures and counts, so the guide can say "run this" in
 place of the list.
 
 Two hooks make the figure pipeline a project's own without touching
-Quirework. `publish.grayscale_transform` names a function taking SVG text
-and an asset name and returning SVG text, for a book that wants its own
-color-to-gray meaning in the EPUB rather than a generic desaturation.
-`publish.figure_checks` is a list of functions returning diagnostic
-strings, for conventions only this book has. Both are installed Python
-in the project's own package, selected explicitly.
+Quirework. `publish.grayscale_transform` names a function taking SVG
+text and an asset name and returning SVG text, for a book that wants its
+own color-to-gray meaning in the EPUB rather than a generic
+desaturation. `publish.figure_checks` is a list of functions returning
+diagnostic strings, for conventions only this book has. Both are
+installed Python in the project's own package, selected explicitly.
 
-`quirework publish fonts` reports the families the build needs, read out of
-the Typst template and the figure sources rather than declared anywhere.
-A missing family is a hard stop, because Typst and rsvg both substitute
-silently and the book would render whole in the wrong face. `--any-font`
-overrides it.
+`quirework publish fonts` reports the families the build needs, read out
+of the Typst template and the figure sources rather than declared
+anywhere. A missing family is a hard stop, because Typst and rsvg both
+substitute silently and the book would render whole in the wrong face.
+`--any-font` overrides it.
 
 A figure the page shows as an image is drawn in isolation. It can use
 the fonts installed on the reader's device and nothing else, so the
 book's own web fonts never reach its labels, and a reader without the
-face gets a fallback of different widths. `publish.figure_fonts` lists font
-files for the figures to carry instead:
+face gets a fallback of different widths. `publish.figure_fonts` lists
+font files for the figures to carry instead:
 
 ```toml
 [publish]
@@ -683,11 +684,80 @@ wrap its guides at 72 columns and keep its chapters one sentence per
 line; `text.classifier` selects a function instead, for a rule a glob
 cannot say.
 
+## 7. A site instead of a book
+
+A site of long-lived posts, such as a blog built by Hugo, adopts the
+same layers with three differences. Its units are pages rather than
+chapters in a Quarto file. Each post argues its own thing, so each can
+keep a spec of its own. And the site's generator renders everything
+under its source, so marks live somewhere else.
+
+```toml
+schema = 2
+
+[manuscript]
+format = "pages"
+source = "content"
+pages = "posts/*/index.md"
+unit_name = "post"
+marks = "specs/{slug}/marks.md"
+spec = "specs/_site.md"
+unit_spec = "specs/{slug}/spec.md"
+spec_trail = "private/spec-trail.md"
+
+[publish]
+backend = "hugo"
+
+[text]
+modes = [["content/**/*.md", "sentence"], ["**/*.md", "column"]]
+terminology = "quirework/terms.toml"
+```
+
+A post in a page bundle, `content/posts/why-the-lamp-turns/index.md`,
+is the unit `why-the-lamp-turns`. Its frontmatter, TOML or YAML, gives
+its title, its date, which orders the posts, and whether it is a draft.
+`quirework spec units` lists them.
+
+The post's spec is `specs/why-the-lamp-turns/spec.md`, written like any
+spec: its reader, its thesis, its boundaries, each a section with a
+slug. A post binds its own sections without a mark, because it is the
+post they describe. The shared spec holds what several posts lean on,
+and a post binds one of those with `@bind` in its sidecar, under the
+heading that carries it. When a shared claim changes,
+`spec notes bind --slug S` names every post that has to be read again.
+A spec may come before its post: a post is often specified long before
+it is drafted, and `spec notes --check` lists such specs as an advisory
+so a mistyped slug does not hide among them.
+
+`spec notes --primer -c why-the-lamp-turns` is how a session starts on
+one post. It prints that post's spec, the shared sections it binds, and
+its marks, rather than every post's commitments.
+
+The trail works as it does for a book, over one register: breadcrumbs
+are kept by slug, whichever file holds the section. A post often begins
+in a conversation held in another project. Point at that project with a
+`@genesis` mark rather than copying its sessions into this corpus, which
+captures the sessions run here.
+
+Voice rules the site holds to go in the terminology policy. A rule
+already made, such as "no em-dash", is `retired` and fails the check. A
+word that is usually wrong but sometimes right is a `term`, and waits
+for a ruling. `text wrap` keeps the posts one sentence per line and the
+guides at 72 columns, as `text.modes` declares.
+
+`quirework publish build` runs Hugo with the site's own configuration
+into `build/site`, never into the directory the site deploys from.
+Deploying stays the site's business.
+[examples/demo-site](../examples/demo-site) is a small site that walked
+this part.
+
 ## Where to go next
 
 - [examples/demo-book](../examples/demo-book): a finished book that
   followed this guide, with every layer above adopted and nothing else.
   Read its `quirework.toml` beside this page.
+- [examples/demo-site](../examples/demo-site): a small site that
+  followed its last part.
 - [configuration.md](configuration.md): every setting, the layering
   rules, and the annotated templates
   (`quirework config template project`).

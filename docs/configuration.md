@@ -39,42 +39,45 @@ skill_prefix = "notebook-"
 `[manuscript]` describes what is written: where the source is, how its
 units are found, and the spec, marks and trail that bind them.
 `[publish]` describes how that source becomes something a reader opens.
-A project that renders elsewhere declares no `[publish]` section, and its
-spec commands work the same.
+A project that renders elsewhere declares no `[publish]` section, and
+its spec commands work the same.
 
 `manuscript.quarto` names the Quarto project file. The manuscript can
 also name `spec`, `references` and `review_notes`, and the publisher
-`typst_template`, when the project uses those features. `publish.figure_fonts` lists font files that
-every staged figure carries as subsets, so a figure shown as an image is
-lettered in the book's face on a device that lacks it; the [authoring
-guide](authoring.md#4-figures) explains it. `publish.figure_type_floor_pt`
-sets the printed size, in points, under which `figures --check` warns
-about a figure's type; it defaults to 6. Annotation bindings resolve
-against the configured semantic register; a book need not adopt another
-project's claims or vocabulary.
+`typst_template`, when the project uses those features.
+`publish.figure_fonts` lists font files that every staged figure carries
+as subsets, so a figure shown as an image is lettered in the book's face
+on a device that lacks it; the [authoring guide](authoring.md#4-figures)
+explains it. `publish.figure_type_floor_pt` sets the printed size, in
+points, under which `figures --check` warns about a figure's type; it
+defaults to 6. Annotation bindings resolve against the configured
+semantic register; a book need not adopt another project's claims or
+vocabulary.
 
-`manuscript.spec_trail` names the spec's trail sidecar, which points each spec
-section at the conversations that shaped it. It requires a register,
-`manuscript.spec` or `manuscript.unit_spec`,
-and the file need not exist yet: the first `spec trail add` creates it,
-readable by its owner only. Put it with the private material, since it
-points into the private corpus, or in `quirework.local.toml` where the
-corpus lives somewhere else on each machine. Leaving it unset turns the
-trail off: no command reads or writes one, and the primer shows no
-counts. The [authoring guide](authoring.md#the-specs-trail) says what a
-breadcrumb holds and when one is added.
+`manuscript.spec_trail` names the spec's trail sidecar, which points
+each spec section at the conversations that shaped it. It requires a
+register, `manuscript.spec` or `manuscript.unit_spec`, and the file need
+not exist yet: the first `spec trail add` creates it, readable by its
+owner only. Put it with the private material, since it points into the
+private corpus, or in `quirework.local.toml` where the corpus lives
+somewhere else on each machine. Leaving it unset turns the trail off: no
+command reads or writes one, and the primer shows no counts. The
+[authoring guide](authoring.md#the-specs-trail) says what a breadcrumb
+holds and when one is added.
 
-`manuscript.spec_trail_leads` names the directory of the backfill ledger:
-what cheap readers flagged in each session, and what the ruling reader
-rejected. It requires `manuscript.spec_trail`, and is created on first use.
-Keep it with the private material, since its reasons paraphrase the
-corpus. The packets a backfill plan writes hold corpus text, so they go
-outside the checkout or under `build/`, like run records.
+`manuscript.spec_trail_leads` names the directory of the backfill
+ledger: what cheap readers flagged in each session, and what the ruling
+reader rejected. It requires `manuscript.spec_trail`, and is created on
+first use. Keep it with the private material, since its reasons
+paraphrase the corpus. The packets a backfill plan writes hold corpus
+text, so they go outside the checkout or under `build/`, like run
+records.
 
-`project.scratchpad` and `project.private` document the two non-publishing
-spaces. `manuscript.noncanonical_roots` tells checks which working paths have no
-authority. `manuscript.companion_dirs` names reader-facing documents outside the
-canon. `publish.variants` names the root for derived editions.
+`project.scratchpad` and `project.private` document the two
+non-publishing spaces. `manuscript.noncanonical_roots` tells checks
+which working paths have no authority. `manuscript.companion_dirs` names
+reader-facing documents outside the canon. `publish.variants` names the
+root for derived editions.
 
 `sops.root` names the procedure directory, so a project can call it
 `procedures` or anything else; discovery and reading both follow the
@@ -169,16 +172,17 @@ comparisons.
 [publish]
 backend = "hugo"
 build = "build"
-# site = "."       # the directory holding hugo.toml; the project root by default
+# site = "."   # where hugo.toml lives; the project root by default
 ```
 
 `publish build` then runs `hugo build` into `<publish.build>/site`, so a
 build Quirework runs never overwrites the directory the site deploys
 from. `--drafts` includes draft pages, and any flag the command does not
-know goes to Hugo. That is the whole backend. A site's figures, theme and
-deploy stay the site's own, and a Quarto-only command on a Hugo project
-is refused by name rather than attempted. A project that renders some
-other way leaves `[publish]` out and simply runs no `publish` command.
+know goes to Hugo. That is the whole backend. A site's figures, theme
+and deploy stay the site's own, and a Quarto-only command on a Hugo
+project is refused by name rather than attempted. A project that renders
+some other way leaves `[publish]` out and simply runs no `publish`
+command.
 
 ## Configuration layers
 
@@ -266,13 +270,13 @@ pointed at before the session is captured. Without provenance, a trail
 can still be kept by hand and read as pointers.
 
 `provenance.redpen` names the archive of red-pen rounds that
-`publish redpen archive` writes: your marks on a rendered copy of the book,
-one file per round. Declared, each round also reads as a session of your
-turns, one per mark, named `redpen-` and its file name, so `show`, the
-trail and its backfill reach words you typed on the page as well as in a
-conversation. A round records the day of each mark and no time of day,
-so a breadcrumb names the mark by its number. Nothing joins by default:
-the archive is private, and an undeclared one stays out.
+`publish redpen archive` writes: your marks on a rendered copy of the
+book, one file per round. Declared, each round also reads as a session
+of your turns, one per mark, named `redpen-` and its file name, so
+`show`, the trail and its backfill reach words you typed on the page as
+well as in a conversation. A round records the day of each mark and no
+time of day, so a breadcrumb names the mark by its number. Nothing joins
+by default: the archive is private, and an undeclared one stays out.
 
 Derived caches default to a project-specific directory under the XDG
 cache directory. Run storage defaults to a project-specific directory
@@ -386,16 +390,16 @@ Policy files are commented TOML data referenced by configuration.
 Existing JSON policy files remain readable. They keep project vocabulary
 and visual choices out of Quirework's implementation:
 
-- `manuscript.chapter_policy`: `metadata_layers`. The metadata layers default to the sidecar
-  directories under `manuscript.source`, so a project declares this only to
-  scan something else.
+- `manuscript.chapter_policy`: `metadata_layers`. The metadata layers
+  default to the sidecar directories under `manuscript.source`, so a
+  project declares this only to scan something else.
 - `publish.layout_policy`: `typst_prologues` and `typst_epilogues`.
-- `publish.render_policy`: `print_drops` and `epub_style_headers` requiring
-  CSS-comment cleanup in staged EPUB headers.
+- `publish.render_policy`: `print_drops` and `epub_style_headers`
+  requiring CSS-comment cleanup in staged EPUB headers.
 - `text.terminology`: `terms`, `retired`, `allow`, `scope_glob`, and
   `exclude_names`. A term warns and waits for the author's ruling; a
-  `retired` phrase is a ruling already made, so `text check` fails
-  while one is back in reader-facing prose.
+  `retired` phrase is a ruling already made, so `text check` fails while
+  one is back in reader-facing prose.
 - `sops.persona_policy`: the optional `default` persona ID.
 - `sops.review_policy`: review frames, reviewable source paths, and
   `hidden`, the checkout paths a jailed reviewer must not read.
@@ -407,14 +411,14 @@ and visual choices out of Quirework's implementation:
 
 Three settings describe a project's own placement, and all three default
 to describing nothing rather than to another project's directory names.
-`manuscript.companion_dirs` names reader-facing collections beside the book,
-whose quotations and spec citations `spec notes --check` then gates.
-`manuscript.noncanonical_roots` names directories that hold working material
-rather than authority, so a mark resting on one is reported.
-`runs.evidence_roots` names every directory holding saved run records.
-A project that keeps one needs only `runs.reviews`. Files inside a run
-record are never reflowed by `text wrap` and never read as authority,
-which is the guarantee these three settings buy.
+`manuscript.companion_dirs` names reader-facing collections beside the
+book, whose quotations and spec citations `spec notes --check` then
+gates. `manuscript.noncanonical_roots` names directories that hold
+working material rather than authority, so a mark resting on one is
+reported. `runs.evidence_roots` names every directory holding saved run
+records. A project that keeps one needs only `runs.reviews`. Files
+inside a run record are never reflowed by `text wrap` and never read as
+authority, which is the guarantee these three settings buy.
 
 `text.modes` chooses how `text wrap` treats each file without any code.
 It is a list of `[glob, mode]` rows over project-relative paths, and the

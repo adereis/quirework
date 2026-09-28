@@ -1,7 +1,7 @@
 [project]
 name = "quirework"
 version = "0.1.0"
-description = "A modular book-writing and research companion"
+description = "Tools for writing and researching books and sites with an AI companion"
 requires-python = ">=3.11"
 license = {text = "MIT"}
 dependencies = []

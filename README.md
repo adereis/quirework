@@ -1,24 +1,27 @@
 # Quirework
 
-Quirework is a set of tools for writing and researching a book with an
-AI companion such as Claude Code or Codex. The companion works in your
-book project. Quirework gives it a durable spec, named procedures,
-consistency checks, publication tools, and controlled ways to ask other
-models for an independent view.
+Quirework is a set of tools for writing and researching with an AI
+companion such as Claude Code or Codex. The work can be a book, a site
+of long-lived posts, or anything else that has to stay consistent with
+itself while it grows. The companion works in your project. Quirework
+gives it a durable spec, named procedures, consistency checks,
+publication tools, and controlled ways to ask other models for an
+independent view.
 
 You can run every command yourself. That is not the workflow Quirework
 was made for. The normal workflow is to tell your companion what you
 want to accomplish, let it follow the project's procedure, and judge the
 evidence it brings back.
 
-Quirework does not write your book and it does not settle editorial
+Quirework does not write your work and it does not settle editorial
 questions. It gives the collaboration a memory and a method. It builds
-the artifacts, catches drift across chapters, and preserves enough
-evidence for you to make the call.
+the artifacts, catches drift across chapters or posts, and preserves
+enough evidence for you to make the call.
 
-Any Quarto book can use it. One installation serves several, because a
-project is selected by a `quirework.toml` found from the working
-directory and never by where the package happens to live.
+A Quarto book can use it, and so can a site of Markdown pages such as a
+Hugo blog. One installation serves several, because a project is
+selected by a `quirework.toml` found from the working directory and
+never by where the package happens to live.
 
 ## The default workflow
 
@@ -31,8 +34,8 @@ companion then follows this loop:
 
 1. Read the project's guide and resolve the relevant SOP with
    `quirework sop explain NAME`.
-2. Load the book's commitments, chapter guidance, and bindings with
-   `quirework spec notes --primer`.
+2. Load the work's commitments, the guidance for the chapter or post at
+   hand, and its bindings with `quirework spec notes --primer`.
 3. Inspect the prose and any prior human decisions needed for this task.
 4. Draft or revise inside the limits of the SOP.
 5. Use a writers room, a prose workshop, or blind readers when the task
@@ -43,16 +46,16 @@ companion then follows this loop:
    SOP.
 8. Return the change, the evidence, and any remaining author decision.
 
-The spec is the center of that loop. It states what the book currently
-holds. Chapter sidecars bind passages to those commitments. When one
-commitment changes, the companion can find every chapter that expresses
-it before a local edit becomes a book-wide contradiction.
+The spec is the center of that loop. It states what the work currently
+holds. Sidecars bind passages to those commitments. When one commitment
+changes, the companion can find every chapter or post that expresses it
+before a local edit becomes a contradiction somewhere else.
 
-SOPs make the rest of the loop project-specific. A book can define how
-its companion writes a chapter, checks a claim, researches a source,
-runs a workshop, or prepares a blind read. Quirework catalogs those
-procedures and generates thin skill routes for Claude Code and portable
-agents. The SOP remains the source of truth.
+SOPs make the rest of the loop project-specific. A project can define
+how its companion writes a chapter or a post, checks a claim, researches
+a source, runs a workshop, or prepares a blind read. Quirework catalogs
+those procedures and generates thin skill routes for Claude Code and
+portable agents. The SOP remains the source of truth.
 
 The foreground companion is not tied to the models it supervises. A
 Codex session can send a blind reading to Claude. A Claude Code session
@@ -67,7 +70,12 @@ and contextual consistency reviews.
 
 ## What it does
 
-### Publishes one source to four editions, and proves they agree
+### Publishes through a backend, a book to four editions that agree
+
+Publishing is a backend the project names. A site built by Hugo keeps
+its own configuration, theme and deploy, and `publish build` builds it
+into the project's build tree, where it cannot overwrite the directory
+the site deploys from. A book gets the rest of this section.
 
 `publish build` renders a Quarto manuscript to HTML, PDF through Typst,
 EPUB and DOCX. It stages three trees to do it, because the formats
@@ -85,33 +93,40 @@ comes out in the wrong face.
 
 ### Keeps the claims from drifting apart
 
-A book that argues something has commitments, and after a year they live
-in one chapter's phrasing and contradict another's. Quirework gives them
-a file. Each commitment is a section with a slug, each chapter names the
-sections it expresses, and `spec notes bind --slug S` answers the
-question that matters when you change one: which other chapters have to
-change with it.
+A work that argues something has commitments, and after a year they
+live in one chapter's phrasing and contradict another's. Quirework gives
+them a file. Each commitment is a section with a slug, each chapter
+names the sections it expresses, and `spec notes bind --slug S` answers
+the question that matters when you change one: which other chapters have
+to change with it.
 
-The annotations live in a sidecar beside each chapter rather than in the
-prose, so the rendered book never carries them and reflowing a paragraph
-never disturbs them. `spec notes --check` gates eleven invariants: a
-mark left in the prose, a sidecar that no longer mirrors its chapter, a
-binding that names a commitment the spec does not declare, a reading
-order that disagrees with the files on disk. `spec quotes` checks that a
-phrase quoted in metadata still exists in the book, and `--grep TERM`
-lists every quotation of a term you just retired from the prose.
+A site argues one thing per post, so each post can keep a spec of its
+own: its reader, its thesis, its boundaries. A shared spec holds what
+several posts lean on, and a post that binds another's claim is listed
+when that claim changes.
+
+The annotations live in a sidecar rather than in the prose, so the
+rendered text never carries them and reflowing a paragraph never
+disturbs them. A book keeps them beside each chapter, and a site keeps
+them outside the tree its generator renders. `spec notes --check` gates
+eleven invariants: a mark left in the prose, a sidecar that no longer
+mirrors its chapter, a binding that names a commitment the spec does not
+declare, a reading order that disagrees with the files on disk.
+`spec quotes` checks that a phrase quoted in metadata still exists in
+the work, and `--grep TERM` lists every quotation of a term you just
+retired from the prose.
 
 ### Formats and inspects the prose
 
 `text wrap` applies the project's own conventions, and it can apply
-different ones per path: one sentence per line in chapters, hard wrapped
-at a column in guides. `text check` reports field jargon in
-reader-facing prose against a term list the project writes, so a word
-must be avoided, glossed on first use, or confined to where it belongs.
-A phrase the book has retired goes on the same list and fails the check
-if it ever comes back.
+different ones per path, declared as a table of globs: one sentence per
+line in chapters or posts, hard wrapped at a column in guides.
+`text check` reports field jargon in reader-facing prose against a term
+list the project writes, so a word must be avoided, glossed on first
+use, or confined to where it belongs. A phrase the project has retired
+goes on the same list and fails the check if it ever comes back.
 
-### Remembers how the book was written
+### Remembers how the work was written
 
 `provenance` captures your Claude Code, Codex and Antigravity sessions
 from their local stores, and web conversations too. `provenance search`
@@ -189,7 +204,8 @@ You normally work by describing the job to your AI companion. The
 command groups below are the vocabulary it uses to carry out that job:
 
 ```text
-quirework book        Build and inspect book artifacts
+quirework spec        Read and check the spec, marks, quotations and trail
+quirework publish     Render the manuscript and inspect its editions
 quirework text        Format and inspect writing
 quirework provenance  Capture, organize, and search source history
 quirework sop         Find procedures and operate supervised workflows
@@ -199,12 +215,14 @@ quirework usage       Report which commands, procedures and seats get used
 ```
 
 You can also run the commands directly. Add `--help` at any level to
-inspect the actual options. Help does not require a book, a private
+inspect the actual options. Help does not require a project, a private
 corpus, or a provider account.
 
 Common operations include:
 
 ```bash
+quirework spec notes --primer -c opening
+quirework spec notes bind --slug kettle-signal
 quirework publish build --to html
 quirework publish redpen build --chapter opening
 quirework text wrap manuscript/opening.qmd
@@ -215,30 +233,35 @@ quirework sop runs prepare plan.json /path/to/private/run
 quirework sop runs start /path/to/private/run --timeout 60 --wait-quota 0
 ```
 
-Starting a book from nothing? The [authoring guide](docs/authoring.md)
-is the path from an empty directory to a manuscript with a spec, marked
-chapters, figures and its own procedures, and
+Starting from nothing? The [authoring guide](docs/authoring.md) is the
+path from an empty directory to a manuscript with a spec, marked
+chapters, figures and its own procedures, and its last part does the
+same for a site.
 [examples/demo-book](examples/demo-book) is a small finished book that
 walked it: a spec, marks, a figure, procedures, a derived edition and
 the session it was written in, in about forty files.
+[examples/demo-site](examples/demo-site) is the site version: posts
+with a spec each, a shared spec, marks kept outside the rendered tree,
+and a voice policy the checks enforce.
 
 The [configuration guide](docs/configuration.md) explains how to connect
-a book. The [workflow guide](docs/workflows.md) covers procedures,
+a project. The [workflow guide](docs/workflows.md) covers procedures,
 research, model runs, and saved evidence. The
 [development guide](docs/development.md) covers architecture and tests.
 
-## A book owns its choices
+## A project owns its choices
 
-Place `quirework.toml` at the book project root. Quirework discovers it
-from the working directory, including subdirectories. Use
+Place `quirework.toml` at the project root. Quirework discovers it from
+the working directory, including subdirectories. Use
 `quirework --project PATH ...` to select a different project explicitly.
-Installing Quirework never selects a book by the package's location.
+Installing Quirework never selects a project by the package's location.
 
-Quarto remains the source of publication settings and reading order.
-Personas, questions, custom procedures, editorial policies, and private
-corpora belong to the book project. A project without provenance can use
-the publishing and run tools independently.
+A book's Quarto file remains the source of its publication settings and
+reading order; a site's own generator configuration does the same job
+for the site. Personas, questions, custom procedures, editorial
+policies, and private corpora belong to the project. A project without
+provenance can use the publishing and run tools independently.
 
 Quirework is one distribution with one Python namespace. Its domain
-modules are designed for reuse without the CLI or a particular book. The
-software is licensed under the MIT license.
+modules are designed for reuse without the CLI or a particular project.
+The software is licensed under the MIT license.
