@@ -149,6 +149,34 @@ def test_planned_units_and_open_ideas_are_listed(site, capsys):
     assert "ideas/cooling-down" not in out  # taken up by a post of its name
 
 
+def test_an_idea_named_by_its_directory_is_taken_up_by_the_directory(site):
+    for name in ("steam", "steam-two", "whistle", "lid"):
+        _write(site / "ideas" / name / "brief.md", f"# {name}\n")
+    # A @genesis names the idea as the directory it is, in running prose.
+    _write(
+        site / "specs" / "the-kettle" / "marks.md",
+        "<!-- @genesis the brief in ideas/steam, as its angle A -->\n"
+        "<!-- @source the notes in ideas/whistle. -->\n"
+        "<!-- @guidance compare ideas/lid.md, a file of another name -->\n",
+    )
+    project = _project(site, pages="posts/*/index.md", ideas="ideas/*/brief.md")
+    with project_scope(project):
+        assert [i.slug for i in lifecycle.open_ideas()] == ["lid", "steam-two"]
+
+
+def test_an_idea_that_is_one_file_is_taken_up_by_that_file_alone(site):
+    for name in ("steam", "whistle"):
+        _write(site / "ideas" / f"{name}.md", f"# {name}\n")
+    # Naming one idea in the shared directory does not take up the other.
+    _write(
+        site / "specs" / "the-kettle" / "marks.md",
+        "<!-- @genesis ideas/steam.md -->\n",
+    )
+    project = _project(site, pages="posts/*/index.md", ideas="ideas/*.md")
+    with project_scope(project):
+        assert [i.slug for i in lifecycle.open_ideas()] == ["whistle"]
+
+
 def test_an_open_todo_on_a_published_post_is_an_advisory(site, capsys):
     _write(
         site / "specs" / "the-kettle" / "marks.md",

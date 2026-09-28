@@ -168,9 +168,11 @@ drafted is listed as planned. With `manuscript.ideas`, a glob relative
 to the project root such as `"ideas/*/brief.md"`, each idea no unit has
 taken up is listed too. An idea is named like a unit, by its directory
 when the glob names a fixed file. It counts as taken up once a unit or a
-planned spec carries its name, or a mark or a spec names its path, which
-is what a post's `@genesis` does when it points at the brief it grew
-from.
+planned spec carries its name, or a mark or a spec names where it lives,
+which is what a post's `@genesis` does when it points at the brief it
+grew from. An idea named by its directory lives there, so
+`ideas/the-tide-clock` names it as well as the brief's own path does;
+an idea that is one file among others is named only by that file.
 
 A published page owes its readers more than a draft does, so
 `spec units --check` adds two advisories for published pages. An open

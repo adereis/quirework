@@ -7,8 +7,9 @@ years of revisions after it. The layers already hold every stage but the
 first, so this module only reads them:
 
 - an **idea** is a file `manuscript.ideas` matches that no unit has taken up
-  yet: none carries its name, and no mark or spec names its path, which is
-  how a post's @genesis points at the brief it grew from
+  yet: none carries its name, and no mark or spec names where it lives (its
+  directory, when it is named by one), which is how a post's @genesis
+  points at the brief it grew from
 - a unit is **planned** while it has a spec and no page
 - a page is a **draft** or **published** by its own frontmatter
 
@@ -38,6 +39,7 @@ from quirework.project import ConfigurationError, current_project
 class Idea:
     slug: str
     rel: str  # the file the ideas glob matched, relative to the root
+    home: str  # its directory when the idea is named by one, else rel
 
 
 def revision_field() -> str:
@@ -58,9 +60,20 @@ def ideas() -> list[Idea]:
         if not path.is_file() or path.name.startswith("_") or path.name == "README.md":
             continue
         rel = path.relative_to(project.root).as_posix()
-        slug = path.parent.name if by_directory else path.stem
-        out.append(Idea(slug, rel))
+        if by_directory:
+            home = path.parent.relative_to(project.root).as_posix()
+            out.append(Idea(path.parent.name, rel, home))
+        else:
+            out.append(Idea(path.stem, rel, rel))
     return out
+
+
+def _names_path(said: str, path: str) -> bool:
+    """Whether prose names `path` as a whole path: `ideas/lamp` is named by
+    "in ideas/lamp," and by "ideas/lamp/brief.md", not by "ideas/lamp-two".
+    A trailing period ends a sentence; one followed by a letter starts an
+    extension, and so names another file."""
+    return re.search(rf"(?<![\w./-]){re.escape(path)}(?![\w-]|\.\w)", said) is not None
 
 
 def planned() -> list[tuple[str, Path]]:
@@ -82,20 +95,22 @@ def open_ideas() -> list[Idea]:
         return []
     taken = units.names() | {slug for slug, _ in planned()}
     # A mark or a spec that names the idea's path has taken it up: a post's
-    # @genesis points at the brief it grew from.
+    # @genesis points at the brief it grew from. An idea named by its
+    # directory is its directory, so naming that is enough; an idea that is
+    # one file among others in a directory is named only by its own path.
     try:
         specs = notes.spec_files()
     except ConfigurationError:
         specs = []
-    said = " ".join(a.body for a in notes.scan() if a.body)
-    said += " ".join(f.read_text(encoding="utf-8") for f in specs)
-    out = []
-    for idea in found:
-        where = idea.rel.rpartition("/")[0] if "/" in idea.rel else idea.rel
-        if idea.slug in taken or idea.rel in said or f"{where}/" in said:
-            continue
-        out.append(idea)
-    return out
+    said = "\n".join(
+        [a.body for a in notes.scan() if a.body]
+        + [f.read_text(encoding="utf-8") for f in specs]
+    )
+    return [
+        idea
+        for idea in found
+        if idea.slug not in taken and not _names_path(said, idea.home)
+    ]
 
 
 def published() -> list[units.Unit]:
