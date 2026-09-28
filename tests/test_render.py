@@ -413,3 +413,44 @@ def test_non_html_editions_still_have_to_agree(render_run, capsys):
     rc, _ = render_run("typst,epub", disagree=True)
     assert rc == 1
     assert "figure numbered 3.1 in epub but 1.1 in typst" in capsys.readouterr().out
+
+
+def test_mirror_sources_stages_book_without_touching_source(tmp_path):
+    """`render.mirror_sources` mirrors docs/ into the build workdir: it drops the
+    figure gallery (a build artifact), preserves Quarto's caches, prunes stale
+    staged sources, and never writes back into the source tree."""
+    src = tmp_path / "docs"
+    (src / "canon" / "illustrations").mkdir(parents=True)
+    (src / "_quarto.yml").write_text("project:\n  type: book\n")
+    (src / "canon" / "ch.qmd").write_text("# C\n")
+    (src / "canon" / "illustrations" / "fig.svg").write_text("<svg/>")
+    # Agent-guidance / repo-scaffolding files live in docs/ but are not book sources.
+    (src / "AGENTS.md").write_text("# agent guidance\n")
+    (src / "CLAUDE.md").write_text("@AGENTS.md\n")
+    (src / "GEMINI.md").write_text("@AGENTS.md\n")
+    (src / ".gitignore").write_text("/_site/\n")
+
+    stage = tmp_path / "build" / "book"
+    # Pre-existing staged state: a Quarto cache to preserve and a stale chapter to prune.
+    (stage / "_site").mkdir(parents=True)
+    (stage / "_site" / "old.html").write_text("stale output")
+    (stage / "canon").mkdir(parents=True)
+    (stage / "canon" / "gone.qmd").write_text("# removed chapter\n")
+
+    render.mirror_sources(src, stage)
+
+    assert (stage / "_quarto.yml").exists()
+    assert (stage / "canon" / "ch.qmd").exists()
+    assert not (stage / "canon" / "gone.qmd").exists()  # stale source pruned
+    assert not (stage / "canon" / "illustrations").exists()  # gallery not mirrored
+    assert not (stage / "AGENTS.md").exists()  # agent guidance not staged
+    assert not (stage / "CLAUDE.md").exists()  # agent guidance not staged
+    assert not (stage / "GEMINI.md").exists()  # agent guidance not staged
+    assert not (stage / ".gitignore").exists()  # repo scaffolding not staged
+    assert (stage / "_site" / "old.html").exists()  # Quarto cache preserved
+    # The source tree is untouched: no build artifacts leak back into docs/.
+    assert not (src / "_site").exists()
+    assert sorted(p.name for p in (src / "canon").iterdir()) == [
+        "ch.qmd",
+        "illustrations",
+    ]

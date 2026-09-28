@@ -240,3 +240,51 @@ def test_clean_figure_splits_desc_and_drops_metadata():
 def test_figures_for_without_a_sidecar_is_empty(tmp_path):
     (tmp_path / "ch.qmd").write_text("# Ch\n\nProse.\n")
     assert variant.figures_for(tmp_path / "ch.qmd") == []
+
+
+# --- the command, on the same book (no model launched) ---------------------- #
+
+_CONFIG = """schema = 2
+
+[manuscript]
+source = "manuscript"
+quarto = "manuscript/_quarto.yml"
+chapters = "manuscript/sections"
+
+[publish]
+variants = "variants"
+
+[sops]
+root = "procedures"
+"""
+
+
+def _command(tmp_path, *args):
+    """Run `quirework publish variant ...` against the synthetic book."""
+    from quirework.cli import main
+
+    root = _book(tmp_path)
+    (root / "quirework.toml").write_text(_CONFIG)
+    return main(["--project", str(root), "publish", "variant", *args])
+
+
+def test_the_command_lists_the_kinds_the_procedures_define(tmp_path, capsys):
+    assert _command(tmp_path) == 0
+    out = capsys.readouterr().out
+    assert "variant kinds" in out and "postcard" in out
+
+
+def test_build_requires_a_kind(tmp_path):
+    assert _command(tmp_path, "build") == 2
+
+
+def test_build_names_the_procedure_an_unknown_kind_lacks(tmp_path, capsys):
+    assert _command(tmp_path, "build", "nonexistent-kind", "--dry-run") == 2
+    captured = capsys.readouterr()
+    assert "variant-nonexistent-kind" in captured.out + captured.err
+
+
+def test_an_unknown_kind_is_refused_by_name(tmp_path, capsys):
+    assert _command(tmp_path, "does-not-exist") == 2
+    captured = capsys.readouterr()
+    assert "variant-does-not-exist" in captured.out + captured.err

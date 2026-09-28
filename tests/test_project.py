@@ -322,6 +322,20 @@ def test_a_fallback_chain_is_read_as_a_chain(tmp_path):
         assert not fonts.available(stacks[1], "rsvg")
 
 
+def test_typst_bundled_families_are_not_reported_missing(monkeypatch):
+    """Libertinus ships inside the Typst binary, so fontconfig not knowing it
+    says nothing about the PDF. Asking anyway reported a missing font on a
+    machine that renders perfectly, which is how this carve-out was found. A
+    requirement is a stack, and any one family in it satisfies it."""
+    from quirework.publish import fonts
+
+    monkeypatch.setattr(fonts, "installed", lambda family: False)
+    assert fonts.available(("Libertinus Serif",), "typst") is True
+    assert fonts.available(("Libertinus Serif",), "rsvg") is False
+    assert fonts.available(("Literata",), "typst") is False
+    assert fonts.available(("Literata", "Libertinus Serif"), "typst") is True
+
+
 def test_a_format_the_reader_letters_needs_nothing_installed(tmp_path):
     """HTML and EPUB ship the SVG; the browser resolves its fonts, not this machine."""
     figures = tmp_path / "plates"

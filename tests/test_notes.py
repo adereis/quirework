@@ -51,7 +51,7 @@ A kettle has states.
 Felt is represented.
 <!-- @flavor(layman,teen)
      drop the almanac aside; keep the image -->
-<!-- @ref  conv:c00a7331 -- the lamp-room exchange -->
+<!-- @ref  conv:c0ffee00 -- the lamp-room exchange -->
 """
 
 

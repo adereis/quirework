@@ -51,3 +51,14 @@ def test_nested_help(arguments, tmp_path):
     if arguments[:3] == ["publish", "redpen", "build"]:
         assert "--gray" in p.stdout
         assert "--chapter" in p.stdout
+
+
+def test_the_top_level_help_names_every_group(capsys):
+    from quirework.cli import main
+
+    with pytest.raises(SystemExit) as result:
+        main(["--help"])
+    assert result.value.code == 0
+    output = capsys.readouterr().out
+    for group in ("spec", "publish", "text", "provenance", "sop", "dev", "config"):
+        assert group in output

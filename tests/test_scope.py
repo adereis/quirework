@@ -32,8 +32,8 @@ def lists(tmp_path, monkeypatch):
     return cc, agy, codex
 
 
-UUID_A = "0147dc99-1f38-4e88-ac15-2ca99ea3e09c"
-UUID_B = "d7375fc8-6657-404f-951a-87cd432d458b"
+UUID_A = "0a0a0a0a-1111-4222-8333-000000000001"
+UUID_B = "0b0b0b0b-1111-4222-8333-000000000002"
 
 
 def test_unlisted_is_work(lists):

@@ -868,3 +868,24 @@ def test_archive_missing_inputs_error(tmp_path):
     assert redpen.archive(tmp_path / "nope.docx", qmd, tmp_path / "o.md") == 2
     docx, _ = _round_docx(tmp_path)
     assert redpen.archive(docx, tmp_path / "nodir", tmp_path / "o.md") == 2
+
+
+def test_reading_a_missing_review_names_the_file(tmp_path, capsys):
+    from quirework.cli import main
+
+    root = tmp_path / "book"
+    (root / "docs" / "canon").mkdir(parents=True)
+    (root / "docs" / "_quarto.yml").write_text(
+        "book:\n  chapters:\n    - canon/a.qmd\n"
+    )
+    (root / "docs" / "canon" / "a.qmd").write_text("# A\n")
+    (root / "quirework.toml").write_text(
+        'schema = 2\n\n[manuscript]\nsource = "docs"\nchapters = "docs/canon"\n'
+        'quarto = "docs/_quarto.yml"\n'
+    )
+    missing = tmp_path / "no-such-review.docx"
+    assert (
+        main(["--project", str(root), "publish", "redpen", "read", str(missing)]) == 2
+    )
+    captured = capsys.readouterr()
+    assert "no such file" in captured.out + captured.err
