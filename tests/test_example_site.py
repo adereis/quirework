@@ -2,7 +2,7 @@
 
 `examples/demo-site` is a small Hugo blog written the way a site is written:
 posts in page bundles, a spec per post beside a shared one, marks outside the
-tree Hugo renders, and a voice policy. The book example proves the pieces
+tree Hugo renders, a register of sources, and a voice policy. The book example proves the pieces
 compose for a book; this one proves they compose for a site.
 
 Hugo itself is replaced by a stand-in that records its arguments, so the suite
@@ -41,10 +41,28 @@ def test_the_posts_are_listed_by_date_with_the_draft_marked(site, capsys):
     out = capsys.readouterr().out.splitlines()
     assert "published" in out[0] and "why-the-lamp-turns" in out[0]
     assert "draft" in out[1] and "what-the-fog-signal-is-for" in out[1]
-    # A post specified before it is drafted is listed as planned.
+    # A post specified before it is drafted is listed as planned, and a brief
+    # no post has taken up as an idea.
     assert "planned (a spec, no post yet):" in out[2]
     assert "a-keepers-first-winter" in out[3]
+    assert "ideas (no post has taken them up):" in out[4]
+    assert "ideas/the-tide-clock/brief.md" in out[5]
+
+
+def test_a_published_post_s_open_to_do_is_reported(site, capsys):
     assert run(site, "spec units", "--check") == 0
+    err = capsys.readouterr().err
+    assert "1 open @todo on published posts" in err
+    assert "clockwork" in err
+
+
+def test_every_citation_names_a_source_and_every_quotation_holds(site, capsys):
+    assert run(site, "spec sources", "--check") == 0
+    err = capsys.readouterr().err
+    assert "not in the captured copy" not in err
+    assert "research/sources.md: station-log" in err  # cited by no post
+    assert run(site, "spec sources", "--slug", "coast-pilot") == 0
+    assert "cited by: why-the-lamp-turns" in capsys.readouterr().out
 
 
 def test_the_marks_mirror_their_posts_and_bind_the_register(site, capsys):
@@ -76,7 +94,13 @@ def test_a_shared_claim_lists_every_post_that_leans_on_it(site, capsys):
 def test_the_prose_is_one_sentence_per_line_and_the_docs_are_wrapped(site):
     files = sorted(
         str(p)
-        for pattern in ("content/posts/*/index.md", "specs/**/*.md", "*.md")
+        for pattern in (
+            "content/posts/*/index.md",
+            "specs/**/*.md",
+            "research/*.md",
+            "ideas/*/*.md",
+            "*.md",
+        )
         for p in EXAMPLE.glob(pattern)
     )
     assert files
