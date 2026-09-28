@@ -139,7 +139,7 @@ def test_a_spec_ahead_of_its_post_is_an_advisory(site, capsys):
 def test_the_primer_scoped_to_a_post_reads_only_what_it_touches(site, capsys):
     assert notes.main(["--primer", "-c", "notes-on-a-kettle"]) == 0
     out = capsys.readouterr().out
-    assert "specs/notes-on-a-kettle/spec.md (post notes-on-a-kettle's own" in out
+    assert "specs/notes-on-a-kettle/spec.md (post notes-on-a-kettle;" in out
     assert "#kettle-thesis" in out
     assert "#kettle-signal" in out  # the shared section it binds
     assert "#cooling-asymmetry" not in out  # shared, but not its concern

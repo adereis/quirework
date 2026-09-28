@@ -663,7 +663,7 @@ def _print_spec_toc(docs: Path | None = None, only: set[str] | None = None) -> N
         by_file.setdefault(s.path, []).append(s)
     for path, group in by_file.items():
         owner = spec_owner(path)
-        whose = f"{units.noun()} {owner}'s own" if owner else "shared"
+        whose = f"{units.noun()} {owner}" if owner else "shared"
         print(
             f"spec — {_rel(path)} ({whose}; {len(group)} section(s); "
             f"read it before the marks):"
