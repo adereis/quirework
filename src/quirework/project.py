@@ -280,36 +280,12 @@ class Project:
                 raise ConfigurationError(
                     f"configured manuscript source directory is missing: {source}"
                 )
-            fmt = self.get("manuscript.format", "quarto")
-            if fmt == "quarto":
-                chapters = self.path("manuscript.chapters")
-                if not chapters.is_dir():
-                    raise ConfigurationError(
-                        f"configured canon directory is missing: {chapters}"
-                    )
-                quarto = self.path("manuscript.quarto")
-                if not quarto.is_file():
-                    raise ConfigurationError(
-                        f"configured Quarto file is missing: {quarto}"
-                    )
-            elif fmt == "pages":
-                # A glob, not a path: it names the pages under the source, and
-                # matching nothing is legitimate for a site with no posts yet.
-                if not self.get("manuscript.pages"):
-                    raise ConfigurationError(
-                        "manuscript.format = 'pages' needs manuscript.pages, a "
-                        "glob under manuscript.source such as 'posts/*/index.md'"
-                    )
-                marks = self.get("manuscript.marks")
-                if marks is not None and "{slug}" not in str(marks):
-                    raise ConfigurationError(
-                        "manuscript.marks must contain {slug}, e.g. "
-                        "'specs/{slug}/marks.md'"
-                    )
-            else:
-                raise ConfigurationError(
-                    f"manuscript.format must be 'quarto' or 'pages', not {fmt!r}"
-                )
+            # The layout is the format's to validate, so a format added as an
+            # extension is held to its own rules rather than to a list here.
+            from quirework.manuscript import formats
+
+            with project_scope(self):
+                formats.current().validate(self)
             for key, kind in (
                 ("manuscript.spec", "spec file"),
                 ("manuscript.review_notes", "review-notes file"),
@@ -356,24 +332,10 @@ class Project:
             # A publisher renders the manuscript, so it needs everything the
             # manuscript does before anything of its own.
             self.require("manuscript")
-            backend = self.get("publish.backend", "quarto")
-            if backend == "hugo":
-                from quirework.publish import hugo
+            from quirework.publish import backends
 
-                with project_scope(self):
-                    hugo.check_site(hugo.site_root())
-            elif backend != "quarto":
-                raise ConfigurationError(
-                    f"publish.backend must be 'quarto' or 'hugo', not {backend!r}"
-                )
-            if (
-                self.get("publish.figures") is not None
-                and not self.path("publish.figures").is_dir()
-            ):
-                raise ConfigurationError(
-                    f"configured figure directory is missing: "
-                    f"{self.path('publish.figures')}"
-                )
+            with project_scope(self):
+                backends.selected(self).validate(self)
 
     def describe(self):
         return {

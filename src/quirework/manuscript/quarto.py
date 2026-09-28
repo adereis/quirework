@@ -1,10 +1,13 @@
-"""Reading order from a Quarto book project's `_quarto.yml`.
+"""The `quarto` manuscript format: a Quarto book's chapters.
 
-The manuscript's `quarto` format takes its units, and their order, from the
-`book.chapters` block of the configured Quarto file. That block is read here,
-by one walker, and the publisher's staging code (`publish.bookstage`) reads it
-through the same functions when it rewrites a staged copy. A shape this parser
-does not recognize raises rather than yielding a partial book.
+The format takes its units, and their order, from the `book.chapters` block of
+the configured Quarto file. That block is read here, by one walker, and the
+publisher's staging code (`publish.bookstage`) reads it through the same
+functions when it rewrites a staged copy. A shape this parser does not
+recognize raises rather than yielding a partial book.
+
+A chapter's slug is its file stem, its marks sit beside it as
+`_marks/<stem>.md`, and a printed number is derived from its position.
 """
 
 from __future__ import annotations
@@ -12,6 +15,10 @@ from __future__ import annotations
 import re
 from pathlib import Path
 from typing import NamedTuple
+
+from quirework.manuscript import formats
+from quirework.manuscript.formats import Format, Unit
+from quirework.project import ConfigurationError, Project
 
 BOOK_CONFIG = "_quarto.yml"
 _CHAPTER_SUFFIXES = (".qmd", ".md", ".ipynb")
@@ -176,3 +183,139 @@ def part_dividers(docs: Path) -> set[str]:
             r"(?m)^\s*-\s+part:\s*[\"']?([\w./-]+\.qmd)[\"']?\s*$", text
         )
     }
+
+
+# A chapter's marks live in a sidecar `<dir>/_marks/<stem>.md` beside it, never
+# inline in the prose. The directory's name is Quirework's convention.
+MARKS_DIR = "_marks"
+
+
+class Quarto(Format):
+    name = "quarto"
+    noun = "chapter"
+
+    def validate(self, project: Project) -> None:
+        chapters = project.path("manuscript.chapters")
+        if not chapters.is_dir():
+            raise ConfigurationError(
+                f"configured canon directory is missing: {chapters}"
+            )
+        quarto = project.path("manuscript.quarto")
+        if not quarto.is_file():
+            raise ConfigurationError(f"configured Quarto file is missing: {quarto}")
+
+    def registry(self, docs: Path) -> list[Unit]:
+        """Every book file in reading order, from `_quarto.yml` intersected with
+        disk.
+
+        The config is the sole source of order -- a filename only has to be
+        unique now, never to sort -- so this is the one function that knows
+        what "the next chapter" means. The printed number is derived here and
+        nowhere else.
+        """
+        base = formats.base(docs)
+        dividers = part_dividers(docs)
+        out: list[Unit] = []
+        n = 0
+        for relpath in book_chapters(docs):
+            p = docs / relpath
+            if not p.exists():
+                continue  # order_problems reports it; don't crash
+            title, attrs = formats.h1(p.read_text(encoding="utf-8"))
+            numbered = (
+                relpath not in dividers
+                and "unnumbered" not in attrs
+                and p.name != "index.qmd"
+            )
+            if numbered:
+                n += 1
+            out.append(
+                Unit(p.stem, str(p.relative_to(base)), title, n if numbered else None)
+            )
+        return out
+
+    def order_problems(self, docs: Path) -> list[str]:
+        """`_quarto.yml` <-> disk, both directions.
+
+        The dual of the orphan-sidecar invariant, and under slug-only the only
+        remaining way to orphan a chapter: rename the file, forget the config.
+        `book_chapters` raises on a shape it cannot parse but never asks
+        whether the files it names exist, and nothing asked the reverse."""
+        cfg = docs / BOOK_CONFIG
+        if not cfg.exists():
+            return []
+        listed = book_chapters(docs)
+        problems = [
+            f"{cfg.name}: lists {r}, which does not exist"
+            for r in listed
+            if not (docs / r).exists()
+        ]
+        on_disk = {
+            str(p.relative_to(docs))
+            for p in docs.rglob("*.qmd")
+            if p.parent.name != MARKS_DIR
+        }
+        for extra in sorted(on_disk - set(listed)):
+            problems.append(
+                f"{extra}: on disk but absent from {cfg.name}, so it is "
+                f"in no reading order and renders nowhere"
+            )
+        return problems
+
+    def prose_files(self, docs: Path) -> list[Path]:
+        # A chapter on disk but missing from `_quarto.yml` is still prose,
+        # which is why this reads the disk and not the registry.
+        return sorted(p for p in docs.rglob("*.qmd") if p.parent.name != MARKS_DIR)
+
+    def slug_of(self, path: Path) -> str:
+        return Path(path).stem
+
+    def marks_path(self, slug: str, docs: Path) -> Path | None:
+        # A sidecar's place is beside its chapter, so a slug no chapter
+        # carries has none.
+        for prose in self.prose_files(docs):
+            if prose.stem == slug:
+                return prose.parent / MARKS_DIR / f"{slug}.md"
+        return None
+
+    def sidecars(self, docs: Path) -> list[Path]:
+        return sorted(docs.rglob(f"{MARKS_DIR}/*.md"))
+
+    def sidecar_slug(self, path: Path) -> str | None:
+        path = Path(path)
+        return path.stem if path.parent.name == MARKS_DIR else None
+
+    def prose_for_sidecar(self, path: Path, docs: Path) -> Path | None:
+        # The sibling path whether or not it exists: the sidecar's position
+        # names it, and an orphan is reported by naming that path.
+        slug = self.sidecar_slug(path)
+        if slug is None:
+            return None
+        return Path(path).parent.parent / f"{slug}.qmd"
+
+    def harvest(self, docs: Path) -> list[Path]:
+        # The whole source directory, because the sidecars sit beside the
+        # chapters.
+        return [docs]
+
+    def default_layers(self, project: Project) -> tuple[str, ...]:
+        # A source outside the project root cannot be expressed relative to
+        # it, so that case searches the project tree for the directory name
+        # rather than silently matching nothing.
+        source = project.path("manuscript.source")
+        try:
+            relative = source.relative_to(project.root)
+        except ValueError:
+            return (f"**/{MARKS_DIR}/*.md",)
+        return (f"{relative}/**/{MARKS_DIR}/*.md",)
+
+    def listing(self, units: list[Unit]) -> list[str]:
+        return [
+            f"  {u.number:>2}  {u.slug:26} {u.title}"
+            if u.number
+            else f"   -  {u.slug:26} {u.title}"
+            for u in units
+        ]
+
+
+FORMAT = Quarto()

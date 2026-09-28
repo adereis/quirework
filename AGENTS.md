@@ -17,8 +17,9 @@ Keep one distribution and one Python namespace. Domain modules expose
 services independently of command parsing. Provider adapters and the run
 engine import neither the manuscript nor a publisher, and the manuscript
 never imports a publisher, since a project may render with none of
-them. A format or a backend is added behind `manuscript.units` or
-`publish.backends`, never by teaching a caller a file extension.
+them. A format is a `manuscript.formats.Format` and a backend a
+`publish.backends.Backend`, each registered by name, so one is added as
+a module and never by teaching a caller a file extension.
 Resolve project settings
 at the operation boundary, never from the installed package location.
 Preserve isolation across projects, worktrees, threads, and processes.

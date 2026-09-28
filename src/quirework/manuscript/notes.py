@@ -34,7 +34,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import NamedTuple
 
-from quirework.manuscript import frontmatter, units
+from quirework.manuscript import formats, frontmatter, units
 from quirework.project import current_project
 
 # <!-- @kind(args)  body --> , possibly multi-line.
@@ -449,14 +449,7 @@ class Section(NamedTuple):
 
 def _unit_spec_pattern() -> str | None:
     """`manuscript.unit_spec`, a path pattern with {slug}, or None."""
-    pattern = current_project().get("manuscript.unit_spec")
-    if pattern is not None and "{slug}" not in pattern:
-        from quirework.project import ConfigurationError
-
-        raise ConfigurationError(
-            "manuscript.unit_spec must contain {slug}, e.g. 'specs/{slug}/spec.md'"
-        )
-    return pattern
+    return formats.slug_pattern("manuscript.unit_spec")
 
 
 def unit_spec_path(slug: str) -> Path | None:
@@ -477,7 +470,7 @@ def spec_owner(path: Path) -> str | None:
         rel = Path(path).resolve().relative_to(root).as_posix()
     except ValueError:
         return None
-    m = units._pattern_regex(pattern).match(rel)
+    m = formats.pattern_regex(pattern).match(rel)
     return m.group("slug") if m else None
 
 

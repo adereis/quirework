@@ -63,7 +63,7 @@ def site(tmp_path):
 
 
 def test_a_project_without_a_backend_publishes_with_quarto(tmp_path):
-    assert backends.selected(Project.from_settings(tmp_path, {})) == "quarto"
+    assert backends.selected(Project.from_settings(tmp_path, {})).name == "quarto"
 
 
 def test_an_unknown_backend_is_refused(tmp_path):
@@ -72,8 +72,40 @@ def test_an_unknown_backend_is_refused(tmp_path):
         "manuscript": {**SITE["manuscript"]},
         "publish": {"backend": "jekyll"},
     }
-    with pytest.raises(ConfigurationError, match="'quarto' or 'hugo'"):
+    with pytest.raises(ConfigurationError, match="one of quarto, hugo"):
         Project.from_settings(tmp_path, settings).require("publish")
+
+
+PRESS = """
+from quirework.publish.backends import Backend
+
+
+class Press(Backend):
+    name = "press"
+
+    def build(self, argv):
+        print("pressed", *(argv or []))
+        return 0
+
+
+def press():
+    return Press()
+"""
+
+
+def test_a_backend_can_be_an_installed_extension(tmp_path, monkeypatch, capsys):
+    """A publisher Quirework does not ship builds through `publish build`, and
+    the commands built on Quarto staging are refused by name, as on Hugo."""
+    (tmp_path / "ext").mkdir()
+    (tmp_path / "ext" / "kettle_press.py").write_text(PRESS)
+    monkeypatch.syspath_prepend(str(tmp_path / "ext"))
+    root = _site(tmp_path / "site")
+    settings = {**SITE, "publish": {"backend": "kettle_press:press"}}
+    project = Project.from_settings(root, settings)
+    assert project.invoke("publish build", ["--proof"]) == 0
+    assert capsys.readouterr().out == "pressed --proof\n"
+    with pytest.raises(ConfigurationError, match="publishes with press"):
+        project.invoke("publish figures", ["--check"])
 
 
 def test_a_hugo_site_needs_its_own_configuration(tmp_path):

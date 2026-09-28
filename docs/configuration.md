@@ -127,6 +127,21 @@ site's spec commands working without sidecars. `unit_name` is the noun
 messages use for a unit, when "page" is not what the project calls its
 posts.
 
+A format Quirework does not ship is an installed extension. Name its
+factory as `module:function`, which returns a
+`quirework.manuscript.formats.Format`:
+
+```toml
+[manuscript]
+format = "kettle_wiki:wiki"
+source = "entries"
+```
+
+The class answers for its layout: the units in reading order, which
+files are prose, where a unit's marks live, and which unit a sidecar
+belongs to. The spec, marks, quotations and trail read the work only
+through it, so they need no change for a new layout.
+
 ### A spec per unit
 
 A book argues one thing, so it keeps one spec. A site argues one thing
@@ -183,6 +198,12 @@ and deploy stay the site's own, and a Quarto-only command on a Hugo
 project is refused by name rather than attempted. A project that renders
 some other way leaves `[publish]` out and simply runs no `publish`
 command.
+
+A publisher Quirework does not ship is an installed extension:
+`publish.backend = "module:function"`, where the function returns a
+`quirework.publish.backends.Backend`. It validates its own settings and
+builds when `publish build` runs. The commands built on Quarto staging
+stay refused, as they are on a Hugo site.
 
 ## Configuration layers
 

@@ -227,8 +227,97 @@ def test_a_marks_pattern_must_name_the_slug(site):
 
 def test_an_unknown_format_is_refused(site):
     settings = {"manuscript": {"format": "wiki", "source": "content"}}
-    with pytest.raises(ConfigurationError, match="'quarto' or 'pages'"):
+    with pytest.raises(ConfigurationError, match="one of quarto, pages"):
         Project.from_settings(site, settings).require("manuscript")
+
+
+WIKI = """
+from pathlib import Path
+
+from quirework.manuscript.formats import Format, Unit
+
+
+class Wiki(Format):
+    \"\"\"Every Markdown file directly under the source is a unit.\"\"\"
+
+    name = "wiki"
+    noun = "entry"
+
+    def registry(self, docs):
+        return [
+            Unit(p.stem, str(p.relative_to(docs.parent)), p.stem)
+            for p in self.prose_files(docs)
+        ]
+
+    def order_problems(self, docs):
+        return []
+
+    def prose_files(self, docs):
+        return sorted(docs.glob("*.md"))
+
+    def slug_of(self, path):
+        return Path(path).stem
+
+    def marks_path(self, slug, docs):
+        return None
+
+    def sidecars(self, docs):
+        return []
+
+    def sidecar_slug(self, path):
+        return None
+
+    def prose_for_sidecar(self, path, docs):
+        return None
+
+    def harvest(self, docs):
+        return self.prose_files(docs)
+
+    def default_layers(self, project):
+        return ()
+
+
+def wiki():
+    return Wiki()
+
+
+def not_a_format():
+    return object()
+"""
+
+
+def test_a_format_can_be_an_installed_extension(tmp_path, monkeypatch, capsys):
+    """A layout Quirework does not ship is one class in the project's own
+    package, and the spec layer reads it through the same interface."""
+    (tmp_path / "ext").mkdir()
+    (tmp_path / "ext" / "kettle_wiki.py").write_text(WIKI)
+    monkeypatch.syspath_prepend(str(tmp_path / "ext"))
+    root = tmp_path / "wiki"
+    (root / "entries").mkdir(parents=True)
+    (root / "entries" / "whistle.md").write_text("# Whistle\n\nIt reports.\n")
+    (root / "entries" / "steam.md").write_text("# Steam\n\nIt rises.\n")
+    project = Project.from_settings(
+        root, {"manuscript": {"format": "kettle_wiki:wiki", "source": "entries"}}
+    )
+    project.require("manuscript")
+    with project_scope(project):
+        assert units.manuscript_format() == "wiki"
+        assert units.noun() == "entry"
+        assert units.slugs() == {"whistle", "steam"}
+        assert units.main([]) == 0
+    assert "whistle" in capsys.readouterr().out
+
+
+def test_an_extension_that_returns_no_format_is_refused(tmp_path, monkeypatch):
+    (tmp_path / "ext").mkdir()
+    (tmp_path / "ext" / "kettle_wiki.py").write_text(WIKI)
+    monkeypatch.syspath_prepend(str(tmp_path / "ext"))
+    (tmp_path / "entries").mkdir()
+    settings = {
+        "manuscript": {"format": "kettle_wiki:not_a_format", "source": "entries"}
+    }
+    with pytest.raises(ConfigurationError, match="must return a quirework Format"):
+        Project.from_settings(tmp_path, settings).require("manuscript")
 
 
 def test_since_reads_marks_outside_the_source_from_the_revision(site, capsys):
