@@ -74,7 +74,9 @@ text, so they go outside the checkout or under `build/`, like run
 records.
 
 `project.scratchpad` and `project.private` document the two
-non-publishing spaces. `manuscript.noncanonical_roots` tells checks
+non-publishing spaces. Session capture also skips any session whose
+recorded working directory is inside `project.scratchpad`, so workshop
+seats and experiments run there are never swept into the corpus. `manuscript.noncanonical_roots` tells checks
 which working paths have no authority. `manuscript.companion_dirs` names
 reader-facing documents outside the canon. `publish.variants` names the
 root for derived editions.

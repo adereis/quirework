@@ -223,7 +223,7 @@ def copy_if_changed(src: Path) -> bool:
     return True
 
 
-def belongs(path: Path, roots) -> bool:
+def belongs(path: Path, roots, excluding=()) -> bool:
     """Whether a candidate transcript really ran in one of this project's trees.
 
     The encoded directory name cannot answer this on its own (see the module
@@ -231,7 +231,7 @@ def belongs(path: Path, roots) -> bool:
     kept: the directory heuristic already chose it, and missing a session is the
     failure this tool exists to prevent."""
     cwd = recorded_cwd(path)
-    return True if cwd is None else worktrees.contains(roots, cwd)
+    return True if cwd is None else worktrees.contains(roots, cwd, excluding)
 
 
 def sweep() -> list[Path]:
@@ -277,13 +277,14 @@ def main(argv=None):
     # captured: on a settled corpus that is nothing, so the steady state stays
     # a stat and a header read per file rather than a read of all five hundred.
     roots = worktrees.project_trees(current_project().root)
+    excluding = worktrees.excluded_trees(current_project(), roots)
     foreign = unchanged = 0
     copied = []
     for p in sources:
         if is_current(p, current_project().path("provenance.claude_sessions") / p.name):
             unchanged += 1
             continue
-        if not belongs(p, roots):
+        if not belongs(p, roots, excluding):
             foreign += 1
             continue
         if copy_if_changed(p):

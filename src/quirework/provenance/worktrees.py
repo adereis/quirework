@@ -143,8 +143,25 @@ def project_trees(project_root):
     return sorted({c / relative for c in trees if (c / relative).is_dir()}) or [root]
 
 
-def contains(checkout_list, path):
+def excluded_trees(project, roots):
+    """The project's scratchpad directory inside each tree, if it has one.
+
+    A session that opened inside the scratchpad is a workshop seat or an
+    experiment's exhaust, not the author working, so capture skips it even
+    though the directory sits inside a checkout. Pass the result to
+    `contains(..., excluding=...)`.
+    """
+    relative = project.get("project.scratchpad")
+    if not relative:
+        return []
+    return [Path(root) / relative for root in roots]
+
+
+def contains(checkout_list, path, excluding=()):
     """Whether `path` is one of the checkouts or sits below one.
+
+    A path at or below any `excluding` directory is not contained, however
+    deep the checkout that holds it.
 
     Comparison is on resolved path *components*, never on string prefixes: a
     sibling directory whose name merely extends a checkout's
@@ -158,6 +175,10 @@ def contains(checkout_list, path):
         resolved = Path(path).expanduser().resolve(strict=False)
     except (OSError, RuntimeError, TypeError, ValueError):
         return False
+    for skipped in excluding:
+        skipped = Path(skipped).resolve(strict=False)
+        if resolved == skipped or skipped in resolved.parents:
+            return False
     for root in checkout_list:
         root = Path(root)
         if resolved == root or root in resolved.parents:

@@ -189,6 +189,7 @@ def sweep(repo=None):
     available to the caller so every selection rule can be reported.
     """
     roots = worktrees.project_trees(repo or current_project().root)
+    excluding = worktrees.excluded_trees(current_project(), roots)
     home = codex_home()
     keep, system, evaluation = [], [], []
     pattern = _capture_pattern(roots)
@@ -197,7 +198,7 @@ def sweep(repo=None):
             continue
         for path in root.rglob("*.jsonl"):
             meta = read_meta(path)
-            if not worktrees.contains(roots, meta.get("cwd")):
+            if not worktrees.contains(roots, meta.get("cwd"), excluding):
                 continue
             if system_subagent(meta):
                 system.append(path)

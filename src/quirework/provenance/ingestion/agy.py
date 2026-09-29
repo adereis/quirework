@@ -80,6 +80,7 @@ def main(argv=None):
         else set()
     )
     roots = worktrees.project_trees(project.root)
+    excluding = worktrees.excluded_trees(project, roots)
     for tree in trees.record(project):
         print(f"agy-sessions: recorded project tree {shown(tree)}")
     counts = dict(
@@ -127,7 +128,7 @@ def main(argv=None):
             )
             continue
         context = working_context(rows)
-        if context and not worktrees.contains(roots, context):
+        if context and not worktrees.contains(roots, context, excluding):
             counts["review"] += 1
             print(
                 f"  - {directory.name} opened in {context} -- review run, not captured"

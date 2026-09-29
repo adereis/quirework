@@ -75,6 +75,32 @@ def test_contains_matches_a_checkout_and_anything_under_it(tmp_path):
     assert worktrees.contains(roots, str(wt / "src"))
 
 
+def test_the_scratchpad_is_excluded_from_every_checkout(tmp_path):
+    """A session opened in the scratchpad is exhaust, not the author working."""
+    from quirework.project import Project
+
+    main = _repo(tmp_path)
+    wt = _worktree(main, tmp_path, "wt-a")
+    roots = worktrees.checkouts(main)
+    project = Project.from_settings(main, {"project": {"scratchpad": "scratchpad"}})
+    excluding = worktrees.excluded_trees(project, roots)
+    assert worktrees.contains(roots, str(main / "docs"), excluding)
+    assert not worktrees.contains(roots, str(main / "scratchpad"), excluding)
+    assert not worktrees.contains(roots, str(main / "scratchpad" / "w" / "x"), excluding)
+    assert not worktrees.contains(roots, str(wt / "scratchpad" / "w"), excluding)
+    # a name that merely extends the scratchpad's is not the scratchpad
+    assert worktrees.contains(roots, str(main / "scratchpad-notes"), excluding)
+
+
+def test_a_project_without_a_scratchpad_excludes_nothing(tmp_path):
+    from quirework.project import Project
+
+    main = _repo(tmp_path)
+    roots = worktrees.checkouts(main)
+    project = Project.from_settings(main, {})
+    assert worktrees.excluded_trees(project, roots) == []
+
+
 def test_contains_rejects_a_sibling_whose_name_extends_a_checkout(tmp_path):
     """`example-book-worktree` is not inside `example-book`.
 
