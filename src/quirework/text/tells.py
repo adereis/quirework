@@ -54,6 +54,10 @@ _NOT_PROSE = re.compile(r"^\s*(?:#|!\[|:::|\|)")
 # A sentence ends at . ! or ?, after any closing quote or bracket, and the
 # next opens on a capital, a digit or an opening quote.
 _BOUNDARY = re.compile(r"(?<=[.!?])[\"”')\]]*\s+(?=[\"“(]?[A-Z0-9])")
+# A footnote reference is apparatus, and one left after a period hides the
+# sentence's end: "the bill.[^intro] That" would read as one sentence. A
+# footnote's own definition, "[^intro]: ...", keeps its label.
+_FOOTNOTE = re.compile(r"\[\^[^\]\s]+\](?!:)")
 
 
 @dataclass(frozen=True)
@@ -87,7 +91,7 @@ def paragraphs(text: str) -> list[list[Sentence]]:
                 blocks.append(block)
                 block = []
             continue
-        block.append((no, stripped.replace("*", "")))
+        block.append((no, _FOOTNOTE.sub("", stripped).replace("*", "")))
     if block:
         blocks.append(block)
 

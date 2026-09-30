@@ -73,6 +73,25 @@ def test_paragraphs_skip_apparatus_and_keep_line_numbers():
     ]
 
 
+def test_a_footnote_reference_does_not_hide_a_sentence_end():
+    """A reference after a period used to join two sentences, so the first
+    one's closing contrast was never at a sentence end to be found."""
+    text = (
+        "The lamp is lit, not warm.[^oil]\n"
+        "It burns oil.[^1] The wick is new.\n"
+        "\n"
+        "[^oil]: Whale oil, not kerosene.\n"
+    )
+    flat = [s.text for p in tells.paragraphs(text) for s in p]
+    assert flat == [
+        "The lamp is lit, not warm.",
+        "It burns oil.",
+        "The wick is new.",
+        "[^oil]: Whale oil, not kerosene.",
+    ]
+    assert _rules(text) == ["..., not Y.", "..., not Y."]
+
+
 def test_toml_frontmatter_is_skipped_too():
     flat = [
         s.text for p in tells.paragraphs("+++\ntitle = 'x'\n+++\nA lamp.\n") for s in p
