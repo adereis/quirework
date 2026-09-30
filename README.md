@@ -138,6 +138,11 @@ line in chapters or posts, hard wrapped at a column in guides.
 list the project writes, so a word must be avoided, glossed on first
 use, or confined to where it belongs. A phrase the project has retired
 goes on the same list and fails the check if it ever comes back.
+`text tells` reports the habits a model leaves in prose it drafted: the
+contrast move, which says what a thing is by saying what it is not, and
+phrases the project lists. `--since REV` prints only what the working
+tree adds over a revision, which is the warning a commit hook or a
+review pass wants; like `text check`, it never gates.
 
 ### Remembers how the work was written
 

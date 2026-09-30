@@ -742,6 +742,13 @@ expresses one commitment. `spec units --check`, `spec quotes`,
 declared invariants. A companion should run the checks named by the SOP
 before presenting a change as complete.
 
+`text tells` sits between the layers. It finds habits a model leaves
+in drafted prose mechanically, but whether a given contrast is the
+argument or a cadence is judgment. `text tells --since REV` gives a
+review pass a countable population: the hits the range adds. Give that
+pass a reader's perspective rather than the author's, and let the
+operator rule on each hit against the spec.
+
 The judgment layer asks whether a coherent edit is actually coherent
 with the rest of the work. `quirework sop review` gives an independent
 reviewer the project guide, the spec, the marks, a brief, and a concrete

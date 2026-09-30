@@ -757,8 +757,11 @@ captures the sessions run here.
 Voice rules the site holds to go in the terminology policy. A rule
 already made, such as "no em-dash", is `retired` and fails the check. A
 word that is usually wrong but sometimes right is a `term`, and waits
-for a ruling. `text wrap` keeps the posts one sentence per line and the
-guides at 72 columns, as `text.modes` declares.
+for a ruling. A habit that a model leaves in the posts it drafts is a
+phrase in the tells policy, `text.tells_policy`, and `text tells`
+reports it without failing anything. `text wrap` keeps the posts one
+sentence per line and the guides at 72 columns, as `text.modes`
+declares.
 
 `quirework publish build` runs Hugo with the site's own configuration
 into `build/site`, never into the directory the site deploys from.

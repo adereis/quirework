@@ -104,6 +104,7 @@ COMMANDS = {
     ),
     ("text", "wrap"): Command("text.mdwrap", "Wrap Markdown or check its formatting"),
     ("text", "check"): Command("text.jargon", "Inspect configured terminology"),
+    ("text", "tells"): Command("text.tells", "Report machine habits in the prose"),
     ("provenance", "search"): Command(
         "provenance.search", "Search human turns", "provenance"
     ),
