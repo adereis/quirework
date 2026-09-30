@@ -219,3 +219,21 @@ def test_an_unconfigured_project_reports_nothing(capsys):
     assert not tells.configured()
     assert tells.main([]) == 0
     assert "no text.tells_policy" in capsys.readouterr().err
+
+
+def test_the_bundled_template_is_a_working_policy(tmp_path):
+    """`config template tells` must be adoptable as written: copied into a
+    project, it selects the manuscript and reports a seeded phrase."""
+    from importlib.resources import files
+
+    text = files("quirework").joinpath("templates", "tells.toml").read_text()
+    (tmp_path / "tells.toml").write_text(text)
+    (tmp_path / "manuscript").mkdir()
+    (tmp_path / "manuscript" / "one.qmd").write_text(
+        "The lamp turns on a timer rather than a switch.\n"
+    )
+    settings = {"text": {"tells_policy": "tells.toml"}}
+    with project_scope(Project.from_settings(tmp_path, settings)):
+        [(rel, hits, n)] = tells.measure()
+    assert rel == "manuscript/one.qmd" and n == 1
+    assert [h.shown for h in hits] == ['"rather than"']

@@ -290,6 +290,7 @@ def main(argv=None):
                     "site": "site.toml",
                     "run": "run.toml",
                     "terminology": "terminology.toml",
+                    "tells": "tells.toml",
                     "tmpfiles": "tmpfiles.conf",
                 }
                 p.add_argument("kind", choices=tuple(names))

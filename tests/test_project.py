@@ -495,7 +495,7 @@ def test_bundled_templates_are_commented_and_parseable():
     from importlib.resources import files
     import tomllib
 
-    for name in ("book", "site", "run", "terminology"):
+    for name in ("book", "site", "run", "terminology", "tells"):
         text = files("quirework").joinpath("templates", name + ".toml").read_text()
         assert text.startswith("# ")
         assert sum(line.startswith("#") for line in text.splitlines()) >= 5

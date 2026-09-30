@@ -142,7 +142,10 @@ goes on the same list and fails the check if it ever comes back.
 contrast move, which says what a thing is by saying what it is not, and
 phrases the project lists. `--since REV` prints only what the working
 tree adds over a revision, which is the warning a commit hook or a
-review pass wants; like `text check`, it never gates.
+review pass wants; like `text check`, it never gates. Quirework ships
+no default phrase list, since a stale one would read as clean prose;
+`config template tells` prints a dated seed and the recipe for keeping
+it current.
 
 ### Remembers how the work was written
 

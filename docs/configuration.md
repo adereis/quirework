@@ -574,7 +574,11 @@ and visual choices out of Quirework's implementation:
   contrast detectors off when false; and `scope_glob` and
   `exclude_names`, read as the terminology policy reads them. The phrase
   list goes stale as models change, so date its measurement in a
-  comment. `text tells` warns and never gates.
+  comment. `text tells` warns and never gates. Quirework ships no
+  default list, because a stale one would report nothing and read as
+  clean prose. `template tells` prints a dated seed instead, drawn from
+  Graphite's "AI Tells" (2026) study, with the recipe for refreshing it
+  against the models that draft your prose.
 - `sops.persona_policy`: the optional `default` persona ID.
 - `sops.review_policy`: review frames, reviewable source paths, and
   `hidden`, the checkout paths a jailed reviewer must not read.
@@ -681,9 +685,11 @@ build output stays inside the configured build tree.
 `quirework config template book` prints a commented configuration for
 a Quarto book, and `template site` one for a site of Markdown pages
 built by Hugo. Use `template run` for a tiny model plan,
-`template terminology` for an advisory word policy, or
-`template tmpfiles` for the cache-cleanup rule above. Add `--out PATH` to create a new file; an existing file is never
-overwritten. Every template is bundled in the wheel.
+`template terminology` for an advisory word policy, `template tells`
+for a machine-habit policy, or `template tmpfiles` for the
+cache-cleanup rule above. Add `--out PATH` to create a new file; an
+existing file is never overwritten. Every template is bundled in the
+wheel.
 
 Run plans accept TOML or JSON. Preparation still freezes canonical JSON
 records, so saved runs and their integrity checks retain their format.
