@@ -342,11 +342,17 @@ def report(show_hits: bool) -> str:
     if not rows:
         return "tells: nothing in scope."
     noun = _noun()
-    lines = [f"{noun:32}{'sentences':>10}{'contrast':>10}{'per 1k':>8}{'phrases':>9}"]
+    # The name column fits the longest name, so a long slug cannot push its
+    # row's numbers out from under their headings.
+    width = max(len(noun), *(len(Path(rel).stem) for rel, _, _ in rows)) + 2
+    head = f"{'sentences':>10}{'contrast':>10}{'per 1k':>8}{'phrases':>9}"
+    lines = [f"{noun:{width}}{head}"]
     for rel, hits, n in rows:
         c = sum(h.contrast for h in hits)
         name = Path(rel).stem
-        lines.append(f"{name:32}{n:10}{c:10}{density(hits, n):8.0f}{len(hits) - c:9}")
+        lines.append(
+            f"{name:{width}}{n:10}{c:10}{density(hits, n):8.0f}{len(hits) - c:9}"
+        )
     by_rule: Counter[str] = Counter()
     where: dict[str, set[str]] = {}
     wording: dict[str, Counter[str]] = {}

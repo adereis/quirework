@@ -237,3 +237,13 @@ def test_the_bundled_template_is_a_working_policy(tmp_path):
         [(rel, hits, n)] = tells.measure()
     assert rel == "manuscript/one.qmd" and n == 1
     assert [h.shown for h in hits] == ['"rather than"']
+
+
+def test_a_long_name_keeps_its_numbers_under_their_headings(book, capsys):
+    long = "a-chapter-whose-slug-runs-well-past-thirty-two-columns"
+    (book / "manuscript" / f"{long}.qmd").write_text("It is not warm. It is lit.\n")
+    (book / "manuscript" / "a.qmd").write_text("A lamp.\n")
+    tells.main([])
+    rows = capsys.readouterr().out.splitlines()
+    ends = {len(row) for row in rows[:3]}
+    assert len(ends) == 1, rows[:3]
