@@ -149,6 +149,30 @@ def test_phrases_match_case_insensitively_and_anchor_at_the_sentence():
     assert _rules("They said none of this was planned.") == []
 
 
+def test_a_phrase_written_as_a_model_writes_it_finds_its_contraction():
+    """Models write "is the whole"; prose held to contractions has "that's
+    the whole". The phrase is listed as measured and must find both, and
+    what is shown is the author's own word, not the spelled-out one."""
+    phrases = {
+        r"\bis the whole\b": "totalizing",
+        r"\bneed not\b": "hedge",
+        r"\bkeeper is\b": "never a contraction here",
+    }
+    text = (
+        "That’s the whole trick.\n"
+        "You needn't wind it.\n"
+        "The keeper's lamp is lit.\n"
+        "It is the whole of it.\n"
+    )
+    hits, _ = tells.scan(text, phrases, contrast=False)
+    assert [(h.line, h.shown) for h in hits] == [
+        (1, '"That\'s the whole"'),
+        (2, '"needn\'t"'),
+        (4, '"is the whole"'),
+    ]
+    assert tells.excerpt(hits[0]) == "That’s the whole trick."
+
+
 def test_a_phrase_sharing_the_contrast_reason_is_still_a_phrase():
     hits, _ = tells.scan("It is worth asking.", {r"\bworth\b": tells.CONTRAST_WHY})
     assert [h.contrast for h in hits] == [False]

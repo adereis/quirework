@@ -46,6 +46,9 @@ contrast = true
 
 # Each case-insensitive regular expression, matched one sentence at a time,
 # maps to why it reads as machine-made. `^` anchors at the sentence start.
+# Write a phrase uncontracted, as a model writes it: it also matches the
+# sentence with its contractions spelled out, so "is the whole" finds
+# "that's the whole".
 # Seeded 2026 from the study above; the multiples are against human writing.
 [phrases]
 "\\brather than\\b" = "the connective GPT-6 Astra and Claude Opus 5 overuse most, about 20 times the human rate"

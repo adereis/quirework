@@ -572,13 +572,18 @@ and visual choices out of Quirework's implementation:
 - `text.tells_policy`: `phrases`, a table of regular expressions mapped
   to why each reads as machine-made; `contrast`, which turns the English
   contrast detectors off when false; and `scope_glob` and
-  `exclude_names`, read as the terminology policy reads them. The phrase
-  list goes stale as models change, so date its measurement in a
-  comment. `text tells` warns and never gates. Quirework ships no
-  default list, because a stale one would report nothing and read as
-  clean prose. `template tells` prints a dated seed instead, drawn from
-  Graphite's "AI Tells" (2026) study, with the recipe for refreshing it
-  against the models that draft your prose.
+  `exclude_names`, read as the terminology policy reads them. A phrase
+  is written uncontracted, the way the study's models write it, and it
+  also matches the sentence with its English contractions spelled out,
+  so "is the whole" finds "that's the whole" in prose held to
+  contractions. An "'s" is spelled out only after a pronoun, where it
+  cannot be a possessive. The phrase list goes stale as models change,
+  so date its measurement in a comment. `text tells` warns and never
+  gates. Quirework ships no default list, because a stale one would
+  report nothing and read as clean prose. `template tells` prints a
+  dated seed instead, drawn from Graphite's "AI Tells" (2026) study,
+  with the recipe for refreshing it against the models that draft your
+  prose.
 - `sops.persona_policy`: the optional `default` persona ID.
 - `sops.review_policy`: review frames, reviewable source paths, and
   `hidden`, the checkout paths a jailed reviewer must not read.

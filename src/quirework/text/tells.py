@@ -19,7 +19,10 @@ Two kinds of rule run here:
      `contrast = false`.
   2. Phrases from the project's policy, each a regular expression mapped to
      why it reads as machine-made. The list is the project's, and it goes
-     stale, since each model version has habits of its own.
+     stale, since each model version has habits of its own. A phrase is
+     written the way a model writes it, uncontracted, and it also matches
+     the sentence with its contractions spelled out, since prose held to
+     contractions turns "is the whole" into "that's the whole".
 
 It warns and never gates. Many contrasts are the argument itself, and only a
 reader can tell a claim from a cadence. The useful warning is therefore
@@ -169,6 +172,64 @@ def _plain(text: str) -> str:
     return text.replace("’", "'").replace("‘", "'")
 
 
+# A word with an apostrophe inside it, which may be a contraction.
+_CLITIC = re.compile(r"\b[a-z]+'[a-z]+\b", re.I)
+# An 's is spelled out as "is" only after a word that cannot own anything:
+# after a noun it is a possessive far more often ("the model's workspace").
+_HOSTS_OF_IS = {"it", "that", "this", "there", "here", "what", "who", "where"}
+_HOSTS_OF_IS |= {"how", "he", "she"}
+_WHOLE_WORD = {"can't": "cannot", "won't": "will not", "shan't": "shall not"}
+_SUFFIX = {"re": " are", "ve": " have", "ll": " will", "d": " would", "m": " am"}
+
+
+def _spell(word: str) -> str | None:
+    """A contraction spelled out, or None where `word` is not one."""
+    low = word.lower()
+    if low in _WHOLE_WORD:
+        return _WHOLE_WORD[low]
+    if low.endswith("n't") and low != "ain't":
+        return word[:-3] + " not"
+    host, _, clitic = low.rpartition("'")
+    if clitic == "s":
+        return word[:-2] + " is" if host in _HOSTS_OF_IS else None
+    suffix = _SUFFIX.get(clitic)
+    return word[: -len(clitic) - 1] + suffix if suffix else None
+
+
+def _spelled_out(text: str) -> tuple[str, list[tuple[int, int, int, int]]]:
+    """`text` with its contractions spelled out, and each word replaced as
+    (start, end) in the result beside (start, end) in `text`."""
+    out: list[str] = []
+    pieces: list[tuple[int, int, int, int]] = []
+    at = moved = 0
+    for m in _CLITIC.finditer(text):
+        full = _spell(m.group(0))
+        if full is None:
+            continue
+        out.append(text[at : m.start()])
+        out.append(full)
+        start = m.start() + moved
+        pieces.append((start, start + len(full), m.start(), m.end()))
+        moved += len(full) - len(m.group(0))
+        at = m.end()
+    out.append(text[at:])
+    return "".join(out), pieces
+
+
+def _back(pos: int, pieces: list[tuple[int, int, int, int]], end: bool) -> int:
+    """A position in the spelled-out text, as one in the original. A match
+    that starts or ends inside a spelled-out word takes the whole word, so
+    what is shown is what the author wrote."""
+    moved = 0
+    for start, stop, was_start, was_stop in pieces:
+        if pos < start or (end and pos == start):
+            break
+        if pos < stop or (end and pos == stop):
+            return was_stop if end else was_start
+        moved = was_stop - stop
+    return pos + moved
+
+
 def scan(text: str, phrases: dict[str, str], contrast: bool = True):
     """(hits, sentence count) for one file's prose."""
     compiled = [(p, re.compile(p, re.I), why) for p, why in phrases.items()]
@@ -193,11 +254,20 @@ def scan(text: str, phrases: dict[str, str], contrast: bool = True):
                         # From the negation to the affirmation that answers it.
                         span = (neg.start(), len(before) + 1 + affirmed.end())
                         hits.append(_contrast_hit(s.line, PAIR, pair, span))
+            spelled, pieces = _spelled_out(plain) if compiled else (plain, [])
             for pattern, rx, why in compiled:
                 m = rx.search(plain)
-                if m:
-                    shown = f'"{m.group(0)}"'
-                    hits.append(Hit(s.line, pattern, shown, why, s.text, span=m.span()))
+                span = m.span() if m else None
+                if span is None and pieces:
+                    m = rx.search(spelled)
+                    if m:
+                        span = (
+                            _back(m.start(), pieces, False),
+                            _back(m.end(), pieces, True),
+                        )
+                if span is not None:
+                    shown = f'"{plain[span[0] : span[1]]}"'
+                    hits.append(Hit(s.line, pattern, shown, why, s.text, span=span))
     return hits, total
 
 
