@@ -177,3 +177,13 @@ def test_a_prose_directory_names_its_book_beside_itself(book, tmp_path):
     assert record["digest"] == tree_digest(out)
     assert record["source_sha"]
     assert "chapters/04-the-sidecar.md" in record["files"]
+
+
+def test_the_machine_habit_policy_reads_the_chapters_in_order(book):
+    """The example adopts `config template tells` as written; the advisory
+    must read its chapters in reading order and never fail the run."""
+    from quirework.text import tells
+
+    assert run(book, "text tells") == 0
+    names = [Path(rel).stem for rel, _, _ in tells.measure()]
+    assert names[0] == "preface" and len(names) == 3
