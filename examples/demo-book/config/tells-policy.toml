@@ -1,0 +1,65 @@
+# Machine-habit policy for Chapter and Verse Control, adopted from
+# `quirework config template tells` as written. Read through
+# text.tells_policy in quirework.toml; the prose check prints its summary
+# as a warning.
+#
+# `text tells` reports two kinds of habit a language model leaves in prose
+# it drafted. One is the contrast move, which says what a thing is by
+# saying what it is not; its detectors are built in. The other is the
+# phrases listed below. Both only warn: a phrase your subject needs is not
+# a habit, and the author rules on every hit.
+#
+# The phrases are a dated seed, not a standard. They come from Graphite,
+# "AI Tells" (2026), https://graphite.io/five-percent/research/ai-tells,
+# which compared 10,000 human articles with articles on the same topics
+# from nine models: GPT-4.1, GPT-5, GPT-5.6 Sol, GPT-6 Astra, Claude
+# Opus 4, 4.6 and 5, and Gemini 2.5 Pro and 3.1 Pro. Its measurements are
+# CC BY 4.0, so keep this attribution with any list derived from them.
+# Tells shift between model versions (only 45% carried over between two
+# successive GPT releases), so this list ages with the models that draft
+# your prose, and an empty warning from a stale list proves nothing.
+#
+# To refresh it, for the models that draft your prose:
+#   1. Take a measurement of each phrase's rate in model and in human
+#      writing on the same topics. The study publishes one; a newer study
+#      or a paired sample of your own will do.
+#   2. Keep a phrase when a drafting model uses it at least ten times as
+#      often as human writers, across at least a hundred of that model's
+#      documents, so that a rare phrase cannot qualify by chance.
+#   3. Count it in your own prose, and keep it only where it occurs more
+#      than once, in more than one unit.
+#   4. Read every hit in context before keeping the rule.
+#   5. Record the date and the models here.
+# Phrases readers already associate with machines, such as "delve" or
+# "tapestry", have faded from newer models' output and no longer pass
+# step 2. A project may list them anyway, on the grounds of what its
+# readers believe; say so in the reason.
+
+# Pairs of project-relative directory and filename glob to inspect.
+scope_glob = [["manuscript/sections", "*.qmd"]]
+# Basenames in a different register can be excluded deliberately. This
+# book has none: every chapter is narrative.
+exclude_names = []
+# The contrast detectors are English. Set false for prose in another
+# language, and keep only the phrases.
+contrast = true
+
+# Each case-insensitive regular expression, matched one sentence at a time,
+# maps to why it reads as machine-made. `^` anchors at the sentence start.
+# Seeded 2026 from the study above; the multiples are against human writing.
+[phrases]
+"\\brather than\\b" = "the connective GPT-6 Astra and Claude Opus 5 overuse most, about 20 times the human rate"
+"\\bnot (?:simply|merely|just) (?:a|an|the|about|that)\\b" = "GPT's corrective intensifier, up to 150 times the human rate; say what the thing is"
+"\\bsingle most\\b" = "a Claude and Gemini superlative; rank only what the argument ranks"
+"\\bless (?:like|as) (?:an? |the )?\\w+(?: \\w+)? (?:and more|than)\\b" = "Claude Opus 5's 'less like X and more like Y' frame"
+"\\bgenuine(?:ly)?\\b" = "Claude's intensifier; it asserts what the sentence should show"
+"\\bthe honest\\b" = "Claude Opus 5 claims candor instead of showing it"
+"\\bquietly\\b" = "Claude Opus 5's adverb for undramatic change; name the change"
+"\\bneed not\\b" = "GPT-6 Astra's corrective hedge; say what does happen"
+"\\bfurthermore\\b" = "Gemini's formal transition"
+"\\btaken together\\b" = "a summarizing turn from Claude Opus 5 and GPT-6 Astra"
+"\\brather than treating\\b|\\bthan treating\\b" = "GPT's corrective setup, almost absent from human writing"
+"\\bit(?: is|'s) worth \\w+ing\\b" = "announces that something deserves attention instead of giving it"
+"^none of (?:this|that)\\b" = "a summarizing pivot at the turn of a paragraph"
+"\\b(?:matters|mattered) (?:enormously|because)\\b|\\bdistinction matters\\b" = "justifies a point by announcing that it matters; show why"
+"\\bearns? its (?:place|keep)\\b|\\bexactly the kind\\b|\\bthe practical takeaway\\b" = "Claude Opus 5 phrasings almost absent from human writing"

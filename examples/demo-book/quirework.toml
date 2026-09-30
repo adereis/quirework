@@ -28,6 +28,11 @@ personas = "profiles"
 instruments = "questions"
 skill_prefix = "cvc-"
 
+[text]
+# Machine habits a model leaves in drafted prose. Advisory: the prose
+# check prints the summary and never fails on it.
+tells_policy = "config/tells-policy.toml"
+
 [checks]
 command = "cvc_checks.prose:main"
 

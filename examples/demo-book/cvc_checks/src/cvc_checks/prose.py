@@ -63,6 +63,14 @@ def main(argv: list[str] | None = None) -> int:
     print(
         f"prose checks: {'failed' if problems else 'passed'} ({len(problems)} problem(s))"
     )
+    # Machine habits are a warning, never a failure: a contrast can be the
+    # point of a sentence, and Hal's lines are supposed to sound like Hal.
+    from quirework.text import tells
+
+    if tells.configured():
+        summary = tells.summary()
+        if summary:
+            print(f"tells (warning only): {summary}")
     return int(bool(problems))
 
 

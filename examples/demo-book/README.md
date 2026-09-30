@@ -14,7 +14,9 @@ it.
   derived edition.
 - `profiles/`, `questions/`: a reader persona and the questions a first
   read is checked against.
-- `config/`: the model policy for derived editions.
+- `config/`: the model policy for derived editions, and the
+  machine-habit policy `text tells` reads, adopted from Quirework's
+  template.
 - `variants/`: derived editions of the book. Today, one retelling for a
   reader who has not read it.
 - `logs/`: the real session logs this book was written in, committed
