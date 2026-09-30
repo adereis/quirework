@@ -180,6 +180,23 @@ def test_a_new_file_reports_everything():
     assert len(tells.added("", BEFORE, PHRASES)) == 1
 
 
+def test_an_added_hit_keeps_what_it_matched_in_view():
+    """The excerpt used to be the sentence's first 110 characters, which hid
+    a contrast closing a long sentence, the commonest form of all."""
+    closing = "The keeper climbs " + "the long stair " * 10 + "at dusk, not at dawn."
+    [hit] = tells.scan(closing + "\n", {})[0]
+    shown = tells.excerpt(hit)
+    assert shown.startswith("…") and shown.endswith("at dusk, not at dawn.")
+    assert len(shown) == 111
+
+    opening = "It is worth asking why " + "the lamp turns " * 10 + "on a timer."
+    [hit] = tells.scan(opening + "\n", PHRASES, contrast=False)[0]
+    assert tells.excerpt(hit) == opening[:110] + "…"
+
+    [hit] = tells.scan("It is lit, not warm.\n", {})[0]
+    assert tells.excerpt(hit) == "It is lit, not warm."
+
+
 # --------------------------------------------------------------------
 # the project's scope, and a revision range
 # --------------------------------------------------------------------

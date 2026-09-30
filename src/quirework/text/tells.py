@@ -157,6 +157,12 @@ class Hit:
     reason: str
     text: str
     contrast: bool = False
+    # Where in `text` the rule matched, so a short excerpt can keep it in view.
+    span: tuple[int, int] = (0, 0)
+
+
+def _contrast_hit(line: int, form: str, text: str, span: tuple[int, int]) -> Hit:
+    return Hit(line, form, form, CONTRAST_WHY, text, True, span)
 
 
 def _plain(text: str) -> str:
@@ -174,18 +180,24 @@ def scan(text: str, phrases: dict[str, str], contrast: bool = True):
             plain = _plain(s.text)
             if contrast:
                 for form, rx in FORMS:
-                    if rx.search(plain):
-                        hits.append(Hit(s.line, form, form, CONTRAST_WHY, s.text, True))
+                    m = rx.search(plain)
+                    if m:
+                        hits.append(_contrast_hit(s.line, form, s.text, m.span()))
                         break
                 else:
                     before = _plain(para[i - 1].text) if i else ""
-                    if i and _AFFIRMED.match(plain) and _NEGATED.search(before):
+                    neg = _NEGATED.search(before)
+                    affirmed = _AFFIRMED.match(plain) if i else None
+                    if neg and affirmed:
                         pair = f"{para[i - 1].text} {s.text}"
-                        hits.append(Hit(s.line, PAIR, PAIR, CONTRAST_WHY, pair, True))
+                        # From the negation to the affirmation that answers it.
+                        span = (neg.start(), len(before) + 1 + affirmed.end())
+                        hits.append(_contrast_hit(s.line, PAIR, pair, span))
             for pattern, rx, why in compiled:
                 m = rx.search(plain)
                 if m:
-                    hits.append(Hit(s.line, pattern, f'"{m.group(0)}"', why, s.text))
+                    shown = f'"{m.group(0)}"'
+                    hits.append(Hit(s.line, pattern, shown, why, s.text, span=m.span()))
     return hits, total
 
 
@@ -395,11 +407,23 @@ def report(show_hits: bool) -> str:
     return "\n".join(lines)
 
 
+def excerpt(h: Hit, width: int = 110) -> str:
+    """At most `width` characters of the hit's text, with what it matched in
+    view. Cutting from the front alone would hide the commonest form, which
+    closes the sentence, whenever the sentence ran long."""
+    text = h.text
+    if len(text) <= width:
+        return text
+    stop = max(width, min(len(text), h.span[1] + 20))
+    begin = stop - width
+    head = "…" if begin else ""
+    return head + text[begin:stop] + ("…" if stop < len(text) else "")
+
+
 def format_added(found: list[tuple[str, Hit]]) -> list[str]:
     """One printable entry per added hit."""
     return [
-        f"{rel}:{h.line}: {h.shown}, {h.reason}\n      {h.text[:110]}"
-        for rel, h in found
+        f"{rel}:{h.line}: {h.shown}, {h.reason}\n      {excerpt(h)}" for rel, h in found
     ]
 
 
