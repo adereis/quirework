@@ -255,6 +255,20 @@ def targets() -> list[str]:
     return sorted(dict.fromkeys(rels), key=lambda r: (order.get(r, len(order)), r))
 
 
+def names(rels: list[str]) -> dict[str, str]:
+    """What the report calls each file. A unit goes by its slug, since a Hugo
+    page bundle names every post's file index.md, and any other file by its
+    stem. A name two files would share falls back to their paths."""
+    slugs: dict[str, str] = {}
+    if current_project().get("manuscript.source") is not None:
+        from quirework.manuscript import units
+
+        slugs = {u.rel: u.slug for u in units.registry()}
+    name = {rel: slugs.get(rel) or Path(rel).stem for rel in rels}
+    shared = {n for n, count in Counter(name.values()).items() if count > 1}
+    return {rel: rel if n in shared else n for rel, n in name.items()}
+
+
 def triggers() -> tuple[str, ...]:
     """Path patterns whose change makes the advisory relevant."""
     scope = _policy().get("scope_glob")
@@ -318,7 +332,8 @@ def summary() -> str:
     rows = measure()
     if not rows:
         return ""
-    dens = sorted(((density(h, n), Path(r).stem) for r, h, n in rows), reverse=True)
+    called = names([r for r, _, _ in rows])
+    dens = sorted(((density(h, n), called[r]) for r, h, n in rows), reverse=True)
     phrase_hits = sum(not x.contrast for _, h, _ in rows for x in h)
     top = ", ".join(f"{name} {d:.0f}" for d, name in dens[:3])
     median = statistics.median(d for d, _ in dens)
@@ -346,16 +361,16 @@ def report(show_hits: bool) -> str:
     if not rows:
         return "tells: nothing in scope."
     noun = _noun()
+    name = names([rel for rel, _, _ in rows])
     # The name column fits the longest name, so a long slug cannot push its
     # row's numbers out from under their headings.
-    width = max(len(noun), *(len(Path(rel).stem) for rel, _, _ in rows)) + 2
+    width = max(len(noun), *(len(n) for n in name.values())) + 2
     head = f"{'sentences':>10}{'contrast':>10}{'per 1k':>8}{'phrases':>9}"
     lines = [f"{noun:{width}}{head}"]
     for rel, hits, n in rows:
         c = sum(h.contrast for h in hits)
-        name = Path(rel).stem
         lines.append(
-            f"{name:{width}}{n:10}{c:10}{density(hits, n):8.0f}{len(hits) - c:9}"
+            f"{name[rel]:{width}}{n:10}{c:10}{density(hits, n):8.0f}{len(hits) - c:9}"
         )
     by_rule: Counter[str] = Counter()
     where: dict[str, set[str]] = {}

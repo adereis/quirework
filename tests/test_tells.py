@@ -266,3 +266,53 @@ def test_a_long_name_keeps_its_numbers_under_their_headings(book, capsys):
     rows = capsys.readouterr().out.splitlines()
     ends = {len(row) for row in rows[:3]}
     assert len(ends) == 1, rows[:3]
+
+
+def _bundles(root):
+    """A Hugo site's posts, each a page bundle whose file is index.md."""
+    for slug in ("why-the-lamp-turns", "the-fog-signal"):
+        page = root / "content" / "posts" / slug / "index.md"
+        page.parent.mkdir(parents=True)
+        page.write_text("+++\ntitle = 'A post'\n+++\nIt is not warm. It is lit.\n")
+    (root / "tells.toml").write_text("contrast = true\n")
+
+
+def test_a_page_bundle_is_named_by_its_post_s_slug(tmp_path, capsys):
+    """Every post's file is index.md, so a row named by the file's stem
+    could not say which post it counts."""
+    _bundles(tmp_path)
+    settings = {
+        "manuscript": {
+            "format": "pages",
+            "source": "content",
+            "pages": "posts/*/index.md",
+            "unit_name": "post",
+        },
+        "text": {"tells_policy": "tells.toml"},
+    }
+    with project_scope(Project.from_settings(tmp_path, settings)):
+        tells.main([])
+        rows = capsys.readouterr().out.splitlines()
+        summary = tells.summary()
+    assert [row.split()[0] for row in rows[1:3]] == [
+        "the-fog-signal",
+        "why-the-lamp-turns",
+    ]
+    assert "index" not in summary and "why-the-lamp-turns 500" in summary
+
+
+def test_files_sharing_a_name_are_told_apart_by_path(tmp_path, capsys):
+    """Without a manuscript there is no slug to ask for, so two index.md
+    files selected by the policy's own scope go by their paths."""
+    _bundles(tmp_path)
+    (tmp_path / "tells.toml").write_text(
+        'scope_glob = [["content/posts", "*/index.md"]]\n'
+    )
+    settings = {"text": {"tells_policy": "tells.toml"}}
+    with project_scope(Project.from_settings(tmp_path, settings)):
+        tells.main([])
+    rows = capsys.readouterr().out.splitlines()
+    assert [row.split()[0] for row in rows[1:3]] == [
+        "content/posts/the-fog-signal/index.md",
+        "content/posts/why-the-lamp-turns/index.md",
+    ]
