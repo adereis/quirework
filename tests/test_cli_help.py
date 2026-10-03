@@ -53,6 +53,32 @@ def test_nested_help(arguments, tmp_path):
         assert "--chapter" in p.stdout
 
 
+@pytest.mark.parametrize(
+    "arguments, described",
+    [
+        (["provenance", "store", "--help"], ["init", "status", "verify", "missed"]),
+        (["provenance", "store", "status", "--help"], ["Writes nothing"]),
+        (["provenance", "ingest", "--help"], ["whose sessions to capture"]),
+        (["provenance", "ingest", "claude", "--help"], ["--hook", "SessionEnd"]),
+    ],
+)
+def test_the_store_and_capture_say_what_each_choice_does(
+    arguments, described, tmp_path
+):
+    # An action or flag listed with no words beside it leaves the reader to
+    # guess, and these are the commands a failed capture sends people to.
+    p = subprocess.run(
+        [sys.executable, "-m", "quirework", *arguments],
+        cwd=tmp_path,
+        capture_output=True,
+        text=True,
+        timeout=15,
+    )
+    assert p.returncode == 0, p.stdout + p.stderr
+    for words in described:
+        assert words in p.stdout
+
+
 def test_the_top_level_help_names_every_group(capsys):
     from quirework.cli import main
 

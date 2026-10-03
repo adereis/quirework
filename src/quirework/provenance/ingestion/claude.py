@@ -259,8 +259,18 @@ def survey() -> Survey | None:
 def main(argv=None):
     import argparse
 
-    parser = argparse.ArgumentParser(prog="quirework provenance ingest claude")
-    parser.add_argument("--hook", action="store_true")
+    parser = argparse.ArgumentParser(
+        prog="quirework provenance ingest claude",
+        description="Capture every Claude Code session of this project that is "
+        "new or has grown since its last capture into the store's pending "
+        "area. Nothing is accepted.",
+    )
+    parser.add_argument(
+        "--hook",
+        action="store_true",
+        help="run as a SessionEnd hook: read the hook's JSON from stdin, and "
+        "print only when something was captured",
+    )
     args = parser.parse_args(argv)
     pending = store.open_store().pending_dir(store.CC)
     pending.mkdir(parents=True, exist_ok=True)

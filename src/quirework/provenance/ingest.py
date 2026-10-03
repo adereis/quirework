@@ -7,7 +7,13 @@ from quirework.project import current_project
 
 def main(argv=None):
     p = argparse.ArgumentParser(prog="quirework provenance ingest", description=__doc__)
-    p.add_argument("provider", choices=("claude", "codex", "agy", "all"))
+    p.add_argument(
+        "provider",
+        choices=("claude", "codex", "agy", "all"),
+        help="whose sessions to capture; all runs the three in turn. Options "
+        "of one provider follow its name: see `quirework provenance ingest "
+        "claude --help`",
+    )
     p.add_argument("arguments", nargs=argparse.REMAINDER, help=argparse.SUPPRESS)
     args = p.parse_args(argv)
     if not any(value in ("--help", "-h") for value in args.arguments):

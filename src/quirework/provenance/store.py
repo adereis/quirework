@@ -1096,7 +1096,26 @@ def main(argv=None):
         prog="quirework provenance store",
         description="Create, inspect and verify the store that holds the sessions.",
     )
-    parser.add_argument("action", choices=("init", "status", "verify"))
+    actions = parser.add_subparsers(dest="action", required=True, metavar="ACTION")
+    actions.add_parser(
+        "init",
+        help="create this project's store, or bind a new ledger to it",
+        description="Create this project's store under the identity the "
+        "ledger's accepted.txt names, or bind a new ledger to a new store.",
+    )
+    actions.add_parser(
+        "status",
+        help="show where the store is, what is pending, and what capture missed",
+        description="Show where the store is and which setting chose its home, "
+        "the sessions waiting in its pending area, and the Claude Code "
+        "sessions no capture holds as they stand. Writes nothing.",
+    )
+    actions.add_parser(
+        "verify",
+        help="hash every accepted file against the ledger's accepted.txt",
+        description="Hash every accepted file and name any that is missing "
+        "from the store or no longer matches the ledger's accepted.txt.",
+    )
     args = parser.parse_args(argv)
     return {"init": cmd_init, "status": cmd_status, "verify": cmd_verify}[args.action](
         args
