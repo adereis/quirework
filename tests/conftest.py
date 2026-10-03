@@ -1,10 +1,21 @@
 """Isolated synthetic projects for Quirework unit tests."""
 
 import os
+import shutil
+import stat
+import tempfile
 import time
+from pathlib import Path
 from types import SimpleNamespace
 import pytest
 from quirework.project import Project, project_scope
+
+RUN_PREFIX = "quirework-tests-"
+# A session's run directory is taken for abandoned at this age, the same
+# three days after which pytest takes a session's lock for dead. No suite
+# run lasts that long, so a sweep never pulls files from under a live one.
+ABANDONED_AFTER = 3 * 24 * 60 * 60
+RUN = pytest.StashKey[Path]()
 
 
 def project_at(root):
@@ -97,12 +108,37 @@ def three_hours_behind_utc(monkeypatch):
     time.tzset()
 
 
+def remove_run(run):
+    """Remove a session's run directory, sharing the work with any other.
+
+    Two sessions that start together can both sweep the same abandoned run,
+    and each then finds entries the other has already removed. That is
+    progress rather than failure, so the removal goes on until nothing is
+    left.
+    """
+    while os.path.lexists(run):
+        try:
+            shutil.rmtree(run)
+        except FileNotFoundError:
+            continue
+
+
+def sweep_abandoned_runs(temporary):
+    """Remove the run directories that sessions left behind long ago."""
+    cutoff = time.time() - ABANDONED_AFTER
+    for run in temporary.glob(f"{RUN_PREFIX}*"):
+        try:
+            status = run.lstat()
+        except FileNotFoundError:
+            continue  # another session swept it between listing and now
+        # `lstat` keeps a link that borrows the name from leading the sweep
+        # out of the temporary tree.
+        if stat.S_ISDIR(status.st_mode) and status.st_mtime < cutoff:
+            remove_run(run)
+
+
 def pytest_configure(config):
     """Keep test scratch files in the contributor's private temporary tree."""
-    import os
-    import tempfile
-    from pathlib import Path
-
     import quirework
 
     # A suite run with another project's environment active imports that
@@ -118,12 +154,19 @@ def pytest_configure(config):
             ".venv, or put its src first on PYTHONPATH"
         )
 
+    # Each session gets a run directory of its own, because pytest empties a
+    # given basetemp at the start of a session and several sessions can run
+    # at once from different worktrees. A given basetemp also turns off
+    # pytest's own rotation of old sessions, so the suite cleans up after
+    # itself: here it sweeps runs long abandoned, and at the end of the
+    # session it removes its own run if every test passed.
     if config.option.basetemp is None:
         temporary = Path.home() / "tmp"
         temporary.mkdir(mode=0o700, exist_ok=True)
-        config.option.basetemp = str(
-            Path(tempfile.mkdtemp(prefix="quirework-tests-", dir=temporary)) / "work"
-        )
+        sweep_abandoned_runs(temporary)
+        run = Path(tempfile.mkdtemp(prefix=RUN_PREFIX, dir=temporary))
+        config.stash[RUN] = run
+        config.option.basetemp = str(run / "work")
     # A project that configures no store falls back to the XDG state tree, so
     # a test that forgets `runs.store` writes run records into the
     # contributor's real home, and every test that dispatches a command now
@@ -151,3 +194,20 @@ def pytest_configure(config):
     # that are *about* recording drop this variable in their own fixture, so
     # switching it off here costs them nothing.
     os.environ["QUIREWORK_USAGE"] = "0"
+
+
+@pytest.hookimpl(trylast=True)
+def pytest_sessionfinish(session, exitstatus):
+    """Remove a passing session's run, and thin what a failing one keeps."""
+    run = session.config.stash.get(RUN, None)
+    if run is None:
+        return  # the caller chose basetemp, so the caller keeps it
+    if exitstatus == pytest.ExitCode.OK:
+        remove_run(run)
+        return
+    # pytest removes a passing test's directory but not the `<name>current`
+    # link it made to it, so a failing session would keep one dangling link
+    # per passing test around the few directories worth reading.
+    for link in Path(session.config.option.basetemp).glob("*current"):
+        if link.is_symlink() and not link.exists():
+            link.unlink()

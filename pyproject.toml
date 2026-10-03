@@ -26,6 +26,9 @@ where = ["src"]
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 addopts = "-q"
+# A passing test's directory goes as soon as it passes; tests/conftest.py
+# removes the rest of a passing session's run.
+tmp_path_retention_policy = "failed"
 markers = ["live: invokes a paid provider; requires explicit authorization"]
 
 [tool.setuptools.package-data]

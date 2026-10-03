@@ -113,6 +113,15 @@ The suite refuses to run against any Quirework but this checkout's. A
 shell with a consuming book's environment active would otherwise import
 the book's pinned copy, test it, and pass.
 
+Each session writes its scratch files under a directory of its own,
+`~/tmp/quirework-tests-*`, and cleans up after itself. A passing test's
+files go as soon as it passes, and a passing session removes its whole
+directory when it ends. A failing session keeps only the failed tests'
+directories, beside the session's state and cache, for inspection. The
+next session sweeps any directory left more than three days. Passing
+`--basetemp` opts out of all of it, since that directory is the
+caller's to keep.
+
 Unit tests use fictional text and diagrams. They check project
 isolation, custom catalogs, formatting, artifact transforms, independent
 seats, interrupted receipts, forks, quota recovery, and immutable
