@@ -447,6 +447,19 @@ the accepted files it lacks until you copy them in. A store another
 project created under the same name is refused, so two projects never
 read each other's sessions.
 
+That same identity is why init is the wrong answer when a store goes
+missing on the machine that made it. If the ledger lists accepted
+files and no store is found, the store usually still exists, and
+Quirework was looking under a different home, often from a hook that
+never saw the variable your shell exports. Init there would create a
+second, empty store under the same identity, and captures from that
+process would land in it unnoticed. So the error names the home it
+looked in and the setting that chose it, and it tells you to point the
+home at the store rather than to run init. It suggests init only when
+the ledger lists nothing yet. Init itself, when it creates a store for
+a ledger that already lists files, names the home too and says what to
+do if that store belongs elsewhere.
+
 ### Accepting sessions
 
 Capture writes into the store's pending area and never decides what

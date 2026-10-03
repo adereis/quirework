@@ -421,6 +421,44 @@ class Store:
         return units
 
 
+def _relocate(project):
+    """How to point this project at a store kept somewhere else, as a clause."""
+    if project.get("provenance.store_dir") is not None:
+        return "correct provenance.store_dir"
+    return (
+        "point $QUIREWORK_PROVENANCE_HOME or provenance.home in "
+        f"{shown(user_config_path())} at the directory that holds it"
+    )
+
+
+def _no_store(project, root, led):
+    """Why there is no store at ``root``, and what to do about it.
+
+    A missing store is a first run only when the ledger has accepted nothing.
+    Once it has, the store exists somewhere, and the likelier cause is a home
+    chosen by other settings than the ones the store was made under: a hook
+    whose harness never saw the variable a shell profile exports finds the
+    default home instead. ``store init`` there would make a second, empty store
+    under the same identity, and later captures would land in it unremarked.
+    """
+    chosen = describe_home(project)
+    where = (
+        f"there is no provenance store at {shown(root)}; its home is {chosen}"
+        if chosen
+        else f"there is no provenance store at {shown(root)}, the directory "
+        "provenance.store_dir names"
+    )
+    _, entries = read_manifest(led / MANIFEST)
+    if not entries:
+        return f"{where}. Run `quirework provenance store init` to create it"
+    return (
+        f"{where}. {shown(led / MANIFEST)} lists {len(entries)} accepted "
+        "file(s), so this project's store is likely elsewhere on this machine: "
+        f"{_relocate(project)}. On a machine that has none of them, `quirework "
+        "provenance store init` creates an empty store here to copy them into"
+    )
+
+
 def open_store(project=None):
     """The project's store, refused unless it exists and its ledger names it."""
     project = current_project() if project is None else project
@@ -428,10 +466,7 @@ def open_store(project=None):
     led = ledger(project)
     stored = _identity(root)
     if stored is None:
-        raise ConfigurationError(
-            f"there is no provenance store at {shown(root)}; "
-            "run `quirework provenance store init`"
-        )
+        raise ConfigurationError(_no_store(project, root, led))
     listed, _ = read_manifest(led / MANIFEST)
     if listed is None:
         raise ConfigurationError(
@@ -1034,12 +1069,18 @@ def cmd_init(_args):
     store, created = init()
     if created:
         print(f"created store {store.identity} at {describe_location(store)}")
+        chosen = describe_home()
+        if chosen:
+            print(f"its home is {chosen}")
         missing = [e for e in store.entries() if not store.path(e).is_file()]
         if missing:
             print(
                 f"the ledger lists {len(missing)} accepted file(s) this new store "
                 "lacks; copy the store's accepted/ directory from a machine that "
-                "has it, then run `quirework provenance store verify`"
+                "has it, then run `quirework provenance store verify`. If this "
+                "machine already keeps them in another store, this one is in the "
+                f"wrong place: {_relocate(current_project())}, and delete the "
+                "empty store just created"
             )
     else:
         print(f"store {store.identity} is ready at {describe_location(store)}")

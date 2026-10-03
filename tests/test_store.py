@@ -274,6 +274,68 @@ def test_a_fresh_clone_creates_its_store_under_the_ledgers_identity(tmp_path):
         assert store.verify() == [f"missing   {store.open_store().entries()[0].stored}"]
 
 
+def test_a_first_store_is_missing_until_init(tmp_path, monkeypatch):
+    monkeypatch.delenv("QUIREWORK_PROVENANCE_HOME", raising=False)
+    monkeypatch.setenv("XDG_CONFIG_HOME", str(tmp_path / "config"))
+    monkeypatch.setenv("XDG_DATA_HOME", str(tmp_path / "data"))
+    with pytest.raises(ConfigurationError) as caught:
+        store.open_store(_named(tmp_path))
+    said = str(caught.value)
+    assert "its home is" in said and "the default" in said
+    assert "Run `quirework provenance store init`" in said
+    assert "elsewhere" not in said
+
+
+def test_a_home_that_lost_its_store_is_not_sent_to_init(tmp_path, monkeypatch):
+    # The store was made under one home, and a process that never saw the
+    # setting naming it looks in another: the shape of a hook whose harness
+    # did not inherit the variable a shell profile exports.
+    monkeypatch.setenv("XDG_CONFIG_HOME", str(tmp_path / "config"))
+    monkeypatch.setenv("QUIREWORK_PROVENANCE_HOME", str(tmp_path / "stores"))
+    project = _named(tmp_path)
+    keep_session(project, f"cc-sessions/{KETTLE}.jsonl", _transcript("Boil."))
+    monkeypatch.delenv("QUIREWORK_PROVENANCE_HOME")
+    monkeypatch.setenv("XDG_DATA_HOME", str(tmp_path / "data"))
+    with pytest.raises(ConfigurationError) as caught:
+        store.open_store(project)
+    said = str(caught.value)
+    assert "the default" in said and "lists 1 accepted file(s)" in said
+    assert "point $QUIREWORK_PROVENANCE_HOME or provenance.home" in said
+    assert "creates an empty store here" in said
+    assert not (tmp_path / "data").exists()
+
+
+def test_a_missing_store_directory_names_the_setting_to_correct(tmp_path):
+    original = _book(tmp_path)
+    keep_session(original, f"cc-sessions/{KETTLE}.jsonl", _transcript("Boil."))
+    moved = Project.from_settings(
+        tmp_path / "book",
+        {"provenance": corpus_settings(store=str(tmp_path / "nowhere"))},
+    )
+    with pytest.raises(ConfigurationError) as caught:
+        store.open_store(moved)
+    said = str(caught.value)
+    assert "the directory provenance.store_dir names" in said
+    assert "correct provenance.store_dir" in said
+
+
+def test_init_of_a_store_the_ledger_already_filled_warns_of_a_wrong_home(
+    tmp_path, monkeypatch, capsys
+):
+    monkeypatch.setenv("XDG_CONFIG_HOME", str(tmp_path / "config"))
+    monkeypatch.setenv("QUIREWORK_PROVENANCE_HOME", str(tmp_path / "stores"))
+    project = _named(tmp_path)
+    keep_session(project, f"cc-sessions/{KETTLE}.jsonl", _transcript("Boil."))
+    monkeypatch.delenv("QUIREWORK_PROVENANCE_HOME")
+    monkeypatch.setenv("XDG_DATA_HOME", str(tmp_path / "data"))
+    with project_scope(project):
+        capsys.readouterr()
+        assert store.cmd_init(None) == 0
+    said = capsys.readouterr().out
+    assert "its home is" in said and "the default" in said
+    assert "this one is in the wrong place" in said
+
+
 def test_a_directory_that_is_not_a_store_is_never_taken_over(tmp_path):
     project = _book(tmp_path)
     occupied = tmp_path / "book" / "private" / "store"
