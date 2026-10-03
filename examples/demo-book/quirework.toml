@@ -46,6 +46,7 @@ evidence_roots = ["variants/manager"]
 [provenance]
 enabled = true
 # Committed, not private: see logs/README.md for why this book breaks
-# with the configuration guide's default here.
+# with the configuration guide's default here, keeping its store, and
+# the session in it, inside the repository.
 root = "logs"
-curation = "tracked"
+store_dir = "logs/store"

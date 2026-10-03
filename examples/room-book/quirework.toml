@@ -2,8 +2,3 @@ schema = 2
 
 [project]
 name = "The Room Where Nobody Agreed"
-
-[provenance]
-enabled = true
-root = "logs"
-curation = "tracked"
