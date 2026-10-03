@@ -62,7 +62,8 @@ enabled = false
 # which were removed and why, and the catalog built from them.
 # root = "private/provenance"
 # The store that keeps the captured sessions themselves, outside the
-# repository: a name under $QUIREWORK_PROVENANCE_HOME, by default
+# repository: a name under the provenance home, which provenance.home
+# in ~/.config/quirework/config.toml sets and which is otherwise
 # ~/.local/share/quirework/provenance. Create it with `quirework
 # provenance store init`, and back it up.
 # store = "my-book"

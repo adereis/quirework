@@ -30,11 +30,13 @@ it: the raw export, the rendered transcript, and the files and artifacts
 extracted from it. A version holds the whole unit, so files a reader expects to
 find side by side were accepted together.
 
-The store is found by name. ``provenance.store`` names it under
-``$QUIREWORK_PROVENANCE_HOME``, or under ``$XDG_DATA_HOME/quirework/provenance``
-when that is unset. The name is committed with the project, so a fresh
-worktree, a fresh clone and a hook launched outside the author's shell all find
-the same store with nothing set per checkout. ``provenance.store_dir`` names a
+The store is found by name. ``provenance.store`` names it under the provenance
+home: ``$QUIREWORK_PROVENANCE_HOME`` when that is set, else ``provenance.home``
+in the per-user configuration, else ``$XDG_DATA_HOME/quirework/provenance``.
+The name is committed with the project, so a fresh worktree and a fresh clone
+find the same store with nothing set per checkout. The per-user file is what
+lets a hook launched outside the author's shell find it too, since such a hook
+never sees a variable the shell's profile exported. ``provenance.store_dir`` names a
 directory instead, for a project that keeps its sessions somewhere specific,
 inside its own repository included. The store records an identity and
 ``accepted.txt`` names it, so a ledger is refused a store that another project
@@ -59,7 +61,12 @@ from dataclasses import dataclass
 from fnmatch import fnmatch
 from pathlib import Path, PurePosixPath
 
-from quirework.project import ConfigurationError, current_project
+from quirework.project import (
+    ConfigurationError,
+    current_project,
+    user_config_path,
+    user_settings,
+)
 from quirework.runs.storage import shown
 
 CC, AGY, CODEX, WEB = "cc-sessions", "agy-sessions", "codex-sessions", "conversations"
@@ -107,8 +114,28 @@ _LIST_HEADERS = {
 # --------------------------------------------------------------------------- #
 # where the store and the ledger are
 # --------------------------------------------------------------------------- #
-def home():
-    """The directory a store named by ``provenance.store`` lives under."""
+@dataclass(frozen=True)
+class Home:
+    """The directory named stores live under, and which setting chose it."""
+
+    path: Path
+    chosen_by: str  # "environment", "user" or "default"
+
+    def describe(self):
+        """The directory and what chose it, for a person reading output."""
+        if self.chosen_by == "environment":
+            return f"{shown(self.path)}, from $QUIREWORK_PROVENANCE_HOME"
+        config = shown(user_config_path())
+        if self.chosen_by == "user":
+            return f"{shown(self.path)}, from provenance.home in {config}"
+        return (
+            f"{shown(self.path)}, the default: $QUIREWORK_PROVENANCE_HOME is unset "
+            f"and {config} sets no provenance.home"
+        )
+
+
+def find_home():
+    """The provenance home: the variable, else the per-user file, else XDG data."""
     configured = os.environ.get("QUIREWORK_PROVENANCE_HOME")
     if configured:
         path = Path(configured).expanduser()
@@ -116,10 +143,35 @@ def home():
             raise ConfigurationError(
                 f"QUIREWORK_PROVENANCE_HOME must be an absolute path, not {configured!r}"
             )
-        return path
+        return Home(path, "environment")
+    configured = user_settings().get("provenance", {}).get("home")
+    if configured is not None:
+        where = f"provenance.home in {shown(user_config_path())}"
+        if not isinstance(configured, str) or not configured.strip():
+            raise ConfigurationError(f"{where} must name a directory")
+        path = Path(configured).expanduser()
+        if not path.is_absolute():
+            raise ConfigurationError(
+                f"{where} must be an absolute path, not {configured!r}"
+            )
+        return Home(path, "user")
     data = os.environ.get("XDG_DATA_HOME")
     base = Path(data) if data and Path(data).is_absolute() else None
-    return (base or Path.home() / ".local/share") / "quirework" / "provenance"
+    path = (base or Path.home() / ".local/share") / "quirework" / "provenance"
+    return Home(path, "default")
+
+
+def home():
+    """The directory a store named by ``provenance.store`` lives under."""
+    return find_home().path
+
+
+def describe_home(project=None):
+    """The home and what chose it, or ``None`` for a store named by directory."""
+    project = current_project() if project is None else project
+    if project.get("provenance.store_dir") is not None:
+        return None
+    return find_home().describe()
 
 
 def location(project=None):
@@ -895,6 +947,9 @@ def cmd_status(_args):
     units = store.pending_units()
     now = time.time()
     print(f"store     {describe_location(store)}")
+    chosen = describe_home()
+    if chosen:
+        print(f"home      {chosen}")
     print(f"ledger    {shown(store.manifest)}")
     print(f"accepted  {len(accepted)} session(s), {len(entries)} file(s)")
     print(f"pending   {len(units)} session(s)")

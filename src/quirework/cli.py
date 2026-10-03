@@ -340,6 +340,9 @@ def main(argv=None):
 
                     located = store.describe_location(store.open_store(project))
                     print(f"Provenance store: {located}")
+                    chosen = store.describe_home(project)
+                    if chosen:
+                        print(f"Provenance home: {chosen}")
                 if project.get("manuscript"):
                     project.require("manuscript")
                 if project.get("publish"):

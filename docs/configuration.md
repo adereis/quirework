@@ -357,6 +357,13 @@ appropriate for private corpus paths, account identities, and existing
 run-storage locations. Store credentials in the provider's native
 credential mechanism, not in these files.
 
+One file belongs to you rather than to a project:
+`$XDG_CONFIG_HOME/quirework/config.toml`, normally
+`~/.config/quirework/config.toml`. It holds what every project on the
+machine shares, and today that is only `provenance.home` (see
+[Provenance](#provenance)). A key it does not read is refused, as in a
+project's file.
+
 An explicit `--project` or `--config` selects a directory or
 configuration file. `QUIREWORK_PROJECT` supplies a project selection for
 subprocesses. A library caller can construct a `Project` and invoke
@@ -397,23 +404,40 @@ the decisions about the sessions: which were accepted, which were
 removed and why, which are about the apparatus, and the catalog built
 from them.
 
-`provenance.store` names the store. Quirework looks for it under
-`$QUIREWORK_PROVENANCE_HOME`, or under
-`$XDG_DATA_HOME/quirework/provenance` when that variable is unset,
-which is normally `~/.local/share/quirework/provenance`. The name is
-committed with the project, so every worktree and every clone find the
-same store, and so does a capture hook started outside your shell.
-Nothing has to be set per checkout. Set `QUIREWORK_PROVENANCE_HOME`
-once, in a shell profile or an `.envrc`, to keep every project's store
-on a disk that is backed up or synced. `provenance.store_dir` names a
-directory instead, for a store kept somewhere specific; it may sit
-inside the repository, as the example book's does. Declare one of the
-two.
+`provenance.store` names the store, and Quirework looks for it under
+the *provenance home*. The home is `$QUIREWORK_PROVENANCE_HOME` when
+that variable is set. Otherwise it is `provenance.home` in your
+per-user configuration, and without that it is
+`$XDG_DATA_HOME/quirework/provenance`, which is normally
+`~/.local/share/quirework/provenance`. The name is committed with the
+project, so every worktree and every clone find the same store. Nothing
+has to be set per checkout. `provenance.store_dir` names a directory
+instead, for a store kept somewhere specific; it may sit inside the
+repository, as the example book's does. Declare one of the two.
+
+To keep every project's store on a disk that is backed up or synced,
+name the home in the per-user file:
+
+```toml
+# ~/.config/quirework/config.toml
+[provenance]
+home = "~/sessions"
+```
+
+Prefer the file to the variable. A capture hook is started by the
+harness, not by your shell, and it sees an exported variable only when
+the harness itself was started from a shell that had already exported
+it. A harness opened from a desktop launcher, or started before the
+variable reached your profile, runs its hooks without it, and they look
+for the store in the default home instead. A file reaches every
+process, however it was started. The variable stays useful for an
+override, such as a scratch home for one command.
 
 Nothing copies the store off the machine unless you arrange it, and
 Claude Code deletes its own transcripts after 30 days by default. After
 that the store is the only copy, so back it up. `quirework config
-check` names where the store is and whether a repository holds it.
+check` and `quirework provenance store status` name where the store is,
+which setting chose its home, and whether a repository holds it.
 
 `quirework provenance store init` creates the store and records its
 identity in the ledger's `accepted.txt`. A ledger that already names an

@@ -440,6 +440,57 @@ def private_tmp_parent() -> Path | None:
     return Path(runtime) if runtime and Path(runtime).is_dir() else None
 
 
+# Every key the per-user configuration reads. The file holds what belongs to the
+# person rather than to one project, and it is a file rather than a variable in
+# a shell profile because a program the person's shell did not start (a hook a
+# harness runs, an editor opened from a launcher) never sees what the profile
+# exported, while every program can read a file. Strict like a project's: a
+# misspelled key would otherwise leave its default in force without a word.
+USER_KEYS = {"provenance": frozenset({"home"})}
+
+# Parsed per-user configurations, keyed by the file's path and checked against
+# its inode, size and modification time before use, so an edit is never missed.
+_USER_PARSED = {}
+
+
+def user_config_path() -> Path:
+    """Where the per-user configuration lives, whether or not it exists."""
+    configured = os.environ.get("XDG_CONFIG_HOME")
+    base = Path(configured) if configured and Path(configured).is_absolute() else None
+    return (base or Path.home() / ".config") / "quirework" / "config.toml"
+
+
+def user_settings() -> dict:
+    """The per-user configuration as ``{section: {key: value}}``; empty without one."""
+    path = user_config_path()
+    try:
+        st = path.stat()
+    except FileNotFoundError:
+        return {}
+    signature = (st.st_ino, st.st_size, st.st_mtime_ns)
+    cached = _USER_PARSED.get(str(path))
+    if cached is not None and cached[0] == signature:
+        return copy.deepcopy(cached[1])
+    try:
+        data = tomllib.loads(path.read_text(encoding="utf-8"))
+    except (OSError, tomllib.TOMLDecodeError) as exc:
+        raise ConfigurationError(f"cannot read {path}: {exc}") from exc
+    known = ", ".join(f"{s}.{k}" for s, keys in USER_KEYS.items() for k in keys)
+    for section, values in data.items():
+        if section not in USER_KEYS or not isinstance(values, dict):
+            raise ConfigurationError(
+                f"{path}: unknown setting {section}; this file reads {known}"
+            )
+        unknown = sorted(set(values) - USER_KEYS[section])
+        if unknown:
+            raise ConfigurationError(
+                f"{path}: unknown setting {section}.{unknown[0]}; this file "
+                f"reads {known}"
+            )
+    _USER_PARSED[str(path)] = (signature, data)
+    return copy.deepcopy(data)
+
+
 def current_project() -> Project:
     project = _CURRENT.get()
     return project if project is not None else Project.load()

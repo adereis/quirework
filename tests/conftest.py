@@ -138,6 +138,13 @@ def pytest_configure(config):
     # contributor's real ~/.cache, keyed by a test directory that was already
     # gone. The trail's write lock left forty of them before this line.
     os.environ["XDG_CACHE_HOME"] = str(state.parent / "quirework-cache")
+    # The provenance home is read from the environment and then from the
+    # per-user configuration, and a contributor who keeps real sessions sets
+    # one of the two. Either would send a test's named store into that real
+    # home, so the variable is dropped and the configuration directory points
+    # at one no test writes; the tests about the home set their own.
+    os.environ.pop("QUIREWORK_PROVENANCE_HOME", None)
+    os.environ["XDG_CONFIG_HOME"] = str(state.parent / "quirework-config")
     # Relocating the store is not the same as not recording, and a test run is
     # not use of a command: a suite that dispatches `sop show` forty times to
     # check its exit status should leave no usage records anywhere. The tests

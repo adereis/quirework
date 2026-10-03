@@ -13,6 +13,7 @@ Every session here is fiction written for the purpose.
 import json
 import os
 import time
+from pathlib import Path
 
 import pytest
 
@@ -82,6 +83,90 @@ def test_a_relative_provenance_home_is_refused(tmp_path, monkeypatch):
     )
     with pytest.raises(ConfigurationError, match="absolute path"):
         store.location(project)
+
+
+def _user_config(tmp_path, monkeypatch, text):
+    """Write the per-user configuration a test reads, and nothing else."""
+    monkeypatch.delenv("QUIREWORK_PROVENANCE_HOME", raising=False)
+    monkeypatch.setenv("XDG_CONFIG_HOME", str(tmp_path / "config"))
+    path = tmp_path / "config" / "quirework" / "config.toml"
+    path.parent.mkdir(parents=True)
+    path.write_text(text)
+    return path
+
+
+def _named(tmp_path):
+    return Project.from_settings(
+        tmp_path / "book", {"provenance": {"enabled": True, "store": "kettle-book"}}
+    )
+
+
+def test_the_user_configuration_names_the_home(tmp_path, monkeypatch):
+    stores = tmp_path / "stores"
+    _user_config(tmp_path, monkeypatch, f'[provenance]\nhome = "{stores}"\n')
+    assert store.location(_named(tmp_path)) == stores / "kettle-book"
+    assert store.find_home().chosen_by == "user"
+    assert "from provenance.home in" in store.describe_home(_named(tmp_path))
+
+
+def test_the_variable_overrides_the_user_configuration(tmp_path, monkeypatch):
+    _user_config(tmp_path, monkeypatch, '[provenance]\nhome = "/elsewhere"\n')
+    monkeypatch.setenv("QUIREWORK_PROVENANCE_HOME", str(tmp_path / "stores"))
+    assert store.location(_named(tmp_path)) == tmp_path / "stores" / "kettle-book"
+    assert store.describe_home(_named(tmp_path)).endswith(
+        "from $QUIREWORK_PROVENANCE_HOME"
+    )
+
+
+def test_a_configured_home_may_start_at_the_home_directory(tmp_path, monkeypatch):
+    _user_config(tmp_path, monkeypatch, '[provenance]\nhome = "~/stores"\n')
+    monkeypatch.setenv("HOME", str(tmp_path / "home"))
+    expected = tmp_path / "home" / "stores" / "kettle-book"
+    assert store.location(_named(tmp_path)) == expected
+
+
+def test_a_relative_configured_home_is_refused(tmp_path, monkeypatch):
+    path = _user_config(tmp_path, monkeypatch, '[provenance]\nhome = "stores"\n')
+    with pytest.raises(ConfigurationError, match="absolute path") as caught:
+        store.location(_named(tmp_path))
+    assert path.name in str(caught.value)
+
+
+@pytest.mark.parametrize(
+    "text, message",
+    [
+        ('[provenance]\nhoem = "/stores"\n', "provenance.hoem"),
+        ('home = "/stores"\n', "unknown setting home"),
+        ('[runs]\nstore = "/runs"\n', "unknown setting runs"),
+        ("[provenance\n", "cannot read"),
+    ],
+)
+def test_a_user_configuration_it_cannot_follow_is_refused(
+    tmp_path, monkeypatch, text, message
+):
+    path = _user_config(tmp_path, monkeypatch, text)
+    with pytest.raises(ConfigurationError, match=message) as caught:
+        store.location(_named(tmp_path))
+    assert str(path) in str(caught.value)
+
+
+def test_an_edited_user_configuration_is_read_again(tmp_path, monkeypatch):
+    path = _user_config(tmp_path, monkeypatch, '[provenance]\nhome = "/one"\n')
+    assert store.home() == Path("/one")
+    path.write_text('[provenance]\nhome = "/a-longer-two"\n')
+    assert store.home() == Path("/a-longer-two")
+
+
+def test_without_either_setting_the_default_says_so(tmp_path, monkeypatch):
+    monkeypatch.delenv("QUIREWORK_PROVENANCE_HOME", raising=False)
+    monkeypatch.setenv("XDG_CONFIG_HOME", str(tmp_path / "config"))
+    monkeypatch.setenv("XDG_DATA_HOME", str(tmp_path / "data"))
+    described = store.describe_home(_named(tmp_path))
+    assert "the default" in described and "sets no provenance.home" in described
+
+
+def test_a_store_named_by_directory_has_no_home_to_describe(tmp_path):
+    assert store.describe_home(_book(tmp_path)) is None
 
 
 @pytest.mark.parametrize(
