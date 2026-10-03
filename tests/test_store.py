@@ -547,3 +547,95 @@ def test_capture_waits_in_the_store_and_returns_only_when_a_session_grows(tmp_pa
         claude.main([])
         assert [p.name for p in store.pending(store.CC)] == [f"{KETTLE}.jsonl"]
         assert len(store.files(store.CC)) == 1
+
+
+# --------------------------------------------------------------------------- #
+# what status sees that capture missed
+# --------------------------------------------------------------------------- #
+def _claude_book(tmp_path):
+    """A book whose Claude Code transcripts are kept in the test's directory."""
+    project = Project.from_settings(
+        tmp_path / "book",
+        {
+            "provenance": corpus_settings(),
+            "providers": {"claude": {"sessions": str(tmp_path / "claude")}},
+        },
+    )
+    (tmp_path / "book").mkdir()
+    return project
+
+
+def _status(capsys):
+    capsys.readouterr()
+    assert store.cmd_status(None) == 0
+    return capsys.readouterr().out
+
+
+def test_status_names_a_session_no_capture_holds(tmp_path, capsys):
+    from quirework.provenance.ingestion import claude
+
+    project = _claude_book(tmp_path)
+    _claude_home(tmp_path, project, KETTLE, "Boil the water.")
+    with project_scope(project):
+        store.init()
+        out = _status(capsys)
+        assert "uncaptured 1 Claude Code session(s)" in out
+        assert f"{KETTLE}  never captured" in out
+        assert "missed by its capture hook" in out
+
+        claude.main([])
+        out = _status(capsys)
+        assert "uncaptured 0 Claude Code session(s)" in out
+        assert "missed" not in out
+
+
+def test_status_only_reads(tmp_path, capsys):
+    project = _claude_book(tmp_path)
+    _claude_home(tmp_path, project, KETTLE, "Boil the water.")
+    with project_scope(project):
+        store.init()
+        ledger = sorted(p.name for p in store.ledger().iterdir())
+        _status(capsys)
+        assert store.pending(store.CC) == []
+        assert sorted(p.name for p in store.ledger().iterdir()) == ledger
+
+
+def test_a_session_still_being_written_is_not_called_missed(tmp_path, capsys):
+    project = _claude_book(tmp_path)
+    source = _claude_home(tmp_path, project, KETTLE, "Boil the water.")
+    os.utime(source)
+    with project_scope(project):
+        store.init()
+        out = _status(capsys)
+        line = next(x for x in out.splitlines() if KETTLE in x)
+        assert line.endswith("may still be running")
+        assert "missed" not in out
+
+
+def test_a_session_that_grew_after_acceptance_is_named_grown(tmp_path, capsys):
+    from quirework.provenance.ingestion import claude
+
+    project = _claude_book(tmp_path)
+    _claude_home(tmp_path, project, KETTLE, "Boil the water.")
+    with project_scope(project):
+        store.init()
+        claude.main([])
+        store.accept(everything=True)
+        _claude_home(tmp_path, project, KETTLE, "Boil the water.", "Pour it.")
+        assert f"{KETTLE}  grown since its capture" in _status(capsys)
+
+
+def test_a_removed_session_is_not_reported_uncaptured(tmp_path, capsys):
+    project = _claude_book(tmp_path)
+    _claude_home(tmp_path, project, KETTLE, "Boil the water.")
+    with project_scope(project):
+        store.init()
+        store.add_to_list(store.REMOVED, "cc", KETTLE, "a stub")
+        assert "uncaptured 0 Claude Code session(s)" in _status(capsys)
+
+
+def test_status_is_silent_about_claude_code_where_it_never_ran(tmp_path, capsys):
+    project = _claude_book(tmp_path)
+    with project_scope(project):
+        store.init()
+        assert "uncaptured" not in _status(capsys)

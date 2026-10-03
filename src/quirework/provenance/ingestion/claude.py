@@ -28,6 +28,10 @@ Modes:
                                               new was captured (what SessionEnd
                                               invokes)
 
+`quirework provenance store status` asks the same selection, through `survey`,
+without writing: a session whose hook failed is listed there until a sweep
+captures it, rather than waiting unseen for Claude Code's cleanup.
+
 Sessions on the ledger's `removed-sessions.txt` are never (re-)imported: the
 corpus is curated, and the originals stay in ~/.claude, so without the list the
 hook would keep re-materializing sessions deliberately removed.
@@ -36,6 +40,7 @@ Pure stdlib. Never accepts anything: that stays a reviewed step.
 """
 
 import json, os, re, sys, tempfile
+from dataclasses import dataclass
 from pathlib import Path
 from quirework.project import current_project
 
@@ -190,16 +195,6 @@ def accepted_versions(family):
     return found
 
 
-def copy_if_changed(src: Path, versions=()) -> bool:
-    """Normalize src into the pending area iff it is new or has grown."""
-    dst = store.open_store().pending_dir(store.CC) / src.name
-    if is_current(src, [dst, *versions]):
-        return False
-    dst.parent.mkdir(parents=True, exist_ok=True)
-    write_capture(src, dst)
-    return True
-
-
 def belongs(path: Path, roots, excluding=()) -> bool:
     """Whether a candidate transcript really ran in one of this project's trees.
 
@@ -211,14 +206,54 @@ def belongs(path: Path, roots, excluding=()) -> bool:
     return True if cwd is None else worktrees.contains(roots, cwd, excluding)
 
 
-def sweep() -> list[Path]:
+@dataclass(frozen=True)
+class Survey:
+    """This project's transcripts, sorted by what a sweep would do with each."""
+
+    due: tuple[Path, ...]  # new or grown since every capture of it
+    grown: frozenset[Path]  # those of `due` that an older capture exists for
+    unchanged: int  # captured as they stand
+    removed: int  # on the ledger's removed list, never captured
+    foreign: int  # recorded as running in another project
+
+
+def survey() -> Survey | None:
+    """What a sweep would capture, found without writing anything.
+
+    The sweep's own selection, so `store status` can name the sessions no
+    capture holds as they stand: a session whose hook failed, or never ran,
+    stays here until a sweep succeeds. ``None`` when Claude Code keeps no
+    session directory for this project.
+    """
     dirs = sibling_session_dirs()
     if not dirs:
-        raise SystemExit(
-            f"no Claude Code session dir for {current_project().root}: {encoded_project_dir(current_project().root)}"
-        )
-    files = [p for d in dirs for p in d.glob("*.jsonl")]
-    return sorted(files)
+        return None
+    sources = sorted(p for d in dirs for p in d.glob("*.jsonl"))
+    removed = store.removed_ids("cc")
+    kept = [p for p in sources if p.stem.lower() not in removed]
+
+    # Verify the recorded cwd only for transcripts that would actually be
+    # captured: on a settled corpus that is nothing, so the steady state stays
+    # a stat and a header read per file rather than a read of all five hundred.
+    roots = worktrees.project_trees(current_project().root)
+    excluding = worktrees.excluded_trees(current_project(), roots)
+    pending = store.open_store().pending_dir(store.CC)
+    accepted = accepted_versions(store.CC)
+    due, grown = [], set()
+    unchanged = foreign = 0
+    for p in kept:
+        versions = [pending / p.name, *accepted.get(p.name, ())]
+        if is_current(p, versions):
+            unchanged += 1
+        elif not belongs(p, roots, excluding):
+            foreign += 1
+        else:
+            due.append(p)
+            if any(v.is_file() for v in versions):
+                grown.add(p)
+    return Survey(
+        tuple(due), frozenset(grown), unchanged, len(sources) - len(kept), foreign
+    )
 
 
 def main(argv=None):
@@ -243,32 +278,15 @@ def main(argv=None):
     # from a tree that exists now, and this is the last moment that is known.
     for tree in trees.record(current_project()):
         print(f"cc-sessions: recorded project tree {shown(tree)}")
-    sources = sweep()
-
-    removed = store.removed_ids("cc")
-    skipped = [p for p in sources if p.stem.lower() in removed]
-    sources = [p for p in sources if p.stem.lower() not in removed]
-
-    # Verify the recorded cwd only for transcripts that would actually be
-    # captured: on a settled corpus that is nothing, so the steady state stays
-    # a stat and a header read per file rather than a read of all five hundred.
-    roots = worktrees.project_trees(current_project().root)
-    excluding = worktrees.excluded_trees(current_project(), roots)
-    accepted = accepted_versions(store.CC)
-    foreign = unchanged = 0
-    copied = []
-    for p in sources:
-        versions = [pending / p.name, *accepted.get(p.name, ())]
-        if is_current(p, versions):
-            unchanged += 1
-            continue
-        if not belongs(p, roots, excluding):
-            foreign += 1
-            continue
-        if copy_if_changed(p, versions):
-            copied.append(p)
-        else:
-            unchanged += 1
+    found = survey()
+    if found is None:
+        raise SystemExit(
+            f"no Claude Code session dir for {current_project().root}: "
+            f"{encoded_project_dir(current_project().root)}"
+        )
+    copied = found.due
+    for p in copied:
+        write_capture(p, pending / p.name)
     if hook:
         # Stay quiet on the happy path so SessionEnd doesn't spam the transcript.
         if copied:
@@ -279,9 +297,9 @@ def main(argv=None):
             print(f"  + {p.name}  ({p.stat().st_size} bytes)")
         print(
             f"cc-sessions: {len(copied)} updated, "
-            f"{unchanged} unchanged, "
-            f"{len(skipped)} on removed-list, "
-            f"{foreign} from another project -> {shown(pending)}"
+            f"{found.unchanged} unchanged, "
+            f"{found.removed} on removed-list, "
+            f"{found.foreign} from another project -> {shown(pending)}"
         )
 
 

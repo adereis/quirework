@@ -467,6 +467,18 @@ session modified in the last two hours may still be running, so
 `accept` refuses it unless `--live` says to take what was captured so
 far. `accept --all` skips such sessions and names them.
 
+`store status` also lists the Claude Code sessions that no capture
+holds as they stand: one never captured, or one that grew after its
+last capture. It finds them by running the capture's own selection
+without writing anything. A session there that is still being written
+is marked as possibly running, and its hook captures it when it ends.
+One that has stopped changing was missed, usually by a capture hook
+that failed as its session closed, where nobody saw the error.
+`quirework provenance ingest claude` captures it. Do that within 30
+days of its last change, because Claude Code deletes the transcript
+then by default. Codex and Antigravity are captured by hand, and their
+sweeps report what they captured, so status does not list theirs.
+
 A session that grows after it was accepted is captured again as
 pending. Accepting it then adds a new version beside the old one. A
 branch whose ledger still lists the old version keeps reading exactly

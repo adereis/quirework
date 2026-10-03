@@ -940,6 +940,21 @@ def _age(seconds):
     return f"{int(seconds // 86400)} days"
 
 
+def uncaptured():
+    """The Claude Code sessions no capture holds as they stand, or ``None``.
+
+    Only Claude Code's, because it is the one harness captured unattended, by a
+    ``SessionEnd`` hook, and the one whose own cleanup deletes the transcripts.
+    A hook that fails does so as its session closes, with nobody reading, so
+    without this its session would wait unseen until that cleanup took it.
+    Codex and Antigravity are captured by hand, and their sweeps report what
+    they did. ``None`` when Claude Code has never run in this project.
+    """
+    from quirework.provenance.ingestion import claude
+
+    return claude.survey()
+
+
 def cmd_status(_args):
     store = open_store()
     entries = store.entries()
@@ -963,6 +978,18 @@ def cmd_status(_args):
             f"  {KIND_OF[family]:5} {unit}  {state}, changed "
             f"{_age(now - newest_mtime)} ago{live}"
         )
+    missed = uncaptured()
+    if missed is not None:
+        print(f"uncaptured {len(missed.due)} Claude Code session(s)")
+        for path in sorted(missed.due, key=lambda p: p.stat().st_mtime):
+            state = (
+                "grown since its capture" if path in missed.grown else "never captured"
+            )
+            live = "" if settled([path], CC, now) else ", may still be running"
+            print(
+                f"  {'cc':5} {path.stem}  {state}, changed "
+                f"{_age(now - path.stat().st_mtime)} ago{live}"
+            )
     others = elsewhere(store, entries)
     if others:
         print(
@@ -974,6 +1001,13 @@ def cmd_status(_args):
             "next: read each with `quirework provenance show ID`, then "
             "`quirework provenance accept ID` or "
             "`quirework provenance reject ID --reason TEXT`"
+        )
+    if missed is not None and any(settled([p], CC, now) for p in missed.due):
+        print(
+            "next: capture the uncaptured sessions with `quirework provenance "
+            "ingest claude`; one that is no longer running was missed by its "
+            "capture hook, and Claude Code deletes a transcript 30 days after "
+            "it last changed, by default"
         )
     return 0
 
