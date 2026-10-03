@@ -19,7 +19,9 @@ retire.)
     quirework provenance show c00a7331                # a claude.ai web dialogue (both speakers)
 
 The id is the short id search prints (an 8-hex prefix, or the full ``gemini-…``
-name); a full uuid or a path works too. It resolves across the corpus families:
+name); a full uuid or a path works too. It resolves across the corpus families,
+pending captures included, so a session can be read before it is accepted; the
+source line says when it has not been:
 local CLI sessions (Claude Code, Antigravity, and Codex), claude.ai
 ``*.raw.json`` web dialogues, the already-rendered ``gemini-*.md`` reviews,
 and, where ``provenance.redpen`` declares the archive, red-pen rounds, read as
@@ -77,6 +79,7 @@ from pathlib import Path
 
 from quirework.project import current_project
 from quirework.provenance import ccfilter as FLT
+from quirework.provenance import store
 from quirework.provenance import codexfilter as CODEX_FLT
 from quirework.provenance import catalog as CAT
 from quirework.provenance.metrics import HARNESS
@@ -383,31 +386,10 @@ def exchanges(kind, path):
 # resolution: short id / full id / path  ->  (kind, path)
 # --------------------------------------------------------------------------- #
 def _jsonl_kind(p):
-    """``cc`` / ``agy`` / ``codex`` by corpus directory or record shape."""
-    try:
-        if (
-            p.resolve().parent
-            == current_project()
-            .path("provenance.agy_sessions", ".quirework/provenance/agy-sessions")
-            .resolve()
-        ):
-            return "agy"
-        if (
-            p.resolve().parent
-            == current_project()
-            .path("provenance.claude_sessions", ".quirework/provenance/cc-sessions")
-            .resolve()
-        ):
-            return "cc"
-        if (
-            p.resolve().parent
-            == current_project()
-            .path("provenance.codex_sessions", ".quirework/provenance/codex-sessions")
-            .resolve()
-        ):
-            return "codex"
-    except OSError:
-        pass
+    """``cc`` / ``agy`` / ``codex`` by the store family holding it, or by shape."""
+    family = store.family_of(p)
+    if family in (store.AGY, store.CC, store.CODEX):
+        return store.KIND_OF[family]
     with p.open(encoding="utf-8", errors="replace") as fh:
         for line in fh:
             line = line.strip()
@@ -449,28 +431,37 @@ def _candidates(idarg):
             return [("gemini", p)]
     return [
         (kind, path)
-        for kind, path in sessions()
+        for kind, path in sessions(pending=True)
         if session_id(kind, path).startswith(idarg)
     ]
 
 
-def sessions():
-    """Every session in the corpus as ``(kind, path)``, family by family."""
-    project = current_project()
-    families = (
-        ("cc", "provenance.claude_sessions", "cc-sessions", "*.jsonl"),
-        ("agy", "provenance.agy_sessions", "agy-sessions", "*.jsonl"),
-        ("codex", "provenance.codex_sessions", "codex-sessions", "*.jsonl"),
-        ("web", "provenance.conversations", "conversations", "*.raw.json"),
-        ("gemini", "provenance.conversations", "conversations", "gemini-*.md"),
-    )
-    found = [
-        (kind, f)
-        for kind, key, default, pattern in families
-        for f in sorted(
-            project.path(key, f".quirework/provenance/{default}").glob(pattern)
-        )
-    ]
+# Each family's sessions as `show` names them. A web conversation's session is
+# its raw export; a gemini review's is its rendered transcript.
+_FAMILIES = (
+    ("cc", store.CC, "*.jsonl"),
+    ("agy", store.AGY, "*.jsonl"),
+    ("codex", store.CODEX, "*.jsonl"),
+    ("web", store.WEB, "*.raw.json"),
+    ("gemini", store.WEB, "gemini-*.md"),
+)
+
+
+def sessions(pending=False):
+    """Every session as ``(kind, path)``, family by family.
+
+    The accepted corpus, which is what search, metrics and the catalog read.
+    With ``pending``, a session captured since it was accepted is read at its
+    pending capture instead, and one never accepted joins: that is the view an
+    author reviewing a capture needs, and a trail following a turn made after
+    the last acceptance.
+    """
+    found = []
+    for kind, family, pattern in _FAMILIES:
+        chosen = {p.name: p for p in store.files(family, pattern)}
+        if pending:
+            chosen.update({p.name: p for p in store.pending(family, pattern)})
+        found += [(kind, chosen[name]) for name in sorted(chosen)]
     redpen = _redpen_directory()
     if redpen is not None:
         found += [
@@ -541,9 +532,10 @@ def _header(kind, path):
         return CAT._short_id(path.stem), meta["title"], meta["date"], meta["model"]
     if kind == "web":
         base = path.name[: -len(".raw.json")]
-        md = current_project().path(
-            "provenance.conversations", ".quirework/provenance/conversations"
-        ) / (base + ".md")
+        # Accepted together, the rendered transcript sits beside its export.
+        md = path.parent / (base + ".md")
+        if not md.exists():
+            md = store.newest(store.WEB, base + ".md") or md
         meta = (
             CAT._web_scan(md)
             if md.exists()
@@ -866,6 +858,12 @@ def _gemini_role(body, role):
     return "\n".join(kept).rstrip()
 
 
+def _source(path):
+    """The source line, which says when the capture has not been accepted."""
+    pending = store.area(path) == "pending"
+    return f"<source: {Path(path).name}{' · pending, not accepted' if pending else ''}>"
+
+
 def render(
     kind,
     path,
@@ -898,7 +896,7 @@ def render(
             head += f" · {scope}"
         if role != "all":
             body = _gemini_role(body, role)
-        return "\n".join([head, f"<source: {path.name}>", "", body]) + "\n"
+        return "\n".join([head, _source(path), "", body]) + "\n"
 
     if kind == "redpen":
         if frm or to:
@@ -909,7 +907,7 @@ def render(
         marks = redpen_marks(path)
         first, last = _turn_range(turn, len(marks)) if turn else (1, len(marks))
         head = f"# {sid} — {title}  ({date})" + (f" · {scope}" if turn else "")
-        lines = [head, f"<source: {path.name}>", ""]
+        lines = [head, _source(path), ""]
         if role in ("all", "human"):
             for n, (text, day) in enumerate(marks, 1):
                 if first <= n <= last:
@@ -948,7 +946,7 @@ def render(
             span += f" ({unstamped} {noun} with no time left out)"
     if turn:
         span += f" · {scope}"
-    lines = [f"# {sid} — {title}", span, f"<source: {path.name}>", ""]
+    lines = [f"# {sid} — {title}", span, _source(path), ""]
     for r, text, _dt, stamp, n in rows:
         label = f"{ROLE_LABEL[r]} {n}" if r == "human" else ROLE_LABEL[r]
         lines.append(f"## {label}" + (f" · {stamp}" if stamp else ""))

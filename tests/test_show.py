@@ -6,7 +6,7 @@ thinking gated, harness wrappers and meta/sidechain handled), id resolution
 header), all on tmp_path fixtures with CC/CONV monkeypatched off the real corpus.
 """
 
-from conftest import patch_project_path
+from conftest import keep_session
 import json
 
 from quirework.provenance import show
@@ -139,34 +139,19 @@ def test_web_records_both_speakers(tmp_path):
 # --------------------------------------------------------------------------- #
 # resolve
 # --------------------------------------------------------------------------- #
-def _corpus(tmp_path, monkeypatch):
-    cc, agy, codex, conv = (
-        tmp_path / "cc",
-        tmp_path / "agy",
-        tmp_path / "codex",
-        tmp_path / "conv",
-    )
-    cc.mkdir()
-    agy.mkdir()
-    codex.mkdir()
-    conv.mkdir()
-    patch_project_path(monkeypatch, show, "provenance.claude_sessions", cc)
-    patch_project_path(monkeypatch, show, "provenance.agy_sessions", agy)
-    patch_project_path(monkeypatch, show, "provenance.codex_sessions", codex)
-    patch_project_path(monkeypatch, show, "provenance.conversations", conv)
-    return cc, conv
+def _keep(project, name, rows, *, pending=False):
+    text = "\n".join(json.dumps(r) for r in rows) + "\n"
+    return keep_session(project, f"cc-sessions/{name}", text, pending=pending)
 
 
-def test_resolve_prefix_match(tmp_path, monkeypatch):
-    cc, _ = _corpus(tmp_path, monkeypatch)
-    f = _jsonl(cc / "3c3c3c3c-5c02-dead-beef.jsonl", [_user("hi")])
+def test_resolve_prefix_match(corpus_project):
+    f = _keep(corpus_project, "3c3c3c3c-5c02-dead-beef.jsonl", [_user("hi")])
     assert show.resolve("3c3c3c3c") == ("cc", f)
 
 
-def test_resolve_ambiguous_raises(tmp_path, monkeypatch):
-    cc, _ = _corpus(tmp_path, monkeypatch)
-    _jsonl(cc / "ab12-one.jsonl", [_user("a")])
-    _jsonl(cc / "ab12-two.jsonl", [_user("b")])
+def test_resolve_ambiguous_raises(corpus_project):
+    _keep(corpus_project, "ab12-one.jsonl", [_user("a")])
+    _keep(corpus_project, "ab12-two.jsonl", [_user("b")])
     try:
         show.resolve("ab12")
         assert False, "expected ambiguity"
@@ -174,13 +159,31 @@ def test_resolve_ambiguous_raises(tmp_path, monkeypatch):
         assert "ambiguous" in str(e)
 
 
-def test_resolve_miss_raises(tmp_path, monkeypatch):
-    _corpus(tmp_path, monkeypatch)
+def test_resolve_miss_raises(corpus_project):
     try:
         show.resolve("nope")
         assert False, "expected miss"
     except LookupError as e:
         assert "no session" in str(e)
+
+
+def test_a_pending_capture_is_read_before_it_is_accepted(corpus_project):
+    f = _keep(corpus_project, "5e5e5e5e-pending.jsonl", [_user("hi")], pending=True)
+    assert show.resolve("5e5e5e5e") == ("cc", f)
+    assert "· pending, not accepted>" in show.render("cc", f)
+    assert ("cc", f) not in show.sessions()
+
+
+def test_a_grown_session_is_read_at_its_pending_capture(corpus_project):
+    accepted = _keep(corpus_project, "6f6f6f6f-grown.jsonl", [_user("hi")])
+    grown = _keep(
+        corpus_project,
+        "6f6f6f6f-grown.jsonl",
+        [_user("hi"), _user("more")],
+        pending=True,
+    )
+    assert show.resolve("6f6f6f6f") == ("cc", grown)
+    assert ("cc", accepted) in show.sessions()
 
 
 def test_resolve_direct_path(tmp_path):

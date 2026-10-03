@@ -3,8 +3,9 @@
 transcript, preserving turn order, thinking blocks, and tool calls.
 
   usage: render-transcript.py <conversation-uuid>
-  reads  .quirework/provenance/conversations/<uuid>.raw.json
-  writes .quirework/provenance/conversations/<uuid>.md
+  reads  <uuid>.raw.json, pending if there is one, else accepted
+  writes <uuid>.md
+  both within the store's conversations; the .md is pending until accepted.
 
 The .md is a derived convenience view. The .raw.json is the canonical, verbatim
 evidence — regenerate the .md from it rather than hand-editing.
@@ -14,7 +15,7 @@ import json, sys, datetime
 
 # Outputs use the selected project configuration, independently of where
 # this package is installed.
-from quirework.project import current_project
+from quirework.provenance import store
 
 
 def ts(s):
@@ -76,8 +77,14 @@ def main(argv=None):
     if len(argv) != 1:
         raise SystemExit("usage: render-transcript.py <conversation-uuid>")
     uuid = argv[0]
-    raw = str(current_project().path("provenance.conversations") / f"{uuid}.raw.json")
-    out = str(current_project().path("provenance.conversations") / f"{uuid}.md")
+    raw = store.newest(store.WEB, f"{uuid}.raw.json")
+    if raw is None:
+        raise SystemExit(
+            f"no captured conversation {uuid}; run `quirework provenance capture` first"
+        )
+    pending = store.open_store().pending_dir(store.WEB)
+    pending.mkdir(parents=True, exist_ok=True)
+    out = str(pending / f"{uuid}.md")
     conv = json.load(open(raw))
     msgs = sorted(conv["chat_messages"], key=lambda m: m.get("index", 0))
     n_think = sum(1 for m in msgs for b in m["content"] if b.get("type") == "thinking")

@@ -598,11 +598,16 @@ class Corpus:
         self._turns = {}
 
     def captured(self):
-        """Full session id -> ``(family, path)`` for every captured session."""
+        """Full session id -> ``(family, path)`` for every captured session.
+
+        A session is read at its newest capture, pending ones included, so a
+        turn made since the last acceptance can be followed before it is
+        accepted.
+        """
         if self._index is None:
             self._index = {
                 self._show.session_id(family, path): (family, path)
-                for family, path in self._show.sessions()
+                for family, path in self._show.sessions(pending=True)
             }
         return self._index
 
@@ -1184,8 +1189,9 @@ def check():
                 "  provenance is off, so no breadcrumb was followed into its session"
             )
     elif sidecar.crumbs():
+        from quirework.provenance import store
+
         corpus, removed = Corpus(), _removed()
-        kept = _kept_paths(corpus)
         live = None
         for section, crumb in sidecar.crumbs():
             found = locate(crumb, corpus, removed)
@@ -1209,10 +1215,10 @@ def check():
                         f"{at}: the excerpt is not in {crumb.harness} "
                         f"{crumb.short} Human {found.turn.number}"
                     )
-                if kept is not None and found.turn.path.resolve() not in kept:
+                if store.area(found.turn.path) == "pending":
                     advisories.append(
                         f"  {at}: {crumb.harness} {crumb.short} is captured but "
-                        f"not yet kept in the corpus"
+                        f"not yet accepted into the corpus"
                     )
     if advisories:
         print(
@@ -1230,21 +1236,6 @@ def check():
     count = len(sidecar.crumbs())
     print(f"✓ trail --check: {count} breadcrumb(s) in {_rel(sidecar.path)}.")
     return 0
-
-
-def _kept_paths(corpus):
-    """Captured files curation has accepted, or ``None`` when presence is kept."""
-    from quirework.provenance.sources import accepted_files
-
-    if current_project().get("provenance.curation", "tracked") == "presence":
-        return None
-    kept = set()
-    directories = {
-        (Path(p).parent, Path(p).suffix) for _, p in corpus.captured().values()
-    }
-    for directory, suffix in directories:
-        kept |= {p.resolve() for p in accepted_files(directory, suffix)}
-    return kept
 
 
 # --------------------------------------------------------------------------- #

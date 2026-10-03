@@ -16,6 +16,8 @@ from quirework.manuscript import notes, trail
 from quirework.project import ConfigurationError, Project, project_scope
 from quirework.text import mdwrap
 
+from conftest import corpus_settings, keep_session
+
 SPEC = """# What the notebook holds
 
 ## A kettle signals without thinking {#kettle-signal}
@@ -47,8 +49,7 @@ MORNING = [
 ]
 
 
-def _session(directory, sid, turns):
-    directory.mkdir(parents=True, exist_ok=True)
+def _lines(turns):
     lines = []
     for role, text, ts in turns:
         if role == "human":
@@ -60,9 +61,20 @@ def _session(directory, sid, turns):
             }
         record["timestamp"] = ts
         lines.append(json.dumps(record))
+    return "\n".join(lines) + "\n"
+
+
+def _session(directory, sid, turns):
+    """A transcript where a harness keeps it, not yet captured."""
+    directory.mkdir(parents=True, exist_ok=True)
     path = directory / f"{sid}.jsonl"
-    path.write_text("\n".join(lines) + "\n", encoding="utf-8")
+    path.write_text(_lines(turns), encoding="utf-8")
     return path
+
+
+def _keep(project, sid, turns):
+    """A captured session, accepted into the project's corpus."""
+    return keep_session(project, f"cc-sessions/{sid}.jsonl", _lines(turns))
 
 
 def _book(tmp_path, *, provenance=True, trail_file="private/spec-trail.md", **extra):
@@ -86,20 +98,17 @@ def _book(tmp_path, *, provenance=True, trail_file="private/spec-trail.md", **ex
     if trail_file:
         book["spec_trail"] = trail_file
     settings = {"manuscript": book, **extra}
-    corpus = root / "private" / "corpus"
-    _session(corpus / "cc-sessions", SESSION, MORNING)
     if provenance:
-        settings["provenance"] = {
-            "enabled": True,
-            "root": "private/corpus",
-            "curation": "presence",
-        }
+        settings["provenance"] = corpus_settings()
     # Live transcripts are looked for under a harness home; point it at an
     # empty directory of the test's own, never the contributor's.
     settings.setdefault("providers", {})["claude"] = {
         "sessions": str(tmp_path / "home")
     }
-    return Project.from_settings(root, settings)
+    project = Project.from_settings(root, settings)
+    if provenance:
+        _keep(project, SESSION, MORNING)
+    return project
 
 
 @pytest.fixture
@@ -182,7 +191,7 @@ def test_a_second_shared_by_two_turns_is_written_to_the_microsecond(
         ("human", "First thought.", "2031-04-02T10:00:05.100Z"),
         ("human", "Second thought, same second.", "2031-04-02T10:00:05.900Z"),
     ]
-    _session(project.path("provenance.root") / "cc-sessions", OTHER, crowded)
+    _keep(project, OTHER, crowded)
     with project_scope(project):
         crumb, _ = trail.add("kettle-signal", "seed", find="Second thought")
         assert crumb.stamp == "2031-04-02T10:00:05.900000Z"
@@ -299,8 +308,8 @@ def test_a_pointer_that_leads_nowhere_fails_the_check(book, capsys, item, troubl
 
 def test_a_session_curated_out_under_a_breadcrumb_fails_the_check(book, capsys):
     trail.add("kettle-signal", "seed", session=SESSION, turn=1)
-    removed = book.path("provenance.root") / "cc-sessions" / "removed-sessions.txt"
-    removed.write_text(f"{SESSION}.jsonl  # not about the book\n")
+    removed = book.path("provenance.root") / "removed-sessions.txt"
+    removed.write_text(f"cc {SESSION}  # not about the book\n")
     assert trail.check() == 1
     assert "curated out" in capsys.readouterr().err
 
@@ -477,7 +486,7 @@ def test_suggest_follows_a_sections_commits_to_their_sessions(book):
             "2031-04-02T10:09:40Z",
         )
     ]
-    _session(book.path("provenance.root") / "cc-sessions", SESSION, committing)
+    _keep(book, SESSION, committing)
     trail.add("cooling-asymmetry", "seed", session=SESSION, turn=2)
 
     text = "\n".join(trail.suggest("cooling-asymmetry", utc=True))
@@ -509,7 +518,7 @@ def _history(book, message, committing):
     spec = book.path("manuscript.spec")
     spec.write_text(SPEC.replace("cools by another.", "cools by another route."))
     _git(root, "commit", "-q", "-am", message)
-    _session(book.path("provenance.root") / "cc-sessions", SESSION, committing)
+    _keep(book, SESSION, committing)
 
 
 def _tool_call(command, ts):
@@ -525,8 +534,8 @@ def _tool_call(command, ts):
 
 
 def _write_records(book, sid, records):
-    path = book.path("provenance.root") / "cc-sessions" / f"{sid}.jsonl"
-    path.write_text("\n".join(json.dumps(r) for r in records) + "\n")
+    text = "\n".join(json.dumps(r) for r in records) + "\n"
+    keep_session(book, f"cc-sessions/{sid}.jsonl", text)
 
 
 def test_a_session_that_only_read_about_a_commit_did_not_make_it(book):

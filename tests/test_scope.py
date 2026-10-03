@@ -11,25 +11,24 @@ change invalidates a cached report (a report answers the question its brief
 asked, and the other brief asks a different one).
 """
 
-from conftest import patch_project_path
-from conftest import project_at, patch_setting
+from conftest import corpus_settings, patch_project_path
 from quirework.runs import commands as run_commands
 import pytest
 
+from quirework.project import Project, project_scope
 from quirework.provenance import coldread
 from quirework.provenance import scope
 
 
 @pytest.fixture
-def lists(tmp_path, monkeypatch):
-    """Point the scope reader at throwaway list files."""
-    cc = tmp_path / "cc.txt"
-    agy = tmp_path / "agy.txt"
-    codex = tmp_path / "codex.txt"
-    patch_setting(monkeypatch, scope, "_settings", "MAKING_CC", cc)
-    patch_setting(monkeypatch, scope, "_settings", "MAKING_AGY", agy)
-    patch_setting(monkeypatch, scope, "_settings", "MAKING_CODEX", codex)
-    return cc, agy, codex
+def lists(tmp_path):
+    """A ledger whose making list the test writes; return that list's path."""
+    project = Project.from_settings(
+        tmp_path, {"provenance": corpus_settings(root="ledger")}
+    )
+    (tmp_path / "ledger").mkdir()
+    with project_scope(project):
+        yield tmp_path / "ledger" / "making-sessions.txt"
 
 
 UUID_A = "0a0a0a0a-1111-4222-8333-000000000001"
@@ -47,25 +46,23 @@ def test_missing_list_file_is_not_an_error(lists):
     assert scope.scope_of_id(UUID_A) == scope.WORK
 
 
-def test_listed_is_making_with_or_without_suffix(lists):
-    """Both house forms parse: cc writes `<uuid>.jsonl`, agy writes a bare uuid."""
-    cc, agy, _ = lists
-    cc.write_text(f"{UUID_A}.jsonl  # built the ingest sweep\n")
-    agy.write_text(f"{UUID_B}  # mechanical subagent read\n")
+def test_a_listed_session_of_any_kind_is_making(lists):
+    """One list in the ledger covers every harness; each line names its kind."""
+    lists.write_text(
+        f"cc {UUID_A}  # built the ingest sweep\nagy {UUID_B}  # a subagent read\n"
+    )
     assert scope.scope_of_id(UUID_A) == scope.MAKING
     assert scope.scope_of_id(UUID_B) == scope.MAKING
 
 
 def test_reason_is_kept(lists):
     """The reason line is the durable record of the call, as on the removed list."""
-    cc, _, _ = lists
-    cc.write_text(f"{UUID_A}.jsonl  # wrote the red-pen extractor\n")
+    lists.write_text(f"cc {UUID_A}  # wrote the red-pen extractor\n")
     assert scope.making_ids()[UUID_A] == "wrote the red-pen extractor"
 
 
 def test_comments_and_blanks_are_skipped(lists):
-    cc, _, _ = lists
-    cc.write_text(f"# a header comment\n\n   \n{UUID_A}.jsonl  # kept\n")
+    lists.write_text(f"# a header comment\n\n   \ncc {UUID_A}  # kept\n")
     assert list(scope.making_ids()) == [UUID_A]
 
 
@@ -75,21 +72,18 @@ def test_unparseable_line_is_reported_not_guessed(lists, capsys):
     The removed-list reader learned this the hard way: a silently dropped
     entry is a session that quietly changes classification on the next run.
     """
-    cc, _, _ = lists
-    cc.write_text("not-a-uuid.jsonl  # oops\n")
+    lists.write_text(f"{UUID_A}.jsonl  # no kind\nkettle {UUID_A}  # no such kind\n")
     assert scope.making_ids() == {}
-    assert "not a session id" in capsys.readouterr().err
+    assert capsys.readouterr().err.count("not '<kind> <session id>'") == 2
 
 
 def test_scope_of_path_uses_the_stem(lists):
-    cc, _, _ = lists
-    cc.write_text(f"{UUID_A}.jsonl\n")
+    lists.write_text(f"cc {UUID_A}\n")
     assert scope.scope_of_path(f"/anywhere/{UUID_A}.jsonl") == scope.MAKING
 
 
 def test_wants_none_means_every_scope(lists):
-    cc, _, _ = lists
-    cc.write_text(f"{UUID_A}.jsonl\n")
+    lists.write_text(f"cc {UUID_A}\n")
     for s in (scope.WORK, scope.MAKING):
         assert scope.wants(f"/x/{UUID_A}.jsonl", None) is True
     assert scope.wants(f"/x/{UUID_A}.jsonl", scope.WORK) is False
@@ -137,7 +131,7 @@ def test_a_recorded_report_path_is_what_locates_the_file(lists, tmp_path, monkey
     manifest's own `report` value, never by recomputing the filename, so a
     naming change never re-buys an analysis already on disk."""
     patch_project_path(monkeypatch, coldread, "provenance.coldread", tmp_path)
-    rel = f".quirework/provenance/cc-sessions/{UUID_A}.jsonl"
+    rel = f"cc-sessions/{UUID_A}.jsonl"
     m = _manifest(tmp_path, rel, scope=scope.WORK)
     # the name a pre-infix run wrote, which no current call would produce
     m["sources"][rel]["report"] = "reports/r.md"
@@ -152,13 +146,12 @@ def test_scope_change_invalidates_a_cached_report(lists, tmp_path, monkeypatch):
     silently reuse a work-brief report and vice versa.
     """
     patch_project_path(monkeypatch, coldread, "provenance.coldread", tmp_path)
-    cc, _, _ = lists
-    rel = f".quirework/provenance/cc-sessions/{UUID_A}.jsonl"
+    rel = f"cc-sessions/{UUID_A}.jsonl"
 
     m = _manifest(tmp_path, rel, scope=scope.WORK)
     assert coldread.is_hit(m, rel, "abc") is True  # unlisted == work
 
-    cc.write_text(f"{UUID_A}.jsonl  # moved to the apparatus half\n")
+    lists.write_text(f"cc {UUID_A}  # moved to the apparatus half\n")
     assert coldread.is_hit(m, rel, "abc") is False  # now making, report is work
 
 
@@ -169,6 +162,6 @@ def test_pre_scope_manifest_entries_are_work(lists, tmp_path, monkeypatch):
     the field was added.
     """
     patch_project_path(monkeypatch, coldread, "provenance.coldread", tmp_path)
-    rel = f".quirework/provenance/cc-sessions/{UUID_A}.jsonl"
+    rel = f"cc-sessions/{UUID_A}.jsonl"
     m = _manifest(tmp_path, rel)  # no "scope" key at all
     assert coldread.is_hit(m, rel, "abc") is True

@@ -1,4 +1,4 @@
-"""Capture selection honors configured corpora and delegated actions."""
+"""Capture selection honors the project's store and delegated actions."""
 
 import json
 from pathlib import Path
@@ -14,20 +14,13 @@ SID = "00000000-0000-4000-8000-000000000001"
 
 @pytest.fixture
 def selection(tmp_path):
+    """A project whose store sits outside it, and the pattern it selects by."""
     root = tmp_path / "book"
-    sibling = tmp_path / "sibling"
     project = Project.from_settings(
-        root,
-        {
-            "provenance": {
-                "claude_sessions": "records/first",
-                "agy_sessions": "records/second",
-                "codex_sessions": "records/third",
-            }
-        },
+        root, {"provenance": {"enabled": True, "store_dir": str(tmp_path / "store")}}
     )
     with project_scope(project):
-        yield root, sibling, codex._capture_pattern([root, sibling])
+        yield root, tmp_path / "store", codex._capture_pattern()
 
 
 def rollout(tmp_path, payloads):
@@ -44,14 +37,20 @@ def delegated():
     return {"source": {"subagent": {"thread_spawn": {"agent_path": "/root/reader"}}}}
 
 
-@pytest.mark.parametrize("folder", ["first", "second", "third"])
-@pytest.mark.parametrize("location", ["absolute", "relative", "sibling"])
-def test_a_tool_action_on_configured_captures_is_an_evaluation(
-    selection, tmp_path, folder, location
+FAMILIES = ["cc-sessions", "agy-sessions", "codex-sessions"]
+
+
+@pytest.mark.parametrize("family", FAMILIES)
+@pytest.mark.parametrize("spelling", ["pending", "accepted", "bare"])
+def test_a_tool_action_on_a_stored_capture_is_an_evaluation(
+    selection, tmp_path, family, spelling
 ):
-    root, sibling, pattern = selection
-    base = {"absolute": root, "relative": Path(), "sibling": sibling}[location]
-    target = str(base / "records" / folder / f"{SID}.jsonl")
+    _root, store, pattern = selection
+    target = {
+        "pending": store / "pending" / family / f"{SID}.jsonl",
+        "accepted": store / "accepted" / family / "0123456789abcdef" / f"{SID}.jsonl",
+        "bare": Path(family) / f"{SID}.jsonl",
+    }[spelling]
     path = rollout(
         tmp_path, [{"type": "function_call", "input": {"cmd": f"read {target}"}}]
     )
@@ -59,16 +58,30 @@ def test_a_tool_action_on_configured_captures_is_an_evaluation(
     assert not codex.evaluation_seat(path, {"source": "cli"}, pattern)
 
 
+def test_a_store_inside_the_project_is_matched_from_its_root(tmp_path):
+    root = tmp_path / "book"
+    project = Project.from_settings(
+        root, {"provenance": {"enabled": True, "store_dir": "records"}}
+    )
+    with project_scope(project):
+        pattern = codex._capture_pattern()
+    target = Path("records") / "pending" / "cc-sessions" / f"{SID}.jsonl"
+    path = rollout(
+        tmp_path, [{"type": "function_call", "input": {"cmd": f"read {target}"}}]
+    )
+    assert codex.evaluation_seat(path, delegated(), pattern)
+
+
 def test_another_projects_absolute_path_is_not_this_corpus(selection, tmp_path):
-    root, _sibling, pattern = selection
-    target = root.parent / "unrelated" / "records" / "first" / f"{SID}.jsonl"
+    root, _store, pattern = selection
+    target = root.parent / "unrelated" / "cc-sessions" / f"{SID}.jsonl"
     path = rollout(tmp_path, [{"type": "custom_tool_call", "input": f"read {target}"}])
     assert not codex.evaluation_seat(path, delegated(), pattern)
 
 
 def test_discussing_a_capture_without_a_tool_action_is_kept(selection, tmp_path):
-    root, _sibling, pattern = selection
-    text = str(root / "records" / "first" / f"{SID}.jsonl")
+    _root, store, pattern = selection
+    text = str(store / "pending" / "cc-sessions" / f"{SID}.jsonl")
     path = rollout(
         tmp_path,
         [

@@ -150,10 +150,14 @@ it current.
 ### Remembers how the work was written
 
 `provenance` captures your Claude Code, Codex and Antigravity sessions
-from their local stores, and web conversations too. `provenance search`
-then reads the human's own turns, by keyword or by meaning; the semantic
-index is built and stored locally, so corpus text never leaves the
-machine.
+from their local stores, and web conversations too. The captures go to a
+store outside your repository and wait there until you read and accept
+them. The repository keeps only the decisions: which sessions count, each
+with a hash that proves its bytes. So the transcripts never bloat the
+work's history, and a grep across the repository never wades through
+them. `provenance search` then reads the human's own turns, by keyword
+or by meaning; the semantic index is built and stored locally, so corpus
+text never leaves the machine.
 
 `spec trail` connects that record to the spec without putting any of it
 in the spec. A trail sidecar, kept beside the private corpus, points

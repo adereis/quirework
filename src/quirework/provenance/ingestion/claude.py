@@ -3,7 +3,7 @@
 
 Claude Code keys transcript directories to the literal working directory. The
 sweep therefore considers project subdirectories and every linked checkout.
-Encoded directory names are lossy, so a transcript is accepted only when its
+Encoded directory names are lossy, so a transcript is captured only when its
 recorded working directory belongs to one of those checkouts.
 
 Captures are **normalized**, not verbatim: `ccfilter.normalize_capture` keeps
@@ -15,73 +15,33 @@ capture preserves source mtime and records the source fingerprint it was made
 from, which is what a later sweep compares -- so a live session that has since
 grown is re-normalized, and a settled one is left alone.
 
+Captures land in the store's pending area (`store.py`): a session is evidence
+only once `quirework provenance accept` takes it. A session already accepted is
+captured again only when its transcript has grown since, and then as a pending
+capture beside the accepted version, which stays as it was.
+
 Modes:
-  sync_sessions.py            sweep every project dir for this repo
-                              (root + subdirectory launches + worktrees)
-  sync_sessions.py --hook     same sweep, quiet unless something new
-                              was captured (what SessionEnd invokes)
+  quirework provenance ingest claude          sweep every project dir for this
+                                              repo (root + subdirectory
+                                              launches + worktrees)
+  quirework provenance ingest claude --hook   same sweep, quiet unless something
+                                              new was captured (what SessionEnd
+                                              invokes)
 
-Sessions listed in `removed-sessions.txt` are never (re-)imported: the corpus is
-curated, and the originals stay in ~/.claude, so without this the auto-sync hook
-would keep re-materializing sessions we deliberately removed. Entries are matched
-by session **id**, never by literal filename -- see `load_removed()` for why.
+Sessions on the ledger's `removed-sessions.txt` are never (re-)imported: the
+corpus is curated, and the originals stay in ~/.claude, so without the list the
+hook would keep re-materializing sessions deliberately removed.
 
-Pure stdlib; no venv needed. Never commits — that stays a manual, reviewed step.
+Pure stdlib. Never accepts anything: that stays a reviewed step.
 """
 
 import json, os, re, sys, tempfile
 from pathlib import Path
 from quirework.project import current_project
 
-# tools/session-sync/<this> -> repo root
-
-from quirework.provenance import ccfilter, trees
-from quirework.provenance import worktrees  # noqa: E402  (path set above)
+from quirework.provenance import ccfilter, store, trees
+from quirework.provenance import worktrees
 from quirework.runs.storage import shown
-
-
-# a removed-list entry: a session uuid, with or without the `.jsonl` suffix
-REMOVED_ENTRY = re.compile(
-    r"([0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12})(?:\.jsonl)?", re.I
-)
-
-
-def load_removed() -> set:
-    """Session ids curated out of the corpus; never (re-)import these.
-
-    Matching is on the session **id**, not on the literal line: the documented
-    form is `<uuid>.jsonl  # reason`, but a bare uuid is accepted too (the
-    agy-sessions list is written that way, and `catalog.py` reads both). Match
-    the raw string against the filename instead, and a suffix-less entry matches
-    nothing and is re-imported on the next sweep, while `catalog.py` -- which
-    strips the suffix -- goes on reporting it as curated out. The two readers
-    disagree and neither can say so; it has happened, to three entries. A line
-    naming no session is reported and skipped, never guessed at.
-    """
-    if not (
-        current_project().path("provenance.claude_sessions") / "removed-sessions.txt"
-    ).exists():
-        return set()
-    ids = set()
-    for lineno, line in enumerate(
-        (current_project().path("provenance.claude_sessions") / "removed-sessions.txt")
-        .read_text()
-        .splitlines(),
-        1,
-    ):
-        entry = line.split("#", 1)[0].strip()  # strip comments / reasons
-        if not entry:
-            continue
-        m = REMOVED_ENTRY.fullmatch(entry)
-        if not m:
-            print(
-                f"cc-sessions: {(current_project().path('provenance.claude_sessions') / 'removed-sessions.txt').name}:{lineno}: not a session id, "
-                f"ignoring {entry!r}",
-                file=sys.stderr,
-            )
-            continue
-        ids.add(m.group(1).lower())
-    return ids
 
 
 def encoded_project_dir(project_path: Path) -> Path:
@@ -184,22 +144,16 @@ def write_capture(src: Path, dst: Path) -> None:
             tmp.unlink(missing_ok=True)
 
 
-def is_current(src: Path, dst: Path) -> bool:
-    """Whether the capture at ``dst`` was made from the source at ``src``.
+def captured_from(src: Path, dst: Path) -> bool:
+    """Whether the capture at ``dst`` was made from ``src`` as it stands now.
 
     Two stages, because this runs from a `SessionEnd` hook on every session and
     the corpus is hundreds of files. A capture is a seventh the size of what it
-    was made from, so the old `src.st_size == dst.st_size` shortcut cannot
-    survive normalization -- but the *recorded* source size can stand in for it,
-    and the capture carries the source's mtime, so a settled session is still
-    settled after one stat and one short read.
-
+    was made from, so comparing sizes says nothing -- but the *recorded* source
+    size can stand in for it, and the capture carries the source's mtime, so a
+    settled session is still settled after one stat and one short read.
     Anything the cheap stage cannot vouch for falls through to the recorded
     SHA-256, which also catches an edit that leaves the byte count unchanged.
-    When that agrees, the capture is current and only its mtime had drifted --
-    which is the normal state after a fresh clone or `git worktree add`, where
-    every file is stamped with the checkout time. Restoring it there re-arms the
-    cheap stage instead of leaving every later sweep to re-read the corpus.
     """
     captured = captured_fingerprint(dst)
     if captured is None:
@@ -208,17 +162,40 @@ def is_current(src: Path, dst: Path) -> bool:
     st = src.stat()
     if st.st_size == source_bytes and st.st_mtime_ns == dst.stat().st_mtime_ns:
         return True
-    if (st.st_size, ccfilter.source_fingerprint(src)[1]) != (source_bytes, source_sha):
-        return False
-    os.utime(dst, ns=(st.st_atime_ns, st.st_mtime_ns))
-    return True
+    return (st.st_size, ccfilter.source_fingerprint(src)[1]) == (
+        source_bytes,
+        source_sha,
+    )
 
 
-def copy_if_changed(src: Path) -> bool:
-    """Normalize src into DEST iff it is new or has changed. True if captured."""
-    dst = current_project().path("provenance.claude_sessions") / src.name
-    if is_current(src, dst):
+def is_current(src: Path, versions) -> bool:
+    """Whether any capture in ``versions`` was made from ``src`` as it stands.
+
+    ``versions`` are the pending capture, if any, and every accepted version of
+    the session in the store, whichever branch's ledger accepted it: a session
+    accepted anywhere and unchanged since has nothing new to capture.
+    """
+    return any(dst.is_file() and captured_from(src, dst) for dst in versions)
+
+
+def accepted_versions(family):
+    """``{file name: [accepted paths]}`` for one family, across the whole store."""
+    found = {}
+    base = store.open_store().accepted_dir(family)
+    if base.is_dir():
+        for version in sorted(base.iterdir()):
+            if version.is_dir() and not version.name.startswith("."):
+                for path in version.iterdir():
+                    found.setdefault(path.name, []).append(path)
+    return found
+
+
+def copy_if_changed(src: Path, versions=()) -> bool:
+    """Normalize src into the pending area iff it is new or has grown."""
+    dst = store.open_store().pending_dir(store.CC) / src.name
+    if is_current(src, [dst, *versions]):
         return False
+    dst.parent.mkdir(parents=True, exist_ok=True)
     write_capture(src, dst)
     return True
 
@@ -250,9 +227,8 @@ def main(argv=None):
     parser = argparse.ArgumentParser(prog="quirework provenance ingest claude")
     parser.add_argument("--hook", action="store_true")
     args = parser.parse_args(argv)
-    current_project().path("provenance.claude_sessions").mkdir(
-        parents=True, exist_ok=True
-    )
+    pending = store.open_store().pending_dir(store.CC)
+    pending.mkdir(parents=True, exist_ok=True)
     hook = args.hook
     if hook:
         # Consume the SessionEnd payload to be a well-behaved hook consumer;
@@ -269,7 +245,7 @@ def main(argv=None):
         print(f"cc-sessions: recorded project tree {shown(tree)}")
     sources = sweep()
 
-    removed = load_removed()
+    removed = store.removed_ids("cc")
     skipped = [p for p in sources if p.stem.lower() in removed]
     sources = [p for p in sources if p.stem.lower() not in removed]
 
@@ -278,16 +254,18 @@ def main(argv=None):
     # a stat and a header read per file rather than a read of all five hundred.
     roots = worktrees.project_trees(current_project().root)
     excluding = worktrees.excluded_trees(current_project(), roots)
+    accepted = accepted_versions(store.CC)
     foreign = unchanged = 0
     copied = []
     for p in sources:
-        if is_current(p, current_project().path("provenance.claude_sessions") / p.name):
+        versions = [pending / p.name, *accepted.get(p.name, ())]
+        if is_current(p, versions):
             unchanged += 1
             continue
         if not belongs(p, roots, excluding):
             foreign += 1
             continue
-        if copy_if_changed(p):
+        if copy_if_changed(p, versions):
             copied.append(p)
         else:
             unchanged += 1
@@ -303,7 +281,7 @@ def main(argv=None):
             f"cc-sessions: {len(copied)} updated, "
             f"{unchanged} unchanged, "
             f"{len(skipped)} on removed-list, "
-            f"{foreign} from another project -> {current_project().path('provenance.claude_sessions')}"
+            f"{foreign} from another project -> {shown(pending)}"
         )
 
 

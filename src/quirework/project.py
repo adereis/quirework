@@ -64,6 +64,42 @@ def _merge(base, overlay, origins, source, prefix=""):
             origins[name] = str(source)
 
 
+# Every key [provenance] reads. The section names paths into a private corpus,
+# so a key nothing reads is refused rather than ignored: ignored, a misspelled
+# or retired path would leave a command reading nothing and reporting an empty
+# corpus as if it were the real one.
+PROVENANCE_KEYS = frozenset(
+    {
+        "enabled",
+        "root",
+        "store",
+        "store_dir",
+        "coldread",
+        "coldread_policy",
+        "metrics_policy",
+        "human_input",
+        "redpen",
+        "redaction_policy",
+        "redaction_markers",
+        "rendered",
+        "reports",
+    }
+)
+
+
+def _check_provenance(values, origins):
+    section = values.get("provenance") or {}
+    unknown = sorted(set(section) - PROVENANCE_KEYS)
+    if unknown:
+        where = origins.get(f"provenance.{unknown[0]}", "configuration")
+        raise ConfigurationError(
+            f"{where}: unknown provenance keys: "
+            + ", ".join(f"provenance.{key}" for key in unknown)
+            + ". The configuration guide's 'Provenance' section lists the keys; "
+            "captured sessions live in the store that provenance.store names"
+        )
+
+
 @dataclass(frozen=True)
 class Project:
     root: Path
@@ -134,6 +170,7 @@ class Project:
                 raise ConfigurationError(f"{config}: schema must be {SCHEMA}")
         if overrides:
             _merge(values, overrides, origins, root / "<invocation>")
+        _check_provenance(values, origins)
         return cls(root, _freeze(values), _freeze(origins), config)
 
     @classmethod
@@ -143,6 +180,7 @@ class Project:
         origins = {}
         values = {}
         _merge(values, copy.deepcopy(settings), origins, root / "quirework.toml")
+        _check_provenance(values, origins)
         return cls(root, _freeze(values), _freeze(origins))
 
     def get(self, key, default=None):
@@ -155,20 +193,12 @@ class Project:
 
     def path(self, key, default=None):
         value = self.get(key, default)
-        children = {
-            "conversations": "conversations",
-            "claude_sessions": "cc-sessions",
-            "codex_sessions": "codex-sessions",
-            "agy_sessions": "agy-sessions",
-            "coldread": "coldread",
-        }
         if (
-            key.startswith("provenance.")
-            and key.split(".", 1)[1] in children
+            key == "provenance.coldread"
             and self.get(key) is None
             and self.get("provenance.root") is not None
         ):
-            return self.path("provenance.root") / children[key.split(".", 1)[1]]
+            return self.path("provenance.root") / "coldread"
         if value is None:
             raise ConfigurationError(f"configure {key} in quirework.toml")
         if not isinstance(value, (str, Path)) or not str(value).strip():
@@ -267,13 +297,19 @@ class Project:
         if component == "provenance":
             if not self.get("provenance.enabled", False):
                 raise ConfigurationError(
-                    "provenance is not configured; enable it and declare provenance.root"
+                    "provenance is not configured; enable it and declare "
+                    "provenance.root and provenance.store"
                 )
             root = self.path("provenance.root")
             if not root.is_dir():
                 raise ConfigurationError(
                     f"configured provenance directory is missing: {root}"
                 )
+            # An enabled corpus whose store is missing or belongs to another
+            # project is refused here, before a command reads it as empty.
+            from quirework.provenance import store
+
+            store.open_store(self)
         elif component == "manuscript":
             source = self.path("manuscript.source")
             if not source.is_dir():

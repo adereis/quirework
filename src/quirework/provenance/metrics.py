@@ -91,6 +91,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 from quirework.project import current_project
+from quirework.provenance import store
 
 WORDS = re.compile(r"\S+")
 
@@ -227,16 +228,7 @@ def session_span(ts_list, acc):
 
 # ---- claude.ai *.raw.json -------------------------------------------------
 def claude_web(acc):
-    for fp in sorted(
-        glob.glob(
-            str(
-                current_project().path(
-                    "provenance.conversations", ".quirework/provenance/conversations"
-                )
-                / "*.raw.json"
-            )
-        )
-    ):
+    for fp in (str(p) for p in store.files(store.WEB, "*.raw.json")):
         o = json.load(open(fp))
         acc.sessions += 1
         ts = []
@@ -296,16 +288,7 @@ def _in_scope(fp, scope, making):
 
 
 def claude_code(acc, scope=None, making=None):
-    for fp in sorted(
-        glob.glob(
-            str(
-                current_project().path(
-                    "provenance.claude_sessions", ".quirework/provenance/cc-sessions"
-                )
-                / "*.jsonl"
-            )
-        )
-    ):
+    for fp in (str(p) for p in store.files(store.CC, "*.jsonl")):
         if not _in_scope(fp, scope, making):
             continue
         acc.sessions += 1
@@ -368,16 +351,7 @@ _USER_REQ = re.compile(r"<USER_REQUEST>\s*(.*?)\s*</USER_REQUEST>", re.DOTALL)
 
 
 def agy_sessions(acc, scope=None, making=None):
-    for fp in sorted(
-        glob.glob(
-            str(
-                current_project().path(
-                    "provenance.agy_sessions", ".quirework/provenance/agy-sessions"
-                )
-                / "*.jsonl"
-            )
-        )
-    ):
+    for fp in (str(p) for p in store.files(store.AGY, "*.jsonl")):
         if not _in_scope(fp, scope, making):
             continue
         acc.sessions += 1
@@ -409,16 +383,7 @@ def agy_sessions(acc, scope=None, making=None):
 
 # ---- Codex rollout *.jsonl -------------------------------------------------
 def codex_sessions(acc, scope=None, making=None):
-    for fp in sorted(
-        glob.glob(
-            str(
-                current_project().path(
-                    "provenance.codex_sessions", ".quirework/provenance/codex-sessions"
-                )
-                / "*.jsonl"
-            )
-        )
-    ):
+    for fp in (str(p) for p in store.files(store.CODEX, "*.jsonl")):
         if not _in_scope(fp, scope, making):
             continue
         acc.sessions += 1
@@ -449,16 +414,7 @@ def codex_sessions(acc, scope=None, making=None):
 # ---- Gemini rendered *.md -------------------------------------------------
 def gemini(acc):
     hdr = re.compile(r"^##\s+(You|Gemini)\s+·")
-    for fp in sorted(
-        glob.glob(
-            str(
-                current_project().path(
-                    "provenance.conversations", ".quirework/provenance/conversations"
-                )
-                / "gemini-*.md"
-            )
-        )
-    ):
+    for fp in (str(p) for p in store.files(store.WEB, "gemini-*.md")):
         acc.sessions += 1
         who = None
         buf = {"You": [], "Gemini": []}
@@ -639,16 +595,7 @@ def human_turns():
     """Every human turn as (source-tag, text), one entry per turn -- including
     per-turn Gemini 'You' segments (the metrics path lumps those into one blob)."""
     out = []
-    for fp in sorted(
-        glob.glob(
-            str(
-                current_project().path(
-                    "provenance.conversations", ".quirework/provenance/conversations"
-                )
-                / "*.raw.json"
-            )
-        )
-    ):
+    for fp in (str(p) for p in store.files(store.WEB, "*.raw.json")):
         o = json.load(open(fp))
         for m in o.get("chat_messages", []):
             if m.get("sender") == "human":
@@ -657,16 +604,7 @@ def human_turns():
                     b.get("text", "") for b in blocks if b.get("type") == "text"
                 ) or m.get("text", "")
                 out.append(("web/" + Path(fp).name[:8], txt))
-    for fp in sorted(
-        glob.glob(
-            str(
-                current_project().path(
-                    "provenance.claude_sessions", ".quirework/provenance/cc-sessions"
-                )
-                / "*.jsonl"
-            )
-        )
-    ):
+    for fp in (str(p) for p in store.files(store.CC, "*.jsonl")):
         for line in open(fp):
             line = line.strip()
             if not line:
@@ -684,16 +622,7 @@ def human_turns():
             c = (o.get("message") or {}).get("content")
             if isinstance(c, str) and not c.lstrip().startswith(HARNESS):
                 out.append(("cc/" + Path(fp).name[:8], c))
-    for fp in sorted(
-        glob.glob(
-            str(
-                current_project().path(
-                    "provenance.agy_sessions", ".quirework/provenance/agy-sessions"
-                )
-                / "*.jsonl"
-            )
-        )
-    ):
+    for fp in (str(p) for p in store.files(store.AGY, "*.jsonl")):
         for line in open(fp):
             try:
                 o = json.loads(line)
@@ -706,30 +635,12 @@ def human_turns():
             txt = m.group(1) if m else c
             if txt.strip() and not txt.lstrip().startswith(HARNESS):
                 out.append(("agy/" + Path(fp).stem[:8], txt))
-    for fp in sorted(
-        glob.glob(
-            str(
-                current_project().path(
-                    "provenance.codex_sessions", ".quirework/provenance/codex-sessions"
-                )
-                / "*.jsonl"
-            )
-        )
-    ):
+    for fp in (str(p) for p in store.files(store.CODEX, "*.jsonl")):
         for _role, txt, _stamp in CODEX_FLT.human_records(fp):
             if txt.strip() and not txt.lstrip().startswith(HARNESS):
                 out.append(("codex/" + Path(fp).stem[:8], txt))
     hdr = re.compile(r"^##\s+(You|Gemini)\s+·")
-    for fp in sorted(
-        glob.glob(
-            str(
-                current_project().path(
-                    "provenance.conversations", ".quirework/provenance/conversations"
-                )
-                / "gemini-*.md"
-            )
-        )
-    ):
+    for fp in (str(p) for p in store.files(store.WEB, "gemini-*.md")):
         who = None
         cur = []
         for line in open(fp):
@@ -1057,12 +968,10 @@ def scope_breakdown():
     out = {}
     for s in SCOPE.SCOPES:
         n = 0
-        for sub in ("claude_sessions", "agy_sessions", "codex_sessions"):
+        for family in (store.CC, store.AGY, store.CODEX):
             n += sum(
                 1
-                for fp in glob.glob(
-                    str(current_project().path("provenance." + sub) / "*.jsonl")
-                )
+                for fp in store.files(family, "*.jsonl")
                 if SCOPE.scope_of_path(fp, making) == s
             )
         out[s] = n

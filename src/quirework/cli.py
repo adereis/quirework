@@ -133,6 +133,21 @@ COMMANDS = {
         "Capture supported web conversations",
         "provenance",
     ),
+    ("provenance", "store"): Command(
+        "provenance.store", "Create, inspect and verify the session store"
+    ),
+    ("provenance", "accept"): Command(
+        "provenance.curate",
+        "Accept pending sessions into the corpus",
+        "provenance",
+        prefix=("accept",),
+    ),
+    ("provenance", "reject"): Command(
+        "provenance.curate",
+        "Curate sessions out of the corpus",
+        "provenance",
+        prefix=("reject",),
+    ),
     ("provenance", "ingest"): Command(
         "provenance.ingest", "Capture local sessions for later curation", "provenance"
     ),
@@ -321,6 +336,10 @@ def main(argv=None):
             if selected.command == "check":
                 if project.get("provenance.enabled", False):
                     project.require("provenance")
+                    from .provenance import store
+
+                    located = store.describe_location(store.open_store(project))
+                    print(f"Provenance store: {located}")
                 if project.get("manuscript"):
                     project.require("manuscript")
                 if project.get("publish"):

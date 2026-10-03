@@ -50,13 +50,13 @@ human's hand-authored file, not this dump. Follow the project's procedure.
 """
 
 import argparse
-import glob
 import json
 import re
 from datetime import datetime, timezone
 from pathlib import Path
 
 from quirework.project import current_project
+from quirework.provenance import store
 from quirework.provenance import ccfilter as FLT
 from quirework.provenance import codexfilter as CODEX_FLT
 from quirework.provenance.metrics import words
@@ -179,16 +179,7 @@ def _clean(text):
 # --------------------------------------------------------------------------- #
 def _web_turns():
     out = []
-    for fp in sorted(
-        glob.glob(
-            str(
-                current_project().path(
-                    "provenance.conversations", ".quirework/provenance/conversations"
-                )
-                / "*.raw.json"
-            )
-        )
-    ):
+    for fp in (str(p) for p in store.files(store.WEB, "*.raw.json")):
         sid = Path(fp).stem[:8]
         o = json.load(open(fp))
         n = 0
@@ -222,16 +213,7 @@ def _web_turns():
 
 def _cc_turns():
     out = []
-    for fp in sorted(
-        glob.glob(
-            str(
-                current_project().path(
-                    "provenance.claude_sessions", ".quirework/provenance/cc-sessions"
-                )
-                / "*.jsonl"
-            )
-        )
-    ):
+    for fp in (str(p) for p in store.files(store.CC, "*.jsonl")):
         sid = Path(fp).stem[:8]
         n = 0
         for line in open(fp):
@@ -275,16 +257,7 @@ def _cc_turns():
 def _gemini_turns():
     hdr = re.compile(r"^##\s+(You|Gemini)\s+·")
     out = []
-    for fp in sorted(
-        glob.glob(
-            str(
-                current_project().path(
-                    "provenance.conversations", ".quirework/provenance/conversations"
-                )
-                / "gemini-*.md"
-            )
-        )
-    ):
+    for fp in (str(p) for p in store.files(store.WEB, "gemini-*.md")):
         sid = Path(fp).stem[7:15]
         who, cur, n = None, [], 0
 
@@ -328,16 +301,7 @@ def _gemini_turns():
 def _agy_turns():
     _ur = re.compile(r"<USER_REQUEST>\s*(.*?)\s*</USER_REQUEST>", re.DOTALL)
     out = []
-    for fp in sorted(
-        glob.glob(
-            str(
-                current_project().path(
-                    "provenance.agy_sessions", ".quirework/provenance/agy-sessions"
-                )
-                / "*.jsonl"
-            )
-        )
-    ):
+    for fp in (str(p) for p in store.files(store.AGY, "*.jsonl")):
         sid = Path(fp).stem[:8]
         n = 0
         for line in open(fp):
@@ -375,16 +339,7 @@ def _agy_turns():
 
 def _codex_turns():
     out = []
-    for fp in sorted(
-        glob.glob(
-            str(
-                current_project().path(
-                    "provenance.codex_sessions", ".quirework/provenance/codex-sessions"
-                )
-                / "*.jsonl"
-            )
-        )
-    ):
+    for fp in (str(p) for p in store.files(store.CODEX, "*.jsonl")):
         sid = Path(fp).stem[:8]
         for n, (_role, raw, stamp) in enumerate(CODEX_FLT.human_records(fp), 1):
             txt = _clean(raw)

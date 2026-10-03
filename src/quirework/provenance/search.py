@@ -43,6 +43,7 @@ from quirework.project import current_project
 from quirework.provenance import humaninput as HI
 from quirework.provenance import catalog as CAT
 from quirework.provenance import show as SHOW
+from quirework.provenance import store
 
 
 def _settings():
@@ -75,65 +76,38 @@ def _snippet(text, m, width=70):
     return ("…" if a > 0 else "") + core + ("…" if b < len(text) else "")
 
 
+# The era each CLI family's sessions belong to, in catalog order.
+_CLI = {
+    "cc": (store.CC, "c-refinement"),
+    "agy": (store.AGY, "b-agy"),
+    "codex": (store.CODEX, "d-codex"),
+}
+
+
 def _resolve(source, file):
-    """(catalog_id, file_to_scan_for_title, era) for a humaninput turn's source."""
-    if source == "cc":
+    """(catalog_id, file_to_scan_for_title, era) for a humaninput turn's source.
+
+    The path is the accepted file, or ``None`` when the store holds none: a
+    web conversation accepted without its rendered transcript has no title to
+    scan.
+    """
+    if source in _CLI:
+        family, era = _CLI[source]
         sid = file[: -len(".jsonl")] if file.endswith(".jsonl") else file
-        return (
-            sid,
-            current_project().path(
-                "provenance.claude_sessions", ".quirework/provenance/cc-sessions"
-            )
-            / file,
-            "c-refinement",
-        )
-    if source == "agy":
-        sid = file[: -len(".jsonl")] if file.endswith(".jsonl") else file
-        return (
-            sid,
-            current_project().path(
-                "provenance.agy_sessions", ".quirework/provenance/agy-sessions"
-            )
-            / file,
-            "b-agy",
-        )
-    if source == "codex":
-        sid = file[: -len(".jsonl")] if file.endswith(".jsonl") else file
-        return (
-            sid,
-            current_project().path(
-                "provenance.codex_sessions", ".quirework/provenance/codex-sessions"
-            )
-            / file,
-            "d-codex",
-        )
+        return sid, store.path_of(family, file), era
     if source == "gemini":
         sid = file[: -len(".md")] if file.endswith(".md") else file
-        return (
-            sid,
-            current_project().path(
-                "provenance.conversations", ".quirework/provenance/conversations"
-            )
-            / file,
-            "a-web",
-        )
+        return sid, store.path_of(store.WEB, file), "a-web"
     base = file
     for suf in (".raw.json", ".md"):
         if base.endswith(suf):
             base = base[: -len(suf)]
             break
-    return (
-        base,
-        current_project().path(
-            "provenance.conversations", ".quirework/provenance/conversations"
-        )
-        / (base + ".md"),
-        "a-web",
-    )
+    return base, store.path_of(store.WEB, base + ".md"), "a-web"
 
 
 def _title_date(source, path):
-    if not path.exists():
+    if path is None or not path.exists():
         return {"title": "(unknown)", "date": "?"}
     if source == "cc":
         return CAT._cc_scan(path)
@@ -153,8 +127,8 @@ def _session_date(source, path, file, utc, stamps=(), undated="?"):
     beside it. A log that is not on disk falls back to the earliest of
     ``stamps``, and a session with no time at all to ``undated``.
     """
-    log = path.parent / file
-    start = SHOW.session_start(source, log) if log.exists() else None
+    log = path.parent / file if path is not None else None
+    start = SHOW.session_start(source, log) if log and log.exists() else None
     start = start or min(stamps, default=None)
     return SHOW.shown_date(start, utc) if start else undated
 

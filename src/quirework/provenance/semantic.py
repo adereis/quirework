@@ -52,6 +52,7 @@ import sys
 import numpy as np
 
 from quirework.project import current_project
+from quirework.provenance import store
 
 
 # A turn is embedded in windows, not truncated. The long tail here is real --
@@ -233,61 +234,25 @@ def corpus_fingerprint():
     scan on every query and defeat the point of an index.
     """
     h = hashlib.sha256()
-    for d, pat in (
-        (
-            current_project().path(
-                "provenance.claude_sessions", ".quirework/provenance/cc-sessions"
-            ),
-            "*.jsonl",
-        ),
-        (
-            current_project().path(
-                "provenance.agy_sessions", ".quirework/provenance/agy-sessions"
-            ),
-            "*.jsonl",
-        ),
-        (
-            current_project().path(
-                "provenance.codex_sessions", ".quirework/provenance/codex-sessions"
-            ),
-            "*.jsonl",
-        ),
-        (
-            current_project().path(
-                "provenance.conversations", ".quirework/provenance/conversations"
-            ),
-            "*.raw.json",
-        ),
-        (
-            current_project().path(
-                "provenance.conversations", ".quirework/provenance/conversations"
-            ),
-            "gemini-*.md",
-        ),
+    for family, pattern in (
+        (store.CC, "*.jsonl"),
+        (store.AGY, "*.jsonl"),
+        (store.CODEX, "*.jsonl"),
+        (store.WEB, "*.raw.json"),
+        (store.WEB, "gemini-*.md"),
     ):
-        for p in sorted(d.glob(pat)):
+        for p in store.files(family, pattern):
             h.update(f"{p.name}:{p.stat().st_size}\n".encode())
     return h.hexdigest()
 
 
+# The family each turn source is accepted under. Web and gemini share one.
+_FAMILY = {"cc": store.CC, "agy": store.AGY, "codex": store.CODEX}
+
+
 def _path(source, file):
-    """Corpus path for a turn's (source, file). Web and gemini share a dir."""
-    return {
-        "cc": current_project().path(
-            "provenance.claude_sessions", ".quirework/provenance/cc-sessions"
-        ),
-        "agy": current_project().path(
-            "provenance.agy_sessions", ".quirework/provenance/agy-sessions"
-        ),
-        "codex": current_project().path(
-            "provenance.codex_sessions", ".quirework/provenance/codex-sessions"
-        ),
-    }.get(
-        source,
-        current_project().path(
-            "provenance.conversations", ".quirework/provenance/conversations"
-        ),
-    ) / file
+    """The accepted file for a turn's (source, file), or ``None``."""
+    return store.path_of(_FAMILY.get(source, store.WEB), file)
 
 
 def _sizes(keys):
@@ -299,7 +264,7 @@ def _sizes(keys):
     out = {}
     for source, file in keys:
         p = _path(source, file)
-        out[f"{source}/{file}"] = p.stat().st_size if p.exists() else -1
+        out[f"{source}/{file}"] = p.stat().st_size if p is not None else -1
     return out
 
 

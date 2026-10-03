@@ -2,8 +2,11 @@ import json
 
 import pytest
 
+from conftest import keep_session
 from quirework.project import current_project
 from quirework.provenance import search, show
+
+pytestmark = pytest.mark.usefixtures("corpus_project")
 
 # At UTC-3 this session opens with a reply at 23:50 on April 2nd, and the
 # author's first turn comes after midnight; in UTC both fall on April 3rd.
@@ -22,13 +25,11 @@ LATE_EVENING = [
 
 
 def _cc_session(records):
-    folder = current_project().path(
-        "provenance.claude_sessions", ".quirework/provenance/cc-sessions"
+    return keep_session(
+        current_project(),
+        "cc-sessions/0badc0de-0000-4000-8000-000000000001.jsonl",
+        "\n".join(json.dumps(r) for r in records) + "\n",
     )
-    folder.mkdir(parents=True, exist_ok=True)
-    path = folder / "0badc0de-0000-4000-8000-000000000001.jsonl"
-    path.write_text("\n".join(json.dumps(r) for r in records) + "\n")
-    return path
 
 
 def test_keyword_search_dates_a_session_as_show_heads_it(three_hours_behind_utc):

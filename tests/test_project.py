@@ -403,32 +403,6 @@ def test_generic_grayscale_has_no_book_palette(tmp_path):
         assert graybuild.non_gray_hexes(output) == set()
 
 
-def test_external_corpus_uses_declared_format_and_curation(tmp_path):
-    from quirework.provenance.sources import (
-        accepted_files,
-        kind_of_path,
-        source_reference,
-    )
-
-    directory = tmp_path / "external" / "coding"
-    directory.mkdir(parents=True)
-    source = directory / "sample.jsonl"
-    source.write_text("{}\n")
-    project = Project.from_settings(
-        tmp_path / "book",
-        {
-            "provenance": {
-                "root": str(directory.parent),
-                "codex_sessions": str(directory),
-                "curation": "presence",
-            }
-        },
-    )
-    assert accepted_files(directory, ".jsonl", project) == [source]
-    assert kind_of_path(source, project) == "codex"
-    assert source_reference(source, project) == source
-
-
 def test_redaction_policy_changes_have_different_cache_identities(tmp_path):
     from quirework.provenance.ccfilter import policy_version, redact
 

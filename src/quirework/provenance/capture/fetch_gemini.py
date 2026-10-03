@@ -6,8 +6,9 @@ obfuscated batchexecute RPCs), so we drive the authenticated debug Chrome to the
 conversation and read the rendered turns out of the DOM.
 
   usage: fetch-gemini.py <conversation-id-or-url>
-  writes .quirework/provenance/conversations/gemini-<id>.raw.html  (verbatim turn DOM)
-         .quirework/provenance/conversations/gemini-<id>.md         (rendered transcript)
+  writes gemini-<id>.raw.html  (verbatim turn DOM)
+         gemini-<id>.md         (rendered transcript)
+  into the store's pending conversations, for `quirework provenance accept`.
 
 Note: the Gemini DOM exposes no per-message timestamps, so the transcript has no
 dates — annotate the index row manually.
@@ -15,9 +16,9 @@ dates — annotate the index row manually.
 
 import json, sys, time, urllib.request, datetime
 
-# Outputs use the selected project configuration, independently of where
-# this package is installed.
-from quirework.project import current_project
+# Outputs go to the selected project's store, independently of where this
+# package is installed.
+from quirework.provenance import store
 
 PORT = 9222
 
@@ -112,16 +113,16 @@ def main(argv=None):
             "no conversation turns found — is the chat loaded / logged in?"
         )
 
-    raw = str(
-        current_project().path("provenance.conversations") / f"gemini-{cid}.raw.html"
-    )
+    pending = store.open_store().pending_dir(store.WEB)
+    pending.mkdir(parents=True, exist_ok=True)
+    raw = str(pending / f"gemini-{cid}.raw.html")
     with open(raw, "w") as f:
         f.write(
             f"<!-- gemini conversation {cid} captured {datetime.date.today()} "
             f"from {data['url']} -->\n" + "\n\n".join(data["htmls"])
         )
 
-    md = str(current_project().path("provenance.conversations") / f"gemini-{cid}.md")
+    md = str(pending / f"gemini-{cid}.md")
     o = [
         f"# {data['title'] or 'Gemini conversation'}\n",
         "> **Provenance artifact — DOM scrape of a gemini.google.com conversation.**\n>\n"

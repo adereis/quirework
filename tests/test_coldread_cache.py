@@ -326,10 +326,10 @@ def test_the_recipe_version_is_per_reader_not_per_corpus():
     from quirework.provenance import ccfilter
     from quirework.provenance import codexfilter
 
-    # The corpus locations a project gets when it declares none.
-    cc = ".quirework/provenance/cc-sessions/a.jsonl"
-    codex = ".quirework/provenance/codex-sessions/b.jsonl"
-    web = ".quirework/provenance/conversations/c.md"
+    # Sources as a report records them: by family and name in the store.
+    cc = "cc-sessions/a.jsonl"
+    codex = "codex-sessions/b.jsonl"
+    web = "conversations/c.md"
     assert coldread.filter_version_for(cc) == ccfilter.policy_version(
         ccfilter.FILTER_VERSION
     )

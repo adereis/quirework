@@ -10,13 +10,10 @@ from datetime import datetime, timezone
 import numpy as np
 import pytest
 
+from conftest import keep_session
 from quirework.provenance import search
-from quirework.project import current_project
 
-
-def _corpus():
-    """Where a project that declares no corpus keeps it."""
-    return current_project().root / ".quirework" / "provenance"
+pytestmark = pytest.mark.usefixtures("corpus_project")
 
 
 def _dt(day):
@@ -27,21 +24,21 @@ def _turn(source, file, text, ts=None):
     return {"source": source, "file": file, "text": text, "ts": ts}
 
 
-def test_resolve_maps_each_source_to_id_path_era():
-    cc, codex, conv = (
-        _corpus() / "cc-sessions",
-        _corpus() / "codex-sessions",
-        _corpus() / "conversations",
-    )
-    assert search._resolve("cc", "x.jsonl") == ("x", cc / "x.jsonl", "c-refinement")
-    assert search._resolve("gemini", "gemini-abc.md") == (
-        "gemini-abc",
-        conv / "gemini-abc.md",
-        "a-web",
-    )
-    assert search._resolve("codex", "z.jsonl") == ("z", codex / "z.jsonl", "d-codex")
+def test_resolve_maps_each_source_to_id_path_era(corpus_project):
+    def kept(reference):
+        return keep_session(corpus_project, reference, "{}\n")
+
+    cc = kept("cc-sessions/x.jsonl")
+    gemini = kept("conversations/gemini-abc.md")
+    codex = kept("codex-sessions/z.jsonl")
+    md = kept("conversations/y.md")
+    assert search._resolve("cc", "x.jsonl") == ("x", cc, "c-refinement")
+    assert search._resolve("gemini", "gemini-abc.md") == ("gemini-abc", gemini, "a-web")
+    assert search._resolve("codex", "z.jsonl") == ("z", codex, "d-codex")
     # web turns come from the .raw.json, but the catalog titles the .md sibling.
-    assert search._resolve("web", "y.raw.json") == ("y", conv / "y.md", "a-web")
+    assert search._resolve("web", "y.raw.json") == ("y", md, "a-web")
+    # a session the store does not hold has no file to title it by
+    assert search._resolve("cc", "w.jsonl") == ("w", None, "c-refinement")
 
 
 def test_compile_whole_word_vs_substring():

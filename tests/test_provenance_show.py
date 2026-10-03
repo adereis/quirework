@@ -3,6 +3,7 @@ import re
 
 import pytest
 
+from conftest import corpus_settings, keep_session
 from quirework.provenance import show
 
 
@@ -440,23 +441,16 @@ def test_a_gemini_review_opens_by_turn_as_search_counts_them(tmp_path):
         show.render("gemini", p, turn="4")
 
 
-def test_search_and_show_number_the_same_turns(tmp_path):
+def test_search_and_show_number_the_same_turns(tmp_path, corpus_project):
     """A search hit's `turn N` is `## Human N` in show, for every source."""
-    from quirework.project import current_project
     from quirework.provenance import humaninput
 
-    project = current_project()
-
-    def place(setting, default, name):
-        folder = project.path(setting, default)
-        folder.mkdir(parents=True, exist_ok=True)
+    def staged(name):
+        folder = tmp_path / "staged"
+        folder.mkdir(exist_ok=True)
         return folder / name
 
-    cc = place(
-        "provenance.claude_sessions",
-        ".quirework/provenance/cc-sessions",
-        "0badc0de-0000-4000-8000-000000000001.jsonl",
-    )
+    cc = staged("0badc0de-0000-4000-8000-000000000001.jsonl")
     cc.write_text(
         "\n".join(
             json.dumps(r)
@@ -472,11 +466,7 @@ def test_search_and_show_number_the_same_turns(tmp_path):
         + "\n",
         encoding="utf-8",
     )
-    agy = place(
-        "provenance.agy_sessions",
-        ".quirework/provenance/agy-sessions",
-        "0badc0de-0000-4000-8000-000000000002.jsonl",
-    )
+    agy = staged("0badc0de-0000-4000-8000-000000000002.jsonl")
     agy.write_text(
         "\n".join(
             json.dumps(r)
@@ -510,11 +500,7 @@ def test_search_and_show_number_the_same_turns(tmp_path):
         + "\n",
         encoding="utf-8",
     )
-    codex = place(
-        "provenance.codex_sessions",
-        ".quirework/provenance/codex-sessions",
-        "0badc0de-0000-4000-8000-000000000003.jsonl",
-    )
+    codex = staged("0badc0de-0000-4000-8000-000000000003.jsonl")
     codex.write_text(
         "\n".join(
             json.dumps(r)
@@ -557,11 +543,7 @@ def test_search_and_show_number_the_same_turns(tmp_path):
         + "\n",
         encoding="utf-8",
     )
-    web = place(
-        "provenance.conversations",
-        ".quirework/provenance/conversations",
-        "0badc0de-web.raw.json",
-    )
+    web = staged("0badc0de-web.raw.json")
     web.write_text(
         json.dumps(
             {
@@ -586,14 +568,16 @@ def test_search_and_show_number_the_same_turns(tmp_path):
         ),
         encoding="utf-8",
     )
-    gemini = place(
-        "provenance.conversations",
-        ".quirework/provenance/conversations",
-        "gemini-fictitious-review.md",
-    )
+    gemini = staged("gemini-fictitious-review.md")
     gemini.write_text(GEMINI_REVIEW, encoding="utf-8")
 
     paths = {"cc": cc, "agy": agy, "codex": codex, "web": web, "gemini": gemini}
+    families = {"cc": "cc-sessions", "agy": "agy-sessions", "codex": "codex-sessions"}
+    for kind, path in list(paths.items()):
+        family = families.get(kind, "conversations")
+        paths[kind] = keep_session(
+            corpus_project, f"{family}/{path.name}", path.read_bytes()
+        )
     hits = humaninput.all_turns()
     assert {t["source"] for t in hits} == set(paths)
     for t in hits:
@@ -738,6 +722,15 @@ marks-dated:    2031-05-07
 """
 
 
+def _with_store(project):
+    from quirework.project import project_scope
+    from quirework.provenance import store
+
+    with project_scope(project):
+        store.init()
+    return project
+
+
 def _redpen_project(tmp_path):
     from quirework.project import Project
 
@@ -746,15 +739,10 @@ def _redpen_project(tmp_path):
     archive.mkdir(parents=True)
     (archive / "v3-2031-05-07.md").write_text(REDPEN_ROUND, encoding="utf-8")
     (archive / "README.md").write_text("# The archive\n", encoding="utf-8")
-    return Project.from_settings(
-        root,
-        {
-            "provenance": {
-                "enabled": True,
-                "root": "private/corpus",
-                "redpen": "private/redpen",
-            }
-        },
+    return _with_store(
+        Project.from_settings(
+            root, {"provenance": corpus_settings(redpen="private/redpen")}
+        )
     )
 
 
@@ -781,9 +769,8 @@ def test_red_pen_rounds_join_only_by_the_projects_own_setting(tmp_path):
     from quirework.project import Project, project_scope
 
     root = tmp_path / "plain"
-    (root / "private" / "corpus").mkdir(parents=True)
-    project = Project.from_settings(
-        root, {"provenance": {"enabled": True, "root": "private/corpus"}}
+    project = _with_store(
+        Project.from_settings(root, {"provenance": corpus_settings()})
     )
     with project_scope(project):
         assert not [k for k, _ in show.sessions() if k == "redpen"]

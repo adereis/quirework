@@ -58,10 +58,11 @@ vocabulary.
 each spec section at the conversations that shaped it. It requires a
 register, `manuscript.spec` or `manuscript.unit_spec`, and the file need
 not exist yet: the first `spec trail add` creates it, readable by its
-owner only. Put it with the private material, since it points into the
-private corpus, or in `quirework.local.toml` where the corpus lives
-somewhere else on each machine. Leaving it unset turns the trail off: no
-command reads or writes one, and the primer shows no counts. The
+owner only. Put it in the provenance ledger with the other private
+material, since it points into the private corpus by session id and
+keeps working wherever the store lives. Leaving it unset turns the
+trail off: no command reads or writes one, and the primer shows no
+counts. The
 [authoring guide](authoring.md#the-specs-trail) says what a breadcrumb
 holds and when one is added.
 
@@ -378,40 +379,119 @@ missing.
 
 ## Provenance
 
-Enable a corpus explicitly. Different runtime formats have separate
-source locations:
+Enable a corpus explicitly, and name the store that keeps its sessions:
 
 ```toml
 [provenance]
 enabled = true
-root = "private/corpus"
+root = "private/provenance"
+store = "my-book"
 ```
 
-Runtime-specific subdirectories are derived from `root`. Declare an individual
-path only when an existing corpus uses another layout.
+A corpus has two halves. The *store* holds the captured sessions. They
+are large and never change once settled, so they live outside the
+repository: the work's history does not carry them, and a search or a
+cleanup across the repository never reads them. The *ledger* is the
+directory `provenance.root` names, committed with the work. It holds
+the decisions about the sessions: which were accepted, which were
+removed and why, which are about the apparatus, and the catalog built
+from them.
+
+`provenance.store` names the store. Quirework looks for it under
+`$QUIREWORK_PROVENANCE_HOME`, or under
+`$XDG_DATA_HOME/quirework/provenance` when that variable is unset,
+which is normally `~/.local/share/quirework/provenance`. The name is
+committed with the project, so every worktree and every clone find the
+same store, and so does a capture hook started outside your shell.
+Nothing has to be set per checkout. Set `QUIREWORK_PROVENANCE_HOME`
+once, in a shell profile or an `.envrc`, to keep every project's store
+on a disk that is backed up or synced. `provenance.store_dir` names a
+directory instead, for a store kept somewhere specific; it may sit
+inside the repository, as the example book's does. Declare one of the
+two.
+
+Nothing copies the store off the machine unless you arrange it, and
+Claude Code deletes its own transcripts after 30 days by default. After
+that the store is the only copy, so back it up. `quirework config
+check` names where the store is and whether a repository holds it.
+
+`quirework provenance store init` creates the store and records its
+identity in the ledger's `accepted.txt`. A ledger that already names an
+identity keeps it. On a second machine or in a fresh clone, init
+creates an empty store under that identity, and `store verify` lists
+the accepted files it lacks until you copy them in. A store another
+project created under the same name is refused, so two projects never
+read each other's sessions.
+
+### Accepting sessions
+
+Capture writes into the store's pending area and never decides what
+counts. `quirework provenance store status` lists what is pending. Read
+each pending session, then accept it or curate it out:
+
+```bash
+quirework provenance store status
+quirework provenance show 3f2a9c1e
+quirework provenance accept 3f2a9c1e
+quirework provenance reject 77aa01b2 --reason "a stub: one /model command"
+```
+
+Accepting copies the capture into the store as a version that is never
+rewritten. It adds one line per file to `accepted.txt`: the file's
+SHA-256 and its path in the store. Commit that file with the catalog. A
+session modified in the last two hours may still be running, so
+`accept` refuses it unless `--live` says to take what was captured so
+far. `accept --all` skips such sessions and names them.
+
+A session that grows after it was accepted is captured again as
+pending. Accepting it then adds a new version beside the old one. A
+branch whose ledger still lists the old version keeps reading exactly
+the bytes it accepted, so accepting on one branch never breaks the
+checks of another.
+
+The catalog, search, metrics and the cold-read read accepted sessions
+only. `show` and the spec trail also read pending captures, so a
+session can be read before it is accepted; `show` says so in its source
+line. `coldread triage` sorts the pending captures by whether they
+edited the work.
+
+`reject` deletes a pending capture, or drops an accepted session from
+this ledger, and lists the session in the ledger's
+`removed-sessions.txt` with the reason. Capture never brings back a
+session on that list. The ledger's `making-sessions.txt` lists sessions
+about the apparatus rather than the work. Both lists hold one session
+per line, as `<kind> <session id>  # reason`, where the kind is `cc`,
+`codex`, `agy` or `web`.
+
+`quirework provenance store verify` hashes every accepted file and
+names any that is missing or no longer matches `accepted.txt`. A
+command that needs a missing file refuses to run rather than read a
+smaller corpus.
+
+### What capture selects
 
 Capture selects sessions by their recorded relationship to the project
-and its worktrees. Capturing does not curate, stage, or commit sessions.
-Codex capture also excludes runtime subagents and delegated evaluation
-seats whose recorded tool calls name a raw capture in a configured
-session directory. It reports those exclusions. The ingest's main
-session remains eligible, as does a delegated task that only discusses
-a capture in prose. The configured paths apply across project worktrees;
-a matching directory name inside another project's absolute path does
-not establish an evaluation of this project's corpus.
-The catalog retains the existing tracked-source curation convention.
+and its worktrees. Codex capture also excludes runtime subagents and
+delegated evaluation seats whose recorded tool calls name a raw capture
+in the store. It reports those exclusions. The ingest's main session
+remains eligible, as does a delegated task that only discusses a
+capture in prose. A store directory's bare name, such as
+`cc-sessions/<id>.jsonl`, counts only where it starts a path, so a
+matching directory name inside another project's absolute path does not
+establish an evaluation of this project's corpus.
 
 Each capture sweep also records the project's directory in every
-checkout it can see. The list is `project-trees.txt`, beside the
-catalog, and it belongs in the same commits as the sessions. The catalog
-and `coldread triage` judge whether an edit touched the book by
-measuring its path from these directories. They never ask which
-worktrees exist when they run. Removing a worktree, or reading the
-corpus from a fresh clone, therefore changes no count. Capture only ever
-adds lines. A checkout removed before its directory was recorded has to
-be added by hand, as one absolute path per line. Until it is, the
-catalog refuses to build and names the directories where its tracked
-sessions started.
+checkout it can see. The list is `project-trees.txt` in the ledger, and
+it belongs in the same commits as `accepted.txt`. The catalog and
+`coldread triage` judge whether an edit touched the work by measuring
+its path from these directories. They never ask which worktrees exist
+when they run. Removing a worktree, or reading the corpus from a fresh
+clone, therefore changes no count. Capture only ever adds lines. A
+checkout removed before its directory was recorded has to be added by
+hand, as one absolute path per line. Until it is, the catalog refuses to
+build and names the directories where its accepted sessions started.
+
+### Reading the corpus
 
 Search reads human-authored turns; provider metadata is not proof of
 which model authored a historical turn.
@@ -441,6 +521,8 @@ of your turns, one per mark, named `redpen-` and its file name, so
 well as in a conversation. A round records the day of each mark and no
 time of day, so a breadcrumb names the mark by its number. Nothing joins
 by default: the archive is private, and an undeclared one stays out.
+
+### Caches and run storage
 
 Derived caches default to a project-specific directory under the XDG
 cache directory. Run storage defaults to a project-specific directory
@@ -699,11 +781,6 @@ wheel.
 Run plans accept TOML or JSON. Preparation still freezes canonical JSON
 records, so saved runs and their integrity checks retain their format.
 The comments explain choices and do not enter the model assignment.
-
-External corpora can declare `provenance.curation = "presence"` to
-accept the files in that directory. Git-curated external stores instead
-name a `provenance.tracking_root` that contains them. Format locations
-remain explicit even when their directories have different names.
 
 A book can define `sops.default_reader` and named `sops.reader_presets`.
 Each preset selects an `instrument` and `include_matter` boolean. The

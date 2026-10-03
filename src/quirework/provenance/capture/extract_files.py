@@ -3,9 +3,10 @@
 replaying create_file / str_replace operations to their final state.
 
   usage: extract-files.py <conversation-uuid>
-  reads  .quirework/provenance/conversations/<uuid>.raw.json
-  writes .quirework/provenance/conversations/files/<uuid>/<basename>   (final content)
-         .quirework/provenance/conversations/files/<uuid>/manifest.json
+  reads  <uuid>.raw.json, pending if there is one, else accepted
+  writes files/<uuid>/<basename>   (final content)
+         files/<uuid>/manifest.json
+  all within the store's conversations; the outputs are pending until accepted.
 
 Only create_file and str_replace are replayed (the operations that deterministic-
 ally define file content). bash_tool / view / present_files are ignored. If a
@@ -17,7 +18,7 @@ import json, sys, os
 
 # Outputs use the selected project configuration, independently of where
 # this package is installed.
-from quirework.project import current_project
+from quirework.provenance import store
 
 
 def main(argv=None):
@@ -25,8 +26,12 @@ def main(argv=None):
     if len(argv) != 1:
         raise SystemExit("usage: extract-files.py <conversation-uuid>")
     uuid = argv[0]
-    raw = str(current_project().path("provenance.conversations") / f"{uuid}.raw.json")
-    outdir = str(current_project().path("provenance.conversations") / "files" / uuid)
+    raw = store.newest(store.WEB, f"{uuid}.raw.json")
+    if raw is None:
+        raise SystemExit(
+            f"no captured conversation {uuid}; run `quirework provenance capture` first"
+        )
+    outdir = str(store.open_store().pending_dir(store.WEB) / "files" / uuid)
     conv = json.load(open(raw))
     msgs = sorted(conv["chat_messages"], key=lambda m: m.get("index", 0))
 

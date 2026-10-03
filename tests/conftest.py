@@ -1,5 +1,6 @@
 """Isolated synthetic projects for Quirework unit tests."""
 
+import os
 import time
 from types import SimpleNamespace
 import pytest
@@ -8,6 +9,42 @@ from quirework.project import Project, project_scope
 
 def project_at(root):
     return Project.from_settings(root, {})
+
+
+def corpus_settings(root="private/corpus", store="private/store", **extra):
+    """A `[provenance]` section whose store sits in the test's own directory."""
+    return {"enabled": True, "root": root, "store_dir": store, **extra}
+
+
+def keep_session(project, reference, content, *, pending=False, mtime=None):
+    """Put one captured file in the project's store; return where it landed.
+
+    ``reference`` names it as the store does, ``cc-sessions/<id>.jsonl``. The
+    file is accepted unless ``pending``, which leaves it waiting the way a
+    capture nobody has read yet waits. Writing a session that is already
+    accepted accepts the new text as its next version.
+    """
+    from quirework.project import ConfigurationError
+    from quirework.provenance import store
+
+    with project_scope(project):
+        try:
+            corpus = store.open_store()
+        except ConfigurationError:
+            corpus, _ = store.init()
+        family, rel = reference.split("/", 1)
+        target = corpus.pending_dir(family) / rel
+        target.parent.mkdir(parents=True, exist_ok=True)
+        if isinstance(content, bytes):
+            target.write_bytes(content)
+        else:
+            target.write_text(content, encoding="utf-8")
+        if mtime is not None:
+            os.utime(target, (mtime, mtime))
+        if pending:
+            return target
+        store.accept([store.unit_of(family, rel)], live=True)
+        return store.path_of(family, rel)
 
 
 def patch_setting(monkeypatch, module, accessor, key, value):
@@ -35,6 +72,19 @@ def patch_project_path(monkeypatch, module, key, value):
 def isolated_project(tmp_path):
     with project_scope(Project.from_settings(tmp_path / "project", {})):
         yield
+
+
+@pytest.fixture
+def corpus_project(tmp_path):
+    """The current project, given an empty provenance store of its own."""
+    from quirework.provenance import store
+
+    project = Project.from_settings(
+        tmp_path / "project", {"provenance": corpus_settings()}
+    )
+    with project_scope(project):
+        store.init()
+        yield project
 
 
 @pytest.fixture

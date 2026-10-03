@@ -495,12 +495,16 @@ def _parts(first, last, size):
 
 
 def _kept(corpus):
-    """Captured sessions curation has accepted, as ``sid -> (family, path)``."""
-    kept = trail._kept_paths(corpus)
+    """Captured sessions curation has accepted, as ``sid -> (family, path)``.
+
+    Each is read at its accepted version, never at a pending capture made
+    since: a lead is recorded against what the corpus holds.
+    """
+    from quirework.provenance import show
+
     return {
-        sid: (family, path)
-        for sid, (family, path) in corpus.captured().items()
-        if kept is None or Path(path).resolve() in kept
+        show.session_id(family, path): (family, path)
+        for family, path in show.sessions()
     }
 
 

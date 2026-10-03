@@ -16,12 +16,13 @@ Prerequisites (see the Quirework workflow guide):
   2. Log in to claude.ai in that window.
   3. python fetch-conversation.py <conversation-uuid>
 
-Writes .quirework/provenance/conversations/<uuid>.raw.json (verbatim API response).
+Writes <uuid>.raw.json (the verbatim API response) into the store's pending
+conversations, for `quirework provenance accept` to take.
 """
 
 import json, sys, urllib.request
 import uuid as uuid_module
-from quirework.project import current_project
+from quirework.provenance import store
 
 # Outputs use the selected project configuration, independently of where
 # this package is installed.
@@ -75,8 +76,8 @@ JS = r"""
 
 USAGE = """usage: quirework provenance capture CONVERSATION_UUID
 
-Capture a claude.ai conversation into the provenance corpus, writing
-.quirework/provenance/conversations/<uuid>.raw.json
+Capture a claude.ai conversation into the provenance store, writing
+<uuid>.raw.json among its pending conversations until it is accepted.
 
 Needs the `capture` extra (websocket-client) and a Chrome running with remote
 debugging, logged in to claude.ai. The uuid is the last path segment of the
@@ -99,7 +100,7 @@ def main(argv=None):
 
 def capture(conversation, *, port=9222):
     uuid = str(uuid_module.UUID(conversation))
-    directory = current_project().path("provenance.conversations")
+    directory = store.open_store().pending_dir(store.WEB)
     directory.mkdir(parents=True, exist_ok=True)
     out = str(directory / f"{uuid}.raw.json")
     cdp = CDP(page_target(port)["webSocketDebuggerUrl"])

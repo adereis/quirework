@@ -75,7 +75,10 @@ skill_prefix = "example-"
 [provenance]
 # A site can publish and run model plans without a private corpus.
 enabled = false
+# The ledger, committed with the site, and the store that keeps the
+# captured sessions outside it, under $QUIREWORK_PROVENANCE_HOME.
 # root = "private/provenance"
+# store = "my-site"
 
 [usage]
 # Which commands and procedures this project runs, recorded on this

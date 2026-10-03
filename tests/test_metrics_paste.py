@@ -1,4 +1,5 @@
-from conftest import patch_project_path
+from conftest import corpus_settings, keep_session
+from quirework.project import Project, project_scope
 import json
 
 from quirework.provenance import metrics
@@ -106,13 +107,12 @@ def test_codex_metrics_count_visible_dialogue_not_agent_prompt(tmp_path, monkeyp
         },
     ]
     session.write_text("\n".join(json.dumps(r) for r in rows) + "\n")
-    patch_project_path(monkeypatch, metrics, "provenance.root", tmp_path)
-    patch_project_path(
-        monkeypatch, metrics, "provenance.codex_sessions", tmp_path / "codex-sessions"
-    )
+    project = Project.from_settings(tmp_path, {"provenance": corpus_settings()})
+    keep_session(project, f"codex-sessions/{session.name}", session.read_text())
     acc = metrics.Acc("codex")
 
-    metrics.codex_sessions(acc)
+    with project_scope(project):
+        metrics.codex_sessions(acc)
 
     assert acc.sessions == 1
     assert acc.human_words == 0

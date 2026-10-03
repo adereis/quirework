@@ -32,10 +32,10 @@ What is NOT committed (regenerated on demand into ~/tmp):
     prompts (firehose-adjacent) and are deterministic from raw + the filter.
 
 Subcommands:
-    status              dry-run: hit / MISS / UNSEALED per source + tokens
-    triage              free, mechanical relevance prioritizer over local sessions
-                        (by files edited): 'keep' if it edited the document,
-                        'review' (needs an intelligent read) if not
+    status              dry-run: hit / MISS per source + tokens
+    triage              free, mechanical relevance prioritizer over pending
+                        captures (by files edited): 'keep' if it edited the
+                        document, 'review' (needs an intelligent read) if not
                         (--review-list prints just the review-set paths)
     render              write filtered renders for every miss into the staging
                         dir; a long tail of small sealed sessions is packed into
@@ -63,12 +63,11 @@ import re
 import shutil
 import subprocess
 import sys
-import time
 from pathlib import Path
 
 from quirework.project import current_project
-from quirework.provenance.sources import source_reference
-from quirework.provenance.sources import kind_of_path
+from quirework.provenance import store
+from quirework.provenance.store import reference as source_reference
 from quirework.providers.blind import BLIND_SETTINGS
 from quirework.providers.blind import NO_SETTING_SOURCES
 from quirework.providers.blind import MIN_TOOLS
@@ -105,10 +104,6 @@ PROMPT_VERSIONS = {
 # at a fraction of Opus cost, and the id here is what the CLI alias below
 # resolves to (recorded per the take-it-from-the-human doctrine).
 
-
-# A session whose mtime is the newest, or within this window, is treated as the
-# live/active log: never a cache hit, since it is still growing.
-UNSEALED_WINDOW_S = 2 * 3600
 
 # Renders shorter than this (after filtering) are stub sessions -- skipped.
 MIN_RENDER_CHARS = 500
@@ -232,7 +227,7 @@ def filter_version_for(path):
 
     return FLT.policy_version(
         CODEX_FLT.FILTER_VERSION
-        if kind_of_path(path, current_project()) == "codex"
+        if store.family_of_reference(path) == store.CODEX
         else FLT.FILTER_VERSION
     )
 
@@ -240,66 +235,19 @@ def filter_version_for(path):
 # --------------------------------------------------------------------------- #
 # sources
 # --------------------------------------------------------------------------- #
-def _untracked(subdir):
-    project = current_project()
-    if project.get("provenance.curation", "tracked") == "presence":
-        return set()
-    root = project.path("provenance.tracking_root", str(project.root))
-    subdir = Path(subdir).resolve()
-    if not subdir.is_relative_to(root):
-        raise ValueError(
-            "external corpora require provenance.tracking_root or presence curation"
-        )
-    result = subprocess.run(
-        [
-            "git",
-            "-C",
-            str(root),
-            "ls-files",
-            "--others",
-            "--exclude-standard",
-            "--",
-            str(subdir.relative_to(root)),
-        ],
-        capture_output=True,
-        text=True,
-        check=True,
-    )
-    return {root / rel for rel in result.stdout.splitlines()}
-
-
-def _untracked_cc():
-    return _untracked(
-        current_project().path(
-            "provenance.claude_sessions", ".quirework/provenance/cc-sessions"
-        )
-    )
-
-
-def _untracked_agy():
-    return _untracked(
-        current_project().path(
-            "provenance.agy_sessions", ".quirework/provenance/agy-sessions"
-        )
-    )
-
-
-def _untracked_codex():
-    return _untracked(
-        current_project().path(
-            "provenance.codex_sessions", ".quirework/provenance/codex-sessions"
-        )
-    )
+def _pending(family):
+    """Captures in the store not yet accepted into this ledger."""
+    return set(store.pending(family, "*.jsonl"))
 
 
 def iter_sources(scope=SCOPE.WORK):
-    """Yield ``(path, era)`` for every analyzable source transcript on disk.
+    """Yield ``(path, era)`` for every accepted source transcript.
 
-    The corpus is curated by *presence*: a session that should not be in it at
-    all is removed from the repo working tree (it lives on in ~/.claude), so
-    whatever remains here is, by decision, evidence.
+    Only accepted sessions are evidence: a pending capture has not been read
+    and kept, and an accepted version never changes, so a report on it is
+    never about a log that has since grown.
 
-    Presence does not say evidence *for what*, and ``scope`` does: ``'work'``
+    Acceptance does not say evidence *for what*, and ``scope`` does: ``'work'``
     (the default, and every era-A web dialogue) or ``'making'`` for the
     apparatus half, listed in ``making-sessions.txt``. Pass ``None`` for the
     whole corpus regardless of scope -- which is what ``metrics`` wants, since
@@ -307,58 +255,18 @@ def iter_sources(scope=SCOPE.WORK):
     was about half instruments.
     """
     making = SCOPE.making_ids()
-    for p in sorted(
-        current_project()
-        .path("provenance.conversations", ".quirework/provenance/conversations")
-        .glob("*.md")
-    ):
-        if p.name == "README.md":
-            continue
+    for p in store.files(store.WEB, "*.md"):
         if SCOPE.wants(p, scope, making):
             yield p, "a-web"
-    for p in sorted(
-        current_project()
-        .path("provenance.agy_sessions", ".quirework/provenance/agy-sessions")
-        .glob("*.jsonl")
-    ):
+    for p in store.files(store.AGY, "*.jsonl"):
         if SCOPE.wants(p, scope, making):
             yield p, "b-agy"
-    for p in sorted(
-        current_project()
-        .path("provenance.claude_sessions", ".quirework/provenance/cc-sessions")
-        .glob("*.jsonl")
-    ):
+    for p in store.files(store.CC, "*.jsonl"):
         if SCOPE.wants(p, scope, making):
             yield p, "c-refinement"
-    for p in sorted(
-        current_project()
-        .path("provenance.codex_sessions", ".quirework/provenance/codex-sessions")
-        .glob("*.jsonl")
-    ):
+    for p in store.files(store.CODEX, "*.jsonl"):
         if SCOPE.wants(p, scope, making):
             yield p, "d-codex"
-
-
-def unsealed_set():
-    """Resolved paths of CLI sessions that may still be growing."""
-    now = time.time()
-    sealed_off = set()
-    for corpus in (
-        current_project().path(
-            "provenance.claude_sessions", ".quirework/provenance/cc-sessions"
-        ),
-        current_project().path(
-            "provenance.codex_sessions", ".quirework/provenance/codex-sessions"
-        ),
-    ):
-        js = list(corpus.glob("*.jsonl"))
-        if not js:
-            continue
-        sealed_off.add(max(js, key=lambda p: p.stat().st_mtime).resolve())
-        for p in js:
-            if now - p.stat().st_mtime < UNSEALED_WINDOW_S:
-                sealed_off.add(p.resolve())
-    return sealed_off
 
 
 def render_source(path):
@@ -367,20 +275,13 @@ def render_source(path):
     Web dialogues deliberately stay unredacted: they predate and are the source
     of the project framing, so a marker there is usually the human coining it
     live (evidence) — verify-blind flags them REVIEW, never FAIL."""
+    family = store.family_of(path)
     if path.suffix == ".jsonl":
-        if path.resolve().is_relative_to(
-            current_project().path(
-                "provenance.codex_sessions", ".quirework/provenance/codex-sessions"
-            )
-        ):
+        if family == store.CODEX:
             from quirework.provenance import codexfilter as CODEX_FLT
 
             return CODEX_FLT.filter_session(path)
-        if path.resolve().is_relative_to(
-            current_project().path(
-                "provenance.agy_sessions", ".quirework/provenance/agy-sessions"
-            )
-        ):
+        if family == store.AGY:
             from quirework.provenance import catalog as CAT
 
             text, stats = CAT._agy_render(path)
@@ -659,12 +560,10 @@ def is_hit(manifest, relpath, sha, path=None, persona=None):
     return False
 
 
-def classify(path, manifest, unsealed, persona=None):
-    """Return one of 'hit' / 'MISS' / 'UNSEALED' for a source path."""
+def classify(path, manifest, persona=None):
+    """Return ``'hit'`` or ``'MISS'`` for an accepted source, with its key."""
     rel = str(source_reference(path, current_project()))
     sha = sha256_file(path)
-    if path.resolve() in unsealed:
-        return "UNSEALED", rel, sha
     return (
         ("hit" if is_hit(manifest, rel, sha, path, persona=persona) else "MISS"),
         rel,
@@ -673,11 +572,12 @@ def classify(path, manifest, unsealed, persona=None):
 
 
 def _era_for_rel(rel):
-    if kind_of_path(rel, current_project()) == "codex":
+    family = store.family_of_reference(rel)
+    if family == store.CODEX:
         return "d-codex"
-    if kind_of_path(rel, current_project()) == "agy":
+    if family == store.AGY:
         return "b-agy"
-    if "conversations" in rel:
+    if family == store.WEB:
         return "a-web"
     return "c-refinement"
 
@@ -696,12 +596,11 @@ def cmd_status(_args):
     else:
         persona = None
     manifest = load_manifest()
-    unsealed = unsealed_set()
-    n = {"hit": 0, "MISS": 0, "UNSEALED": 0}
+    n = {"hit": 0, "MISS": 0}
     miss_tokens = 0
     rows = []
     for path, era in iter_sources(scope):
-        state, rel, sha = classify(path, manifest, unsealed, persona=persona)
+        state, rel, sha = classify(path, manifest, persona=persona)
         n[state] += 1
         est = 0
         if state != "hit":
@@ -727,27 +626,15 @@ def cmd_status(_args):
         print(f"{state:9} {era:13} {rel:{width}} {sha:10} {tok:>8} {model}")
 
     print()
-    untracked_cc = _untracked_cc()
-    untracked_agy = _untracked_agy()
-    untracked_codex = _untracked_codex()
-    if untracked_cc:
+    waiting = sum(len(_pending(f)) for f in (store.CC, store.AGY, store.CODEX))
+    if waiting:
         print(
-            f"pending: {len(untracked_cc)} untracked cc-session(s) -- triage, then commit "
-            f"(keep) or remove (run `triage`)"
-        )
-    if untracked_agy:
-        print(
-            f"pending: {len(untracked_agy)} untracked agy-session(s) -- triage, then commit "
-            f"(keep) or remove (run `triage`)"
-        )
-    if untracked_codex:
-        print(
-            f"pending: {len(untracked_codex)} untracked codex-session(s) -- triage, "
-            f"then commit (keep) or remove (run `triage`)"
+            f"pending: {waiting} captured session(s) not accepted yet -- triage, "
+            "then accept or reject them (`quirework provenance store status`)"
         )
     print(
         f"scope={scope or 'all'}  "
-        f"hits={n['hit']}  misses={n['MISS']}  unsealed={n['UNSEALED']}  "
+        f"hits={n['hit']}  misses={n['MISS']}  "
         f"to-analyze tokens≈{miss_tokens:,}  "
         f"(≈{max(1, -(-miss_tokens // 150000))} blind sub-agent(s) @150k ctx)"
     )
@@ -761,13 +648,7 @@ def cmd_status(_args):
             f"note: {n_other} source(s) are scope={other} and are not in this "
             f"run; see `coldread status --scope {other}`."
         )
-    if n["UNSEALED"]:
-        print(
-            "note: the newest Claude Code and Codex sessions (and any modified "
-            "in the last 2h) are always UNSEALED — treated as live, "
-            "still-growing logs; they never cache-hit, even on an idle corpus."
-        )
-    if n["MISS"] or n["UNSEALED"]:
+    if n["MISS"]:
         flag = "" if scope in (None, SCOPE.WORK) else f" --scope {scope}"
         print(
             f"next: quirework provenance coldread render{flag}   then spawn blind "
@@ -887,21 +768,19 @@ def cmd_render(args):
     batch_under, batch_max = _parse_render_flags(args)
     out = _render_out(scope or SCOPE.WORK)
     manifest = load_manifest()
-    unsealed = unsealed_set()
     out.mkdir(parents=True, exist_ok=True)
 
     singles = []  # (outname, state, rel, sha, est)
     smalls = {}  # era -> [(stem, rel, sha, body, est)]
     for path, era in iter_sources(scope):
-        state, rel, sha = classify(path, manifest, unsealed)
+        state, rel, sha = classify(path, manifest)
         if state == "hit":
             continue
         body, _ = render_source(path)
         if len(body.strip()) < MIN_RENDER_CHARS:
             continue  # stub session
         est = len(body) // 4
-        sealed = path.resolve() not in unsealed
-        if batch_under and sealed and est < batch_under:
+        if batch_under and est < batch_under:
             smalls.setdefault(era, []).append((path.stem, rel, sha, body, est))
         else:
             outname = f"{era}__{path.stem}.md"
@@ -1397,19 +1276,23 @@ def cmd_triage(args):
 
     review_only = "--review-list" in args
     show_all = "--all" in args
-    if not show_all:
-        # Keyed like the rows below, which hold each session's reference.
-        untracked = {
-            str(source_reference(p, current_project()))
-            for p in _untracked_cc() | _untracked_agy() | _untracked_codex()
-        }
+    # Keyed like the rows below, which hold each session's reference.
+    waiting = {
+        str(source_reference(p, current_project()))
+        for family in (store.CC, store.AGY, store.CODEX)
+        for p in _pending(family)
+    }
+
+    def captured(family):
+        """Pending captures, and with --all the accepted ones they have not
+        replaced, in name order."""
+        chosen = {p.name: p for p in store.files(family, "*.jsonl")} if show_all else {}
+        chosen.update({p.name: p for p in store.pending(family, "*.jsonl")})
+        return [chosen[name] for name in sorted(chosen)]
+
     rows = []
     started = {}  # reference -> (path, kind) for the kinds that record a cwd
-    for p in sorted(
-        current_project()
-        .path("provenance.claude_sessions", ".quirework/provenance/cc-sessions")
-        .glob("*.jsonl")
-    ):
+    for p in captured(store.CC):
         rel = str(source_reference(p, current_project()))
         started[rel] = (p, "cc")
         body, _ = FLT.filter_session(str(p))
@@ -1418,11 +1301,7 @@ def cmd_triage(args):
         doc, meta, files = _edit_targets(p)
         verdict = "keep" if doc > 0 else "review"
         rows.append((rel, len(body) // 4, doc, meta, verdict, files))
-    for p in sorted(
-        current_project()
-        .path("provenance.agy_sessions", ".quirework/provenance/agy-sessions")
-        .glob("*.jsonl")
-    ):
+    for p in captured(store.AGY):
         rel = str(source_reference(p, current_project()))
         body, _ = CAT._agy_render(p)
         if len(body.strip()) < MIN_RENDER_CHARS:
@@ -1430,11 +1309,7 @@ def cmd_triage(args):
         doc, meta, files = CAT._agy_edit_targets(p)
         verdict = "keep" if doc > 0 else "review"
         rows.append((rel, len(body) // 4, doc, meta, verdict, files))
-    for p in sorted(
-        current_project()
-        .path("provenance.codex_sessions", ".quirework/provenance/codex-sessions")
-        .glob("*.jsonl")
-    ):
+    for p in captured(store.CODEX):
         rel = str(source_reference(p, current_project()))
         started[rel] = (p, "codex")
         body, _ = CODEX_FLT.filter_session(p)
@@ -1443,11 +1318,9 @@ def cmd_triage(args):
         doc, meta, files = CODEX_FLT.edit_targets(p, _classify_edit)
         verdict = "keep" if doc > 0 else "review"
         rows.append((rel, len(body) // 4, doc, meta, verdict, files))
-    short_untracked = []
+    short_pending = []
     if not show_all:
-        kept_ids = {r[0] for r in rows}
-        short_untracked = sorted(untracked - kept_ids)
-        rows = [r for r in rows if r[0] in untracked]
+        short_pending = sorted(waiting - {r[0] for r in rows})
     rows.sort(key=lambda r: -r[1])
     listed = [started[r[0]] for r in rows if r[0] in started]
     found = CAT.unplaced(
@@ -1466,19 +1339,19 @@ def cmd_triage(args):
 
     if not rows:
         if not show_all:
-            if short_untracked:
+            if short_pending:
                 print(
                     f"nothing above the {MIN_RENDER_CHARS}-char render floor, but "
-                    f"{len(short_untracked)} untracked session(s) are pending below "
+                    f"{len(short_pending)} pending session(s) fell below "
                     "it -- these can still be a real stub, a crashed run, or "
                     "evaluation-seat exhaust; read each before curating:"
                 )
-                for rel in short_untracked:
+                for rel in short_pending:
                     print(f"  {rel}")
             else:
                 print(
-                    "nothing pending triage: every session on disk is already "
-                    "tracked (--all lists them anyway)."
+                    "nothing pending triage: every captured session is "
+                    "accepted (--all lists them anyway)."
                 )
         else:
             print("no sessions to triage.")
@@ -1487,7 +1360,7 @@ def cmd_triage(args):
     w = max(len(r[0]) for r in rows)
     print("=== session relevance triage (mechanical prioritizer: by files edited) ===")
     if not show_all:
-        print("(untracked sessions pending triage only; --all includes tracked ones)")
+        print("(pending captures only; --all includes accepted sessions)")
     print(
         f"{'verdict':7} {'~tok':>7} {'doc':>4} {'meta':>5}  {'session':{w}}  top edited"
     )
@@ -1510,13 +1383,13 @@ def cmd_triage(args):
     print("Confirm that the top-edited column shows configured work material,")
     print("not only project guides or tooling files.")
     print("web/era-a sessions are not shown; judge those manually.")
-    if short_untracked:
+    if short_pending:
         print(
-            f"\n{len(short_untracked)} more untracked session(s) fell below the "
+            f"\n{len(short_pending)} more pending session(s) fell below the "
             f"{MIN_RENDER_CHARS}-char render floor and are NOT in the table above "
             "-- still pending, read each before curating:"
         )
-        for rel in short_untracked:
+        for rel in short_pending:
             print(f"  {rel}")
     return 0
 
@@ -1529,12 +1402,12 @@ and the model, so changing any of them misses deliberately -- a report is never
 silently reused under a different recipe.
 
 subcommands (default: status):
-  status                    per-source cache state (hit / MISS / UNSEALED)
-  triage                    mechanical keep/review prioritizer over the local
-                            cc-, agy-, and codex-sessions (free, no model calls)
+  status                    per-source cache state (hit / MISS)
+  triage                    mechanical keep/review prioritizer over captured
+                            cc, agy, and codex sessions (free, no model calls)
       --review-list           print only the 'review' sessions
-      --all                   include already-tracked sessions (default:
-                              only untracked ones pending triage)
+      --all                   include accepted sessions (default: only the
+                              pending captures awaiting curation)
   render                    write the filtered transcripts the analysts read
       --batch-under N         batch sources under N tokens
       --batch-max N           cap a batch at N tokens

@@ -6,10 +6,11 @@ that make `--check` trustworthy: metadata scanners, the editorial merge, the
 removed-list parser, and stable rendering.
 """
 
-from conftest import project_at, patch_setting
+from conftest import corpus_settings
 from quirework.runs import commands as run_commands
 import json
 
+from quirework.project import Project, project_scope
 from quirework.provenance import catalog
 
 
@@ -110,27 +111,21 @@ def test_web_scan_gemini_header_fallbacks(tmp_path):
     assert sc["messages"] == 2
 
 
-def test_removed_parses_id_and_reason(tmp_path, monkeypatch):
-    cc = tmp_path / "cc-removed.txt"
-    cc.write_text(
+def test_removed_parses_kind_id_and_reason(tmp_path):
+    (tmp_path / "ledger").mkdir()
+    (tmp_path / "ledger" / "removed-sessions.txt").write_text(
         "# header comment\n"
-        "7e7e7e7e-99a8-4f4d-ae91-f1380f5ece9f.jsonl      # web-capture pipeline (pure tooling)\n"
+        "cc 7e7e7e7e-99a8-4f4d-ae91-f1380f5ece9f      # web-capture pipeline (pure tooling)\n"
         "\n"
-        'e9bf8a21-6a2c-402c-a1f8-b9452033523c.jsonl      # stub: single "log" message\n',
+        'cc e9bf8a21-6a2c-402c-a1f8-b9452033523c      # stub: single "log" message\n'
+        "agy d617165b-e873-40c1-aec4-206cf4eedc23\n",
         encoding="utf-8",
     )
-    agy = tmp_path / "agy-removed.txt"
-    agy.write_text("d617165b-e873-40c1-aec4-206cf4eedc23\n", encoding="utf-8")
-    patch_setting(monkeypatch, catalog, "_settings", "REMOVED_CC", cc)
-    patch_setting(monkeypatch, catalog, "_settings", "REMOVED_AGY", agy)
-    patch_setting(
-        monkeypatch,
-        catalog,
-        "_settings",
-        "REMOVED_CODEX",
-        tmp_path / "absent-codex.txt",
+    project = Project.from_settings(
+        tmp_path, {"provenance": corpus_settings(root="ledger")}
     )
-    out = catalog._removed()
+    with project_scope(project):
+        out = catalog._removed()
     assert out == [
         {
             "id": "7e7e7e7e-99a8-4f4d-ae91-f1380f5ece9f",

@@ -58,12 +58,14 @@ skill_prefix = "example-"
 [provenance]
 # A book can publish and run model plans without a private corpus.
 enabled = false
-# Uncomment after selecting an existing corpus. Standard runtime
-# subdirectories are derived from this root unless overridden.
-# root = "private/corpus"
-# Use tracked for Git-curated sources. Presence explicitly accepts the
-# files already in an external corpus, so review that choice first.
-# curation = "tracked"
+# The ledger, committed with the book: which sessions were accepted,
+# which were removed and why, and the catalog built from them.
+# root = "private/provenance"
+# The store that keeps the captured sessions themselves, outside the
+# repository: a name under $QUIREWORK_PROVENANCE_HOME, by default
+# ~/.local/share/quirework/provenance. Create it with `quirework
+# provenance store init`, and back it up.
+# store = "my-book"
 # Private redaction rules protect blind analyst copies, not primary data.
 # redaction_policy = "private/redactions.toml"
 

@@ -1,10 +1,10 @@
 #!/usr/bin/env python3
 """Generated catalog (index) of the provenance corpus.
 
-One row per *tracked* source transcript. A session is added to git only after
-the keep/remove read (see the session-corpus READMEs), so **tracked == curated-in**:
-the catalog inherits curation and needs no inclusion policy of its own. Pending
-captures sitting uncommitted in the working tree are absent by construction.
+One row per *accepted* source transcript. A session is accepted only after the
+keep/remove read, so **accepted == curated-in**: the catalog inherits curation
+from the ledger's `accepted.txt` and needs no inclusion policy of its own.
+Pending captures waiting in the store are absent by construction.
 
 Mechanical fields (title, date, model, tokens, edits, sha, and the cold-read /
 highlight cross-links) are recomputed wholesale from the corpus on every build --
@@ -18,14 +18,14 @@ so a hand-written gloss survives a regenerate.
 It is the complete, mechanical layer *beneath* the hand-curated ``highlights.md``
 (the narrative of the most significant moments); the ``★`` column links the two.
 
-Outputs (both committed, both private -- they point at raw logs, like the
-cold-read manifest):
+Outputs (both committed in the ledger, both private -- they point at raw logs,
+like the cold-read manifest):
 
-    .quirework/provenance/index.json   canonical, machine source of truth
-    .quirework/provenance/INDEX.md     rendered human table
+    index.json   canonical, machine source of truth
+    INDEX.md     rendered human table
 
 Commands:
-    (no args)     rebuild index.json + INDEX.md from the tracked corpus
+    (no args)     rebuild index.json + INDEX.md from the accepted corpus
     --check       exit non-zero if either is stale (used by the pre-commit hook)
 
 There is no wall-clock anywhere in the output, so ``--check`` is deterministic:
@@ -40,7 +40,8 @@ import re
 import sys
 
 from quirework.project import current_project
-from quirework.provenance.sources import source_reference
+from quirework.provenance import store
+from quirework.provenance.store import reference as source_reference
 from quirework.provenance import ccfilter as FLT
 from quirework.provenance import codexfilter as CODEX_FLT
 from quirework.provenance import coldread as CR
@@ -52,7 +53,7 @@ EDITORIAL = ("note", "tags")  # human-authored, preserved across rebuilds
 
 
 # --------------------------------------------------------------------------- #
-# sources: the *tracked* corpus only (curated-in == in git)
+# sources: the *accepted* corpus only (curated-in == listed in accepted.txt)
 # --------------------------------------------------------------------------- #
 
 
@@ -71,38 +72,11 @@ def _settings():
         current_project().path("provenance.root", ".quirework/provenance")
         / "highlights.md"
     )
-    REMOVED_CC = (
-        current_project().path(
-            "provenance.claude_sessions", ".quirework/provenance/cc-sessions"
-        )
-        / "removed-sessions.txt"
-    )
-    REMOVED_AGY = (
-        current_project().path(
-            "provenance.agy_sessions", ".quirework/provenance/agy-sessions"
-        )
-        / "removed-sessions.txt"
-    )
-    REMOVED_CODEX = (
-        current_project().path(
-            "provenance.codex_sessions", ".quirework/provenance/codex-sessions"
-        )
-        / "removed-sessions.txt"
-    )
     return SimpleNamespace(
         HIGHLIGHTS=HIGHLIGHTS,
         INDEX_JSON=INDEX_JSON,
         INDEX_MD=INDEX_MD,
-        REMOVED_AGY=REMOVED_AGY,
-        REMOVED_CC=REMOVED_CC,
-        REMOVED_CODEX=REMOVED_CODEX,
     )
-
-
-def _git_tracked(subdir, suffix):
-    from .sources import accepted_files
-
-    return accepted_files(subdir, suffix, current_project())
 
 
 def _short_model(m):
@@ -403,31 +377,12 @@ def _web_entry(path, manifest, hl_text):
     }
 
 
-def _parse_removed(path, corpus):
-    """Parse either house form in a corpus's ``removed-sessions.txt``."""
-    out = []
-    if not path.exists():
-        return out
-    for line in path.read_text(encoding="utf-8").splitlines():
-        s = line.strip()
-        if not s or s.startswith("#"):
-            continue
-        name, _, reason = s.partition("#")
-        name = name.strip()
-        if name.endswith(".jsonl"):
-            name = name[: -len(".jsonl")]
-        if name:
-            out.append({"id": name, "reason": reason.strip(), "corpus": corpus})
-    return out
-
-
 def _removed():
-    """The curated-out list from all local session corpora."""
-    return (
-        _parse_removed(_settings().REMOVED_CC, "cc")
-        + _parse_removed(_settings().REMOVED_AGY, "agy")
-        + _parse_removed(_settings().REMOVED_CODEX, "codex")
-    )
+    """The curated-out list, from the ledger's ``removed-sessions.txt``."""
+    return [
+        {"id": e.session, "reason": e.reason, "corpus": e.kind}
+        for e in store.listed(store.REMOVED)
+    ]
 
 
 def unplaced(cc_paths=(), codex_paths=()):
@@ -476,20 +431,9 @@ def report_unplaced(found, file=None):
 
 
 def _refuse_unplaced():
-    """Report tracked sessions no recorded tree places; True if there are any."""
+    """Report accepted sessions no recorded tree places; True if there are any."""
     found = unplaced(
-        _git_tracked(
-            current_project().path(
-                "provenance.claude_sessions", ".quirework/provenance/cc-sessions"
-            ),
-            ".jsonl",
-        ),
-        _git_tracked(
-            current_project().path(
-                "provenance.codex_sessions", ".quirework/provenance/codex-sessions"
-            ),
-            ".jsonl",
-        ),
+        store.files(store.CC, "*.jsonl"), store.files(store.CODEX, "*.jsonl")
     )
     if found:
         print("provenance catalog: cannot count edits.", file=sys.stderr)
@@ -527,38 +471,16 @@ def build():
             existing = {}
 
     entries = {}
-    for path in _git_tracked(
-        current_project().path(
-            "provenance.conversations", ".quirework/provenance/conversations"
-        ),
-        ".md",
-    ):
-        if path.name == "README.md":
-            continue
+    for path in store.files(store.WEB, "*.md"):
         rel, e = _web_entry(path, manifest, hl_text)
         entries[rel] = e
-    for path in _git_tracked(
-        current_project().path(
-            "provenance.agy_sessions", ".quirework/provenance/agy-sessions"
-        ),
-        ".jsonl",
-    ):
+    for path in store.files(store.AGY, "*.jsonl"):
         rel, e = _agy_entry(path, manifest, hl_text)
         entries[rel] = e
-    for path in _git_tracked(
-        current_project().path(
-            "provenance.claude_sessions", ".quirework/provenance/cc-sessions"
-        ),
-        ".jsonl",
-    ):
+    for path in store.files(store.CC, "*.jsonl"):
         rel, e = _cc_entry(path, manifest, hl_text)
         entries[rel] = e
-    for path in _git_tracked(
-        current_project().path(
-            "provenance.codex_sessions", ".quirework/provenance/codex-sessions"
-        ),
-        ".jsonl",
-    ):
+    for path in store.files(store.CODEX, "*.jsonl"):
         rel, e = _codex_entry(path, manifest, hl_text)
         entries[rel] = e
 
@@ -610,9 +532,9 @@ def render_md(index):
         "",
         "# Provenance catalog",
         "",
-        "Complete index of the *tracked* provenance corpus -- one row per session,",
+        "Complete index of the *accepted* provenance corpus -- one row per session,",
         "regenerated from the files on every import.",
-        "A session is committed only after the keep/remove read, so tracked == curated-in;",
+        "A session is accepted only after the keep/remove read, so accepted == curated-in;",
         "pending captures awaiting triage are absent by construction.",
         *(
             [
@@ -634,8 +556,7 @@ def render_md(index):
         f"Of those, **{sum(1 for e in src.values() if e.get('scope', SCOPE.WORK) == SCOPE.MAKING)}** "
         f"are scope `making` (the apparatus: tools, guards, process rules) and the "
         f"rest are scope `work`. Scope decides which blind cold-read reads a "
-        f"session, nothing else -- see each session directory's "
-        f"`making-sessions.txt`.",
+        f"session, nothing else -- see the ledger's `making-sessions.txt`.",
         "",
         "## Claude Code sessions (`cc-sessions/`)",
         "",
@@ -693,7 +614,7 @@ def render_md(index):
         "## Curated out",
         "",
         "Captured but deliberately excluded as non-canonical-text work",
-        "(see each session directory's `removed-sessions.txt`).",
+        "(see the ledger's `removed-sessions.txt`).",
         "",
     ]
     if removed:
@@ -754,16 +675,16 @@ def check():
 
 USAGE = """usage: quirework provenance catalog [--check]
 
-Regenerate the provenance catalog from the tracked corpus.
+Regenerate the provenance catalog from the accepted corpus.
 
-Writes both outputs (private -- they point at raw logs):
-  .quirework/provenance/index.json   canonical, machine source of truth
-  .quirework/provenance/INDEX.md     rendered human table
+Writes both outputs into the ledger (private -- they point at raw logs):
+  index.json   canonical, machine source of truth
+  INDEX.md     rendered human table
 
 Edits are counted against the project directories that capture recorded in
-.quirework/provenance/project-trees.txt, never against the worktrees that
-exist right now. Both forms refuse while a tracked session started outside
-every recorded directory.
+the ledger's project-trees.txt, never against the worktrees that exist right
+now. Both forms refuse while an accepted session started outside every
+recorded directory.
 
 options:
   -h, --help  show this help message and exit

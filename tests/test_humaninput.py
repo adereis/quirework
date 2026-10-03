@@ -1,4 +1,5 @@
-from conftest import patch_project_path
+from conftest import corpus_settings, keep_session
+from quirework.project import Project, project_scope
 import json
 
 from quirework.provenance import humaninput as hi
@@ -184,12 +185,12 @@ def test_codex_turns_exclude_injected_context_and_subagent_prompt(
     )
     main.write_text("\n".join(json.dumps(r) for r in main_rows) + "\n")
     sub.write_text("\n".join(json.dumps(r) for r in sub_rows) + "\n")
-    patch_project_path(monkeypatch, hi, "provenance.root", tmp_path)
-    patch_project_path(
-        monkeypatch, hi, "provenance.codex_sessions", tmp_path / "codex-sessions"
-    )
+    project = Project.from_settings(tmp_path, {"provenance": corpus_settings()})
+    for capture in (main, sub):
+        keep_session(project, f"codex-sessions/{capture.name}", capture.read_text())
 
-    turns = hi._codex_turns()
+    with project_scope(project):
+        turns = hi._codex_turns()
     assert [turn["text"] for turn in turns] == [
         "This actual human prompt carries enough words to count."
     ]

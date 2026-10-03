@@ -1,4 +1,10 @@
-"""Capture Antigravity sessions while preserving curation and replacements."""
+"""Capture Antigravity sessions while preserving curation and replacements.
+
+Captures land in the store's pending area. A session captured before, pending
+or accepted, is captured again only with ``--force``, because an Antigravity
+transcript that differs from its capture has as often been rewritten under it
+as grown.
+"""
 
 from __future__ import annotations
 
@@ -7,7 +13,7 @@ import json
 import re
 from pathlib import Path
 from quirework.project import current_project
-from quirework.provenance import agyfilter, trees, worktrees
+from quirework.provenance import agyfilter, store, trees, worktrees
 from quirework.runs.storage import shown
 
 
@@ -33,13 +39,14 @@ def working_context(rows):
     return None
 
 
-def evaluates_corpus(rows, corpus):
+def evaluates_corpus(rows, root):
+    """Whether the first human turn hands the session a capture from the store."""
     project = current_project()
-    prefixes = {str(corpus)}
-    try:
-        prefixes.add(str(corpus.relative_to(project.root)))
-    except ValueError:
-        pass
+    prefixes = [str(root / area) for area in ("pending", "accepted")]
+    if root.is_relative_to(project.root):
+        prefixes += [
+            str((root / a).relative_to(project.root)) for a in ("pending", "accepted")
+        ]
     for row in rows:
         if str(row.get("source", "")).startswith("USER"):
             text = " ".join(_strings(row))
@@ -68,17 +75,13 @@ def main(argv=None):
     )
     if not brain.is_dir():
         raise ValueError(f"Antigravity session directory is missing: {brain}")
-    dest = project.path("provenance.agy_sessions")
+    corpus = store.open_store()
+    dest = corpus.pending_dir(store.AGY)
     dest.mkdir(parents=True, exist_ok=True)
-    removed_file = dest / "removed-sessions.txt"
-    removed = (
-        {
-            line.split("#", 1)[0].strip().removesuffix(".jsonl")
-            for line in removed_file.read_text().splitlines()
-        }
-        if removed_file.exists()
-        else set()
-    )
+    removed = store.removed_ids("agy")
+    from quirework.provenance.ingestion.claude import accepted_versions
+
+    accepted = accepted_versions(store.AGY)
     roots = worktrees.project_trees(project.root)
     excluding = worktrees.excluded_trees(project, roots)
     for tree in trees.record(project):
@@ -134,7 +137,7 @@ def main(argv=None):
                 f"  - {directory.name} opened in {context} -- review run, not captured"
             )
             continue
-        if evaluates_corpus(rows, project.path("provenance.root")):
+        if evaluates_corpus(rows, corpus.root):
             counts["evals"] += 1
             print(
                 f"  - {directory.name} was sent a transcript to evaluate -- not a session, not captured"
@@ -145,11 +148,12 @@ def main(argv=None):
             counts["curated"] += 1
             continue
         output = dest / f"{sid}.jsonl"
-        if not output.exists():
+        captures = [c for c in (output, *accepted.get(output.name, ())) if c.is_file()]
+        if not captures:
             agyfilter.write_capture(source, output)
             counts["new"] += 1
             print(f"  + {sid}")
-        elif agyfilter.is_current(source, output):
+        elif any(agyfilter.is_current(source, c) for c in captures):
             counts["unchanged"] += 1
         elif args.force is not None and (not args.force or sid in args.force):
             agyfilter.write_capture(source, output)
@@ -157,12 +161,12 @@ def main(argv=None):
             print(f"  ~ {sid} (replaced)")
         else:
             counts["differ"] += 1
-            why = agyfilter.why_not_current(source, output)
+            why = agyfilter.why_not_current(source, captures[0])
             print(f"  ! {sid} is not current: {why} (kept)")
     print(
         "agy-sessions: {new} new, {replaced} replaced, {unchanged} unchanged, {differ} differ, {curated} curated out, {review} review run(s), {evals} evaluation seat(s), {unreadable} unreadable -> ".format(
             **counts
         )
-        + str(dest)
+        + shown(dest)
     )
     return 0

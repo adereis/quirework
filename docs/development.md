@@ -9,7 +9,7 @@ Parsing and presentation stay outside the reusable execution engine.
 | `manuscript` | Formats and units, spec, marks, sources, quotations, trail, lifecycle, footprint: the written work in any format |
 | `publish` | Backends and targets; for Quarto, rendering, figures, editions, rendered review artifacts |
 | `text` | Formatting and editorial inspection |
-| `provenance` | Runtime readers, capture, catalog, retrieval, measurements |
+| `provenance` | Runtime readers, capture, the session store and its ledger, catalog, retrieval, measurements |
 | `sops` | Procedure discovery, personas, instruments, workflow preparation |
 | `runs` | Execution state, recovery, checkpoints, evidence |
 | `providers` | Native invocation, model resolution, receipts, isolation |

@@ -19,15 +19,13 @@ normalizer keeps human prompts, visible assistant prose, plaintext reasoning,
 and compact action metadata; runtime transport, tool outputs, inline files, and
 opaque reasoning state stay in the source rollout. A sweep may read a rollout
 that is still being written, so the capture records the source state it consumed
-and a later sweep refreshes it when the source grows. Sessions listed in
-``removed-sessions.txt`` are never re-imported. Rollouts belonging to a *system*
-subagent are skipped and counted (see ``SYSTEM_SUBAGENTS``). Delegated seats
-that act on a configured raw capture are skipped and reported as evaluations,
-so an ingest does not seed the next ingest. Main sessions stay for curation.
-Capturing never stages or commits sessions.
-
-Pure stdlib and runnable under a bare ``python3`` with no venv and no installed
-package.
+and a later sweep refreshes it when the source grows. Captures land in the store's
+pending area, and a session already accepted is captured again only once it has
+grown. Sessions on the ledger's ``removed-sessions.txt`` are never re-imported.
+Rollouts belonging to a *system* subagent are skipped and counted (see
+``SYSTEM_SUBAGENTS``). Delegated seats that act on a raw capture in the store
+are skipped and reported as evaluations, so an ingest does not seed the next
+ingest. Main sessions stay for curation. Capturing never accepts a session.
 """
 
 from __future__ import annotations
@@ -36,15 +34,12 @@ import json
 import hashlib
 import os
 import re
-import sys
 import tempfile
 from pathlib import Path
 from quirework.project import current_project
 
-# tools/session-sync/<this> -> repo root
-
-from quirework.provenance import codexfilter, trees
-from quirework.provenance import worktrees  # noqa: E402  (path set above)
+from quirework.provenance import codexfilter, store, trees
+from quirework.provenance import worktrees
 from quirework.runs.storage import shown
 
 
@@ -69,34 +64,6 @@ def codex_home() -> Path:
     """Codex state root, honoring its documented environment override."""
     configured = os.environ.get("CODEX_HOME")
     return Path(configured).expanduser() if configured else Path.home() / ".codex"
-
-
-def load_removed() -> set[str]:
-    """Session ids deliberately curated out of the Codex corpus."""
-    if not (
-        current_project().path("provenance.codex_sessions") / "removed-sessions.txt"
-    ).exists():
-        return set()
-    ids = set()
-    for lineno, line in enumerate(
-        (current_project().path("provenance.codex_sessions") / "removed-sessions.txt")
-        .read_text(encoding="utf-8")
-        .splitlines(),
-        1,
-    ):
-        entry = line.split("#", 1)[0].strip()
-        if not entry:
-            continue
-        match = SESSION_ID.fullmatch(entry)
-        if not match:
-            print(
-                f"codex-sessions: {(current_project().path('provenance.codex_sessions') / 'removed-sessions.txt').name}:{lineno}: not a session id, "
-                f"ignoring {entry!r}",
-                file=sys.stderr,
-            )
-            continue
-        ids.add(match.group(1).lower())
-    return ids
 
 
 def read_meta(path: Path) -> dict:
@@ -151,25 +118,31 @@ def system_subagent(meta: dict) -> str | None:
     return None
 
 
-def _capture_pattern(roots):
+def _capture_pattern():
+    """A raw capture in this project's store, however a tool call spelled it.
+
+    The store's own directories match absolutely, and relative to the project
+    when the store is kept inside it. A family directory's bare
+    name (``cc-sessions/<id>.jsonl``) matches only where it starts a path, so
+    the tail of another project's absolute path never establishes an
+    evaluation of this one's corpus. An accepted capture sits one version
+    directory deeper than a pending one, and both forms are recognized.
+    """
     project = current_project()
+    root = store.location()
     prefixes = set()
-    for key in ("claude_sessions", "agy_sessions", "codex_sessions"):
-        folder = project.path(f"provenance.{key}")
-        prefixes.add(str(folder))
-        prefixes.add(folder.name)
-        try:
-            relative = folder.relative_to(project.root)
-        except ValueError:
-            continue
-        prefixes.add(str(relative))
-        prefixes.update(str(root / relative) for root in roots)
-    # Relative spellings must start a path, not match the tail of another
-    # project's absolute path. Each project supplies its own corpus layout.
+    for family in (store.CC, store.AGY, store.CODEX):
+        prefixes.add(family)
+        for area in (root / "pending" / family, root / "accepted" / family):
+            prefixes.add(str(area))
+            # A store kept inside the repository can be named from its root.
+            if area.is_relative_to(project.root):
+                prefixes.add(str(area.relative_to(project.root)))
+    uid = r"[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12}"
     return re.compile(
         r"(?<![\w./~-])(?:"
         + "|".join(re.escape(p) for p in sorted(prefixes, key=len, reverse=True))
-        + r")/[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12}\.jsonl\b",
+        + rf")/(?:[0-9a-f]{{16}}/)?{uid}\.jsonl\b",
         re.I,
     )
 
@@ -192,7 +165,7 @@ def sweep(repo=None):
     excluding = worktrees.excluded_trees(current_project(), roots)
     home = codex_home()
     keep, system, evaluation = [], [], []
-    pattern = _capture_pattern(roots)
+    pattern = _capture_pattern()
     for root in (home / "sessions", home / "archived_sessions"):
         if not root.is_dir():
             continue
@@ -254,12 +227,24 @@ def write_capture(src: Path, dst: Path) -> None:
             tmp.unlink(missing_ok=True)
 
 
-def copy_if_changed(src: Path, sid: str) -> bool:
-    """Normalize a new/grown rollout, preserving source state and mtime."""
-    dst = current_project().path("provenance.codex_sessions") / f"{sid}.jsonl"
-    captured = captured_source_fingerprint(dst)
-    if captured is not None and source_fingerprint(src) == captured:
+def accepted_versions():
+    """``{file name: [accepted paths]}`` for Codex, across the whole store."""
+    from quirework.provenance.ingestion.claude import accepted_versions as found
+
+    return found(store.CODEX)
+
+
+def copy_if_changed(src: Path, sid: str, versions=()) -> bool:
+    """Normalize a new/grown rollout into the pending area, preserving mtime.
+
+    ``versions`` are the session's accepted captures anywhere in the store; one
+    made from the rollout as it stands means there is nothing new to capture.
+    """
+    dst = store.open_store().pending_dir(store.CODEX) / f"{sid}.jsonl"
+    recorded = {captured_source_fingerprint(c) for c in (dst, *versions)} - {None}
+    if recorded and source_fingerprint(src) in recorded:
         return False
+    dst.parent.mkdir(parents=True, exist_ok=True)
     write_capture(src, dst)
     return True
 
@@ -270,13 +255,13 @@ def main(argv=None):
     parser = argparse.ArgumentParser(prog="quirework provenance ingest codex")
     parser.parse_args(argv)
 
-    current_project().path("provenance.codex_sessions").mkdir(
-        parents=True, exist_ok=True
-    )
+    pending = store.open_store().pending_dir(store.CODEX)
+    pending.mkdir(parents=True, exist_ok=True)
     for tree in trees.record(current_project()):
         print(f"codex-sessions: recorded project tree {shown(tree)}")
     sources, system, evaluation = sweep()
-    removed = load_removed()
+    removed = store.removed_ids("codex")
+    accepted = accepted_versions()
     copied = []
     unchanged = skipped = invalid = 0
     for src in sources:
@@ -287,7 +272,7 @@ def main(argv=None):
         if sid in removed:
             skipped += 1
             continue
-        if copy_if_changed(src, sid):
+        if copy_if_changed(src, sid, accepted.get(f"{sid}.jsonl", ())):
             copied.append((src, sid))
         else:
             unchanged += 1
@@ -302,7 +287,7 @@ def main(argv=None):
         f"codex-sessions: {len(copied)} updated, {unchanged} unchanged, "
         f"{skipped} on removed-list, {len(system)} system subagent(s), "
         f"{len(evaluation)} evaluation seat(s), "
-        f"{invalid} without a usable id -> {current_project().path('provenance.codex_sessions')}"
+        f"{invalid} without a usable id -> {shown(pending)}"
     )
     return 0
 

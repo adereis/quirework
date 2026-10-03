@@ -5,14 +5,16 @@ staleness/model invalidation and the session ranking are all exercised against a
 deterministic toy embedder. Nothing here downloads a model or reads `private/`.
 """
 
-from conftest import project_at, patch_setting, patch_project_path
+from conftest import corpus_settings, keep_session, patch_setting
 from quirework.runs import commands as run_commands
 import json
 
 import numpy as np
 import pytest
 
+from quirework.project import Project, project_scope
 from quirework.provenance import semantic as SEM
+from quirework.provenance import store
 
 
 class FakeBackend:
@@ -52,31 +54,21 @@ def _turn(file, text, ordinal=1, source="cc", cls="TYPED"):
 
 @pytest.fixture
 def sandbox(tmp_path, monkeypatch):
-    """Point the index and the fingerprint's corpus globs at a temp dir.
+    """A project with an empty store of its own, and the index in a temp dir.
 
-    ``humaninput.all_turns`` is stubbed empty as well: it resolves the corpus
-    from ``_paths`` directly, so without this a test that triggers a rebuild
-    reads the real ``private/`` corpus -- slow, and not a unit test.
+    ``humaninput.all_turns`` is stubbed empty as well, so a test that triggers
+    a rebuild reads only the turns it hands over.
     """
     from quirework.provenance import humaninput as HI
 
-    for name in ("CC", "AGY", "CODEX", "CONV"):
-        d = tmp_path / name
-        d.mkdir()
-        patch_project_path(
-            monkeypatch,
-            SEM,
-            {
-                "CC": "provenance.claude_sessions",
-                "AGY": "provenance.agy_sessions",
-                "CODEX": "provenance.codex_sessions",
-                "CONV": "provenance.conversations",
-            }[name],
-            d,
-        )
-    patch_setting(monkeypatch, SEM, "_settings", "INDEX", tmp_path / "index.npz")
-    monkeypatch.setattr(HI, "all_turns", lambda: [])
-    return tmp_path
+    project = Project.from_settings(
+        tmp_path, {"provenance": corpus_settings(root="ledger", store="store")}
+    )
+    with project_scope(project):
+        store.init()
+        patch_setting(monkeypatch, SEM, "_settings", "INDEX", tmp_path / "index.npz")
+        monkeypatch.setattr(HI, "all_turns", lambda: [])
+        yield project
 
 
 # --------------------------------------------------------------------------- #
@@ -119,10 +111,7 @@ def test_build_indexes_turns_and_skips_trivial(sandbox):
 
 
 def test_codex_turn_resolves_to_codex_corpus(sandbox):
-    codex_file = (
-        SEM.current_project().path("provenance.codex_sessions") / "session.jsonl"
-    )
-    codex_file.write_text("codex rollout")
+    codex_file = keep_session(sandbox, "codex-sessions/session.jsonl", "codex rollout")
     assert SEM._path("codex", codex_file.name) == codex_file
     assert SEM._sizes([("codex", codex_file.name)]) == {
         "codex/session.jsonl": len("codex rollout")
@@ -166,9 +155,7 @@ def test_load_rebuilds_when_the_corpus_changed(sandbox):
     SEM.build(
         backend=FakeBackend(), turns=[_turn("a.jsonl", "the tide")], verbose=False
     )
-    (
-        SEM.current_project().path("provenance.claude_sessions") / "new-session.jsonl"
-    ).write_text("{}\n")  # fingerprint moves
+    keep_session(sandbox, "cc-sessions/new-session.jsonl", "{}\n")  # fingerprint moves
     with pytest.raises(RuntimeError, match="no human turns"):
         SEM.load(backend=FakeBackend(), verbose=False)
 
@@ -185,11 +172,9 @@ class CountingBackend(FakeBackend):
 
 
 def _corpus(**files):
+    project = SEM.current_project()
     for name, body in files.items():
-        (
-            SEM.current_project().path("provenance.claude_sessions")
-            / name.replace("_", ".")
-        ).write_text(body)
+        keep_session(project, f"cc-sessions/{name.replace('_', '.')}", body)
 
 
 def test_rebuild_re_embeds_only_the_sessions_that_moved(sandbox):
@@ -252,10 +237,9 @@ def test_load_re_embeds_incrementally_rather_than_wholesale(sandbox, monkeypatch
 
 def test_fingerprint_tracks_name_and_size(sandbox):
     before = SEM.corpus_fingerprint()
-    f = SEM.current_project().path("provenance.claude_sessions") / "s.jsonl"
-    f.write_text("a")
+    keep_session(sandbox, "cc-sessions/s.jsonl", "a")
     added = SEM.corpus_fingerprint()
-    f.write_text("ab")  # same name, new size
+    keep_session(sandbox, "cc-sessions/s.jsonl", "ab")  # same name, new size
     grown = SEM.corpus_fingerprint()
     assert len({before, added, grown}) == 3
 

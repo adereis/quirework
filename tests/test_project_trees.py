@@ -16,6 +16,7 @@ import subprocess
 import pytest
 
 from quirework.project import Project, project_scope
+from conftest import corpus_settings, keep_session
 from quirework.provenance import catalog, coldread, trees
 
 
@@ -183,24 +184,31 @@ def _git(root, *args):
 
 
 @pytest.fixture
-def tracked_corpus(tmp_path):
-    """A committed book whose one session ran in a checkout since removed."""
+def accepted_corpus(tmp_path):
+    """A book whose one accepted session ran in a checkout since removed."""
     root = tmp_path / "book"
     gone = tmp_path / "book-canon"
     root.mkdir()
     _git(root, "init", "-q")
-    sessions = root / ".quirework/provenance/cc-sessions"
-    _session(sessions / "a1.jsonl", gone / "docs", gone / "manuscript" / "one.qmd")
-    _git(root, "add", ".")
-    _git(root, "commit", "-q", "-m", "fixture")
-    with project_scope(_book(root)) as project:
+    staged = _session(
+        tmp_path / "staged" / "a1.jsonl", gone / "docs", gone / "manuscript" / "one.qmd"
+    )
+    project = Project.from_settings(
+        root,
+        {
+            "manuscript": {"source": "manuscript"},
+            "provenance": corpus_settings(root=".quirework/provenance", store="store"),
+        },
+    )
+    keep_session(project, "cc-sessions/a1.jsonl", staged.read_text())
+    with project_scope(project):
         yield project, gone
 
 
 def test_the_catalog_refuses_while_a_session_started_under_no_recorded_tree(
-    tracked_corpus, capsys
+    accepted_corpus, capsys
 ):
-    project, gone = tracked_corpus
+    project, gone = accepted_corpus
     trees.record(project)
 
     assert catalog.main(["--check"]) == 1
@@ -216,6 +224,6 @@ def test_the_catalog_refuses_while_a_session_started_under_no_recorded_tree(
         fh.write(f"{gone}\n")
     assert catalog.main([]) == 0
     index = json.loads((project.root / ".quirework/provenance/index.json").read_text())
-    row = index["sources"][".quirework/provenance/cc-sessions/a1.jsonl"]
+    row = index["sources"]["cc-sessions/a1.jsonl"]
     assert (row["doc_edits"], row["meta_edits"]) == (1, 0)
     assert catalog.main(["--check"]) == 0

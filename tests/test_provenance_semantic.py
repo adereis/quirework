@@ -5,6 +5,8 @@ np = pytest.importorskip("numpy")
 from quirework.provenance import humaninput  # noqa: E402
 from quirework.provenance import semantic  # noqa: E402
 
+pytestmark = pytest.mark.usefixtures("corpus_project")
+
 
 class CountingBackend:
     """Deterministic vectors, recording every text it was asked to embed."""

@@ -6,16 +6,16 @@ reader measures the path from that checkout's copy of the project directory.
 The checkout may be long gone by then: a `git worktree` removed after its
 sessions were captured takes the answer with it. Asking git at read time made
 the catalog a function of which worktrees happen to exist today. The same
-tracked corpus counted edits differently before and after `git worktree
-remove`, and in a fresh clone or in CI, so `catalog --check` failed on commits
-that changed no session.
+corpus counted edits differently before and after `git worktree remove`, and
+in a fresh clone or in CI, so `catalog --check` failed on commits that changed
+no session.
 
 So the answer is recorded rather than looked up. `project-trees.txt`, beside
 the catalog, lists every directory this project's sessions may have been
 launched in, one absolute path per line. Capture runs while those checkouts
 exist, so each sweep adds the live ones and never removes a line: a removed
 worktree's sessions still name it. Readers consult this file alone, which makes
-it part of the tracked corpus the catalog certifies.
+it part of the ledger the catalog certifies.
 
 The entries are the *project's* directory in each checkout
 (`worktrees.project_trees`), not the checkouts themselves. For a book at its
@@ -24,9 +24,9 @@ repository it is what makes `manuscript/` mean the book's manuscript rather
 than a directory at the repository's root.
 
 A checkout removed before its tree was first recorded can only be added by
-hand. The catalog refuses to build while a tracked session was launched outside
-every listed tree, and names the directories, so an incomplete list is a failed
-check rather than a silently different count.
+hand. The catalog refuses to build while an accepted session was launched
+outside every listed tree, and names the directories, so an incomplete list is
+a failed check rather than a silently different count.
 """
 
 from __future__ import annotations

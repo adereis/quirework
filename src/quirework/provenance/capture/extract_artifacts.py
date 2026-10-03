@@ -4,9 +4,10 @@ conversation into standalone files, replaying create/rewrite/update ops to
 reconstruct each artifact's final state.
 
   usage: extract-artifacts.py <conversation-uuid>
-  reads  .quirework/provenance/conversations/<uuid>.raw.json
-  writes .quirework/provenance/conversations/artifacts/<uuid>/<artifact-id>.<ext>
-         .quirework/provenance/conversations/artifacts/<uuid>/manifest.json
+  reads  <uuid>.raw.json, pending if there is one, else accepted
+  writes artifacts/<uuid>/<artifact-id>.<ext>
+         artifacts/<uuid>/manifest.json
+  all within the store's conversations; the outputs are pending until accepted.
 
 The manifest records every operation (command, version_uuid, byte length,
 source message index) so the full version trajectory is documented even though
@@ -17,7 +18,7 @@ import json, sys, os
 
 # Outputs use the selected project configuration, independently of where
 # this package is installed.
-from quirework.project import current_project
+from quirework.provenance import store
 
 EXT = {
     "text/html": "html",
@@ -33,10 +34,12 @@ def main(argv=None):
     if len(argv) != 1:
         raise SystemExit("usage: extract-artifacts.py <conversation-uuid>")
     uuid = argv[0]
-    raw = str(current_project().path("provenance.conversations") / f"{uuid}.raw.json")
-    outdir = str(
-        current_project().path("provenance.conversations") / "artifacts" / uuid
-    )
+    raw = store.newest(store.WEB, f"{uuid}.raw.json")
+    if raw is None:
+        raise SystemExit(
+            f"no captured conversation {uuid}; run `quirework provenance capture` first"
+        )
+    outdir = str(store.open_store().pending_dir(store.WEB) / "artifacts" / uuid)
     conv = json.load(open(raw))
     msgs = sorted(conv["chat_messages"], key=lambda m: m.get("index", 0))
 

@@ -17,6 +17,8 @@ from quirework.project import ConfigurationError, Project, project_scope
 from quirework.runs import engine
 from quirework.runs.storage import hashes, write
 
+from conftest import corpus_settings, keep_session
+
 SPEC = """# What the notebook holds
 
 ## A kettle signals without thinking {#kettle-signal}
@@ -46,8 +48,8 @@ EVENING_TURNS = [
 ]
 
 
-def _session(directory, sid, day, turns):
-    directory.mkdir(parents=True, exist_ok=True)
+def _session(project, sid, day, turns):
+    """A captured session, accepted into the project's corpus."""
     lines = []
     for role, text, clock in turns:
         if role == "human":
@@ -59,7 +61,7 @@ def _session(directory, sid, day, turns):
             }
         record["timestamp"] = f"{day}T{clock}Z"
         lines.append(json.dumps(record))
-    (directory / f"{sid}.jsonl").write_text("\n".join(lines) + "\n", encoding="utf-8")
+    keep_session(project, f"cc-sessions/{sid}.jsonl", "\n".join(lines) + "\n")
 
 
 def _book(tmp_path, *, leads="private/spec-trail-leads"):
@@ -83,21 +85,17 @@ def _book(tmp_path, *, leads="private/spec-trail-leads"):
     }
     if leads:
         book["spec_trail_leads"] = leads
-    corpus = root / "private" / "corpus" / "cc-sessions"
-    _session(corpus, MORNING, "2031-04-02", MORNING_TURNS)
-    _session(corpus, EVENING, "2031-04-03", EVENING_TURNS)
-    return Project.from_settings(
+    project = Project.from_settings(
         root,
         {
             "manuscript": book,
-            "provenance": {
-                "enabled": True,
-                "root": "private/corpus",
-                "curation": "presence",
-            },
+            "provenance": corpus_settings(),
             "providers": {"claude": {"sessions": str(tmp_path / "home")}},
         },
     )
+    _session(project, MORNING, "2031-04-02", MORNING_TURNS)
+    _session(project, EVENING, "2031-04-03", EVENING_TURNS)
+    return project
 
 
 @pytest.fixture
@@ -561,10 +559,9 @@ FORK = "a0000000-0000-4000-8000-00000000000b"
 
 
 def test_a_resent_turn_and_a_twice_captured_turn_are_noted(book, tmp_path):
-    corpus = book.path("provenance.root") / "cc-sessions"
     same = "Cooling is a route, not a speed."
     _session(
-        corpus,
+        book,
         RESENT,
         "2031-04-04",
         [
@@ -574,7 +571,7 @@ def test_a_resent_turn_and_a_twice_captured_turn_are_noted(book, tmp_path):
             ("human", "Thanks.", "09:04:00"),
         ],
     )
-    _session(corpus, FORK, "2031-04-04", [("human", same, "09:02:00")])
+    _session(book, FORK, "2031-04-04", [("human", same, "09:02:00")])
     flag = {"slug": "cooling-asymmetry", "kind": "seed", "confidence": "high"}
     answer = _lines(
         {"session": RESENT, "turn": 1, "sections": [flag]},
