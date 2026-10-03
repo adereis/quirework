@@ -968,6 +968,9 @@ def describe_location(store):
 
 
 def _age(seconds):
+    # A live transcript can be written after status read the clock, so its
+    # age comes out a moment below zero; it changed just now.
+    seconds = max(0, seconds)
     if seconds < 3600:
         return f"{int(seconds // 60)} min"
     if seconds < 172800:

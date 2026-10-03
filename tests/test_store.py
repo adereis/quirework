@@ -674,6 +674,21 @@ def test_a_session_still_being_written_is_not_called_missed(tmp_path, capsys):
         assert "missed" not in out
 
 
+def test_a_session_written_after_status_read_the_clock_changed_just_now(
+    tmp_path, capsys
+):
+    # Status reads the clock, then the transcripts; a live session written in
+    # between carries a time a moment ahead of that clock.
+    project = _claude_book(tmp_path)
+    source = _claude_home(tmp_path, project, KETTLE, "Boil the water.")
+    ahead = time.time() + 30
+    os.utime(source, (ahead, ahead))
+    with project_scope(project):
+        store.init()
+        line = next(x for x in _status(capsys).splitlines() if KETTLE in x)
+        assert "changed 0 min ago" in line
+
+
 def test_a_session_that_grew_after_acceptance_is_named_grown(tmp_path, capsys):
     from quirework.provenance.ingestion import claude
 
