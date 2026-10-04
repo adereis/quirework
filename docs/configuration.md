@@ -1116,12 +1116,12 @@ and nothing checks it until a comparison is prepared.
 falls back to the project's default seats when it names none.
 `sops.roster` names that default: a JSON file whose `writers` list gives
 each seat a `harness`, a `model` and an `effort`, and whose optional
-`persona` applies to every seat that names none of its own.
+`persona` applies to every seat for which neither the seat nor the plan
+names one, including the seats a plan names itself.
 `quirework sop workshop roster --check` resolves each seat against the
 installed model catalogs, so a model a provider has since renamed fails
-there rather than halfway through an experiment. Prepare reads the file
-even when the plan names its own writers, so a project that runs
-workshops declares it.
+there rather than halfway through an experiment. A project whose plans
+always name their writers can leave the setting unset.
 
 `providers.isolation_policy` can list `mount_markers`: path words that
 would tell a seat whose book it is reading. A self-driven read refuses a

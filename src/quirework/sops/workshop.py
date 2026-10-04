@@ -170,7 +170,13 @@ def prepare(plan_path, destination, *, resolve_models=True):
     if not outputs or len({i["path"] for i in outputs}) != len(outputs):
         raise ValueError("declare unique output files")
     roster_default = not plan.get("writers")
-    roster_data = read_json(_settings().ROSTER)
+    # The roster is the fallback for a plan that names no writers, so a plan
+    # naming its own needs none. One that is declared still lends its persona
+    # to a writer that names neither its own nor the plan's.
+    if roster_default or current_project().get("sops.roster") is not None:
+        roster_data = read_json(_settings().ROSTER)
+    else:
+        roster_data = {}
     supplied_writers = roster_data["writers"] if roster_default else plan["writers"]
     writers = []
     for supplied in supplied_writers:
