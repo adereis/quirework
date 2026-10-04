@@ -65,7 +65,8 @@ enabled = false
 # repository: a name under the provenance home, which provenance.home
 # in ~/.config/quirework/config.toml sets and which is otherwise
 # ~/.local/share/quirework/provenance. Create it with `quirework
-# provenance store init`, and back it up.
+# provenance store init`, and back it up: `quirework config template
+# backup` prints the backup.toml the store reads.
 # store = "my-book"
 # Private redaction rules protect blind analyst copies, not primary data.
 # redaction_policy = "private/redactions.toml"

@@ -433,11 +433,13 @@ for the store in the default home instead. A file reaches every
 process, however it was started. The variable stays useful for an
 override, such as a scratch home for one command.
 
-Nothing copies the store off the machine unless you arrange it, and
-Claude Code deletes its own transcripts after 30 days by default. After
-that the store is the only copy, so back it up. `quirework config
-check` and `quirework provenance store status` name where the store is,
-which setting chose its home, and whether a repository holds it.
+Nothing copies the store off the machine until you describe a backup,
+and Claude Code deletes its own transcripts after 30 days by default.
+After that the store is the only copy. [Backing up the
+store](#backing-up-the-store) shows how to keep another. `quirework
+config check` and `quirework provenance store status` name where the
+store is, which setting chose its home, whether a repository holds it,
+and how it is backed up.
 
 `quirework provenance store init` creates the store and records its
 identity in the ledger's `accepted.txt`. A ledger that already names an
@@ -516,6 +518,184 @@ per line, as `<kind> <session id>  # reason`, where the kind is `cc`,
 names any that is missing or no longer matches `accepted.txt`. A
 command that needs a missing file refuses to run rather than read a
 smaller corpus.
+
+### Backing up the store
+
+Claude Code deletes a transcript 30 days after it last changed, and
+from then on the store holds the only copy of the session. A store
+therefore describes its own backup, in a `backup.toml` beside its
+`store.toml`, and `quirework provenance store backup` carries it out:
+
+```toml
+# ~/.local/share/quirework/provenance/my-book/backup.toml
+[targets.drive]
+driver = "rclone"
+destination = "gdrive:quirework-provenance/my-book"
+```
+
+The file lives in the store rather than in `quirework.toml` because
+what it names belongs to you and to this machine, such as an rclone
+remote or a mounted disk. The project file is committed and shared, and
+a clone elsewhere would name a remote that machine does not have.
+Keeping the file in the store also lets one command back up every store
+under the provenance home without opening a project. `quirework config
+template backup` prints an annotated file to start from.
+
+Each `[targets.<name>]` table is one destination, and a store may name
+several, such as a cloud folder and a NAS. The name is yours. It labels
+the target in status, and `--target` selects it. Four drivers are built
+in:
+
+| driver | settings | what it does |
+|---|---|---|
+| `rclone` | `destination = "remote:path"` | Copies to any remote `rclone config` has set up: Google Drive, SFTP, S3, or a `crypt` remote that encrypts before upload |
+| `directory` | `destination = "/absolute/path"` | Copies in Python to a directory that already exists, such as a mounted share |
+| `git` | `remote` and `branch`, both optional | Makes the store its own repository and each run a commit, pushed to `remote` when one is named |
+| `command` | `command = ["script", "arg"]` | Runs a script kept at the store's top level |
+
+`driver = "module:function"` selects an installed extension instead, as
+`publish.backend` does. The function receives the target's name, its
+table and the store's directory. It returns a
+`quirework.provenance.backup.Driver`, and a subclass of `Transfer`
+inherits the order described below.
+
+#### What a backup may change
+
+For `rclone` and `directory`, Quirework decides what may change at the
+destination, so both keep the same rules:
+
+- An accepted file is never overwritten or deleted there. A version
+  never changes in the store, so a copy that differs means one side is
+  damaged. The run stops and names the file rather than choosing a
+  side. rclone compares checksums, and the directory driver compares
+  sizes.
+- A pending file is deleted there only once the version that replaced
+  it has arrived.
+- The first run writes the store's `store.toml` at the destination. A
+  later run refuses a destination holding another store's identity, or
+  holding files and no identity at all. A path copied from one store's
+  file into another's therefore fails rather than mixing two corpora.
+- The directory driver never creates its destination's top directory.
+  A share that failed to mount leaves an empty mount point behind, and
+  filling it would put the backup on the local disk. Create the
+  directory once by hand.
+- Names starting with a dot are never copied. They are the half-built
+  directory of an accept in progress, a capture still being written,
+  and a git backup's `.git`.
+
+The order of a run is what keeps the second rule true while you work. A
+run copies `pending/`, then `accepted/`, and then takes the lock that
+`accept` and `reject` take. Holding it, the run uploads any version
+accepted since it copied `accepted/`. Only then does it delete the
+destination's pending files that the store no longer has.
+
+Say you accept a session while a run is uploading. The run had already
+copied the session's pending capture, and it missed the new version
+because it listed `accepted/` before the version existed. Under the
+lock it sees the version and uploads it, and only then removes the
+pending copy. The session is at the destination throughout. A run that
+fails partway has deleted nothing.
+
+Pending files are deleted at all because `reject` deletes a capture on
+purpose, and a backup should not keep a session you curated out. The
+one loss this does not prevent is a pending file deleted by hand, which
+the next run deletes at the destination too. Its original stays where
+Claude Code keeps it until Claude Code prunes it, and the `git` driver
+keeps such a file in its history.
+
+#### Git and command targets
+
+The `git` driver commits the store as it stands, under the store's
+lock. It pushes `branch`, which is `main` unless set, to `remote` when
+one is named. Cloning that repository restores the store. It costs
+disk: the repository's objects roughly double the store's size, and a
+pending capture that grows is committed whole again on every run. A
+store that already sits inside another repository, as a `store_dir`
+inside a project can, is refused, since that repository versions it
+already. Commits carry your git identity, so a machine with none
+configured fails the run with git's own message.
+
+A `command` target runs its script from the store's directory with
+`QUIREWORK_STORE`, `QUIREWORK_STORE_ID` and `QUIREWORK_BACKUP_TARGET`
+set. Its exit status is the run's outcome. Quirework cannot see what a
+script copies, so the rules above are the script's to keep, and it runs
+without the store's lock. Because it runs unattended, the script must
+be a regular file that you own, that is executable, and that nobody
+else can write.
+
+#### Running and checking a backup
+
+```bash
+quirework provenance store backup --check   # reach each destination, copy nothing
+quirework provenance store backup           # every target of this project's store
+quirework provenance store backup --target drive
+quirework provenance store backup --all     # every store under the provenance home
+```
+
+Each run leaves a record and a log under
+`$XDG_STATE_HOME/quirework/backup/<store id>/`. They are per machine,
+because a backup is something one machine did. They are keyed by the
+store's identity, so two stores never share one. `quirework provenance
+store status` reads them. It shows each target's last success, any
+failure since, and how many accepted versions and pending sessions
+changed after that success. `quirework config check` reads
+`backup.toml` and validates every target without reaching any. A store
+with no `backup.toml` is reported as having no backup, unless a
+repository around it already versions it.
+
+The first run to a cloud remote can be slow, because the remote creates
+files one request at a time. Google Drive takes a few files a second,
+so a store of five hundred sessions takes about half an hour the first
+time. Later runs copy only what changed, and rclone lists the whole
+destination in a few batched requests, so a run with nothing new takes
+seconds.
+
+A session reaches the backup when it is captured, as a pending file, so
+nothing needs to run after `accept`. What matters is how often a run
+happens. `--all` needs no project, which suits a systemd user timer:
+
+```ini
+# ~/.config/systemd/user/quirework-backup.service
+[Unit]
+Description=Back up the Quirework provenance stores
+
+[Service]
+Type=oneshot
+ExecStart=/path/to/quirework provenance store backup --all
+```
+
+```ini
+# ~/.config/systemd/user/quirework-backup.timer
+[Unit]
+Description=Back up the Quirework provenance stores every four hours
+
+[Timer]
+OnCalendar=0/4:00
+Persistent=true
+
+[Install]
+WantedBy=timers.target
+```
+
+```bash
+systemctl --user daemon-reload
+systemctl --user enable --now quirework-backup.timer
+```
+
+Give `ExecStart` the absolute path of the `quirework` your projects
+run, since a user service does not see your shell's `PATH`. The service
+finds the provenance home in the per-user configuration file, which it
+reads like any other process. `Persistent=true` runs a backup the
+machine slept through as soon as it wakes. A failed run shows in
+`journalctl --user -u quirework-backup` and in `store status`.
+
+Restoring is a copy in the other direction. On a new machine,
+`quirework provenance store init` creates an empty store under the
+identity the ledger names. Copy the backup into it, for example with
+`rclone copy gdrive:quirework-provenance/my-book <store directory>`,
+then run `quirework provenance store verify`, which proves that every
+accepted file came back intact. A `git` backup is restored by cloning
+it to where the store belongs, with no init.
 
 ### What capture selects
 

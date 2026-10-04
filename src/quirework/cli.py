@@ -134,7 +134,7 @@ COMMANDS = {
         "provenance",
     ),
     ("provenance", "store"): Command(
-        "provenance.store", "Create, inspect and verify the session store"
+        "provenance.store", "Create, inspect, verify and back up the session store"
     ),
     ("provenance", "accept"): Command(
         "provenance.curate",
@@ -301,6 +301,7 @@ def main(argv=None):
                 # Not every template is TOML: the cache-cleanup rule is a
                 # systemd-tmpfiles drop-in and has to keep that extension.
                 names = {
+                    "backup": "backup.toml",
                     "book": "book.toml",
                     "site": "site.toml",
                     "run": "run.toml",
@@ -336,13 +337,23 @@ def main(argv=None):
             if selected.command == "check":
                 if project.get("provenance.enabled", False):
                     project.require("provenance")
-                    from .provenance import store
+                    from .provenance import backup, store
 
-                    located = store.describe_location(store.open_store(project))
-                    print(f"Provenance store: {located}")
+                    opened = store.open_store(project)
+                    print(f"Provenance store: {store.describe_location(opened)}")
                     chosen = store.describe_home(project)
                     if chosen:
                         print(f"Provenance home: {chosen}")
+                    # Read and validated here, offline; `store backup --check`
+                    # is what reaches each destination.
+                    source = backup.Source(opened.root, opened.identity)
+                    drivers = backup.targets(opened.root)
+                    if drivers is None:
+                        print(f"Provenance backup: {backup.unconfigured(source)}")
+                    for driver in drivers or ():
+                        print(
+                            f"Provenance backup: {driver.target}, {driver.describe()}"
+                        )
                 if project.get("manuscript"):
                     project.require("manuscript")
                 if project.get("publish"):

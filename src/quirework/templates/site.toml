@@ -77,7 +77,9 @@ skill_prefix = "example-"
 enabled = false
 # The ledger, committed with the site, and the store that keeps the
 # captured sessions outside it, under the provenance home that
-# provenance.home in ~/.config/quirework/config.toml sets.
+# provenance.home in ~/.config/quirework/config.toml sets. Back the
+# store up: `quirework config template backup` prints the backup.toml
+# it reads.
 # root = "private/provenance"
 # store = "my-site"
 

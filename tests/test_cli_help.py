@@ -56,7 +56,11 @@ def test_nested_help(arguments, tmp_path):
 @pytest.mark.parametrize(
     "arguments, described",
     [
-        (["provenance", "store", "--help"], ["init", "status", "verify", "missed"]),
+        (
+            ["provenance", "store", "--help"],
+            ["init", "status", "verify", "missed", "backup", "backup.toml"],
+        ),
+        (["provenance", "store", "backup", "--help"], ["--target", "--all"]),
         (["provenance", "store", "status", "--help"], ["Writes nothing"]),
         (["provenance", "ingest", "--help"], ["whose sessions to capture"]),
         (["provenance", "ingest", "claude", "--help"], ["--hook", "SessionEnd"]),

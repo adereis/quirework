@@ -9,7 +9,7 @@ Parsing and presentation stay outside the reusable execution engine.
 | `manuscript` | Formats and units, spec, marks, sources, quotations, trail, lifecycle, footprint: the written work in any format |
 | `publish` | Backends and targets; for Quarto, rendering, figures, editions, rendered review artifacts |
 | `text` | Formatting and editorial inspection |
-| `provenance` | Runtime readers, capture, the session store and its ledger, catalog, retrieval, measurements |
+| `provenance` | Runtime readers, capture, the session store, its ledger and its backups, catalog, retrieval, measurements |
 | `sops` | Procedure discovery, personas, instruments, workflow preparation |
 | `runs` | Execution state, recovery, checkpoints, evidence |
 | `providers` | Native invocation, model resolution, receipts, isolation |
@@ -25,10 +25,13 @@ does not ship a command for is not Quirework's version to choose.
 
 A book or a site depends on Quirework. Quirework never imports a
 project's extension unless that project explicitly selects it. A format
-(`manuscript.formats.Format`) and a backend (`publish.backends.Backend`)
-are objects registered by name, and a project may select its own as an
-extension; everything above them asks the selected one rather than
-testing which it is. Which files are the work is answered once, by
+(`manuscript.formats.Format`), a backend (`publish.backends.Backend`)
+and a backup driver (`provenance.backup.Driver`) are objects registered
+by name, and a project or a store may select its own as an extension;
+everything above them asks the selected one rather than testing which
+it is. A backup driver that copies file by file subclasses `Transfer`,
+whose `run` alone decides the order of copies and deletions at the
+destination, so a new driver cannot get that order wrong. Which files are the work is answered once, by
 `manuscript.footprint`. The execution and provider
 layers import neither `manuscript` nor `publish`. Executor snapshots
 include their runtime dependencies without copying publishing code or

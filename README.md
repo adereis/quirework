@@ -155,9 +155,12 @@ store outside your repository and wait there until you read and accept
 them. The repository keeps only the decisions: which sessions count, each
 with a hash that proves its bytes. So the transcripts never bloat the
 work's history, and a grep across the repository never wades through
-them. `provenance search` then reads the human's own turns, by keyword
-or by meaning; the semantic index is built and stored locally, so corpus
-text never leaves the machine.
+them. `provenance store backup` copies the store to the destinations
+it names, through rclone, a mounted directory, git or a script of your
+own. It never deletes a session at a destination before the copy that
+replaced it has arrived. `provenance search` then reads the human's own
+turns, by keyword or by meaning; the semantic index is built and stored
+locally, so corpus text never leaves the machine.
 
 `spec trail` connects that record to the spec without putting any of it
 in the spec. A trail sidecar, kept beside the private corpus, points

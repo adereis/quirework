@@ -365,11 +365,24 @@ def _identity(root):
     if not path.is_file():
         return None
     try:
-        value = tomllib.loads(path.read_text(encoding="utf-8")).get("id")
-    except (OSError, tomllib.TOMLDecodeError) as exc:
+        text = path.read_text(encoding="utf-8")
+    except OSError as exc:
         raise ConfigurationError(f"cannot read {shown(path)}: {exc}") from exc
+    return identity_in(text, shown(path))
+
+
+def identity_in(text, where):
+    """The store id a ``store.toml``'s text records; ``where`` names it in errors.
+
+    Separate from reading the file because a backup reads the copy at its
+    destination, which may be a remote that only hands back the text.
+    """
+    try:
+        value = tomllib.loads(text).get("id")
+    except tomllib.TOMLDecodeError as exc:
+        raise ConfigurationError(f"cannot read {where}: {exc}") from exc
     if not isinstance(value, str) or not _UUID.fullmatch(value):
-        raise ConfigurationError(f"{shown(path)} records no valid store id")
+        raise ConfigurationError(f"{where} records no valid store id")
     return value
 
 
@@ -533,13 +546,16 @@ def init(project=None):
 
 
 @contextmanager
-def _locked(store):
-    """One writer at a time across every checkout sharing the store.
+def locked(root):
+    """One writer at a time across every checkout sharing the store at ``root``.
 
     The lock is taken on the store's own directory rather than on a lock file,
     so a store kept inside a repository never gains a file nobody accepted.
+    ``accept`` and ``reject`` hold it, and so does a backup while it removes
+    what the store no longer has, which is what keeps a session from being
+    missing at the destination while it moves from pending to accepted.
     """
-    fd = os.open(store.root, os.O_RDONLY)
+    fd = os.open(root, os.O_RDONLY)
     try:
         fcntl.flock(fd, fcntl.LOCK_EX)
         yield
@@ -851,7 +867,7 @@ def accept(selectors=(), everything=False, live=False, project=None):
     """
     project = current_project() if project is None else project
     store = open_store(project)
-    with _locked(store):
+    with locked(store.root):
         units = store.pending_units()
         keys = sorted(units) if everything else _select(selectors, units, "accept")
         removed = removed_ids(project=project)
@@ -900,7 +916,7 @@ def reject(selectors, reason, project=None):
         raise ValueError("say why with --reason; the removed list keeps the reason")
     project = current_project() if project is None else project
     store = open_store(project)
-    with _locked(store):
+    with locked(store.root):
         units = store.pending_units()
         entries = store.entries()
         candidates = set(units) | {(e.family, e.unit) for e in entries}
@@ -919,6 +935,24 @@ def reject(selectors, reason, project=None):
 # --------------------------------------------------------------------------- #
 # status and verification
 # --------------------------------------------------------------------------- #
+def accepted_versions(root):
+    """Every version under the store at ``root``, as ``<family>/<version>``.
+
+    Read from the directories rather than a ledger, since a version accepted on
+    any branch is in the store and a backup has to carry it.
+    """
+    found = set()
+    for family in FAMILIES:
+        base = Path(root) / "accepted" / family
+        if base.is_dir():
+            found.update(
+                f"{family}/{version.name}"
+                for version in base.iterdir()
+                if version.is_dir() and _VERSION.fullmatch(version.name)
+            )
+    return found
+
+
 def elsewhere(store, entries=None):
     """Sessions with a version in the store that this ledger does not list.
 
@@ -960,10 +994,15 @@ def verify(project=None):
 
 
 def describe_location(store):
-    """One line saying where the store is and what keeps a copy of it."""
+    """One line saying where the store is and whether a repository holds it.
+
+    A store that is its own repository is the git backup's doing, and its
+    backup line says so; only a repository around the store, such as the one
+    a ``store_dir`` inside a project names, keeps it as part of something else.
+    """
     repository = versioned(store.root)
-    if repository is None:
-        return f"{shown(store.root)} (outside version control; back it up)"
+    if repository is None or repository == Path(store.root):
+        return f"{shown(store.root)} (outside version control)"
     return f"{shown(store.root)} (inside the repository at {shown(repository)})"
 
 
@@ -1034,6 +1073,14 @@ def cmd_status(_args):
             f"elsewhere {len(others)} session(s) in the store that this ledger does "
             "not list (accepted on another branch)"
         )
+    from quirework.provenance import backup
+
+    source = backup.Source(store.root, store.identity)
+    lines, due = backup.report(source, now)
+    if lines is None:
+        lines = [f"backup    {backup.unconfigured(source)}"]
+    for line in lines:
+        print(line)
     if units:
         print(
             "next: read each with `quirework provenance show ID`, then "
@@ -1046,6 +1093,11 @@ def cmd_status(_args):
             "ingest claude`; one that is no longer running was missed by its "
             "capture hook, and Claude Code deletes a transcript 30 days after "
             "it last changed, by default"
+        )
+    if due:
+        print(
+            "next: back the store up with `quirework provenance store backup`; "
+            "`--target NAME` runs one target"
         )
     return 0
 
@@ -1071,10 +1123,15 @@ def cmd_init(_args):
         )
     store, created = init()
     if created:
+        from quirework.provenance import backup
+
         print(f"created store {store.identity} at {describe_location(store)}")
         chosen = describe_home()
         if chosen:
             print(f"its home is {chosen}")
+        print(
+            f"backup: {backup.unconfigured(backup.Source(store.root, store.identity))}"
+        )
         missing = [e for e in store.entries() if not store.path(e).is_file()]
         if missing:
             print(
@@ -1090,11 +1147,59 @@ def cmd_init(_args):
     return 0
 
 
+BACKUP_HELP = """\
+Copy the store to the targets its backup.toml names, so that it is never
+the only copy of a session. Claude Code deletes its own transcripts 30
+days after they last changed, and from then on only the store has them.
+
+backup.toml sits in the store, beside store.toml, rather than in the
+project's configuration, because what it names belongs to you and this
+machine:
+
+  # <store>/backup.toml
+  [targets.gdrive]
+  driver = "rclone"
+  destination = "gdrive:quirework-provenance/my-book"
+
+A store may declare several targets. The drivers:
+
+  rclone     destination = "remote:path", on any remote `rclone config`
+             has set up: Google Drive, SFTP, a crypt layer over either
+  directory  destination = an absolute path that already exists, such as
+             a mounted share; never created, so an unmounted disk is
+             refused rather than filled in its place
+  git        the store becomes its own repository and each run a commit;
+             optional remote = a URL or path to push to, and branch =
+             a name (main by default)
+  command    command = ["script", "arg", ...], a script at the store's
+             top level, owned by you and writable by nobody else; it
+             gets QUIREWORK_STORE, QUIREWORK_STORE_ID and
+             QUIREWORK_BACKUP_TARGET
+  module:function
+             an installed extension that returns a backup Driver
+
+For rclone and directory, Quirework decides what may change at the
+destination. An accepted file is never overwritten or deleted there. A
+pending file is deleted only once the version that replaced it has
+arrived, so a session is never missing in between. Names starting with
+a dot are skipped, and a destination holding another store is refused.
+
+Each run's record and log go under
+$XDG_STATE_HOME/quirework/backup/<store id>/, and `quirework provenance
+store status` reports when each target last succeeded and what changed
+since. `quirework config template backup` prints an annotated file.
+
+Exit status: 0 when every target finished, 1 when one failed or nothing
+was configured, 2 when the configuration cannot be read.
+"""
+
+
 def main(argv=None):
-    """``quirework provenance store``: create, inspect and verify the store."""
+    """``quirework provenance store``: create, inspect, verify and back up."""
     parser = argparse.ArgumentParser(
         prog="quirework provenance store",
-        description="Create, inspect and verify the store that holds the sessions.",
+        description="Create, inspect, verify and back up the store that holds "
+        "the sessions.",
     )
     actions = parser.add_subparsers(dest="action", required=True, metavar="ACTION")
     actions.add_parser(
@@ -1116,7 +1221,36 @@ def main(argv=None):
         description="Hash every accepted file and name any that is missing "
         "from the store or no longer matches the ledger's accepted.txt.",
     )
+    backup = actions.add_parser(
+        "backup",
+        help="copy the store to the targets its backup.toml names",
+        description=BACKUP_HELP,
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+    )
+    backup.add_argument(
+        "--target",
+        action="append",
+        metavar="NAME",
+        help="back up to this target only; repeat it for several. Without it, "
+        "every target the store declares",
+    )
+    backup.add_argument(
+        "--all",
+        action="store_true",
+        dest="every_store",
+        help="back up every store under the provenance home instead of this "
+        "project's; needs no project, which is what a timer runs",
+    )
+    backup.add_argument(
+        "--check",
+        action="store_true",
+        help="read backup.toml and reach each destination, copying nothing",
+    )
     args = parser.parse_args(argv)
+    if args.action == "backup":
+        from quirework.provenance import backup as backups
+
+        return backups.cmd_backup(args)
     return {"init": cmd_init, "status": cmd_status, "verify": cmd_verify}[args.action](
         args
     )

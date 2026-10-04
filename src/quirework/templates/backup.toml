@@ -1,0 +1,39 @@
+# How this provenance store is backed up. It sits in the store, beside
+# store.toml, and `quirework provenance store backup` reads it; `--help`
+# there says what each driver does. Claude Code deletes its transcripts
+# 30 days after they last changed, and from then on the store holds the
+# only copy of a session, so name at least one target.
+#
+# Each [targets.<name>] table is one destination. The name is yours, and
+# `store backup --target <name>` runs that one alone. Replace the example
+# below with your own, and uncomment any other you want.
+
+# rclone copies to any remote `rclone config` has set up: Google Drive,
+# SFTP, S3, or a crypt remote that encrypts before anything leaves the
+# machine. Give every store a folder of its own: a destination that holds
+# another store's files is refused.
+[targets.drive]
+driver = "rclone"
+destination = "remote:quirework-provenance/my-book"
+
+# directory copies in plain Python to a path that already exists, such as
+# a mounted share. It never creates that directory, so a share that did
+# not mount is refused instead of being filled on the local disk.
+# [targets.nas]
+# driver = "directory"
+# destination = "/mnt/backup/quirework-provenance/my-book"
+
+# git makes the store its own repository and every run a commit. History
+# keeps what the working tree drops, at the cost of disk: a pending capture
+# that grows is committed whole again on each run.
+# [targets.history]
+# driver = "git"
+# remote = "git@example.org:me/my-book-provenance.git"
+# branch = "main"
+
+# command runs a script kept at the store's top level, owned by you and
+# writable by nobody else. It gets QUIREWORK_STORE, QUIREWORK_STORE_ID and
+# QUIREWORK_BACKUP_TARGET, and keeps the backup's rules itself.
+# [targets.custom]
+# driver = "command"
+# command = ["backup.sh"]
