@@ -409,6 +409,25 @@ def claude_environment():
     return env
 
 
+def canary(runner, label):
+    """Prove a reader seat's flags blind on the installed runner (``canary``).
+
+    The twin is ``command`` with the canary's prompt, model and effort, and
+    no page images, which are content rather than flags.
+    """
+    from quirework.providers import canary as canaries
+
+    def build(prompt, model, workdir, session):
+        args, payload = command(
+            runner, model, canaries.EFFORT, "start", session, [], prompt
+        )
+        if payload is None:
+            payload = image_message(prompt, [])
+        return canaries.Twin(args, payload)
+
+    return canaries.require(label, runner, build)
+
+
 def image_message(prompt, images):
     content = [{"type": "text", "text": prompt}]
     content += [
@@ -557,6 +576,9 @@ class Experiment:
                 raise RuntimeError(
                     "unbanked event file exists; reconcile before submitting"
                 )
+            # Proven before the request is marked pending, so a seat that
+            # cannot be shown blind leaves no submission to reconcile.
+            proven = canary(self.runner, f"experiment {key}")
             runtime_env = claude_environment() if self.runner == "claude" else None
             self.state["pending"] = {
                 "key": key,
@@ -579,6 +601,7 @@ class Experiment:
                 runners=[self.runner],
                 bind_credentials=self.runner != "claude",
                 env={"DISABLE_COMPACT": "1", "DISABLE_AUTOUPDATER": "1"},
+                canary=proven,
             )
             # Give every arm the same logical paths without sharing a mount or
             # runtime home. The host's real seat path stays outside the prompt.
@@ -609,6 +632,7 @@ class Experiment:
                 runners=[self.runner],
                 binds=binds,
                 reason="",
+                canary=proven,
             )
             with raw.open("wb") as out, err.open("wb") as errors:
                 proc = subprocess.Popen(

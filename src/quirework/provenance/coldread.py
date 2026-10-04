@@ -74,7 +74,26 @@ from quirework.providers.blind import MIN_TOOLS
 from quirework.providers.blind import NO_MCP
 from quirework.providers.blind import confine
 from quirework.providers.blind import seat_dir
+from quirework.providers import canary
 from quirework.provenance import scope as SCOPE
+
+
+def _analyst_argv(model):
+    """The blind analyst's command; the prompt arrives on stdin."""
+    return [
+        "claude",
+        "-p",
+        "--model",
+        model,
+        *BLIND_SETTINGS,
+        *NO_SETTING_SOURCES,
+        *MIN_TOOLS,
+        *NO_MCP,
+    ]
+
+
+def _analyst_twin(prompt, model, workdir, session):
+    return canary.Twin(_analyst_argv(model), prompt.encode())
 
 
 def _render_base():
@@ -1069,6 +1088,7 @@ def cmd_analyze(args):
     # Abort the sweep instead; the cache resumes exactly where it stopped.
     consec_fail = 0
     MAX_CONSEC_FAIL = 5
+    proven = None  # proven at the first analysis that launches
     for rp in renders:
         if consec_fail >= MAX_CONSEC_FAIL:
             print(
@@ -1124,23 +1144,16 @@ def cmd_analyze(args):
             f"via claude -p --model {model} ...",
             flush=True,
         )
+        if proven is None:
+            try:
+                proven = canary.require("cold-read analyst", "claude", _analyst_twin)
+            except canary.CanaryError as exc:
+                print(f"\nSTOP: {exc}", flush=True)
+                return 1
         try:
             sd = seat_dir()
             res = subprocess.run(
-                confine(
-                    [
-                        "claude",
-                        "-p",
-                        "--model",
-                        model,
-                        *BLIND_SETTINGS,
-                        *NO_SETTING_SOURCES,
-                        *MIN_TOOLS,
-                        *NO_MCP,
-                    ],
-                    sd,
-                    runners=["claude"],
-                ),
+                confine(_analyst_argv(model), sd, runners=["claude"], canary=proven),
                 input=prompt,
                 text=True,
                 capture_output=True,

@@ -404,7 +404,9 @@ def test_retired_attempt_cannot_disappear(setup):
         run.verify()
 
 
-def test_unsubmitted_intent_recovers_without_losing_prior_attempt(setup, monkeypatch):
+def test_unsubmitted_intent_recovers_without_losing_prior_attempt(
+    setup, monkeypatch, canaries_pass
+):
     run = prepared(setup)
     state = run.state("reader")
     state["pending"] = dict(turn="first", phase="launch-intent")
@@ -426,7 +428,9 @@ def test_unsubmitted_intent_recovers_without_losing_prior_attempt(setup, monkeyp
     assert "0" in state["retired_attempts"]["first"]
 
 
-def test_a_seat_is_counted_when_it_is_launched_not_when_it_answers(setup, monkeypatch):
+def test_a_seat_is_counted_when_it_is_launched_not_when_it_answers(
+    setup, monkeypatch, canaries_pass
+):
     """The usage record is made before the process starts, so a seat the
     provider then refuses is still a launch that happened."""
     from quirework.core import usage

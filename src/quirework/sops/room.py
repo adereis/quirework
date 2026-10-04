@@ -1083,11 +1083,12 @@ def launch_turn(
     pinned = read(state_path(root, name)).get("model_served") if resume else None
     if pinned and pinned != config["model"]:
         config = {**config, "model_pinned": pinned}
+    proven = drivers.canary(config, f"{workflow} seat {name}")
     # Open before the jail is built, since its argv names the proxy's socket,
     # and closed only after the seat's process has exited.
     with blind.session_bus([config["harness"]]) as bus:
         args, payload = drivers.command(config, work, prompt, resume=resume)
-        jail, env, private = drivers.launch_context(config, work, bus)
+        jail, env, private = drivers.launch_context(config, work, bus, proven)
         for folder in readonly:
             jail += ["--ro-bind", str(work / folder), str(work / folder)]
         (record / "prompt.md").write_text(prompt)
@@ -1102,6 +1103,7 @@ def launch_turn(
                 "private_runtime": str(private),
                 "window_assurance": drivers.window_assurance(config["harness"]),
                 "session_bus": bus.receipt() if bus else None,
+                "canary": proven,
             },
         )
         with slot(config["harness"]):

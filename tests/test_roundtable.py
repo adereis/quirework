@@ -447,7 +447,9 @@ def test_the_seats_are_never_shown_the_signals(table, monkeypatch):
     assert "novelty" not in (table / "board" / "board.md").read_text()
 
 
-def test_a_roundtable_turn_binds_its_folders_read_only(table, monkeypatch):
+def test_a_roundtable_turn_binds_its_folders_read_only(
+    table, monkeypatch, canaries_pass
+):
     """The shared launcher binds what the procedure names and records it."""
     from quirework.project import current_project
 

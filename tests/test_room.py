@@ -864,7 +864,9 @@ def test_a_research_seat_is_launched_with_the_web_and_marked_on_the_board(
     assert "(ana-pell)  [can search the web]" not in digest
 
 
-def test_a_room_turn_records_its_seat_before_the_process_starts(prepared, monkeypatch):
+def test_a_room_turn_records_its_seat_before_the_process_starts(
+    prepared, monkeypatch, canaries_pass
+):
     _, plan = room.load(prepared)
     seat = next(s for s in plan["seats"] if s["id"] == "ana-pell")
     monkeypatch.setattr(room.drivers, "command", lambda *a, **k: (["fixture"], b""))
@@ -888,9 +890,15 @@ def test_a_room_turn_records_its_seat_before_the_process_starts(prepared, monkey
     with pytest.raises(OSError, match="pre-spawn"):
         room.launch_turn(prepared, plan, seat, 1, "Open.", None)
     assert launched == ["room"]
+    # Proven before it launched, and the proof is in the seat's own record.
+    assert [a["label"] for a in canaries_pass] == ["room seat ana-pell"]
+    record = prepared / "records" / "ana-pell" / "r001" / "launch.json"
+    assert json.loads(record.read_text())["canary"]["label"] == "room seat ana-pell"
 
 
-def test_a_release_between_rounds_does_not_switch_a_seat_model(prepared, monkeypatch):
+def test_a_release_between_rounds_does_not_switch_a_seat_model(
+    prepared, monkeypatch, canaries_pass
+):
     """`opus` is resolved by the CLI; round two must keep round one's Opus."""
     from quirework.project import current_project
 

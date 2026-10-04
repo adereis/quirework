@@ -200,7 +200,7 @@ def launch(run, monkeypatch):
 
 
 def test_a_mount_that_changed_after_planning_is_never_submitted(
-    tmp_path, mount, monkeypatch
+    tmp_path, mount, monkeypatch, canaries_pass
 ):
     path = plan_file(
         tmp_path, mount, read_root_digests={str(mount): tree_digest(mount)}
@@ -211,9 +211,13 @@ def test_a_mount_that_changed_after_planning_is_never_submitted(
     with pytest.raises(RuntimeError, match="mounted material changed"):
         launch(run, monkeypatch)
     assert run.state("reader")["pending"] is None
+    # The free check refuses first: a turn that cannot launch costs no canary.
+    assert canaries_pass == []
 
 
-def test_an_unchanged_mount_goes_on_to_launch(tmp_path, mount, monkeypatch):
+def test_an_unchanged_mount_goes_on_to_launch(
+    tmp_path, mount, monkeypatch, canaries_pass
+):
     path = plan_file(
         tmp_path, mount, read_root_digests={str(mount): tree_digest(mount)}
     )

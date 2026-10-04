@@ -437,7 +437,9 @@ def test_claude_child_receives_no_refresh_credential(tmp_path, monkeypatch):
 
 
 def test_access_only_jail_omits_credential_file_mounts(tmp_path):
-    args = exp.blind.jail_argv(tmp_path, runners=["claude"], bind_credentials=False)
+    args = exp.blind.jail_argv(
+        tmp_path, runners=["claude"], bind_credentials=False, canary=exp.blind.PROBE
+    )
     for value in args:
         assert not value.endswith("/.credentials.json")
     assert str(exp.blind.state_root(tmp_path) / "claude") in args

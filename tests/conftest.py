@@ -194,6 +194,32 @@ def pytest_configure(config):
     # that are *about* recording drop this variable in their own fixture, so
     # switching it off here costs them nothing.
     os.environ["QUIREWORK_USAGE"] = "0"
+    # A launch now proves its seat blind with a live canary first. A test that
+    # drives a launch without stubbing that gate (the `canaries_pass` fixture)
+    # would reach a real runner and spend real tokens, so it is refused
+    # instead. The tests of the canary itself drop this in their own fixture.
+    os.environ["QUIREWORK_CANARY"] = "0"
+
+
+@pytest.fixture
+def canaries_pass(monkeypatch):
+    """Every launch in this test finds a passing canary without running one.
+
+    A launch now proves its seat blind first, which needs a real runner's
+    version and a model. A test about something else a launch does stubs the
+    gate here and can read, from the returned list, which launches asked;
+    the gate itself is tested in test_canary.py.
+    """
+    from quirework.providers import canary
+
+    asked = []
+
+    def require(label, runner, build, contract=canary.BLIND, **_):
+        asked.append(dict(label=label, runner=runner, contract=contract))
+        return {"runner": runner, "version": "0.0.0-test", "label": label}
+
+    monkeypatch.setattr(canary, "require", require)
+    return asked
 
 
 @pytest.hookimpl(trylast=True)

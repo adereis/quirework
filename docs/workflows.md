@@ -867,6 +867,16 @@ read-only. The seat has its own process and IPC namespaces and a
 minimal `/dev`. `sop blind check` prints the root, and a confinement
 receipt lists it.
 
+The jail confines what a seat's hands reach; its flags decide what it
+holds, and a runner release can change that without rejecting a flag.
+So a seat is proven first: the launch runs a canary under the seat's
+own command whenever its runner's exact version, or that command's
+flags, has not been proven on this machine, and refuses the launch on a
+breach. The jail cannot be built for a runner without the record that
+canary returns, and the record goes into the seat's receipt. The
+configuration guide's providers section describes what it keys on and
+where it is kept.
+
 The jail never contains the runtime directory `/run/user/<uid>`. Its
 session bus would let a seat ask `systemd --user` to start a process
 outside the jail. Antigravity keeps its login in the desktop keyring,

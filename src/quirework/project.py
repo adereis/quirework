@@ -119,6 +119,28 @@ def _check_provenance(values, origins):
         )
 
 
+# Settings a release withdrew, each with what replaced it. Refused rather than
+# ignored: a project still setting one believes something the tool no longer
+# does, and an ignored key would let it go on believing it.
+RETIRED = {
+    "providers.validation_record": (
+        "a launch now proves its runner blind at the exact installed version "
+        "and keeps that record per machine, under the project's cache. Delete "
+        "the setting, and the file it named"
+    ),
+}
+
+
+def _check_retired(values, origins):
+    for key, why in RETIRED.items():
+        node = values
+        for part in key.split("."):
+            node = node.get(part) if isinstance(node, dict) else None
+        if node is not None:
+            where = origins.get(key, "configuration")
+            raise ConfigurationError(f"{where}: {key} is retired: {why}")
+
+
 @dataclass(frozen=True)
 class Project:
     root: Path
@@ -177,6 +199,7 @@ class Project:
         if overrides:
             _merge(values, overrides, origins, root / "<invocation>")
         _check_provenance(values, origins)
+        _check_retired(values, origins)
         return cls(root, _freeze(values), _freeze(origins), config)
 
     @classmethod
@@ -187,6 +210,7 @@ class Project:
         values = {}
         _merge(values, copy.deepcopy(settings), origins, root / "quirework.toml")
         _check_provenance(values, origins)
+        _check_retired(values, origins)
         return cls(root, _freeze(values), _freeze(origins))
 
     def get(self, key, default=None):

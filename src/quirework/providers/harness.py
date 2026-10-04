@@ -300,6 +300,40 @@ def command(config, policy, mode, sid, prompt, images, files):
     return args, payload.encode(), prompt
 
 
+def canary(config, policy, label):
+    """Prove this seat's flags blind on the installed runner (``canary``).
+
+    The twin is this module's own command with the canary's prompt, model
+    and session, under the seat's tool policy. A seat with a system prompt
+    keeps the flags that carry one, with a neutral prompt in its place; the
+    Codex one is a file under ``VIRTUAL``, so the canary's work directory is
+    bound there as a seat's workspace is.
+    """
+    from quirework.providers import canary as canaries
+
+    name = config["harness"]
+    twin_policy = {"tools": policy["tools"]}
+    if policy.get("system_prompt") is not None:
+        twin_policy["system_prompt"] = canaries.SYSTEM_PROMPT
+
+    def build(prompt, model, workdir, session):
+        twin_config = {"harness": name, "model": model, "effort": canaries.EFFORT}
+        args, payload, _ = command(
+            twin_config, twin_policy, "start", session, prompt, [], []
+        )
+        if name == "codex" and "system_prompt" in twin_policy:
+            return canaries.Twin(
+                args,
+                payload,
+                binds=((workdir, VIRTUAL),),
+                files={"system-prompt.md": canaries.SYSTEM_PROMPT},
+            )
+        return canaries.Twin(args, payload)
+
+    contract = canaries.Contract(web=policy["tools"] == "research")
+    return canaries.require(label, name, build, contract)
+
+
 def billing(harness):
     """How a seat on this harness is paid for, from the credential's kind.
 
@@ -322,7 +356,7 @@ def billing(harness):
     return "unknown"
 
 
-def launch_context(config, policy, workspace, bus=None):
+def launch_context(config, policy, workspace, bus=None, canary=None):
     name = config["harness"]
     if error := blind.backend_error():
         raise RuntimeError(error)
@@ -331,7 +365,11 @@ def launch_context(config, policy, workspace, bus=None):
         raise RuntimeError("missing harness prerequisites: " + "; ".join(missing))
     env = environment(name)
     jail = blind.jail_argv(
-        workspace, runners=[name], bind_credentials=name != "claude", bus=bus
+        workspace,
+        runners=[name],
+        bind_credentials=name != "claude",
+        bus=bus,
+        canary=canary,
     )
     jail[jail.index("--chdir") + 1] = str(VIRTUAL)
     jail += ["--bind", str(workspace), str(VIRTUAL), "--setenv", "PWD", str(VIRTUAL)]

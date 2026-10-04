@@ -534,12 +534,41 @@ def command(config, workspace, prompt, *, manual=False, resume=None):
     raise ValueError(f"unknown harness: {harness}")
 
 
-def launch_context(config, workspace, bus=None):
+def canary(config, label):
+    """Prove a writer's or a room seat's flags blind on the installed runner.
+
+    The twin is ``command`` itself, with the canary's prompt, model and
+    effort, the seat's tool policy, and the canary's directory as its
+    workspace. A seat run by hand is proven under the automatic form of the
+    same command, the only one a canary can drive.
+    """
+    from quirework.providers import canary as canaries
+
+    harness = config["harness"]
+    tools = config.get("tools", "write")
+
+    def build(prompt, model, workdir, session):
+        twin = {
+            "harness": harness,
+            "model": model,
+            "effort": canaries.EFFORT,
+            "tools": tools,
+            "max_context_window": canaries.WINDOW,
+        }
+        args, payload = command(twin, workdir, prompt)
+        return canaries.Twin(args, payload)
+
+    contract = canaries.Contract(web=tools in ("research", "workbench"))
+    return canaries.require(label, harness, build, contract)
+
+
+def launch_context(config, workspace, bus=None, canary=None):
     """Use private runtime state and a read-only packet in the shared jail.
 
     ``bus`` is the filtered session bus a runner such as agy needs, opened by
     the caller with ``blind.session_bus`` so it outlives this call and is
-    handed to the process through ``blind.popen``.
+    handed to the process through ``blind.popen``. ``canary`` is the record
+    ``canary`` above returned for this seat.
     """
     harness = config["harness"]
     if error := blind.backend_error():
@@ -581,7 +610,11 @@ def launch_context(config, workspace, bus=None):
             )
         env["CLAUDE_CODE_OAUTH_TOKEN"] = oauth["accessToken"]
     jail = blind.jail_argv(
-        workspace, runners=[harness], bind_credentials=harness != "claude", bus=bus
+        workspace,
+        runners=[harness],
+        bind_credentials=harness != "claude",
+        bus=bus,
+        canary=canary,
     )
     private = blind.state_root(workspace) / harness
     if harness == "claude":

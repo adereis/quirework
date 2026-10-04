@@ -39,6 +39,7 @@ from quirework.providers.blind import MIN_TOOLS
 from quirework.providers.blind import NO_MCP
 from quirework.providers.blind import confine
 from quirework.providers.blind import seat_dir
+from quirework.providers import canary
 from quirework.manuscript import notes as _notes
 
 
@@ -336,25 +337,33 @@ def _have_claude() -> bool:
     return which("claude") is not None
 
 
-def run_blind(prompt: str, model: str, timeout: int) -> tuple[bool, str]:
-    """One headless, blind ``claude -p``, confined. (ok, text-or-error)."""
+def _drafter_argv(model):
+    """The blind drafter's command; the prompt arrives on stdin."""
+    return [
+        "claude",
+        "-p",
+        "--model",
+        model,
+        *BLIND_SETTINGS,
+        *NO_SETTING_SOURCES,
+        *MIN_TOOLS,
+        *NO_MCP,
+    ]
+
+
+def _drafter_twin(prompt, model, workdir, session):
+    return canary.Twin(_drafter_argv(model), prompt.encode())
+
+
+def run_blind(prompt: str, model: str, timeout: int, proven) -> tuple[bool, str]:
+    """One headless, blind ``claude -p``, confined. (ok, text-or-error).
+
+    ``proven`` is the drafter's canary record, from ``canary.require``.
+    """
     sd = seat_dir()
     try:
         res = subprocess.run(
-            confine(
-                [
-                    "claude",
-                    "-p",
-                    "--model",
-                    model,
-                    *BLIND_SETTINGS,
-                    *NO_SETTING_SOURCES,
-                    *MIN_TOOLS,
-                    *NO_MCP,
-                ],
-                sd,
-                runners=["claude"],
-            ),
+            confine(_drafter_argv(model), sd, runners=["claude"], canary=proven),
             input=prompt,
             text=True,
             capture_output=True,
@@ -487,8 +496,14 @@ def cmd_build(argv: list[str]) -> int:
         for c in chapters
     }
 
+    try:
+        proven = canary.require("variant drafter", "claude", _drafter_twin)
+    except canary.CanaryError as exc:
+        print(f"variant: {exc}", file=sys.stderr)
+        return 1
+
     def _one(c):
-        ok, body = run_blind(prompts[c["slug"]], model, timeout)
+        ok, body = run_blind(prompts[c["slug"]], model, timeout, proven)
         if ok:
             (raw_dir / f"{c['slug']}.md").write_text(body + "\n")
         return c["slug"], ok, body

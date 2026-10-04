@@ -724,13 +724,16 @@ def run_writer(root, writer, *, manual=False, timeout=None, resume=None):
             prompt = (
                 f"Read {work / 'START.md'} and complete the assignment it specifies."
             )
+        proven = drivers.canary(state["config"], f"workshop writer {writer}")
         # Open before the jail is built, since its argv names the proxy's
         # socket, and closed only after the writer's process has exited.
         with blind.session_bus([state["config"]["harness"]]) as bus:
             args, payload = drivers.command(
                 state["config"], work, prompt, manual=manual, resume=resume
             )
-            jail, env, private = drivers.launch_context(state["config"], work, bus)
+            jail, env, private = drivers.launch_context(
+                state["config"], work, bus, proven
+            )
             _snapshot_driver(record)
             (record / "prompt.md").write_text(prompt + "\n")
             write_json(
@@ -742,6 +745,7 @@ def run_writer(root, writer, *, manual=False, timeout=None, resume=None):
                     "private_runtime": str(private),
                     "manual": manual,
                     "session_bus": bus.receipt() if bus else None,
+                    "canary": proven,
                 },
             )
             state.update(status="running", started_at=time.time(), manual=manual)

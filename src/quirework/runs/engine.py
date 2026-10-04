@@ -1062,6 +1062,24 @@ class Run:
             if mode == "fork"
             else str(uuid.uuid4())
         )
+        # Mounted material is the one input the record did not freeze, so
+        # check it is still the material the plan pinned before anything
+        # is submitted. A changed mount is refused rather than read: the
+        # seat would be reading a book nobody declared.
+        changed = [
+            root
+            for root, expected in spec["policy"]["read_root_digests"].items()
+            if tree_digest(root) != expected
+        ]
+        if changed:
+            raise RuntimeError(
+                "mounted material changed since the plan pinned it: "
+                + ", ".join(changed)
+            )
+        # Proven after the free check above, which can refuse the turn for
+        # nothing, and before anything about the turn is saved, so a seat
+        # that cannot be shown blind leaves no launch intent behind.
+        proven = harness.canary(spec["config"], spec["policy"], f"run seat {seat}")
         # A runner such as agy reaches its keyring over a filtered session
         # bus. It is opened before the jail is built, because the argv names
         # its socket, and closed once the process has exited.
@@ -1078,23 +1096,9 @@ class Run:
                 config, spec["policy"], mode, sid, prompt, images, files
             )
             jail, env, _ = harness.launch_context(
-                spec["config"], spec["policy"], self.workspace(seat), bus
+                spec["config"], spec["policy"], self.workspace(seat), bus, proven
             )
             record = self.record(seat, turn["id"])
-            # Mounted material is the one input the record did not freeze, so
-            # check it is still the material the plan pinned before anything
-            # is submitted. A changed mount is refused rather than read: the
-            # seat would be reading a book nobody declared.
-            changed = [
-                root
-                for root, expected in spec["policy"]["read_root_digests"].items()
-                if tree_digest(root) != expected
-            ]
-            if changed:
-                raise RuntimeError(
-                    "mounted material changed since the plan pinned it: "
-                    + ", ".join(changed)
-                )
             record.mkdir(parents=True, exist_ok=True)
             if (record / "events.jsonl").exists():
                 raise RuntimeError(
@@ -1144,6 +1148,7 @@ class Run:
                     read_root_digests=spec["policy"]["read_root_digests"],
                     billing=harness.billing(spec["config"]["harness"]),
                     session_bus=bus.receipt() if bus else None,
+                    canary=proven,
                 ),
             )
             usage_records.seat("run", spec["config"])

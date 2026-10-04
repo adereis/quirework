@@ -16,6 +16,8 @@ from quirework.providers import blind
 
 
 def _argv(tmp_path, **kw):
+    # These tests read the jail's shape; no seat is launched in it.
+    kw.setdefault("canary", blind.PROBE)
     return blind.jail_argv(tmp_path, **kw)
 
 

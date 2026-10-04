@@ -1043,20 +1043,47 @@ for the project's own choices and constrains nothing: a Claude seat
 passes its family or version to the CLI, and the receipt records which
 model answered.
 
-`quirework sop blind canary` spends one short exchange per runner to
-prove that a confined seat really cannot read the tree or reach the
-web, so it runs on the cheapest model each runner offers.
+Every launch proves its seat blind before the seat starts. A runner
+release can change what a flag does without rejecting it, and only a
+live seat can say what it holds, so the launch canary spends one short
+exchange asking it what it can read, which tools it has and what
+instructions it was given. It runs the seat's own command, rebuilt by
+the launcher that will start the seat, with the canary's prompt, model
+and session in its place. A passing canary is recorded under the
+runner, its exact installed version, a fingerprint of that command, and
+what the seat may hold on purpose: nothing of the project for a blind
+seat, the repository and its guidance for a review, the web for a
+research seat. A later launch with the same key starts at once. A new
+release of any size, or a change to the seat's flags, runs the canary
+again first. A seat that holds more than its contract allows, or a
+canary whose answer proves nothing, refuses the launch, and the output
+is kept under `~/tmp` for inspection.
+
+The records are per machine, in `providers/canaries.json` under the
+project's cache, because blindness is a property of the runner installed
+here. Each launch writes the record it relied on into its own receipt,
+`launch.json` or the blind receipt, so the evidence stays with the run.
+The cold-read and the variant drafts keep no launch receipt; they print
+the canary instead. `quirework sop blind canary` runs the canary on
+demand under the shared blind flag set, the set a command written by
+hand for `sop blind run` is proven under, and `sop blind check` reports
+which releases have been canaried without failing on one that has not.
+`providers.validation_record`, which kept a record in the repository and
+failed `check` on a minor version change, is retired, and a project
+that still sets it is refused with that explanation.
+
+`QUIREWORK_CANARY=0` forbids live canaries in one process, so any
+launch there that has no record is refused. A test suite sets it: a test
+that drives a launch without stubbing the gate would otherwise reach a
+real runner and spend a real model's tokens. Quirework's own suite sets
+it in its `conftest.py`, and a consumer's suite should do the same.
+
+The canary runs on the cheapest model each runner offers.
 `providers.canary_models` names that model per runner, as in
 `canary_models = {claude = "haiku"}`. Without an entry, Antigravity's is
 picked from `agy models`, and any other runner's canary refuses to run
 rather than fall back to the account's default, which may be its most
-expensive tier. `canary --record` writes the version each runner was
-validated at to `providers.validation_record`, by default
-`providers/validated.json` under the project's cache, and
-`sop blind check` then fails once a runner's minor version moves past
-it, since a minor release can change what a flag does.
-Point the setting into the repository to commit the record, so that
-every clone knows which versions were last proven.
+expensive tier.
 
 Provider account leases have a separate scope from project data. Use the
 same `providers.agy.account` identity for projects sharing an account.

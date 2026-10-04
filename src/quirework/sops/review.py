@@ -510,7 +510,36 @@ def command(config, mode, session_id, report_dir):
     _fail(f"unknown harness: {harness}")
 
 
-def launch_context(config, record, report_dir, *, jailed=True, probe=False, bus=None):
+def canary(config, label):
+    """Prove a reviewer's flags on the installed runner (``canary``).
+
+    A reviewer is a contextual audit, not a blind seat: it stands in the
+    repository and is meant to read it and its guidance. What it may never
+    hold is the web, the operator's connected services or Codex's injected
+    personality, and that is what its canary proves, under this module's own
+    command with the canary's prompt, model and effort.
+    """
+    from quirework.providers import canary as canaries
+
+    harness = config["harness"]
+
+    def build(prompt, model, workdir, session):
+        twin = {
+            "harness": harness,
+            "model": model,
+            "effort": canaries.EFFORT,
+            "max_context_window": canaries.WINDOW,
+        }
+        args, _ = command(twin, "run", None, workdir)
+        return canaries.Twin(args, prompt.encode())
+
+    contract = canaries.Contract(tree=True, context=True)
+    return canaries.require(label, harness, build, contract)
+
+
+def launch_context(
+    config, record, report_dir, *, jailed=True, probe=False, bus=None, canary=None
+):
     """Environment and jail for a reviewer standing in the repository.
 
     Returns ``(argv_prefix, env, private, report_path)``. ``report_path`` is
@@ -582,6 +611,8 @@ def launch_context(config, record, report_dir, *, jailed=True, probe=False, bus=
         bind_credentials=harness != "claude",
         expose_run_dir=False,
         bus=bus,
+        # A probe builds the jail to show it, and starts nothing inside it.
+        canary=blind.PROBE if probe else canary,
     )
     if harness == "claude":
         runtime = private / "runtime-config.json"
@@ -1128,12 +1159,21 @@ def _turn(
         turn_dir.mkdir(parents=True, exist_ok=True)
         report_dir.mkdir(parents=True, exist_ok=True)
 
+    # Jailed or not, a reviewer that will actually start is proven first: its
+    # flags are what keep the web and the operator's services out of it.
+    proven = None if dry_run else canary(config, f"review {record.name}")
     # The bus a runner such as agy needs is opened around the whole launch:
     # the jail's argv names its socket, and the proxy must outlive the
     # reviewer's process and no longer.
     with blind.session_bus([config["harness"]] if jailed else []) as bus:
         prefix, env, private, report_path = launch_context(
-            config, record, report_dir, jailed=jailed, probe=dry_run, bus=bus
+            config,
+            record,
+            report_dir,
+            jailed=jailed,
+            probe=dry_run,
+            bus=bus,
+            canary=proven,
         )
         history = preflight(delta, record, env) if jailed else None
         if history and history["commits_readable"] is not None:
@@ -1201,6 +1241,7 @@ def _turn(
                 "hidden": [_shown(h) for h in hidden] if jailed else [],
                 "hidden_tracked": tracked if jailed else [],
                 "persona_sha256": persona["sha256"] if persona else None,
+                "canary": proven,
             },
         )
         before = worktree_state()

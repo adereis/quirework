@@ -240,10 +240,16 @@ def test_agy_gets_a_filtered_bus_and_nothing_else_of_the_runtime_dir(
     run_dir = tmp_path / "seat"
     run_dir.mkdir()
     with pytest.raises(blind.BlindnessError, match="org.freedesktop.secrets"):
-        blind.jail_argv(run_dir, runners=["agy"], bind_credentials=False)
+        blind.jail_argv(
+            run_dir, runners=["agy"], bind_credentials=False, canary=blind.PROBE
+        )
     with blind.session_bus(["agy"]) as bus:
         argv = blind.jail_argv(
-            run_dir, runners=["agy"], bind_credentials=False, bus=bus
+            run_dir,
+            runners=["agy"],
+            bind_credentials=False,
+            bus=bus,
+            canary=blind.PROBE,
         )
         runtime = f"/run/user/{os.getuid()}"
         socket_path = argv[argv.index(f"{runtime}/bus") - 1]
@@ -387,7 +393,11 @@ def test_the_real_proxy_lets_through_exactly_the_granted_name(tmp_path, monkeypa
     )
     with blind.session_bus(["agy"]) as bus:
         argv = blind.jail_argv(
-            run_dir, runners=["agy"], bind_credentials=False, bus=bus
+            run_dir,
+            runners=["agy"],
+            bind_credentials=False,
+            bus=bus,
+            canary=blind.PROBE,
         )
         proc = blind.popen(
             argv + ["/bin/sh", "-c", script],

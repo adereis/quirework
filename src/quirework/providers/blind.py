@@ -99,6 +99,11 @@ def _options():
     return SimpleNamespace(PROJECT_MARKERS=PROJECT_MARKERS)
 
 
+def project_markers() -> tuple:
+    """The words that prove a seat holds this project's own guidance."""
+    return _options().PROJECT_MARKERS
+
+
 def ensure_neutral_cwd() -> Path:
     """Create the neutral CWD if missing (a fresh machine has no ~/tmp); a
     blind child launched from a nonexistent directory dies unhandled."""
@@ -841,6 +846,30 @@ def prune(roots, *, grace: float = 3600, force: bool = False, dry_run: bool = Fa
     return {"removed": removed, "kept": kept, "freed": freed}
 
 
+class _Probe:
+    """The canary argument for a jailed process that is not a seat."""
+
+    def __repr__(self):
+        return "blind.PROBE"
+
+
+PROBE = _Probe()
+
+
+def _require_canary(runners, canary) -> None:
+    """Refuse a runner's jail unless a passing canary covers that runner."""
+    if not runners or canary is PROBE:
+        return
+    entries = canary if isinstance(canary, (list, tuple)) else [canary]
+    covered = {e.get("runner") for e in entries if isinstance(e, dict)}
+    missing = [r for r in runners if r not in covered]
+    if missing:
+        raise BlindnessError(
+            f"no launch canary for {', '.join(missing)}: call canary.require "
+            f"before building a seat's jail, and pass its record as canary="
+        )
+
+
 def jail_argv(
     run_dir: Path,
     allow=(),
@@ -850,6 +879,7 @@ def jail_argv(
     expose_run_dir: bool = True,
     project: Path | None = None,
     bus: Bus | None = None,
+    canary=None,
 ) -> list[str]:
     """The bwrap argv that confines a seat to ``run_dir``.
 
@@ -873,7 +903,15 @@ def jail_argv(
     ``bus`` is the filtered session bus from ``session_bus``, required when a
     runner declares ``bus_names`` and refused otherwise, and the caller
     launches through ``popen`` so the jail receives the proxy's pipe.
+
+    ``canary`` is the passing record ``canary.require`` returned for each
+    runner in ``runners`` (one record, or a list), and the jail is refused
+    without it: this is the one function every runner's jail is built by, so
+    it is where a launch that skipped its canary is stopped. ``PROBE`` stands
+    in where the process is not a seat answering a question, such as a
+    runner started only to show it starts, or the canary itself.
     """
+    _require_canary(runners, canary)
     needed = bus_names(runners)
     if needed and (bus is None or bus.names != needed):
         raise BlindnessError(
@@ -987,25 +1025,6 @@ def run_probe(name: str, probe: Probe) -> tuple[bool, str]:
     return True, ""
 
 
-def validated_path() -> Path:
-    from quirework.project import current_project
-
-    return current_project().path(
-        "providers.validation_record",
-        str(current_project().cache_root / "providers/validated.json"),
-    )
-
-
-def load_validated() -> dict:
-    p = validated_path()
-    return json.loads(p.read_text()) if p.exists() else {}
-
-
-def minor(v: str | None) -> str | None:
-    """``2.1.233`` -> ``2.1``. Patch churn is noise; a minor bump is an API."""
-    return None if not v else ".".join(v.split(".")[:2])
-
-
 class BlindnessError(RuntimeError):
     """Raised when a seat cannot be confined. Never downgraded to a warning."""
 
@@ -1034,7 +1053,9 @@ def seat_dir() -> Path:
     return _SEAT_DIR
 
 
-def confine(cmd, run_dir: Path, runners=(), allow=(), bus=None) -> list[str]:
+def confine(
+    cmd, run_dir: Path, runners=(), allow=(), bus=None, canary=None
+) -> list[str]:
     """``cmd`` wrapped in the jail, or ``BlindnessError`` if it cannot be.
 
     Raising is the point. A blind run that quietly proceeds unconfined
@@ -1049,7 +1070,9 @@ def confine(cmd, run_dir: Path, runners=(), allow=(), bus=None) -> list[str]:
             f"`quirework sop blind run --unconfined` if an unconfined seat is "
             f"genuinely acceptable, and say so in the write-up."
         )
-    return jail_argv(run_dir, allow=allow, runners=runners, bus=bus) + list(cmd)
+    return jail_argv(
+        run_dir, allow=allow, runners=runners, bus=bus, canary=canary
+    ) + list(cmd)
 
 
 def detect_runners(cmd) -> list[str]:
@@ -1074,13 +1097,15 @@ def write_receipt(
     binds,
     reason: str = "",
     bus: Bus | None = None,
+    canary=None,
 ) -> None:
     """Stamp what confined this run, **outside the run dir**.
 
     Outside on purpose: a receipt the seat can read tells the seat it is a
     blind seat in an experiment, and names the operator's home layout. The
     parent of the run dir is not bound into the jail, so a file written there
-    is invisible from inside.
+    is invisible from inside. ``canary`` is the record, or records, the
+    launch relied on.
     """
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(
@@ -1096,6 +1121,7 @@ def write_receipt(
                 "session_bus": bus.receipt() if bus else None,
                 "read_only_binds": [str(b) for b in binds],
                 "command": list(cmd),
+                "canary": canary,
             },
             indent=2,
         )
@@ -1112,14 +1138,17 @@ USAGE = """\
 usage: quirework sop blind run   [--run-dir DIR] [--runner NAME]... [--allow PATH]...
                               [--receipt PATH] [--unconfined] [--dry-run] -- CMD...
        quirework sop blind check  [--runner NAME]...
-       quirework sop blind canary [--runner NAME]... [--model M] [--record]
+       quirework sop blind canary [--runner NAME]... [--model M]
        quirework sop blind prune  [PATH]... [--grace SECONDS] [--force] [--dry-run]
 
 Confine a blind seat to its run directory, so the project is not merely
 out of sight but out of reach. See docs/workflows.md#execution-and-recovery, "The run dir is
 not a wall".
 
-  run     run CMD inside the jail; the exit status is CMD's own
+  run     run CMD inside the jail; the exit status is CMD's own. A
+          runner not yet proven blind at its installed version is
+          canaried first (one short exchange on the cheapest model),
+          and a breach refuses the run
   check   FREE self-test: every flag a blind run depends on is still
           live, each runner starts inside the jail, and the tree, the
           global briefs and a sibling seat's dir are all unreachable
@@ -1129,9 +1158,9 @@ not a wall".
           receipt depends on one surviving. Defaults to this project's
           run store.
   canary  COSTS TOKENS: one live seat per runner, asserting it really
-          cannot read the tree and really has no web or MCP tool.
-          --record stamps the validated version; `check` then reports
-          drift when a runner is upgraded past it.
+          cannot read the tree and really has no web or MCP tool. Every
+          launch already runs one when its runner release is new; this
+          runs it again on demand and records it the same way.
 
 options for `prune`:
   PATH            where to look (default: the project's run store)
@@ -1243,8 +1272,21 @@ def cmd_run(argv) -> int:
     binds, missing = runner_binds(runners)
     for m in missing:
         print(f"blind run: warning: {m}", file=sys.stderr)
+    # A command written by hand cannot be rebuilt with the canary's inputs,
+    # so each runner in it is proven under the shared blind flag set instead.
+    proven = PROBE
+    if not a.dry_run:
+        from quirework.providers import canary
+
+        try:
+            proven = [canary.require("blind run", r, generic_twin(r)) for r in runners]
+        except canary.CanaryError as exc:
+            print(f"blind run: {exc}", file=sys.stderr)
+            return 3
     with session_bus(runners) as bus:
-        argv_full = jail_argv(run_dir, allow=a.allow, runners=runners, bus=bus)
+        argv_full = jail_argv(
+            run_dir, allow=a.allow, runners=runners, bus=bus, canary=proven
+        )
         argv_full += list(cmd)
         if a.dry_run:
             print(" ".join(argv_full))
@@ -1257,6 +1299,7 @@ def cmd_run(argv) -> int:
             runners=runners,
             binds=binds,
             bus=bus,
+            canary=proven,
         )
         proc = popen(argv_full, bus, cwd=run_dir)
         try:
@@ -1311,12 +1354,14 @@ def cmd_check(argv) -> int:
     sibling.mkdir(parents=True, exist_ok=True)
     (sibling / "reaction-ch01.md").write_text("another seat's output\n")
 
+    from quirework.providers import canary
+
     bad = 0
-    val = load_validated()
-    # 0. The free flag-liveness contract, plus version drift. This is the half
-    #    that catches a runner CHANGING under us rather than a jail that is
-    #    misbuilt, and it is the dangerous half: a dead config key does not
-    #    fail, it silently stops blinding.
+    # 0. The free flag-liveness contract. This is the half that catches a
+    #    runner CHANGING under us rather than a jail that is misbuilt, and it
+    #    is the dangerous half: a dead config key does not fail, it silently
+    #    stops blinding. Which releases have been canaried is reported, never
+    #    failed: a launch canaries its own release before it starts.
     for name in names:
         if shutil.which(name) is None:
             continue
@@ -1327,23 +1372,14 @@ def cmd_check(argv) -> int:
             else:
                 print(f"✗ {name}: {probe.label} -- {detail}\n    ({probe.why})")
                 bad += 1
-        have, want = runner_version(name), val.get(name, {}).get("version")
-        if want is None:
-            print(
-                f"  {name}: {have} (never canaried; `quirework sop blind "
-                f"canary --runner {name}` costs tokens and records it)"
-            )
-        elif minor(have) != minor(want):
-            print(
-                f"✗ {name}: {have} installed, canaried at {want} -- a minor "
-                f"bump is an API change.\n    Re-run `quirework sop blind "
-                f"canary --runner {name}` and commit the record."
-            )
-            bad += 1
-        else:
-            print(
-                f"✓ {name}: {have} (canaried at {want} on {val[name].get('date', '?')})"
-            )
+        have = runner_version(name)
+        held = canary.proven(name, have)
+        print(
+            f"  {name} {have}: {len(held)} launch flag set(s) canaried at this release"
+            if held
+            else f"  {name} {have}: not canaried at this release yet; the next "
+            "launch runs one first"
+        )
 
     # 1. Each runner actually starts inside the jail. This is what keeps the
     #    credential/launcher table from rotting silently on a version bump.
@@ -1356,7 +1392,7 @@ def cmd_check(argv) -> int:
             # The bus comes up exactly as it would for a seat, so a missing
             # proxy or a dead session bus fails here rather than mid-run.
             with session_bus([name]) as bus:
-                argv_full = jail_argv(seat, runners=[name], bus=bus)
+                argv_full = jail_argv(seat, runners=[name], bus=bus, canary=PROBE)
                 argv_full += [name, *RUNNERS[name].probe]
                 r = subprocess.run(
                     argv_full,
@@ -1454,16 +1490,8 @@ CANARY_PROMPT = (
 # happened, which is the one failure this list cannot afford.
 
 
-# Any of these in a blind seat's tool list is a breach: a web tool defeats
-# blindness, and an mcp__ tool means the operator's connected services (Gmail,
-# Drive) reached the seat.
-FORBIDDEN_TOOLS = ("web__run", "websearch", "webfetch", "google_web_search", "mcp__")
-
-# The wording `-c personality="none"` actually removes, verbatim from a seat
-# launched without it: "As Codex, you are an excellent communicator with a
-# curious, rich personality." The base identity line is NOT this and is not
-# removable, so it must not be matched here.
-PERSONA_MARKERS = ("excellent communicator", "rich personality")
+# What a canary's answer may and may not show is judged in `canary.judge`,
+# which owns the forbidden tool names and the personality wording.
 
 # The canary spends real money, so it spends the least available. claude's
 # haiku and codex's mini are the cheapest tiers each offers and are named
@@ -1505,9 +1533,14 @@ def cheapest_model(name: str) -> str | None:
     # the account default, a Pro tier. So fall back to the model we last
     # actually validated, and if there is none, return None so the caller can
     # REFUSE rather than quietly buy the expensive seat.
-    return load_validated().get(name, {}).get("model")
+    from quirework.providers import canary
+
+    return canary.last_model(name)
 
 
+# The shared blind flag set. A command Quirework builds is canaried under its
+# own flags, rebuilt by its own builder; a command written by hand for
+# `blind run` cannot be rebuilt, so its runners are proven under these.
 CANARY_ARGV = {
     "claude": lambda p, m: [
         "claude",
@@ -1536,112 +1569,58 @@ CANARY_ARGV = {
         m,
         p,
     ],
-    "agy": lambda p, m: ["agy", "-p", p] + (["--model", m] if m else []),
+    "agy": lambda p, m: ["agy", "-p", p, "--model", m],
 }
 
 
-def canary_once(
-    name: str, model: str | None = None, run_dir: Path | None = None, timeout: int = 600
-) -> dict:
-    """Run ONE live blind seat and report what it turned out to be holding.
+def generic_twin(name: str):
+    """The canary builder for one runner's shared blind flag set."""
+    from quirework.providers.canary import Twin
 
-    The single implementation behind both `blind canary` and the live test
-    suite, so the CLI and the tests can never drift into asserting different
-    things. Costs one short exchange on the cheapest model the runner offers.
+    def build(prompt, model, workdir, session):
+        return Twin(CANARY_ARGV[name](prompt, model))
 
-    Returns ``{ok, problems, inconclusive, fields, model, version, raw}``.
-    ``inconclusive`` means the seat never answered in format -- auth, quota or
-    a timeout -- and is reported separately from a breach, because "no answer
-    to look at" and "no breach found" are not the same result.
+    return build
+
+
+def canary_once(name: str, model: str | None = None, timeout: int = 600) -> dict:
+    """Run ONE live blind seat under the shared flag set, and judge it.
+
+    Records nothing: the live tests watch the runners through it without
+    touching the records launches rely on. A launch, and `blind canary`, go
+    through `canary.require`, which judges with the same code. Returns
+    ``canary.run``'s result.
     """
-    from quirework.project import current_project
+    from quirework.providers import canary
 
-    run_dir = run_dir or (ensure_neutral_cwd() / ".quirework-blind-canary")
-    run_dir.mkdir(parents=True, exist_ok=True)
     model = model or cheapest_model(name)
-    prompt = CANARY_PROMPT.format(target=current_project().root / "AGENTS.md")
-    out = {
-        "ok": False,
-        "problems": [],
-        "inconclusive": False,
-        "fields": {},
-        "model": model,
-        "version": runner_version(name),
-        "raw": "",
-    }
     if model is None:
-        # Refuse rather than run on whatever the account defaults to. This is
-        # the only test that spends money, so "I could not work out the cheap
-        # model" must never resolve to "use the expensive one".
-        out["inconclusive"] = True
-        out["problems"].append(
-            "could not resolve a cheapest model; refusing to run on the "
-            "account default (pass --model to override)"
-        )
-        return out
-    try:
-        with session_bus([name]) as bus:
-            r = subprocess.run(
-                confine(
-                    CANARY_ARGV[name](prompt, model), run_dir, runners=[name], bus=bus
-                ),
-                capture_output=True,
-                text=True,
-                timeout=timeout,
-                stdin=subprocess.DEVNULL,
-                cwd=str(run_dir),
-                pass_fds=bus.pass_fds if bus else (),
-            )
-    except (subprocess.TimeoutExpired, OSError, BlindnessError) as exc:
-        out["inconclusive"] = True
-        out["problems"].append(f"seat did not run ({exc})")
-        return out
-    out["raw"] = text = (r.stdout or "") + (r.stderr or "")
-    fields = dict(
-        re.findall(r"(?mi)^\s*(READ|TOOLS|PERSONA|CONTEXT)\s*=\s*(.*)$", text)
-    )
-    out["fields"] = fields
-    if len(fields) < 4:
-        out["inconclusive"] = True
-        out["problems"].append(
-            f"seat did not answer in format (auth? quota? timeout?): "
-            f"{text.strip()[:200]}"
-        )
-        return out
-
-    if "fail" not in fields["READ"].lower():
-        out["problems"].append(f"READ the project tree ({fields['READ'][:60]})")
-    hits = [t for t in FORBIDDEN_TOOLS if t in fields["TOOLS"].lower()]
-    if hits:
-        out["problems"].append(f"forbidden tool(s): {', '.join(hits)}")
-    if name == "codex" and any(m in fields["PERSONA"].lower() for m in PERSONA_MARKERS):
-        out["problems"].append(
-            f"the injected personality is back: {fields['PERSONA'][:70]}"
-        )
-    leaked = [m for m in _options().PROJECT_MARKERS if m in fields["CONTEXT"].lower()]
-    if leaked:
-        out["problems"].append(
-            f"the project's own guidance is in the seat's context "
-            f"({', '.join(leaked)}): {fields['CONTEXT'][:80]}"
-        )
-    out["ok"] = not out["problems"]
-    return out
+        # Refuse rather than run on whatever the account defaults to: "I could
+        # not work out the cheap model" must never mean "use the expensive one".
+        return {
+            "ok": False,
+            "problems": [
+                "could not resolve a cheapest model; refusing to run on the "
+                "account default (pass --model to override)"
+            ],
+            "inconclusive": True,
+            "fields": {},
+            "model": None,
+            "version": runner_version(name),
+            "raw": "",
+            "kept": None,
+        }
+    return canary.run(name, generic_twin(name), model, canary.BLIND, timeout=timeout)
 
 
 def cmd_canary(argv) -> int:
     import argparse
-    import datetime
 
-    from quirework.project import current_project
+    from quirework.providers import canary
 
     p = argparse.ArgumentParser(prog="quirework sop blind canary", add_help=False)
     p.add_argument("--runner", action="append", default=[])
     p.add_argument("--model", default=None)
-    p.add_argument(
-        "--record",
-        action="store_true",
-        help="stamp tools/blind-runner/validated.json on success",
-    )
     a = p.parse_args(argv)
     names = a.runner or list(RUNNERS)
     err = backend_error()
@@ -1649,44 +1628,23 @@ def cmd_canary(argv) -> int:
         print(f"\u2717 backend: {err}")
         return 1
 
-    val, bad = load_validated(), 0
+    bad = 0
     for name in names:
         if shutil.which(name) is None:
             print(f"  {name}: not installed -- skipped")
             continue
         try:
-            res = canary_once(name, a.model)
-        except BlindnessError as exc:
+            entry = canary.require(
+                "blind run", name, generic_twin(name), model=a.model, fresh=True
+            )
+        except canary.CanaryError as exc:
             print(f"\u2717 {name}: {exc}")
             bad += 1
             continue
-        if res["inconclusive"]:
-            print(f"\u2717 {name}: INCONCLUSIVE -- {res['problems'][0]}")
-            bad += 1
-            continue
-        if not res["ok"]:
-            for prob in res["problems"]:
-                print(f"\u2717 {name}: {prob}")
-            bad += 1
-            continue
         print(
-            f"\u2713 {name} {res['version']} [{res['model'] or 'default'}]: "
+            f"\u2713 {name} {entry['version']} [{entry['model']}]: "
             f"blind (no project context, no tree, no web, no MCP)"
         )
-        val[name] = {
-            "version": res["version"],
-            "model": res["model"],
-            "date": datetime.date.today().isoformat(),
-            "canary": "no project context; tree unreachable; "
-            "no web/MCP tool" + ("; no personality" if name == "codex" else ""),
-        }
-    if a.record and not bad:
-        path = validated_path()
-        path.parent.mkdir(parents=True, exist_ok=True)
-        path.write_text(json.dumps(val, indent=2, sort_keys=True) + "\n")
-        print(f"recorded {path.relative_to(current_project().root)}")
-    elif a.record:
-        print("NOT recorded: a canary failed.")
     print(
         "\u2713 blind canary: clean."
         if not bad
