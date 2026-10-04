@@ -33,6 +33,25 @@ class ConfigurationError(ValueError):
 # project that never renders through Quirework still declares its spec.
 SCHEMA = 2
 
+# The top-level keys a project file may hold. Anything else is refused, so a
+# misspelled or retired section fails loudly instead of being read as absent.
+SECTIONS = frozenset(
+    {
+        "schema",
+        "project",
+        "manuscript",
+        "publish",
+        "text",
+        "provenance",
+        "sops",
+        "runs",
+        "providers",
+        "checks",
+        "extensions",
+        "usage",
+    }
+)
+
 
 def _freeze(value):
     if isinstance(value, dict):
@@ -140,20 +159,7 @@ class Project:
                         data = tomllib.loads(path.read_text(encoding="utf-8"))
                     except (OSError, tomllib.TOMLDecodeError) as exc:
                         raise ConfigurationError(f"cannot read {path}: {exc}") from exc
-                    unknown = set(data) - {
-                        "schema",
-                        "project",
-                        "manuscript",
-                        "publish",
-                        "text",
-                        "provenance",
-                        "sops",
-                        "runs",
-                        "providers",
-                        "checks",
-                        "extensions",
-                        "usage",
-                    }
+                    unknown = set(data) - SECTIONS
                     if "book" in unknown:
                         raise ConfigurationError(
                             f"{path}: the [book] section is retired. Schema 2 "

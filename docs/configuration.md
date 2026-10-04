@@ -43,8 +43,14 @@ A project that renders elsewhere declares no `[publish]` section, and
 its spec commands work the same.
 
 `manuscript.quarto` names the Quarto project file. The manuscript can
-also name `spec`, `references` and `review_notes`, and the publisher
-`typst_template`, when the project uses those features.
+also name `manuscript.spec`, `manuscript.references` and
+`manuscript.review_notes`, the book-wide annotations a red-pen review
+copy carries, when the project uses those features.
+`publish.typst_template` names the Typst file that sets the printed
+page. Quirework reads it and never writes it. It takes from it the faces
+`publish fonts` checks and the text block `figures --check` measures
+type against, and it names the file when figure numbers disagree across
+editions, since its numbering rule is one place they are set.
 `publish.figure_fonts` lists font files that every staged figure carries
 as subsets, so a figure shown as an image is lettered in the book's face
 on a device that lacks it; the [authoring guide](authoring.md#4-figures)
@@ -709,6 +715,16 @@ capture in prose. A store directory's bare name, such as
 matching directory name inside another project's absolute path does not
 establish an evaluation of this project's corpus.
 
+Capture reads each harness's transcripts where the harness keeps them:
+Claude Code's under `~/.claude/projects`, Codex's under
+`$CODEX_HOME/sessions` (normally `~/.codex/sessions`), and
+Antigravity's under `~/.gemini/antigravity-cli/brain`. A harness set up
+with another home needs capture pointed at it; otherwise the sweep stops
+and names the directory it looked in. `providers.claude.sessions` names
+Claude Code's directory, which `spec trail add --find` also reads, and
+`providers.agy.sessions` names Antigravity's. Codex follows its own
+`CODEX_HOME`.
+
 Each capture sweep also records the project's directory in every
 checkout it can see. The list is `project-trees.txt` in the ledger, and
 it belongs in the same commits as `accepted.txt`. The catalog and
@@ -751,12 +767,47 @@ well as in a conversation. A round records the day of each mark and no
 time of day, so a breadcrumb names the mark by its number. Nothing joins
 by default: the archive is private, and an undeclared one stays out.
 
+### Blind cold-reads
+
+`quirework provenance coldread` puts accepted sessions in front of blind
+analysts and keeps what they report. What it keeps lives in
+`provenance.coldread`: the reports, cached by the content they read so
+an unchanged session is never paid for twice; the manifest that indexes
+them; and the analyst briefs the project writes, `analyst-prompt.md`
+and, for sessions about the apparatus, `analyst-prompt-making.md`. It
+defaults to `coldread` inside the ledger, so the cache travels with the
+decisions it was made from.
+
+The working copies are rebuilt on demand and default to the project's
+cache. `provenance.rendered` holds the filtered sessions staged for the
+analysts, one directory per scope. `provenance.reports` holds each
+report as it arrives and before it is recorded, including any
+quarantined because its analyst did not declare itself blind. Set
+them only to keep these somewhere other than the cache.
+
+An analyst's copy is filtered so that it cannot learn whose project it
+is reading. `provenance.redaction_policy` names a TOML or JSON file
+whose `markers` list the project's distinctive framing: its title, its
+author's name, a phrase that would hand the analyst the conclusion it
+is meant to reach. `provenance.redaction_markers` lists them inline
+instead, and wins when both are set. Each occurrence, in any case,
+becomes a visible placeholder, so the analyst still sees that context
+was stated. A long human turn that still carries a marker once the
+harness's wrappers are stripped is an injected context dump, and is
+dropped whole. Without either setting nothing is redacted. The list is
+part of the filter's version, so a change to it is checked against every
+cached report: one whose session reads the same under the new list is
+kept, and one whose filtered copy changed is analyzed again. Keep the
+policy file private, since it lists exactly what an analyst must not
+see.
+
 ### Caches and run storage
 
 Derived caches default to a project-specific directory under the XDG
-cache directory. Run storage defaults to a project-specific directory
-under the XDG state directory. Configure `runs.store` to retain an
-existing private store and `runs.reviews` for reviewed output.
+cache directory, and `project.cache` moves it. Run storage defaults to
+a project-specific directory under the XDG state directory. Configure
+`runs.store` to retain an existing private store and `runs.reviews` for
+reviewed output.
 
 Nothing on a typical Linux system empties the XDG cache directory on its
 own, so treat anything written there as kept until someone deletes it.
@@ -985,7 +1036,27 @@ consumer's package and must be installed explicitly.
 
 `providers.codex.catalog` pins the Codex model catalog to a file,
 which is then used as given instead of asking `codex debug models`.
-Leave it unset unless a run must resolve against a frozen list.
+Leave it unset unless a run must resolve against a frozen list. Claude
+Code keeps no local catalog, so `quirework sop models list claude`
+prints the list `providers.claude.models` declares. It is a reference
+for the project's own choices and constrains nothing: a Claude seat
+passes its family or version to the CLI, and the receipt records which
+model answered.
+
+`quirework sop blind canary` spends one short exchange per runner to
+prove that a confined seat really cannot read the tree or reach the
+web, so it runs on the cheapest model each runner offers.
+`providers.canary_models` names that model per runner, as in
+`canary_models = {claude = "haiku"}`. Without an entry, Antigravity's is
+picked from `agy models`, and any other runner's canary refuses to run
+rather than fall back to the account's default, which may be its most
+expensive tier. `canary --record` writes the version each runner was
+validated at to `providers.validation_record`, by default
+`providers/validated.json` under the project's cache, and
+`sop blind check` then fails once a runner's minor version moves past
+it, since a minor release can change what a flag does.
+Point the setting into the repository to commit the record, so that
+every clone knows which versions were last proven.
 
 Provider account leases have a separate scope from project data. Use the
 same `providers.agy.account` identity for projects sharing an account.
@@ -1030,6 +1101,27 @@ A preset may name `ask` and `wrap_ask` for a self-driven read. An
 instrument written for that mode has no continuation ask, so it has no
 sequence to declare, and naming the asks in the preset keeps them off
 every launch command.
+
+`quirework publish compare prepare` forks one reader across a chapter's
+revisions, and every arm is asked the same frozen questions.
+`sops.reader_driver` names the Python file they come from. It defines
+`TRADE_TURN_ONE`, the opening ask, `TRADE_TURN_NEXT`, the ask that
+continues the read, and `TRADE_CHAPTER_HEADINGS`, the headings each
+answer must carry. Preparing a comparison freezes those questions into
+its plan and copies the file into its record, so every arm is asked what
+was frozen, whatever the file says later. The setting has no default,
+and nothing checks it until a comparison is prepared.
+
+`quirework sop workshop prepare` seats the writers a plan names, and
+falls back to the project's default seats when it names none.
+`sops.roster` names that default: a JSON file whose `writers` list gives
+each seat a `harness`, a `model` and an `effort`, and whose optional
+`persona` applies to every seat that names none of its own.
+`quirework sop workshop roster --check` resolves each seat against the
+installed model catalogs, so a model a provider has since renamed fails
+there rather than halfway through an experiment. Prepare reads the file
+even when the plan names its own writers, so a project that runs
+workshops declares it.
 
 `providers.isolation_policy` can list `mount_markers`: path words that
 would tell a seat whose book it is reading. A self-driven read refuses a
