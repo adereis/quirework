@@ -86,7 +86,9 @@ def test_the_scratchpad_is_excluded_from_every_checkout(tmp_path):
     excluding = worktrees.excluded_trees(project, roots)
     assert worktrees.contains(roots, str(main / "docs"), excluding)
     assert not worktrees.contains(roots, str(main / "scratchpad"), excluding)
-    assert not worktrees.contains(roots, str(main / "scratchpad" / "w" / "x"), excluding)
+    assert not worktrees.contains(
+        roots, str(main / "scratchpad" / "w" / "x"), excluding
+    )
     assert not worktrees.contains(roots, str(wt / "scratchpad" / "w"), excluding)
     # a name that merely extends the scratchpad's is not the scratchpad
     assert worktrees.contains(roots, str(main / "scratchpad-notes"), excluding)
