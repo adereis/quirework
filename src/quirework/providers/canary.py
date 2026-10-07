@@ -45,6 +45,7 @@ from __future__ import annotations
 import datetime
 import fcntl
 import hashlib
+import itertools
 import json
 import os
 import re
@@ -52,6 +53,7 @@ import shutil
 import subprocess
 import sys
 import tempfile
+import threading
 import uuid
 from contextlib import contextmanager
 from dataclasses import asdict, dataclass, field
@@ -69,8 +71,9 @@ class Contract:
     A blind seat may hold none of it. A contextual review stands in the
     repository and is meant to read it and its guidance (``tree``,
     ``context``). A research seat is meant to search the web (``web``). No
-    contract allows the operator's connected services (an ``mcp__`` tool), or
-    Codex's injected personality.
+    contract allows the operator's connected services (an ``mcp__`` tool, or
+    any server in a Codex seat's MCP inventory), or Codex's injected
+    personality.
     """
 
     tree: bool = False
@@ -132,6 +135,15 @@ PERSONA_MARKERS = ("excellent communicator", "rich personality")
 
 _FIELDS = re.compile(r"(?mi)^\s*(READ|TOOLS|PERSONA|CONTEXT)\s*=\s*(.*)$")
 _FEATURE_OFF = re.compile(r"features\.(\w+)=false")
+
+# Codex has no init event naming what it loaded, and its model cannot be
+# trusted to list an MCP server's tools as its own. Its app server can: asked
+# for the MCP inventory under a seat's own settings, it lists every server
+# the seat would hold, before any model is called. The protocol is marked
+# experimental, so a release that changes it makes the canary inconclusive,
+# never quietly passing.
+CODEX_INVENTORY_SECONDS = 120
+_CODEX_SETTINGS = ("-c", "--config", "--enable", "--disable")
 
 
 class CanaryError(blind.BlindnessError):
@@ -286,6 +298,12 @@ def require(
             "label": label,
             "model": model,
             "contract": asdict(contract),
+            # Codex's own count, so each launch's receipt carries it too.
+            **(
+                {"mcp_servers": result["servers"]}
+                if result.get("servers") is not None
+                else {}
+            ),
             "at": datetime.datetime.now(datetime.timezone.utc).isoformat(
                 timespec="seconds"
             ),
@@ -303,9 +321,13 @@ def run(
     """Run one canary seat and judge its answer; record nothing.
 
     Returns ``{ok, problems, inconclusive, fields, model, version, raw,
-    kept}``. ``inconclusive`` means the seat never answered in the format --
-    auth, quota or a timeout -- and is reported apart from a breach, because
-    "no answer to look at" and "no breach found" are different results.
+    kept, servers}``. ``inconclusive`` means the seat never answered in the
+    format -- auth, quota or a timeout -- and is reported apart from a
+    breach, because "no answer to look at" and "no breach found" are
+    different results. ``servers`` is a codex seat's MCP inventory, read from
+    Codex's app server before the exchange (``codex_servers``); a server in
+    it is a breach and the exchange is not spent, and an inventory that
+    cannot be read is inconclusive.
     ``kept`` is the file holding the output when the canary did not pass. The
     canary's work directory and runner state are removed either way: the
     output is what an operator reads, and the state is jail furniture.
@@ -334,6 +356,7 @@ def run(
         "version": blind.runner_version(runner),
         "raw": "",
         "kept": None,
+        "servers": None,
     }
     twin = build(
         blind.CANARY_PROMPT.format(target=current_project().root / "AGENTS.md"),
@@ -343,6 +366,7 @@ def run(
     )
     for name, text in twin.files.items():
         (workdir / name).write_text(text, encoding="utf-8")
+    proc, text = None, ""
     try:
         with blind.session_bus([runner]) as bus:
             argv = blind.jail_argv(
@@ -350,23 +374,42 @@ def run(
             )
             for source, target in twin.binds:
                 argv += ["--bind", str(source), str(target)]
-            proc = subprocess.run(
-                argv + list(twin.argv),
-                input=twin.stdin,
-                stdin=None if twin.stdin is not None else subprocess.DEVNULL,
-                capture_output=True,
-                timeout=timeout,
-                cwd=str(workdir),
-                pass_fds=bus.pass_fds if bus else (),
-            )
-        text = (proc.stdout or b"").decode("utf-8", "replace")
-        text += (proc.stderr or b"").decode("utf-8", "replace")
+            fds = bus.pass_fds if bus else ()
+            if runner == "codex":
+                # Read first: a seat holding a server is a breach whatever it
+                # answers, and finding one costs no model call.
+                servers, why = codex_servers(argv, twin.argv, pass_fds=fds)
+                out["servers"] = servers
+                text = f"codex MCP inventory: {json.dumps(servers)} {why}\n"
+                if servers is None:
+                    out["inconclusive"] = True
+                    out["problems"].append(
+                        f"Codex's own MCP inventory could not be read: {why}"
+                    )
+                elif servers:
+                    out["problems"].append(
+                        "the runner loaded MCP server(s): "
+                        + ", ".join(
+                            f"{n} ({c} tools)" for n, c in sorted(servers.items())
+                        )
+                    )
+            if not out["problems"]:
+                proc = subprocess.run(
+                    argv + list(twin.argv),
+                    input=twin.stdin,
+                    stdin=None if twin.stdin is not None else subprocess.DEVNULL,
+                    capture_output=True,
+                    timeout=timeout,
+                    cwd=str(workdir),
+                    pass_fds=fds,
+                )
+                text += (proc.stdout or b"").decode("utf-8", "replace")
+                text += (proc.stderr or b"").decode("utf-8", "replace")
     except (subprocess.TimeoutExpired, OSError, blind.BlindnessError) as exc:
         out["inconclusive"] = True
         out["problems"].append(f"seat did not run ({exc})")
-        text = ""
     out["raw"] = text
-    if not out["inconclusive"]:
+    if proc is not None and not out["inconclusive"]:
         answer, init = extract(proc.stdout.decode("utf-8", "replace"))
         fields = dict(_FIELDS.findall(answer))
         out["fields"] = fields
@@ -386,6 +429,109 @@ def run(
     shutil.rmtree(workdir, ignore_errors=True)
     shutil.rmtree(blind.state_root(workdir), ignore_errors=True)
     return out
+
+
+def codex_settings(argv) -> list[str]:
+    """The settings a codex command makes, as flags `codex app-server` takes.
+
+    Only settings travel. The rest of a seat's command (its subcommand, the
+    model, `-s`) is either refused by the app server or has nothing to do
+    with which servers load, and the private home the jail binds is empty,
+    so the user configuration `--ignore-user-config` keeps out is not there.
+    """
+    argv = [str(a) for a in argv]
+    out = []
+    for flag, value in itertools.pairwise(argv):
+        if flag in _CODEX_SETTINGS:
+            out += [flag, value]
+    return out
+
+
+def codex_servers(
+    jail: list, argv, *, pass_fds=(), timeout: int = CODEX_INVENTORY_SECONDS
+) -> tuple[dict | None, str]:
+    """The MCP servers a codex seat would hold, by Codex's own count.
+
+    Returns ``({server: tool count}, "")``, or ``(None, why)`` when the
+    inventory could not be read. ``jail`` is the canary's own, so the app
+    server starts with the seat's private home and credentials, which is
+    where the account's servers come from.
+    """
+    with tempfile.TemporaryFile() as err:
+        try:
+            proc = subprocess.Popen(
+                [*jail, "codex", "app-server", *codex_settings(argv)],
+                stdin=subprocess.PIPE,
+                stdout=subprocess.PIPE,
+                stderr=err,
+                pass_fds=pass_fds,
+            )
+        except OSError as exc:
+            return None, f"codex app-server did not start ({exc})"
+        expired = []
+        timer = threading.Timer(timeout, lambda: (expired.append(1), proc.kill()))
+        timer.start()
+        servers, cursor, why = {}, None, ""
+
+        def ask(number, method, params=None):
+            message = {"method": method}
+            if number is not None:
+                message |= {"id": number, "params": params or {}}
+            proc.stdin.write((json.dumps(message) + "\n").encode())
+            proc.stdin.flush()
+            if number is None:
+                return None
+            for line in proc.stdout:
+                try:
+                    reply = json.loads(line)
+                except ValueError:
+                    continue
+                if isinstance(reply, dict) and reply.get("id") == number:
+                    return reply
+            return None
+
+        try:
+            hello = {"clientInfo": {"name": "quirework-canary", "version": "1"}}
+            if (ask(1, "initialize", hello) or {}).get("result") is None:
+                why = "codex app-server did not initialize"
+            else:
+                ask(None, "initialized")
+                # Paged, so that a list longer than one page is never read
+                # as its first page alone. The bound is a guard, not a limit
+                # any real inventory reaches.
+                for number in range(2, 50):
+                    params = {"detail": "toolsAndAuthOnly", "cursor": cursor}
+                    reply = ask(number, "mcpServerStatus/list", params) or {}
+                    page = reply.get("result")
+                    if not isinstance(page, dict):
+                        why = "codex app-server listed no MCP inventory: " + (
+                            json.dumps(reply.get("error"))[:200]
+                            if reply.get("error")
+                            else "no reply"
+                        )
+                        break
+                    for server in page.get("data") or []:
+                        servers[server.get("name", "?")] = len(
+                            server.get("tools") or {}
+                        )
+                    cursor = page.get("nextCursor")
+                    if not cursor:
+                        break
+                else:
+                    why = "codex app-server's MCP inventory did not end"
+        except (BrokenPipeError, OSError) as exc:
+            why = f"codex app-server stopped answering ({exc})"
+        finally:
+            timer.cancel()
+            proc.kill()
+            proc.wait()
+        if why and expired:
+            why += f" within {timeout}s"
+        if why:
+            err.seek(0)
+            tail = err.read().decode("utf-8", "replace").strip()[-200:]
+            return None, why + (f": {tail}" if tail else "")
+        return servers, ""
 
 
 def extract(stdout: str) -> tuple[str, dict | None]:

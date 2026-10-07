@@ -323,6 +323,176 @@ def test_a_failing_canary_keeps_its_output(project, tmp_path, monkeypatch, live)
 
 
 # --------------------------------------------------------------------------- #
+# codex: the account's apps, and the inventory that proves them gone
+# --------------------------------------------------------------------------- #
+def test_every_codex_seat_turns_the_accounts_apps_off(project, tmp_path):
+    """The account delivers them, so no private home or ignored config does.
+
+    Codex's `apps` feature gave every seat with tools the account's connected
+    mail, calendar, documents and code hosting, with tools that commit and
+    delete. One builder that forgets the flag is a seat that holds them all
+    again.
+    """
+    from quirework.providers import harness, models
+    from quirework.publish import experiment
+    from quirework.runs.engine import policy
+    from quirework.sops import review
+
+    config = {
+        "harness": "codex",
+        "model": "m",
+        "effort": "low",
+        "max_context_window": 400_000,
+    }
+    built = {
+        "review": review.command(config, "run", None, tmp_path)[0],
+        "review, resumed": review.command(config, "resume", "s-1", tmp_path)[0],
+        "review, unjailed": review.command(config, "run", None, tmp_path, jailed=False)[
+            0
+        ],
+        "workshop": models.command(config, tmp_path, "p")[0],
+        "workshop, resumed": models.command(config, tmp_path, "p", resume="s-1")[0],
+        "workshop, manual": models.command(config, tmp_path, "p", manual=True)[0],
+        "blind run": blind.CANARY_ARGV["codex"]("p", "m"),
+        "experiment": experiment.command("codex", "m", "low", "start", None, [], "p")[
+            0
+        ],
+    }
+    for tools in ("none", "read", "write", "research"):
+        built[f"engine, {tools}"] = harness.command(
+            config, policy({"tools": tools}), "start", "s", "p", [], []
+        )[0]
+    for name, argv in built.items():
+        assert "features.apps=false" in canary.codex_settings(argv), name
+
+
+def test_codex_settings_carry_only_what_the_app_server_takes():
+    argv = ["codex", "exec", "-m", "m", "-c", 'a="b"', "-s", "read-only"]
+    argv += ["--enable", "x", "--disable", "apps", "--json", "-"]
+    assert canary.codex_settings(argv) == [
+        "-c",
+        'a="b"',
+        "--enable",
+        "x",
+        "--disable",
+        "apps",
+    ]
+
+
+# A stand-in for `codex app-server`: it answers the two requests the canary
+# makes, from pages given on its command line.
+APP_SERVER = """
+import json, sys
+pages = json.loads(sys.argv[1])
+for line in sys.stdin:
+    asked = json.loads(line)
+    if asked.get("method") == "initialize":
+        print(json.dumps({"id": asked["id"], "result": {}}), flush=True)
+    elif asked.get("method") == "mcpServerStatus/list":
+        at = int(asked["params"].get("cursor") or 0)
+        more = str(at + 1) if at + 1 < len(pages) else None
+        page = {"data": pages[at], "nextCursor": more}
+        print(json.dumps({"id": asked["id"], "result": page}), flush=True)
+"""
+
+
+def _app_server(tmp_path, pages):
+    import sys
+
+    script = tmp_path / "app_server.py"
+    script.write_text(APP_SERVER)
+    return [sys.executable, str(script), json.dumps(pages)]
+
+
+def test_the_codex_inventory_is_read_to_its_last_page(tmp_path):
+    apps = {"name": "codex_apps", "tools": {"mail.send": {}, "code.commit": {}}}
+    pages = [[apps], [{"name": "late", "tools": {}}]]
+    servers, why = canary.codex_servers(_app_server(tmp_path, pages), ["codex"])
+    assert (servers, why) == ({"codex_apps": 2, "late": 0}, "")
+    assert canary.codex_servers(_app_server(tmp_path, [[]]), ["codex"]) == ({}, "")
+
+
+def test_an_inventory_that_cannot_be_read_proves_nothing(tmp_path):
+    import sys
+
+    gone = [sys.executable, "-c", "print('not a protocol')"]
+    servers, why = canary.codex_servers(gone, ["codex"])
+    assert servers is None and "did not initialize" in why
+    silent = [sys.executable, "-c", "import time; time.sleep(30)"]
+    servers, why = canary.codex_servers(silent, ["codex"], timeout=1)
+    assert servers is None and "within 1s" in why
+
+
+@pytest.fixture
+def codex_seat(project, tmp_path, monkeypatch, live):
+    """A codex canary with its jail, its inventory and its exchange replaced."""
+    monkeypatch.setattr(blind, "backend_error", lambda: None)
+    monkeypatch.setattr(blind, "ensure_neutral_cwd", lambda: tmp_path)
+    monkeypatch.setattr(blind, "session_bus", lambda runners: nullcontext())
+    monkeypatch.setattr(blind, "jail_argv", lambda *a, **k: ["jail"])
+    spent = []
+
+    def exchange(argv, **kw):
+        spent.append(argv)
+        out = json.dumps(
+            {
+                "type": "item.completed",
+                "item": {"type": "agent_message", "text": ANSWER},
+            }
+        )
+        return subprocess.CompletedProcess(argv, 0, out.encode(), b"")
+
+    monkeypatch.setattr(canary.subprocess, "run", exchange)
+
+    def run(servers, why=""):
+        monkeypatch.setattr(canary, "codex_servers", lambda *a, **k: (servers, why))
+        build = lambda prompt, model, workdir, session: canary.Twin(  # noqa: E731
+            ["codex", "exec", "-c", "features.apps=false"], prompt.encode()
+        )
+        return canary.run("codex", build, "cheap", canary.BLIND)
+
+    return run, spent
+
+
+def test_a_codex_seat_holding_a_server_is_refused_unspent(codex_seat):
+    run, spent = codex_seat
+    result = run({"codex_apps": 12})
+    assert not result["ok"] and not result["inconclusive"]
+    assert result["problems"] == [
+        "the runner loaded MCP server(s): codex_apps (12 tools)"
+    ]
+    assert spent == [], "a breach found by the inventory costs no model call"
+    assert "codex_apps" in open(result["kept"]).read()
+
+
+def test_a_codex_inventory_that_proves_nothing_is_inconclusive(codex_seat):
+    run, spent = codex_seat
+    result = run(None, "codex app-server did not initialize")
+    assert result["inconclusive"] and "did not initialize" in result["problems"][0]
+    assert spent == []
+
+
+def test_an_empty_codex_inventory_lets_the_exchange_judge(codex_seat):
+    run, spent = codex_seat
+    result = run({})
+    assert result["ok"], result["problems"]
+    assert result["servers"] == {} and len(spent) == 1
+
+
+def test_a_codex_record_carries_its_inventory(project, monkeypatch):
+    def run(runner, *args, **kw):
+        # Only a codex seat has an inventory read; Claude's is its init event.
+        held = {} if runner == "codex" else None
+        return {"ok": True, "problems": [], "inconclusive": False, "servers": held}
+
+    monkeypatch.setattr(canary, "run", run)
+    build = lambda prompt, model, workdir, session: canary.Twin(["codex"])  # noqa: E731
+    assert canary.require("seat", "codex", build)["mcp_servers"] == {}
+    claude = canary.require("seat", "claude", seat())
+    assert "mcp_servers" not in claude
+
+
+# --------------------------------------------------------------------------- #
 # the committed record this replaces
 # --------------------------------------------------------------------------- #
 def test_the_retired_validation_record_is_refused(tmp_path):

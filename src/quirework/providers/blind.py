@@ -86,6 +86,18 @@ MIN_TOOLS = ["--tools", "Read"]
 # ride on every claude launch.
 NO_MCP = ["--mcp-config", '{"mcpServers":{}}', "--strict-mcp-config"]
 
+# Codex has the same door, and every codex launch left it open until it was
+# found. Its `apps` feature, on by default, gives a seat the account's
+# connected apps as the built-in `codex_apps` MCP server: a jailed reviewer
+# held hundreds of tools for mail, calendar, documents and code hosting,
+# among them ones that commit, delete files and merge. A private home and
+# `--ignore-user-config` remove neither, because the account supplies them.
+# Turning the feature off removes the server and the catalogue of plugins
+# Codex injects into the prompt with it. The canary asks Codex's own app
+# server for the seat's MCP inventory (`canary.codex_servers`), so a release
+# that brings the apps back by another switch refuses the launch.
+CODEX_NO_APPS = ["-c", "features.apps=false"]
+
 
 def _options():
     """Read policy from the selected project for this operation."""
@@ -1563,6 +1575,7 @@ CANARY_ARGV = {
         'web_search="disabled"',
         "-c",
         'personality="none"',
+        *CODEX_NO_APPS,
         "-s",
         "read-only",
         "-m",

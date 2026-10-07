@@ -889,6 +889,20 @@ canary returns, and the record goes into the seat's receipt. The
 configuration guide's providers section describes what it keys on and
 where it is kept.
 
+A seat's connected services come from the provider account, not from
+any file, so neither the blanked home nor an ignored configuration
+removes them. Every Claude launch carries an empty strict MCP
+configuration. Every Codex launch turns off Codex's `apps` feature,
+which otherwise hands the seat the account's connected apps: mail,
+calendar, documents and code hosting, with tools that send, delete and
+commit. A read-only reviewer holding them could change a repository
+the jail never bound. The canary checks both from the runner's own
+account of what it loaded, never from the model's word. For Claude
+that is its start-up event. For Codex it is the MCP inventory Codex's
+app server reports under the seat's settings, read before the
+exchange, so a seat holding any server is refused without a model
+call.
+
 The jail never contains the runtime directory `/run/user/<uid>`. Its
 session bus would let a seat ask `systemd --user` to start a process
 outside the jail. Antigravity keeps its login in the desktop keyring,

@@ -156,6 +156,7 @@ def command(config, policy, mode, sid, prompt, images, files):
             'web_search="live"'
             if policy["tools"] == "research"
             else 'web_search="disabled"',
+            *blind.CODEX_NO_APPS,
         ]
         if policy.get("system_prompt") is not None:
             args += [
@@ -170,10 +171,10 @@ def command(config, policy, mode, sid, prompt, images, files):
             # a seat declared tool-free kept the viewer on; the launch refused
             # only because Codex warned about the key. An unknown key here
             # stops the run, which is how the next rename will be caught.
+            # `apps` is off for every seat, above, not only this one.
             for feature in (
                 "shell_tool",
                 "unified_exec",
-                "apps",
                 "view_image",
                 "image_generation",
                 "browser_use",

@@ -1059,7 +1059,11 @@ research seat. A later launch with the same key starts at once. A new
 release of any size, or a change to the seat's flags, runs the canary
 again first. A seat that holds more than its contract allows, or a
 canary whose answer proves nothing, refuses the launch, and the output
-is kept under `~/tmp` for inspection.
+is kept under `~/tmp` for inspection. A Codex canary first asks Codex's
+app server which MCP servers the seat would hold. Any server refuses
+the launch without spending the exchange. An inventory that cannot be
+read proves nothing, so it refuses the launch too. The record keeps
+the inventory as `mcp_servers`.
 
 The records are per machine, in `providers/canaries.json` under the
 project's cache, because blindness is a property of the runner installed
@@ -1070,6 +1074,9 @@ the canary instead. `quirework sop blind canary` runs the canary on
 demand under the shared blind flag set, the set a command written by
 hand for `sop blind run` is proven under, and `sop blind check` reports
 which releases have been canaried without failing on one that has not.
+A command written by hand has to carry that set itself. A Codex command
+without `-c features.apps=false`, for example, holds the account's
+connected apps however its canary passed.
 `providers.validation_record`, which kept a record in the repository and
 failed `check` on a minor version change, is retired, and a project
 that still sets it is refused with that explanation.

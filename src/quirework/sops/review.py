@@ -447,6 +447,7 @@ def command(config, mode, session_id, report_dir, *, jailed=True):
             'web_search="disabled"',
             "-c",
             "features.multi_agent=false",
+            *blind.CODEX_NO_APPS,
             # The whole window, and no compaction. Shared with the workshop so
             # the two launchers cannot drift from providers/harness.py again: this
             # module built its own argv and omitted both, so every review ran
