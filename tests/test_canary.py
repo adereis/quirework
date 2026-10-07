@@ -325,13 +325,15 @@ def test_a_failing_canary_keeps_its_output(project, tmp_path, monkeypatch, live)
 # --------------------------------------------------------------------------- #
 # codex: the account's apps, and the inventory that proves them gone
 # --------------------------------------------------------------------------- #
-def test_every_codex_seat_turns_the_accounts_apps_off(project, tmp_path):
-    """The account delivers them, so no private home or ignored config does.
+def test_every_codex_seat_turns_off_what_codex_leaves_on(project, tmp_path):
+    """The account's apps, sub-agents and image generation, on every seat.
 
     Codex's `apps` feature gave every seat with tools the account's connected
     mail, calendar, documents and code hosting, with tools that commit and
-    delete. One builder that forgets the flag is a seat that holds them all
-    again.
+    delete; no private home or ignored config removes them, because the
+    account delivers them. Multi-agent v2 offers every seat `spawn_agent`
+    whatever `features.multi_agent` says. One builder that forgets the set is
+    a seat that holds them all again.
     """
     from quirework.providers import harness, models
     from quirework.publish import experiment
@@ -362,8 +364,13 @@ def test_every_codex_seat_turns_the_accounts_apps_off(project, tmp_path):
         built[f"engine, {tools}"] = harness.command(
             config, policy({"tools": tools}), "start", "s", "p", [], []
         )[0]
+    wanted = blind.CODEX_SEAT[1::2]
+    assert "features.apps=false" in wanted
+    assert "features.image_generation=false" in wanted
+    assert "features.multi_agent_v2.max_concurrent_threads_per_session=1" in wanted
     for name, argv in built.items():
-        assert "features.apps=false" in canary.codex_settings(argv), name
+        settings = canary.codex_settings(argv)
+        assert all(w in settings for w in wanted), name
 
 
 def test_codex_settings_carry_only_what_the_app_server_takes():

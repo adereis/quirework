@@ -903,6 +903,17 @@ app server reports under the seat's settings, read before the
 exchange, so a seat holding any server is refused without a model
 call.
 
+Codex's model catalogue puts most models on its second multi-agent
+version, which ignores `features.multi_agent=false`. Every Codex seat,
+a tool-free one included, is therefore offered a tool that spawns a
+sub-agent, with overrides naming other models. No setting removes the
+tool, so every Codex launch limits its session to one thread, the seat
+itself, and a spawn fails. Without the limit, a seat could hand part of
+its work to a model its receipt never names. Image generation is off
+on every Codex seat too, since no seat is asked for an image. Browser
+and computer use, also on by default, give a Codex seat no tool under
+Codex 0.160.1.
+
 The jail never contains the runtime directory `/run/user/<uid>`. Its
 session bus would let a seat ask `systemd --user` to start a process
 outside the jail. Antigravity keeps its login in the desktop keyring,

@@ -465,7 +465,7 @@ def command(config, workspace, prompt, *, manual=False, resume=None):
             "project_doc_max_bytes=0",
             "-c",
             "features.multi_agent=false",
-            *blind.CODEX_NO_APPS,
+            *blind.CODEX_SEAT,
         ]
         # `codex exec resume` accepts neither `-s` nor `-C`: it refuses the
         # argument outright and the turn produces no events at all, which

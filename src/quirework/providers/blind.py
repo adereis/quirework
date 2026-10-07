@@ -98,6 +98,31 @@ NO_MCP = ["--mcp-config", '{"mcpServers":{}}', "--strict-mcp-config"]
 # that brings the apps back by another switch refuses the launch.
 CODEX_NO_APPS = ["-c", "features.apps=false"]
 
+# Codex's catalogue puts most models on its second multi-agent version, which
+# ignores `features.multi_agent=false`: every seat, a tool-free one included,
+# is offered `spawn_agent` with overrides naming other models, so a seat
+# could hand part of its work to a model its receipt never names. No setting
+# removes the tool. A session limit of one thread, the seat itself, makes
+# every spawn fail with "agent thread limit reached". Codex refuses a limit
+# of zero, and refuses a misspelled key, so a rename stops the launch rather
+# than reopening the door. A model still on the first version is unaffected,
+# and `features.multi_agent=false` removes the tools there.
+CODEX_NO_SUBAGENTS = [
+    "-c",
+    "features.multi_agent_v2.max_concurrent_threads_per_session=1",
+]
+
+# Image generation is a tool on every codex seat with a shell, and no seat
+# is asked for an image. It spends the account's quota on whatever prompt
+# the model writes.
+CODEX_NO_IMAGES = ["-c", "features.image_generation=false"]
+
+# What every codex seat turns off, whatever else its launcher gives it.
+# Browser and computer use, also on by default, give a `codex exec` seat on
+# Linux no tool under Codex 0.160.1, measured from the tools in the request
+# a seat sends; the tool-free seats name them off regardless.
+CODEX_SEAT = [*CODEX_NO_APPS, *CODEX_NO_SUBAGENTS, *CODEX_NO_IMAGES]
+
 
 def _options():
     """Read policy from the selected project for this operation."""
@@ -1575,7 +1600,7 @@ CANARY_ARGV = {
         'web_search="disabled"',
         "-c",
         'personality="none"',
-        *CODEX_NO_APPS,
+        *CODEX_SEAT,
         "-s",
         "read-only",
         "-m",

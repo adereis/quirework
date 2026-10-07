@@ -327,7 +327,7 @@ def command(runner, model, effort, mode, sid, images, prompt):
             'personality="none"',
             "-c",
             'web_search="disabled"',
-            *blind.CODEX_NO_APPS,
+            *blind.CODEX_SEAT,
             # Over-request and let Codex clamp to the catalog maximum,
             # which is what the operator's own config.toml does and says:
             # "Codex clamps this to the model catalog maximum and reserves
