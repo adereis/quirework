@@ -95,3 +95,30 @@ def test_a_retired_mark_of_punctuation_is_found_between_words(tmp_path):
         page.write_text("The lamp—the light—turns.\n\nA dash — spaced — too.\n")
         hits = jargon.retired(paths=[str(page)])
         assert [h.line for h in hits] == [1, 1, 3, 3]
+
+
+def test_either_apostrophe_meets_a_ruling_written_with_the_other(tmp_path):
+    """Word processors and social sites write "it’s"; a ruling is usually
+    typed "it's". A reader sees one word, so each must find the other."""
+    (tmp_path / "manuscript").mkdir()
+    (tmp_path / "terms.toml").write_text(
+        'scope_glob = [["manuscript", "*.md"]]\n[retired]\n'
+        '"the kettle\'s song" = "the whistle"\n'
+        '"it’s boiling" = "it boils"\n'
+    )
+    settings = {"text": {"terminology": "terms.toml"}}
+    with project_scope(Project.from_settings(tmp_path, settings)):
+        page = tmp_path / "manuscript" / "post.md"
+        page.write_text(
+            "The kettle’s song rose.\n\n"
+            "The kettle's song again.\n\n"
+            "It's boiling now.\n\n"
+            "‘It’s boiling,’ she said.\n"
+        )
+        hits = jargon.retired(paths=[str(page)])
+        assert [(h.line, h.term) for h in hits] == [
+            (1, "The kettle’s song"),
+            (3, "The kettle's song"),
+            (5, "It's boiling"),
+            (7, "It’s boiling"),
+        ]

@@ -295,9 +295,19 @@ def scan_text(text: str, path: str) -> list[Hit]:
     return sorted(hits, key=lambda h: h.line)
 
 
+# A straight and a curly apostrophe are one character to a reader, and
+# prose arrives with both: typed by hand, or pasted from a word processor
+# or a social site. The class consumes exactly one character, so a match's
+# span still indexes the prose as written. `text tells` folds them too.
+_APOSTROPHE = "['‘’]"
+
+
 def _phrase(phrase: str) -> re.Pattern:
-    """A retired phrase as written, in any case, across any line break."""
-    body = r"\s+".join(re.escape(w) for w in phrase.split())
+    """A retired phrase as written, in any case, across any line break, with
+    either apostrophe wherever the phrase has one."""
+    body = r"\s+".join(
+        re.sub(_APOSTROPHE, _APOSTROPHE, re.escape(w)) for w in phrase.split()
+    )
     # The word guards keep "al" out of "real". They belong only at an end that
     # is a word character: a retired mark of punctuation is written touching
     # the words on both sides ("the lamp—the light"), and a guard there would

@@ -929,8 +929,10 @@ and visual choices out of Quirework's implementation:
 - `text.terminology`: `terms`, `retired`, `allow`, `scope_glob`, and
   `exclude_names`. A term warns and waits for the author's ruling; a
   `retired` phrase is a ruling already made, so `text check` fails while
-  one is back in reader-facing prose. Without `scope_glob`, the scope is
-  the manuscript's prose files.
+  one is back in reader-facing prose. It matches in any case, across a
+  line break, and with either apostrophe: a ruling typed "it's" also
+  finds "it’s" as a word processor or a social site writes it. Without
+  `scope_glob`, the scope is the manuscript's prose files.
 - `text.tells_policy`: `phrases`, a table of regular expressions mapped
   to why each reads as machine-made; `contrast`, which turns the English
   contrast detectors off when false; and `scope_glob` and
