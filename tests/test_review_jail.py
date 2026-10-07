@@ -1,5 +1,6 @@
 """A jailed reviewer can read the history it reviews; a synthetic repository."""
 
+import json
 import shutil
 import subprocess
 import sys
@@ -162,3 +163,84 @@ def test_inside_a_real_jail_a_hidden_path_reads_as_empty(tmp_path, monkeypatch):
         )
         with pytest.raises(ValueError, match="hidden path is still readable"):
             review.preflight(delta, record, ENV)
+
+
+CODEX = {
+    "harness": "codex",
+    "model": "demo-model",
+    "effort": "high",
+    "max_context_window": 400_000,
+}
+
+
+def test_a_jailed_codex_reviewer_leaves_confinement_to_the_jail(tmp_path):
+    """Codex's own sandbox cannot start in the jail's read-only checkout.
+
+    Codex 0.160.1 masks protected directories such as `.agents` and `.aws`
+    in every writable root, a missing one needs a mount point created, and
+    the checkout refuses the file. Every command and every write failed, the
+    report included, and the turn still completed. Unjailed it starts, but
+    must be told the report directory is writable, because the record store
+    lies outside both the checkout and temp.
+    """
+    report = tmp_path / "report"
+    extra = "sandbox_workspace_write.writable_roots=" + json.dumps([str(report)])
+    for mode, session in (("run", None), ("resume", "s-1"), ("fork", "s-1")):
+        jailed, _ = review.command(CODEX, mode, session, report)
+        assert 'sandbox_mode="danger-full-access"' in jailed
+        assert not any("writable_roots" in a for a in jailed)
+        unjailed, _ = review.command(CODEX, mode, session, report, jailed=False)
+        assert 'sandbox_mode="workspace-write"' in unjailed
+        # As config, because a resume refuses `--add-dir` as it refuses `-s`.
+        assert extra in unjailed and "--add-dir" not in unjailed
+    run, _ = review.command(CODEX, "run", None, report)
+    assert run[run.index("-s") + 1] == "danger-full-access"
+    assert "-s" not in review.command(CODEX, "resume", "s-1", report)[0]
+
+
+def _codex_turn(private, session, *contexts):
+    """A turn's event stream, and the native session codex keeps beside it."""
+    native = private / "sessions" / "2026" / "01" / "02"
+    native.mkdir(parents=True)
+    (native / f"rollout-2026-01-02T00-00-00-{session}.jsonl").write_text(
+        "".join(
+            json.dumps(
+                {
+                    "timestamp": at,
+                    "type": "turn_context",
+                    "payload": {
+                        "model": "demo-model",
+                        "effort": "high",
+                        "sandbox_policy": {"type": kind},
+                    },
+                }
+            )
+            + "\n"
+            for at, kind in contexts
+        )
+    )
+    return [
+        {"type": "thread.started", "thread_id": session},
+        {"type": "item.completed", "item": {"type": "agent_message", "text": "Done."}},
+        {"type": "turn.completed", "usage": {}},
+    ]
+
+
+def test_a_jailed_codex_turn_proves_the_sandbox_it_was_served(tmp_path):
+    # A run begun before the driver stopped asking for codex's own sandbox
+    # carries that turn's context, and only the newest one is this turn's.
+    private = tmp_path / "resumed"
+    rows = _codex_turn(
+        private,
+        "s-1",
+        ("2026-01-01T09:00:00.000Z", "workspace-write"),
+        ("2026-01-02T09:00:00.000Z", "danger-full-access"),
+    )
+    receipt = review._answer("codex", CODEX, rows, private)
+    assert receipt["sandbox"] == "danger-full-access"
+
+    # A release that ignored the setting would complete the same silent way.
+    ignored = tmp_path / "ignored"
+    rows = _codex_turn(ignored, "s-2", ("2026-01-02T09:00:00.000Z", "workspace-write"))
+    with pytest.raises(ValueError, match="served sandbox 'workspace-write'"):
+        review._answer("codex", CODEX, rows, ignored)

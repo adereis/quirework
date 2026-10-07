@@ -386,7 +386,30 @@ def resolve_run(name, store=None):
     return hits[0]
 
 
-def command(config, mode, session_id, report_dir):
+def codex_sandbox(jailed):
+    """The sandbox a codex reviewer runs its own commands and edits under.
+
+    Jailed, none: the jail is the sandbox. It binds the repository
+    read-only and the report directory writable, and codex's own
+    `workspace-write` cannot start inside it. In Codex 0.160.1 that sandbox
+    masks protected directories such as `.git`, `.agents` and `.aws` in
+    every writable root, a missing one needs a mount point created for it,
+    and the jail's read-only checkout refuses the file. Every shell command
+    and every file write then failed, the report included, and the turn
+    still completed with nothing reviewed. `danger-full-access` leaves confinement to the jail, which is
+    where a Claude reviewer's has always been. A shell reaches the same
+    network either way, the one the jail leaves open for the provider.
+
+    Unjailed, `workspace-write`, never `read-only`: read-only refuses the
+    report too, which costs the reviewer the write-as-you-go protection and
+    leaves a killed turn with nothing. `command` adds the report directory
+    as a writable root, since it lies in the record store outside the
+    checkout and outside temp, the only places this sandbox lets codex write.
+    """
+    return "danger-full-access" if jailed else "workspace-write"
+
+
+def command(config, mode, session_id, report_dir, *, jailed=True):
     """Return argv and stdin bytes for a review turn.
 
     The prompt never passes through a shell, and never through argv either:
@@ -406,6 +429,7 @@ def command(config, mode, session_id, report_dir):
             "resume": ["exec", "resume", session_id],
             "fork": ["exec", "fork", session_id],
         }[mode]
+        sandbox = codex_sandbox(jailed)
         args = [
             "codex",
             *head,
@@ -431,21 +455,26 @@ def command(config, mode, session_id, report_dir):
             *drivers.window_flags(config),
             # NOT project_doc_max_bytes=0. The workshop zeroes it to keep the
             # instruction stack out of a blind writer; a reviewer needs it.
-            # NOT read-only: codex's own read-only sandbox refuses every
-            # write including the report file, which costs the reviewer the
-            # write-as-you-go protection and leaves a killed turn with
-            # nothing. The repository is enforced read-only by the jail's
-            # ro-bind, which is the layer that should be doing it; the harness
-            # policy only has to leave the report directory writable.
+            # The sandbox travels as config as well as `-s`, because a resume
+            # refuses `-s` and `--add-dir` alike; see `codex_sandbox`.
             "-c",
-            'sandbox_mode="workspace-write"',
+            f'sandbox_mode="{sandbox}"',
+            *(
+                []
+                if jailed
+                else [
+                    "-c",
+                    "sandbox_workspace_write.writable_roots="
+                    + json.dumps([str(report_dir)]),
+                ]
+            ),
             "--skip-git-repo-check",
             "--json",
             "-",
         ]
         if mode == "run":
             args.insert(args.index("--json"), "-s")
-            args.insert(args.index("--json"), "workspace-write")
+            args.insert(args.index("--json"), sandbox)
         return args, None
     if harness == "claude":
         settings = json.loads(blind.BLIND_SETTINGS[1])
@@ -510,7 +539,7 @@ def command(config, mode, session_id, report_dir):
     _fail(f"unknown harness: {harness}")
 
 
-def canary(config, label):
+def canary(config, label, *, jailed=True):
     """Prove a reviewer's flags on the installed runner (``canary``).
 
     A reviewer is a contextual audit, not a blind seat: it stands in the
@@ -518,6 +547,12 @@ def canary(config, label):
     hold is the web, the operator's connected services or Codex's injected
     personality, and that is what its canary proves, under this module's own
     command with the canary's prompt, model and effort.
+
+    ``jailed`` builds the command the reviewer will actually run, since a
+    jailed and an unjailed codex reviewer ask for different sandboxes. The
+    canary cannot stand where the reviewer stands, in a read-only checkout,
+    so it cannot see whether the runner's own sandbox starts there; that is
+    why a jailed reviewer runs none (``codex_sandbox``).
     """
     from quirework.providers import canary as canaries
 
@@ -530,7 +565,7 @@ def canary(config, label):
             "effort": canaries.EFFORT,
             "max_context_window": canaries.WINDOW,
         }
-        args, _ = command(twin, "run", None, workdir)
+        args, _ = command(twin, "run", None, workdir, jailed=jailed)
         return canaries.Twin(args, prompt.encode())
 
     contract = canaries.Contract(tree=True, context=True)
@@ -831,6 +866,7 @@ def _answer(harness, config, rows, private):
         "answer": "",
         "usage": None,
         "native_transcripts": [],
+        "sandbox": None,
     }
     if harness == "codex":
         ids = {r["thread_id"] for r in rows if r.get("type") == "thread.started"}
@@ -904,13 +940,31 @@ def _answer(harness, config, rows, private):
             native = drivers.json_rows(path)
             drivers._no_compaction(native)
             contexts += [
-                r["payload"] for r in native if r.get("type") == "turn_context"
+                (r.get("timestamp", ""), r["payload"])
+                for r in native
+                if r.get("type") == "turn_context"
             ]
-        models = {c.get("model") for c in contexts}
-        efforts = {c.get("effort") for c in contexts}
+        models = {c.get("model") for _, c in contexts}
+        efforts = {c.get("effort") for _, c in contexts}
         if models and (models != {config["model"]} or efforts != {config["effort"]}):
             _fail(f"codex model/effort mismatch: {models}, {efforts}")
         out["model"] = config["model"] if models else None
+        # A private home means a jailed reviewer, and the sandbox it ran under
+        # is checked the way its model is, because a release can ignore a
+        # setting without rejecting it. Only the newest context is this turn's.
+        # A resumed session carries every earlier turn's, and those may
+        # predate a change in what the driver asks for, as the move off
+        # codex's own sandbox inside the jail did.
+        if contexts:
+            newest = max(contexts, key=lambda c: c[0])[1]
+            served = (newest.get("sandbox_policy") or {}).get("type")
+            if served != codex_sandbox(jailed=True):
+                _fail(
+                    f"codex served sandbox {served!r} inside the jail, not "
+                    f"{codex_sandbox(jailed=True)!r}; its own sandbox may not "
+                    "start in a read-only checkout"
+                )
+            out["sandbox"] = served
     return out
 
 
@@ -1161,7 +1215,7 @@ def _turn(
 
     # Jailed or not, a reviewer that will actually start is proven first: its
     # flags are what keep the web and the operator's services out of it.
-    proven = None if dry_run else canary(config, f"review {record.name}")
+    proven = None if dry_run else canary(config, f"review {record.name}", jailed=jailed)
     # The bus a runner such as agy needs is opened around the whole launch:
     # the jail's argv names its socket, and the proxy must outlive the
     # reviewer's process and no longer.
@@ -1209,7 +1263,11 @@ def _turn(
                 brief_text, delta, report_path / "report.md", persona=persona, kind=kind
             )
         args, _ = command(
-            config, "resume" if mode == "continue" else mode, session_id, report_dir
+            config,
+            "resume" if mode == "continue" else mode,
+            session_id,
+            report_dir,
+            jailed=jailed,
         )
         print(f"review: {launch_summary(config, jailed)}", file=sys.stderr)
         if dry_run:
@@ -1333,6 +1391,7 @@ def _collect(
             "answer": "",
             "usage": None,
             "native_transcripts": [],
+            "sandbox": None,
         }
         status, error = "failed", str(exc)
         # The session id is the one thing a continuation needs, and reading it
@@ -1431,6 +1490,7 @@ def _collect(
             else "explicit CLI selection; no served receipt"
         ),
         "effort": config["effort"],
+        "sandbox": receipt["sandbox"],
         "answer_source": source,
         "report": out_name if body.strip() else None,
         "findings": findings,
@@ -1564,8 +1624,9 @@ def handoff(entry, name, harness, record):
     if status == "completed":
         if entry.get("model") and harness == "codex":
             checks.append(
-                f"model {entry['model']} at effort {entry['effort']}, as the "
-                "harness turn context recorded them"
+                f"model {entry['model']} at effort {entry['effort']}"
+                + (f", sandbox {entry['sandbox']}" if entry.get("sandbox") else "")
+                + ", as the harness turn context recorded them"
             )
         elif entry.get("model"):
             checks.append(

@@ -761,6 +761,16 @@ reviews the final text and says so in a line that is easy to miss. Its
 private home does not carry the operator's saved conclusions. An
 unjailed fallback is disclosed in the run record.
 
+Inside the jail, a Codex reviewer runs without Codex's own command
+sandbox. The jail already confines it, and that sandbox cannot start in
+a read-only checkout: under Codex 0.160.1 every command and every
+write failed there, the report included, while the turn still
+completed. Each jailed Codex turn proves from Codex's own session
+record that it ran this way. Its shell commands reach the same network
+a Claude reviewer's do, the one the jail leaves open for the provider.
+An unjailed Codex reviewer keeps Codex's sandbox, with the report
+directory added as the one place outside the checkout it may write.
+
 The checkout can hold the same kind of priors: scratch notes with
 rulings in them, or an earlier review of the same range, often in
 git-ignored directories. `sops.review_policy.hidden` lists such paths

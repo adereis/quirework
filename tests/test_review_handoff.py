@@ -57,6 +57,13 @@ def test_a_completed_turn_states_its_report_its_checks_and_the_trailer(project):
     assert out["checks"][2] == "find-only (workspace: unchanged)"
     assert out["report_path"] in out["next"]
     assert f"`Reviewed-by: demo-model ({RUN})`" in out["next"]
+    jailed = review.handoff(
+        entry(sandbox="danger-full-access"), RUN, "codex", project / "state"
+    )
+    assert jailed["checks"][0] == (
+        "model demo-model at effort high, sandbox danger-full-access, "
+        "as the harness turn context recorded them"
+    )
 
 
 def test_an_unconfirmed_effort_is_not_claimed(project):
