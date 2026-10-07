@@ -819,11 +819,13 @@ commit using one carries. A turn can complete without finishing: the
 harness completing means the process ended with an answer, not that the
 answer covers the delta. When the reviewer's own report ends at a
 `STATUS:` other than `complete`, the checks say the review is not
-finished and the next step says so before anything else. For a quota
-stop it is the `continue`
-command, and for a failure it is the evidence to read before anything
-is launched again. The operator does not have to reconstruct any of
-this from the record.
+finished and the next step says so before anything else. A reviewer
+that never wrote its report file is flagged the same way, and what is
+banked is its final message. A reviewer whose tools all failed ends
+like this, having read nothing either, while every other check passes.
+For a quota stop the next step is the `continue` command, and for a
+failure it is the evidence to read before anything is launched again.
+The operator does not have to reconstruct any of this from the record.
 
 The reviewer is asked to put anything it notices outside the delta in
 its own section, as a lead rather than a finding. A defect older than

@@ -116,6 +116,75 @@ def test_a_report_that_says_it_stopped_short_is_not_passed_off_as_done(project):
     assert f"`Reviewed-by: demo-model ({RUN})`" in out["next"]
 
 
+def _banked(project, report=None):
+    """Collect one completed codex turn, with or without a report file."""
+    record = project / "state" / RUN
+    (project / "records" / "reviews" / RUN).mkdir(parents=True)
+    turn = record / "turns" / "01"
+    (turn / "report").mkdir(parents=True)
+    if report is not None:
+        (turn / "report" / "report.md").write_text(report)
+    said = "No command ran, so nothing in the delta was reviewed."
+    (turn / "events.jsonl").write_text(
+        "".join(
+            review.json.dumps(row) + "\n"
+            for row in (
+                {"type": "thread.started", "thread_id": "s-1"},
+                {
+                    "type": "item.completed",
+                    "item": {"type": "agent_message", "text": said},
+                },
+                {"type": "turn.completed", "usage": {}},
+            )
+        )
+    )
+    (record / "run.json").write_text(
+        review.json.dumps(
+            {
+                "run": RUN,
+                "config": {"harness": "codex", "model": "demo-model", "effort": "high"},
+                "delta": {"kind": "worktree", "paths": ["chapter.md"]},
+                "turns": [],
+            }
+        )
+    )
+    tree = {"head": "0" * 40, "status": ""}
+    return review._collect(
+        RUN,
+        "01",
+        tree,
+        tree,
+        0.0,
+        store=record.parent,
+        jailed=False,
+        report_dir=turn / "report",
+    )
+
+
+def test_a_reviewer_that_never_wrote_its_report_is_not_passed_off(project, capsys):
+    """A reviewer whose tools all failed completes like any other.
+
+    It wrote no report, no status line and no findings, and its final message
+    said in plain words that nothing was reviewed. Every receipt check passed
+    and the turn read as an empty review.
+    """
+    out = _banked(project)
+    assert out["status"] == "completed" and out["findings"] == 0
+    assert "REPORT FILE NOT WRITTEN" in out["checks"][2]
+    assert out["next"].startswith("The reviewer never wrote the report file")
+    assert "never wrote its report file" in capsys.readouterr().err
+    (turn,) = review.status(RUN, store=project / "state")["turns"]
+    assert turn["answer_source"] == "final message"
+
+
+def test_a_written_report_carries_no_such_flag(project, capsys):
+    out = _banked(project, report="STATUS: complete\n\n## F1 A fictional defect\n")
+    assert out["findings"] == 1
+    assert not any("NOT WRITTEN" in check for check in out["checks"])
+    assert out["next"].startswith("Read records/reviews/")
+    assert "never wrote" not in capsys.readouterr().err
+
+
 @pytest.mark.parametrize(
     "body, stated, flagged",
     [

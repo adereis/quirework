@@ -1544,6 +1544,12 @@ def _collect(
             "the reviewer did not finish the review it was given",
             file=sys.stderr,
         )
+    if status == "completed" and source == "final message":
+        print(
+            f"review: turn {turn}: the reviewer never wrote its report file; "
+            "what is banked is its final message",
+            file=sys.stderr,
+        )
     if verdict["workspace"] != "unchanged":
         # Never quietly, and never louder than the evidence warrants.
         print(f"review: turn {turn}: {verdict['note']}", file=sys.stderr)
@@ -1646,6 +1652,15 @@ def handoff(entry, name, harness, record):
             f"{entry['report_status']}"
             + (f" ({entry['progress'].strip()})" if entry.get("progress") else "")
         )
+    # Every frame tells the reviewer where to write. One that never did may
+    # have had no working tools at all, and then it read nothing either: a
+    # reviewer whose sandbox could not start completed this way, with no
+    # findings and no status line, and every other check passed.
+    unwritten = status == "completed" and entry.get("answer_source") == "final message"
+    if unwritten:
+        checks.append(
+            "REPORT FILE NOT WRITTEN: what is banked is the reviewer's final message"
+        )
     checks.append(
         ("find-only" if entry["find_only"] else "FIND-ONLY NOT ESTABLISHED")
         + f" (workspace: {entry['workspace']})"
@@ -1667,6 +1682,13 @@ def handoff(entry, name, harness, record):
                 "fixed and a new turn, and one that stopped short can be asked "
                 f"to finish with `quirework sop review resume {name} --brief "
                 "FILE`. " + step
+            )
+        if unwritten:
+            step = (
+                "The reviewer never wrote the report file it was told to "
+                "write, which is how a reviewer whose tools all failed ends. "
+                "Read its final message for the cause before counting it as "
+                "a review. " + step
             )
         if entry["workspace"] == "reviewed-files-moved":
             step += " The files under review changed during the run."
@@ -1917,6 +1939,7 @@ def status(name=None, store=None):
                     "findings",
                     "progress",
                     "report_status",
+                    "answer_source",
                     "find_only",
                     "report",
                 )
