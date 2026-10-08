@@ -1,4 +1,5 @@
-"""The jail's shape and the pruning of seats' private runner homes.
+"""The jail's shape, the free flag probes, and the pruning of seats'
+private runner homes.
 
 No model is called. Two tests start a real bubblewrap jail, and one of
 them a real bus proxy, when the machine has them.
@@ -410,3 +411,45 @@ def test_the_real_proxy_lets_through_exactly_the_granted_name(tmp_path, monkeypa
     assert "SECRETS=0" in text, (text, err.decode())
     assert "SYSTEMD=1" in text, "the filter refuses every name but the granted one"
     assert text.strip().splitlines()[-1].strip() == "bus"
+
+
+FEATURES = """\
+apps                                     stable             false
+apps_mcp_path_override                   removed            false
+image_generation                         stable             true
+"""
+
+
+def test_every_codex_seat_setting_has_a_free_probe():
+    """A setting added to CODEX_SEAT that no probe covers fails here, so
+    `blind check` cannot quietly stop watching one."""
+    labels = {p.label for p in blind.RUNNERS["codex"].probes}
+    for arg in blind.CODEX_SEAT[1::2]:
+        assert arg.partition("=")[0] in labels
+
+
+def test_a_seat_switch_must_be_listed_and_false():
+    assert blind._reads_false("apps")(FEATURES) is None
+    assert "reads true" in blind._reads_false("image_generation")(FEATURES)
+    # A prefix of another row's name is not that row.
+    assert "names nothing" in blind._reads_false("app")(FEATURES)
+
+
+def test_a_probe_verdict_fails_an_accepted_flag(monkeypatch):
+    """`features list` exits 0 whether or not a switch took, so only the
+    verdict can tell a live switch from a dead one."""
+    from dataclasses import replace
+
+    probe = next(p for p in blind.RUNNERS["codex"].probes if p.verdict)
+    monkeypatch.setattr(
+        blind.subprocess,
+        "run",
+        lambda argv, **kw: subprocess.CompletedProcess(argv, 0, FEATURES, ""),
+    )
+    on = replace(probe, offline=False, verdict=blind._reads_false("image_generation"))
+    off = replace(probe, offline=False, verdict=blind._reads_false("apps"))
+    assert blind.run_probe("codex", on) == (
+        False,
+        "image_generation reads true under the override",
+    )
+    assert blind.run_probe("codex", off) == (True, "")

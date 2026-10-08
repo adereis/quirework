@@ -48,6 +48,7 @@ import subprocess
 import sys
 import re
 import time
+from collections.abc import Callable
 from contextlib import contextmanager
 from dataclasses import dataclass
 from pathlib import Path
@@ -551,6 +552,9 @@ class Probe:
     # API cannot buy a token, so the day a key goes dead the probe FAILS
     # instead of quietly running the prompt it was carrying.
     offline: bool = True
+    # What no needle can say, such as which value one row of a table holds:
+    # given the output, the problem it shows, or None.
+    verdict: Callable[[str], str | None] | None = None
 
 
 @dataclass(frozen=True)
@@ -572,6 +576,64 @@ class Runner:
     # Session-bus names the runner must reach to run at all. The jail never
     # binds the raw bus; it proxies exactly these in (see `Bus`).
     bus_names: tuple[str, ...] = ()
+
+
+def _reads_false(feature: str) -> Callable[[str], str | None]:
+    """A verdict: ``feature`` is listed, and false, in ``codex features list``."""
+
+    def verdict(out: str) -> str | None:
+        for line in out.splitlines():
+            cols = line.split()
+            if cols and cols[0] == feature:
+                if cols[-1] == "false":
+                    return None
+                return f"{feature} reads {cols[-1]} under the override"
+        return f"{feature} is not in `codex features list`, so the switch names nothing"
+
+    return verdict
+
+
+def _codex_seat_probes() -> tuple[Probe, ...]:
+    """The free contract for ``CODEX_SEAT``, derived from the set itself.
+
+    Codex accepts an unknown feature name in silence. A switch renamed
+    upstream would hand every seat back what it turns off, with every
+    launch still green and the canary blind to anything but MCP servers.
+    Codex's own feature list under the override is the free witness, so
+    each ``features.NAME=false`` in the set must leave NAME listed and
+    false. A switch added to the set is probed here with no edit.
+
+    The thread limit is a setting rather than a feature, and follows the
+    invalid-value rule: Codex refuses a limit of zero, and the day that
+    refusal stops arriving the key is dead. No free check can show that a
+    spawn still fails, only that the limit is still read.
+    """
+    probes = []
+    for arg in CODEX_SEAT[1::2]:
+        key, _, value = arg.partition("=")
+        name = key.removeprefix("features.")
+        if value == "false" and name != key and "." not in name:
+            probes.append(
+                Probe(
+                    key,
+                    ("-c", arg, "features", "list"),
+                    expect="ok",
+                    verdict=_reads_false(name),
+                    why="a seat switch every codex launch carries; if it "
+                    "stops reading false, the seat gets back what it turns off",
+                )
+            )
+    limit = CODEX_NO_SUBAGENTS[1].partition("=")[0]
+    probes.append(
+        Probe(
+            limit,
+            ("-c", f"{limit}=0", "features", "list"),
+            needles=(limit, "at least 1"),
+            why="the one-thread limit is all that stops a seat's spawn_agent "
+            "from handing work to a model its receipt never names",
+        )
+    )
+    return tuple(probes)
 
 
 # Each runner gets a PRIVATE, PER-RUN home bound over its real one. Three jobs
@@ -671,6 +733,7 @@ RUNNERS = {
                 why="keeps the operator's config and the project AGENTS.md "
                 "out of the seat",
             ),
+            *_codex_seat_probes(),
         ),
         notes="sessions, logs and the memory store replaced by the private home",
     ),
@@ -1059,6 +1122,9 @@ def run_probe(name: str, probe: Probe) -> tuple[bool, str]:
     missing = [n for n in probe.needles if n.lower() not in low]
     if missing:
         return False, f"output no longer mentions {', '.join(missing)}"
+    problem = probe.verdict(out) if probe.verdict else None
+    if problem:
+        return False, problem
     return True, ""
 
 

@@ -914,6 +914,16 @@ on every Codex seat too, since no seat is asked for an image. Browser
 and computer use, also on by default, give a Codex seat no tool under
 Codex 0.160.1.
 
+Codex ignores a feature name it does not know, so a switch renamed in a
+new release would turn nothing off while every launch stays green.
+`sop blind check` proves each one for free: every feature a Codex seat
+turns off must read false in Codex's own feature list under that
+setting, and the thread limit must still be refused at zero. It cannot
+see a tool a new release turns on by default, and neither can the
+canary, which reads MCP servers. Only the request a seat sends shows
+its tools: point `openai_base_url` at a local listener that saves the
+request and answers with an error, and no model is reached.
+
 The jail never contains the runtime directory `/run/user/<uid>`. Its
 session bus would let a seat ask `systemd --user` to start a process
 outside the jail. Antigravity keeps its login in the desktop keyring,
