@@ -262,3 +262,165 @@ def test_the_receipt_says_what_was_read_and_flags_what_was_not(
     assert receipt["referenced_files_in_order"] is False
     assert receipt["read_root_digests_held"] is True
     assert any("Not proven read in full" in f for f in receipt["red_flags"])
+
+
+def draft(mount, n):
+    return "drafts/" + chapter(mount, n).rsplit("/", 1)[-1]
+
+
+def test_reacting_before_opening_the_next_chapter_is_proven(tmp_path, mount):
+    """Reading in order is not reading blind. What keeps a reaction from
+    drawing on later material is that it exists before the next file opens."""
+    referenced = [chapter(mount, 0), chapter(mount, 1)]
+    pairs = reads.reaction_pairs(referenced, [draft(mount, 0), draft(mount, 1)])
+    assert pairs == [draft(mount, 0), draft(mount, 1)]
+    blind = claude_session(
+        tmp_path,
+        [
+            dict(name="Read", input={"file_path": chapter(mount, 0)}),
+            dict(name="Write", input={"file_path": "/tmp/work/" + draft(mount, 0)}),
+            dict(name="Read", input={"file_path": chapter(mount, 1)}),
+            dict(name="Write", input={"file_path": "/tmp/work/" + draft(mount, 1)}),
+        ],
+    )
+    assert reads.reactions_before_next(reads.events(blind), referenced, pairs)
+    (tmp_path / "ahead").mkdir()
+    ahead = claude_session(
+        tmp_path / "ahead",
+        [
+            dict(name="Read", input={"file_path": chapter(mount, 0)}),
+            dict(name="Read", input={"file_path": chapter(mount, 1)}),
+            dict(name="Write", input={"file_path": "/tmp/work/" + draft(mount, 0)}),
+            dict(name="Write", input={"file_path": "/tmp/work/" + draft(mount, 1)}),
+        ],
+    )
+    events = reads.events(ahead)
+    assert reads.coverage([(p, r) for k, p, r in events if k == "read"], referenced)[1]
+    assert reads.reactions_before_next(events, referenced, pairs) is False
+
+
+def test_one_codex_snippet_is_ordered_by_what_it_awaits_first(tmp_path, mount):
+    """A snippet that writes a reaction and then opens the next chapter is
+    reading blind; one that opens two chapters before writing is not."""
+    referenced = [chapter(mount, 0), chapter(mount, 1)]
+    pairs = reads.reaction_pairs(referenced, [draft(mount, 0), draft(mount, 1)])
+
+    def patch(n):
+        return (
+            'await tools.apply_patch("*** Begin Patch\\n*** Add File: /tmp/work/'
+            + draft(mount, n)
+            + '\\n+A reaction.\\n*** End Patch");'
+        )
+
+    def cat(n):
+        return f'await tools.exec_command({{cmd: "cat {chapter(mount, n)}"}});'
+
+    blind = codex_session(
+        tmp_path,
+        [
+            dict(type="custom_tool_call", input=cat(0)),
+            dict(type="custom_tool_call", input=patch(0) + "\n" + cat(1)),
+            dict(type="custom_tool_call", input=patch(1)),
+        ],
+    )
+    assert reads.reactions_before_next(reads.events(blind), referenced, pairs)
+    (tmp_path / "ahead").mkdir()
+    ahead = codex_session(
+        tmp_path / "ahead",
+        [
+            dict(type="custom_tool_call", input=cat(0) + "\n" + cat(1)),
+            dict(type="custom_tool_call", input=patch(0) + "\n" + patch(1)),
+        ],
+    )
+    assert reads.reactions_before_next(reads.events(ahead), referenced, pairs) is False
+
+
+def test_a_heredoc_writes_its_target_and_its_body_is_not_read(tmp_path, mount):
+    """`cat > file <<EOF` names a file it writes, not one it prints, and the
+    body is the reaction's text: a line in it that looks like a command
+    must not be counted as opening a chapter."""
+    later = chapter(mount, 1)
+    command = (
+        f"cat > /tmp/work/{draft(mount, 0)} <<'EOF'\ncat {later}\nEOF\ncat {later}"
+    )
+    session = codex_session(
+        tmp_path,
+        [
+            dict(
+                type="local_shell_call", action={"command": ["cat", chapter(mount, 0)]}
+            ),
+            dict(type="function_call", arguments=json.dumps({"cmd": command})),
+        ],
+    )
+    events = reads.events(session)
+    assert events == [
+        ("read", chapter(mount, 0), None),
+        ("write", f"/tmp/work/{draft(mount, 0)}", None),
+        ("read", later, None),
+    ]
+
+
+def test_a_reaction_the_record_cannot_parse_is_unproven(tmp_path, mount):
+    referenced = [chapter(mount, 0), chapter(mount, 1)]
+    pairs = reads.reaction_pairs(referenced, [draft(mount, 0), draft(mount, 1)])
+    session = codex_session(
+        tmp_path,
+        [
+            dict(
+                type="local_shell_call", action={"command": ["cat", chapter(mount, 0)]}
+            ),
+            dict(type="custom_tool_call", input="await tools.write(name, text);"),
+            dict(
+                type="local_shell_call", action={"command": ["cat", chapter(mount, 1)]}
+            ),
+        ],
+    )
+    assert reads.reactions_before_next(reads.events(session), referenced, pairs) is None
+    # A turn whose single output is not a per-file reaction has nothing to pair.
+    assert reads.reaction_pairs(referenced, ["drafts/notes.md"]) is None
+
+
+def test_the_receipt_flags_a_seat_that_read_ahead(tmp_path, mount, monkeypatch):
+    path = plan_file(
+        tmp_path, mount, read_root_digests={str(mount): tree_digest(mount)}
+    )
+    plan = json.loads(path.read_text())
+    plan["seats"][0]["turns"][0]["outputs"] = [draft(mount, 0), draft(mount, 1)]
+    path.write_text(json.dumps(plan))
+    engine.prepare(path, tmp_path / "record", resolve=False)
+    run = engine.Run(tmp_path / "record")
+    state = run.state("reader")
+    state["pending"] = dict(turn="wholebook", mode="start", parent_id="sid")
+    run.save("reader", state)
+    run.record("reader", "wholebook").mkdir(parents=True)
+    (run.workspace("reader") / "drafts").mkdir(parents=True, exist_ok=True)
+    for n in (0, 1):
+        (run.workspace("reader") / draft(mount, n)).write_text("A reaction.\n")
+    session = claude_session(
+        tmp_path,
+        [
+            dict(name="Read", input={"file_path": chapter(mount, 0)}),
+            dict(name="Read", input={"file_path": chapter(mount, 1)}),
+            dict(name="Write", input={"file_path": "/tmp/work/" + draft(mount, 0)}),
+            dict(name="Write", input={"file_path": "/tmp/work/" + draft(mount, 1)}),
+        ],
+    )
+    monkeypatch.setattr(
+        harness,
+        "receipt",
+        lambda *a: dict(
+            session_id="sid",
+            model="fixture-model",
+            rollout=str(session),
+            answer="Done.",
+            forked_from=None,
+        ),
+    )
+    monkeypatch.setattr(harness, "history_image_hashes", lambda *a: [])
+    run.collect_turn("reader", 0)
+    receipt = run.state("reader")["done"]["wholebook"]["receipt"]
+    assert receipt["referenced_files_in_order"] is True
+    assert receipt["reactions_before_next"] is False
+    assert any(
+        "before the reaction to the file before it" in f for f in receipt["red_flags"]
+    )

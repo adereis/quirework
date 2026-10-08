@@ -837,12 +837,39 @@ class Run:
                     "describe bytes other than the ones the plan pinned."
                 )
         if turn.get("referenced_files"):
+            recorded = reads.events(receipt["rollout"])
             fully, in_order, unproven = reads.coverage(
-                reads.file_reads(receipt["rollout"]), turn["referenced_files"]
+                [(p, r) for kind, p, r in recorded if kind == "read"],
+                turn["referenced_files"],
             )
             total = len(turn["referenced_files"])
             receipt["referenced_files_read"] = f"{fully}/{total}"
             receipt["referenced_files_in_order"] = in_order
+            # Reading in order is not reading blind: a seat can open every
+            # chapter in sequence and still open three before reacting to the
+            # first. Where each file has a reaction of its own, the record
+            # also says whether each was written before the next file opened.
+            pairs = reads.reaction_pairs(
+                turn["referenced_files"], turn.get("outputs", [])
+            )
+            if pairs:
+                before = reads.reactions_before_next(
+                    recorded, turn["referenced_files"], pairs
+                )
+                receipt["reactions_before_next"] = before
+                if before is False:
+                    receipt.setdefault("red_flags", []).append(
+                        "A referenced file was opened before the reaction to the "
+                        "file before it was written; reactions from that point "
+                        "on may draw on later material."
+                    )
+                elif before is None:
+                    receipt.setdefault("red_flags", []).append(
+                        "Not proven that each reaction was written before the "
+                        "next referenced file was opened. A write the record "
+                        "cannot parse also lands here, so check the native "
+                        "session before calling it read ahead."
+                    )
             if unproven:
                 receipt.setdefault("red_flags", []).append(
                     f"Not proven read in full: {fully} of {total} referenced "
