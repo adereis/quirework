@@ -1089,10 +1089,14 @@ it in its `conftest.py`, and a consumer's suite should do the same.
 
 The canary runs on the cheapest model each runner offers.
 `providers.canary_models` names that model per runner, as in
-`canary_models = {claude = "haiku"}`. Without an entry, Antigravity's is
-picked from `agy models`, and any other runner's canary refuses to run
-rather than fall back to the account's default, which may be its most
-expensive tier.
+`canary_models = {claude = "haiku", codex = "luna"}`. A name resolves as
+a seat's `--model` does: a family to its newest member at every launch,
+so the next release of that model is canaried as itself with no edit
+here, and an exact slug to itself. A name the runner's catalog cannot
+resolve refuses the canary and names this setting. Without an entry,
+Antigravity's is picked from `agy models`, and any other runner's canary
+refuses to run rather than fall back to the account's default, which may
+be its most expensive tier.
 
 Provider account leases have a separate scope from project data. Use the
 same `providers.agy.account` identity for projects sharing an account.

@@ -255,7 +255,13 @@ def require(
             f"{label}: cannot read `{runner} --version`, so nothing can say "
             f"which release this seat would run"
         )
-    model = model or blind.cheapest_model(runner)
+    try:
+        model = model or blind.cheapest_model(runner)
+    except ValueError as exc:
+        raise CanaryError(
+            f"{label}: providers.canary_models names a {runner} model that "
+            f"does not resolve: {exc}"
+        ) from exc
     if model is None:
         # Never the account default: that is whatever the operator selected
         # last, and was a Pro tier the first time an unnamed model ran.

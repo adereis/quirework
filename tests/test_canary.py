@@ -133,6 +133,37 @@ def test_without_a_cheap_model_nothing_runs(project, runs, monkeypatch):
     assert runs == []
 
 
+def test_a_configured_canary_model_resolves_like_a_seats(tmp_path, monkeypatch):
+    """A family named once keeps meaning its newest member, so a new release
+    of the cheap model is canaried as itself without editing the setting."""
+    from quirework.providers import models
+
+    asked = []
+
+    def resolve(harness, requested, effort):
+        asked.append((harness, requested, effort))
+        return {"model": "kestrel-2"}
+
+    monkeypatch.setattr(models, "resolve", resolve)
+    settings = {"providers": {"canary_models": {"codex": "kestrel"}}}
+    with project_scope(Project.from_settings(tmp_path, settings)):
+        assert blind.cheapest_model("codex") == "kestrel-2"
+    assert asked == [("codex", "kestrel", canary.EFFORT)]
+
+
+def test_a_canary_model_that_does_not_resolve_is_refused(project, runs, monkeypatch):
+    """Named but unresolvable is not "no cheap model": the refusal says which
+    setting to fix, and nothing runs."""
+
+    def unresolvable(name):
+        raise ValueError("the catalog offers no family named kestrel")
+
+    monkeypatch.setattr(blind, "cheapest_model", unresolvable)
+    with pytest.raises(canary.CanaryError, match="canary_models.*kestrel"):
+        canary.require("seat", "claude", seat())
+    assert runs == []
+
+
 def test_an_unknown_runner_is_refused(project, runs):
     with pytest.raises(canary.CanaryError, match="no canary knows"):
         canary.require("seat", "kettle-cli", seat())

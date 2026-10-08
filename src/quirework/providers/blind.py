@@ -1610,10 +1610,19 @@ def cheapest_model(name: str) -> str | None:
     For agy: the lowest effort tier of a flash model, picked out of
     ``agy models`` rather than pinned, so a rename cannot silently promote the
     canary to a Pro seat.
+
+    A configured name resolves the way a seat's ``--model`` does: a family
+    to its newest member at every launch, so the next release of the cheap
+    model is canaried as itself without an edit, and an exact slug to
+    itself. A name the runner's catalog cannot resolve raises
+    ``ValueError``, which the canary turns into a refusal naming the
+    setting.
     """
     configured = current_project().get("providers.canary_models", {})
     if name in configured:
-        return configured[name]
+        from quirework.providers import canary, models
+
+        return models.resolve(name, configured[name], canary.EFFORT)["model"]
     if name != "agy":
         return None
     try:
@@ -1697,16 +1706,20 @@ def canary_once(name: str, model: str | None = None, timeout: int = 600) -> dict
     """
     from quirework.providers import canary
 
-    model = model or cheapest_model(name)
+    why = (
+        "could not resolve a cheapest model; refusing to run on the "
+        "account default (pass --model to override)"
+    )
+    try:
+        model = model or cheapest_model(name)
+    except ValueError as exc:
+        model, why = None, f"providers.canary_models does not resolve: {exc}"
     if model is None:
         # Refuse rather than run on whatever the account defaults to: "I could
         # not work out the cheap model" must never mean "use the expensive one".
         return {
             "ok": False,
-            "problems": [
-                "could not resolve a cheapest model; refusing to run on the "
-                "account default (pass --model to override)"
-            ],
+            "problems": [why],
             "inconclusive": True,
             "fields": {},
             "model": None,
