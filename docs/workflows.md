@@ -855,6 +855,21 @@ existing evidence without buying a new answer. An explicit retry is
 allowed only after a provable terminal rejection without an answer.
 Earlier answers and rejected attempts remain immutable.
 
+A turn that stops is never discarded. A provider quota limit the runner
+recognises is recovered by `start` itself: rewound and resubmitted when
+the provider declined before the model ran, continued in its own
+session when the limit arrived partway. Any other stop, such as a
+dropped connection, an API error or a limit worded in a way no
+classifier knows, leaves the turn pending with its session intact, and
+the `stopped:` line says so. Whether to keep that session is the
+operator's decision, made after reading the record: `sop runs continue
+RECORD SEAT TURN --reason TEXT` records it, and the next `start`
+resumes the same session with a short notice that an error cut the turn
+off, without re-sending the turn's material. The receipt keeps the
+reason and a red flag that the answer spans two submissions. A record
+frozen before this command existed answers it with an unknown-choice
+error; its remaining recovery is a distinct new run.
+
 `export` mirrors the record, one directory per seat and turn, with a
 receipt for all of them. `export --flat` writes a one-seat record
 straight into the destination instead: each declared output under its

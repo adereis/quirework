@@ -16,6 +16,7 @@ import pytest
 
 from quirework.runs import engine
 from quirework.providers import harness
+from quirework.providers import quota
 from quirework.runs.storage import hashes
 
 RESET = 4_000_000_000
@@ -447,3 +448,139 @@ def test_retry_sends_an_interrupted_turn_to_the_continuation_instead(two_seats):
     run.save("stalled", state)
     with pytest.raises(RuntimeError, match="continued in its own session"):
         engine.retry(run, "stalled", "one")
+
+
+def claude_events_cut_by_a_fault():
+    """The model ran and the stream then ended with no result at all."""
+    return [
+        dict(type="system", subtype="init", session_id="sid"),
+        dict(
+            type="assistant",
+            session_id="sid",
+            message=dict(model="fixture-model", content=[dict(type="text", text="x")]),
+        ),
+    ]
+
+
+def stopped_without_a_cause(run, rows):
+    record = run.record("stalled", "one")
+    record.mkdir(parents=True, exist_ok=True)
+    (record / "events.jsonl").write_text("".join(json.dumps(r) + "\n" for r in rows))
+    state = run.state("stalled")
+    state["pending"] = dict(
+        turn="one",
+        mode="start",
+        phase="receipt-pending",
+        outputs_before={"drafts/x.md": "abc"},
+    )
+    run.save("stalled", state)
+
+
+def test_the_operator_continues_a_stop_nothing_classified(two_seats):
+    """A dropped stream is no quota and no rejection, and its session is kept.
+
+    The runner cannot tell what was served, so it decides nothing; the
+    operator reads the record and continues the session, and that decision
+    and its reason are what the record keeps.
+    """
+    run = two_seats
+    stopped_without_a_cause(run, claude_events_cut_by_a_fault())
+    result = engine.continue_turn(run, "stalled", "one", "  stream dropped  ")
+    assert result["session_id"] == "sid" and result["continued"]
+
+    after = run.state("stalled")
+    assert after["pending"] is None
+    assert after["session_id"] == "sid"
+    assert after["continuation"] == dict(
+        turn="one",
+        session_id="sid",
+        scope=engine.OPERATOR_CONTINUATION,
+        reason="stream dropped",
+        outputs_before={"drafts/x.md": "abc"},
+    )
+    reason = after["retired_attempts"]["one"]["0"]["reason"]
+    assert "operator continued it in its own session: stream dropped" in reason
+
+
+def test_the_next_submission_resumes_the_session_with_the_error_prompt(
+    two_seats, monkeypatch, canaries_pass
+):
+    """The decision is carried out by `start`: same session, no material."""
+    run = two_seats
+    stopped_without_a_cause(run, claude_events_cut_by_a_fault())
+    engine.continue_turn(run, "stalled", "one", "stream dropped")
+
+    sent = []
+
+    def command(config, policy, mode, sid, prompt, images, files):
+        sent.append(dict(mode=mode, sid=sid, prompt=prompt, material=images + files))
+        return ["fixture"], b"", prompt
+
+    monkeypatch.setattr(harness, "command", command)
+    monkeypatch.setattr(
+        harness, "launch_context", lambda *a: ([], {}, run.private("stalled"))
+    )
+
+    def fail_spawn(*a, **kw):
+        raise OSError("synthetic pre-spawn failure")
+
+    monkeypatch.setattr(engine.subprocess, "Popen", fail_spawn)
+    with pytest.raises(OSError, match="pre-spawn"):
+        run.turn("stalled", 0, 1)
+    assert sent == [
+        dict(
+            mode="resume",
+            sid="sid",
+            prompt=quota.continuation(cause="error"),
+            material=[],
+        )
+    ]
+
+
+def test_continue_refuses_what_it_cannot_honestly_continue(two_seats):
+    run = two_seats
+    with pytest.raises(ValueError, match="--reason"):
+        engine.continue_turn(run, "stalled", "one", " ")
+    with pytest.raises(ValueError, match="needs the pending turn"):
+        engine.continue_turn(run, "stalled", "one", "nothing is pending")
+
+    # No session in the stream: nothing to resume, and no guess is made.
+    stopped_without_a_cause(
+        run,
+        [dict(type="assistant", message=dict(model="fixture-model", content=[]))],
+    )
+    with pytest.raises(RuntimeError, match="no single session"):
+        engine.continue_turn(run, "stalled", "one", "no session")
+
+
+def test_a_recognised_quota_stop_is_left_to_start(two_seats):
+    run = two_seats
+    record = run.record("stalled", "one")
+    claude_events(record / "events.jsonl", interrupted=True)
+    state = run.state("stalled")
+    state["pending"] = dict(turn="one", mode="start", phase="receipt-pending")
+    run.save("stalled", state)
+    with pytest.raises(RuntimeError, match="`start` recovers it"):
+        engine.continue_turn(run, "stalled", "one", "limit")
+
+
+def test_the_resumed_agent_is_told_of_an_error_not_a_limit():
+    """It needs only to know it was cut off; naming a cause would guess."""
+    prompt = quota.continuation(cause="error")
+    assert prompt.startswith("We hit an error")
+    assert "quota" not in prompt and "resume your task" in prompt
+    assert quota.continuation() == quota.CONTINUATION
+    with pytest.raises(ValueError):
+        quota.continuation(cause="weather")
+
+
+def test_continue_is_forwarded_with_its_reason(two_seats, monkeypatch):
+    seen = []
+    monkeypatch.setattr(
+        engine, "frozen_dispatch", lambda root, args: seen.append(args) or 0
+    )
+    code = run_commands.main(
+        ["continue", str(two_seats.root), "stalled", "one", "--reason", "net"]
+    )
+    assert code == 0
+    assert seen[0][2:] == ["stalled", "one", "--reason", "net"]

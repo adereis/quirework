@@ -45,6 +45,9 @@ SCHEMA = 1
 # Waiting out a provider's own reset is the default, because the alternative
 # is losing a long read to a limit that clears itself.
 WAIT_QUOTA_DEFAULT = 21600
+# The continuation scope of a turn the operator chose to continue after a stop
+# the runner could not classify, as against a provider's own limit scope.
+OPERATOR_CONTINUATION = "operator"
 POLICY = dict(
     tools="none",
     system_prompt=None,
@@ -893,11 +896,21 @@ class Run:
             # submissions is still a valid answer, but it is not the same
             # instrument as one delivered in a single unbroken turn, and the
             # write-up has to be able to say so.
-            receipt["quota_continuation"] = state["continuation"]["scope"]
-            receipt.setdefault("red_flags", []).append(
-                "Turn continued after a provider quota limit; the answer spans "
-                "two submissions in one session."
-            )
+            continued = state["continuation"]
+            if continued["scope"] == OPERATOR_CONTINUATION:
+                receipt["operator_continuation"] = continued["reason"]
+                flag = (
+                    "Turn continued by the operator after a stop the runner "
+                    f"could not classify ({continued['reason']}); the answer "
+                    "spans two submissions in one session."
+                )
+            else:
+                receipt["quota_continuation"] = continued["scope"]
+                flag = (
+                    "Turn continued after a provider quota limit; the answer "
+                    "spans two submissions in one session."
+                )
+            receipt.setdefault("red_flags", []).append(flag)
             state.pop("continuation")
         write(record / "receipt.json", receipt)
         if turn["id"] in state["done"]:
@@ -948,17 +961,36 @@ class Run:
         to resume and the operator is told so rather than handed a silent
         restart.
         """
-        state = self.state(seat)
-        pending = state.get("pending") or {}
-        if pending.get("turn") != turn_id:
+        if (self.state(seat).get("pending") or {}).get("turn") != turn_id:
             raise RuntimeError("quota recovery needs the pending turn")
-        session = detail.get("session_id")
-        if not session:
+        if not detail.get("session_id"):
             raise RuntimeError(
                 "a quota limit interrupted this turn after the model ran, but "
                 "its event stream names no single session to continue; "
                 "inspect the record rather than restarting the turn"
             )
+        scope = detail.get("scope") or "quota"
+        self.continue_in_session(
+            seat,
+            turn_id,
+            detail["session_id"],
+            dict(scope=scope),
+            "interrupted by a provider quota limit after the model ran; the "
+            f"session holds the partial work and is continued, not restarted "
+            f"({scope})",
+        )
+
+    def continue_in_session(self, seat, turn_id, session, cause, reason):
+        """Retire the stopped attempt and make the next submission resume it.
+
+        Shared by the two ways a turn comes to be continued: a quota limit the
+        classifier recognised, and an operator who read a stop nothing
+        classified and decided the session was worth keeping. `cause` is
+        merged into the continuation record, which the receipt later reads to
+        say how the answer came to span two submissions.
+        """
+        state = self.state(seat)
+        pending = state.get("pending") or {}
         if state.get("session_id") and state["session_id"] != session:
             raise RuntimeError("interrupted turn names a different session")
         # A fork interrupted on its first turn has already branched, so the
@@ -977,18 +1009,11 @@ class Run:
         state["continuation"] = dict(
             turn=turn_id,
             session_id=session,
-            scope=detail.get("scope") or "quota",
+            **cause,
             outputs_before=pending.get("outputs_before", {}),
         )
         self.save(seat, state)
-        retire_attempt(
-            self,
-            seat,
-            turn_id,
-            "interrupted by a provider quota limit after the model ran; the "
-            f"session holds the partial work and is continued, not restarted "
-            f"({detail.get('scope') or 'quota'})",
-        )
+        retire_attempt(self, seat, turn_id, reason)
 
     def turn(self, seat, index, timeout, wait_quota=None):
         """Perform one turn, absorbing a quota refusal by waiting it out."""
@@ -1047,7 +1072,9 @@ class Run:
         continuation = state.get("continuation") or {}
         resuming = continuation.get("turn") == turn["id"]
         if resuming:
-            prompt, images, files = quota.continuation(), [], []
+            after_error = continuation.get("scope") == OPERATOR_CONTINUATION
+            prompt = quota.continuation(cause="error" if after_error else "quota")
+            images, files = [], []
         else:
             prompt, images, files = self.stage(seat, index)
         mode = (
@@ -1276,7 +1303,16 @@ class Run:
                         OSError,
                         subprocess.SubprocessError,
                     ) as exc:
-                        return "stopped: " + str(exc)
+                        # A pending turn is kept, never discarded: say so, and
+                        # name the two decisions left to the operator.
+                        kept = (self.state(n).get("pending") or {}).get("turn")
+                        if not kept:
+                            return "stopped: " + str(exc)
+                        return (
+                            f"stopped: {exc}; turn {kept!r} is kept with its "
+                            "session. Read its record, then `continue` it or "
+                            "prepare a distinct new run"
+                        )
 
                 # `submit` carries the caller's project context into each
                 # worker. A bare pool.map would let a worker re-resolve the
@@ -1590,7 +1626,8 @@ def retry(run, seat, turn):
                 "would discard the reading and reasoning the session still holds"
             )
         raise RuntimeError(
-            "submission/answer is unresolved or invalid; recover it or prepare a distinct new run"
+            "submission/answer is unresolved or invalid; investigate it, then "
+            "`continue` it in its own session or prepare a distinct new run"
         )
     retire_attempt(run, seat, turn, "terminal rejection without an answer")
     return dict(
@@ -1598,6 +1635,65 @@ def retry(run, seat, turn):
         turn=turn,
         next_attempt=run.state(seat)["attempts"][turn],
         submitted=False,
+    )
+
+
+def continue_turn(run, seat, turn, reason):
+    """Continue a stopped turn in its own session, on the operator's word.
+
+    A turn can stop for many reasons a classifier will never enumerate: a
+    dropped connection, an API error, a limit worded in a way nobody has seen
+    yet. Every one of them leaves the turn pending with its session intact,
+    and nearly all are recovered by telling the agent there was an error and
+    to resume. Whether to do that is the operator's call, made after reading
+    the record, so the runner never decides it and never forecloses it: this
+    is the act that records the decision, and the next `start` carries it out.
+
+    The session is read from the stopped attempt's own event stream, so it
+    must name exactly one. A stop the quota classifier already recognises is
+    left to `start`, which recovers it the provider's way.
+    """
+    if not reason or not reason.strip():
+        raise ValueError("say why the turn is continued: --reason TEXT")
+    state = run.state(seat)
+    pending = state["pending"]
+    if not pending or pending["turn"] != turn:
+        raise ValueError(
+            "continue needs the pending turn; completed answers are immutable"
+        )
+    if pending.get("pid") and process_identity(pending["pid"]) == pending.get(
+        "process_identity"
+    ):
+        raise RuntimeError("submitted process is alive")
+    name = run.seats[seat]["config"]["harness"]
+    record = run.record(seat, turn)
+    if harness.quota_stop(name, record):
+        raise RuntimeError(
+            "this stop is a provider quota limit the runner recognises; "
+            "`start` recovers it, rewinding or continuing as the provider's "
+            "own record requires"
+        )
+    session = quota.session_id(name, quota.rows(record / "events.jsonl"))
+    if not session:
+        raise RuntimeError(
+            "the stopped attempt's event stream names no single session to "
+            "continue; a distinct new run is the remaining recovery"
+        )
+    reason = reason.strip()
+    run.continue_in_session(
+        seat,
+        turn,
+        session,
+        dict(scope=OPERATOR_CONTINUATION, reason=reason),
+        f"stopped without a classified cause; the operator continued it in "
+        f"its own session: {reason}",
+    )
+    return dict(
+        seat=seat,
+        turn=turn,
+        session_id=session,
+        next_attempt=run.state(seat)["attempts"][turn],
+        continued=True,
     )
 
 

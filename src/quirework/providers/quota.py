@@ -125,9 +125,29 @@ CONTINUATION = (
 )
 
 
-def continuation(note=None):
-    """The resume prompt, plus one caller line naming where its work is."""
-    return CONTINUATION if not note else f"{CONTINUATION}\n\n{note.strip()}\n"
+# The same prompt for a turn continued after any other stop: a dropped
+# connection, an API error, a failure no classifier names. It does not guess
+# at the cause, because the agent needs only to know that it was cut off and
+# that its work survived.
+ERROR_CONTINUATION = (
+    "We hit an error and your previous turn was cut off partway through. "
+    "Nothing about the assignment has changed and nothing you already did "
+    "has been lost.\n\n"
+    "Please resume your task. Re-read what you have already written, do not "
+    "redo work you have already completed, do not start over, and finish the "
+    "task you were given."
+)
+
+
+def continuation(note=None, *, cause="quota"):
+    """The resume prompt, plus one caller line naming where its work is.
+
+    `cause` is "quota" for a provider limit and "error" for any other stop.
+    """
+    if cause not in ("quota", "error"):
+        raise ValueError(f"unknown continuation cause: {cause}")
+    text = CONTINUATION if cause == "quota" else ERROR_CONTINUATION
+    return text if not note else f"{text}\n\n{note.strip()}\n"
 
 
 def rows(path):

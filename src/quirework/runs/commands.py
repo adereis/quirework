@@ -65,6 +65,16 @@ def main(argv=None):
     p.add_argument("seat")
     p.add_argument("turn")
     p = sub.add_parser(
+        "continue",
+        help="continue a stopped turn in its own session; `start` then resumes it",
+    )
+    p.add_argument("record")
+    p.add_argument("seat")
+    p.add_argument("turn")
+    p.add_argument(
+        "--reason", required=True, help="what the record showed, kept in the receipt"
+    )
+    p = sub.add_parser(
         "import", help="record an answer made outside the run, with its provenance"
     )
     p.add_argument("record")
@@ -141,6 +151,8 @@ def main(argv=None):
                 forwarded += ["--prompts"]
             elif args.action == "retry":
                 forwarded += [args.seat, args.turn]
+            elif args.action == "continue":
+                forwarded += [args.seat, args.turn, "--reason", args.reason]
             elif args.action == "import":
                 args.answer = str(Path(args.answer).expanduser().resolve())
                 args.provenance = str(Path(args.provenance).expanduser().resolve())
@@ -157,7 +169,7 @@ def main(argv=None):
             run = engine.Run(args.record)
             if args.action == "inspect":
                 result = run.inspect(prompts=args.prompts)
-            elif args.action in ("retry", "import"):
+            elif args.action in ("retry", "continue", "import"):
                 if args.seat not in run.seats or args.turn not in {
                     t["id"] for t in run.seats[args.seat]["turns"]
                 }:
@@ -167,17 +179,20 @@ def main(argv=None):
                     lock(run.root / "locks" / f"{args.seat}.lock"),
                 ):
                     run.verify()
-                    result = (
-                        engine.retry(run, args.seat, args.turn)
-                        if args.action == "retry"
-                        else engine.import_answer(
+                    if args.action == "retry":
+                        result = engine.retry(run, args.seat, args.turn)
+                    elif args.action == "continue":
+                        result = engine.continue_turn(
+                            run, args.seat, args.turn, args.reason
+                        )
+                    else:
+                        result = engine.import_answer(
                             run,
                             args.seat,
                             args.turn,
                             args.answer,
                             read(args.provenance),
                         )
-                    )
             elif args.action == "verify":
                 result = dict(integrity=run.verify(), **run.inspect())
             elif args.action == "export":
