@@ -476,6 +476,33 @@ def manifest_path(out: Path) -> Path:
     return out.parent / f"{out.name}.manifest.json"
 
 
+def part_heads(rows) -> list[str]:
+    """The Part line each body chapter of a prose directory opens with.
+
+    A print reader turns a divider page before a Part's first chapter, and from
+    then on knows which Part they are in. A prose directory has no pages, so a
+    seat reading it could not say where one Part ended, and its remarks about
+    the book's structure described the delivery instead of the book. Each
+    chapter file therefore carries what the pages would have shown: the first
+    chapter of a Part opens with the divider, its Part's title on its own above
+    a rule, and every later chapter of that Part opens with a running head
+    naming it. A chapter outside any Part, such as a preface, carries neither.
+
+    The titles are the printed ones from `book_rows`, so the directory cannot
+    name a Part differently from the divider in the book.
+    """
+    heads, current = [], None
+    for row in rows:
+        if row.part is None:
+            heads.append("")
+        elif row.part != current:
+            heads.append(f"# {row.part}\n\n---\n\n")
+        else:
+            heads.append(f"*{row.part}*\n\n")
+        current = row.part
+    return heads
+
+
 def prose_dir(out: Path) -> int:
     """Build the directory a SELF-DRIVEN seat reads: clean chapter text, real names.
 
@@ -521,7 +548,8 @@ def prose_dir(out: Path) -> int:
     (out / "chapters").mkdir(parents=True, exist_ok=True)
     (out / "figures").mkdir(exist_ok=True)
     figures = 0
-    for i, row in enumerate(rows, start=1):
+    parts = {}
+    for i, (row, head) in enumerate(zip(rows, part_heads(rows)), start=1):
         source = stage / row.rel
         # No alt text: the seat opens the figure files themselves, and a
         # description beside each embed let one rate plates it never opened.
@@ -529,7 +557,9 @@ def prose_dir(out: Path) -> int:
             source.read_text(encoding="utf-8"), alt=False
         )
         stem = Path(row.rel).stem
-        (out / "chapters" / f"{i:02d}-{stem}.md").write_text(text, encoding="utf-8")
+        name = f"{i:02d}-{stem}.md"
+        (out / "chapters" / name).write_text(head + text, encoding="utf-8")
+        parts[name] = row.part
         for ref in refs:
             # The embed is relative to the chapter that carries it, which is the
             # only placement the projection itself assumes. Resolving it against
@@ -580,6 +610,9 @@ def prose_dir(out: Path) -> int:
                 "source_sha": sha,
                 "dirty": dirty,
                 "chapters": [p.name for p in sorted((out / "chapters").glob("*.md"))],
+                # Which Part each chapter file sits in, so a read's answers
+                # about the book's structure can be checked against it.
+                "parts": parts,
                 "files": hashes(out),
                 "digest": tree_digest(out),
             },

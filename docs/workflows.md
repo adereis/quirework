@@ -669,10 +669,16 @@ A self-driven read launches once.
 projection of each chapter plus the figures under the names the chapter
 text references. It prints no alt text: the seat opens the figures
 themselves, and a description beside each embed let a seat rate plates
-it never opened. Its provenance goes beside the directory, never in it,
+it never opened. A directory has no pages, so it carries the book's
+Parts as text instead: the first chapter of each Part opens with that
+Part's divider title above a rule, every later chapter of the Part
+opens with a running head naming it, and a chapter outside any Part
+carries neither. A seat can then say which Part a chapter sat in, as a
+print reader can. Its provenance goes beside the directory, never in it,
 because the directory is what the seat mounts: `DIR.manifest.json`
-records the book state, whether it had uncommitted edits, and a digest
-of every file. `quirework publish plan selfdriven DIR PLAN --mount PATH`
+records the book state, whether it had uncommitted edits, the Part each
+chapter file sits in, and a digest of every file.
+`quirework publish plan selfdriven DIR PLAN --mount PATH`
 compiles the walk: the seat opens each chapter with its own tools, opens
 the figures that chapter references, and writes a reaction file before
 opening the next one. One session's prefix only grows, so most of its

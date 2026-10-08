@@ -177,6 +177,49 @@ def test_a_prose_directory_names_its_book_beside_itself(book, tmp_path):
     assert record["digest"] == tree_digest(out)
     assert record["source_sha"]
     assert "chapters/04-the-sidecar.md" in record["files"]
+    # The example has no Parts, so no chapter opens with one.
+    assert set(record["parts"].values()) == {None}
+    first = (out / "chapters" / "01-index.md").read_text(encoding="utf-8")
+    assert first.startswith("# ")
+
+
+def test_a_prose_directory_shows_the_parts_a_print_reader_would_see():
+    """A divider before each Part's first chapter, a running head after.
+
+    Without them a seat could not say which Part a chapter sat in, and its
+    remarks about the book's structure described the delivery instead. A
+    chapter outside every Part, like a preface, carries neither, and a Part
+    that resumes after an unparted page announces itself again, as a divider
+    would.
+    """
+    from quirework.publish.bookstage import Row
+    from quirework.publish.panelkit import part_heads
+
+    def chapter(title, part):
+        return Row("chapter", f"{title}.qmd", title, None, True, part)
+
+    one, two = "Part One: Rooms", "Part Two: Doors"
+    heads = part_heads(
+        [
+            chapter("preface", None),
+            chapter("hall", one),
+            chapter("stair", one),
+            chapter("porch", two),
+            chapter("gate", two),
+        ]
+    )
+    assert heads == [
+        "",
+        f"# {one}\n\n---\n\n",
+        f"*{one}*\n\n",
+        f"# {two}\n\n---\n\n",
+        f"*{two}*\n\n",
+    ]
+    assert part_heads([chapter("a", one), chapter("b", None), chapter("c", one)]) == [
+        f"# {one}\n\n---\n\n",
+        "",
+        f"# {one}\n\n---\n\n",
+    ]
 
 
 def test_the_machine_habit_policy_reads_the_chapters_in_order(book):
