@@ -169,7 +169,7 @@ def seat_name(model):
     """What a seat is called: its model's family, without maker or version.
 
     ``luna`` is Luna, ``gemini-flash`` is Gemini-Flash, and an exact id such
-    as ``claude-haiku-4-5`` is still Haiku. The name is how the other models
+    as ``claude-haiku-5-5`` is still Haiku. The name is how the other models
     address the seat, so it is the one people use rather than the catalog's.
     """
     words = [

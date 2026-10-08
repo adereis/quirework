@@ -613,9 +613,9 @@ def test_a_larger_window_never_gets_a_smaller_budget():
 
 def test_every_seat_is_told_its_budget_and_the_time_limit(table):
     _, plan = roundtable.load(table)
-    assert [s["allowance"] for s in plan["seats"]] == [160_000, 497_040, 629_145]
+    assert [s["allowance"] for s in plan["seats"]] == [600_000, 497_040, 629_145]
     haiku = " ".join((table / "seats/haiku/START.md").read_text().split())
-    assert "Your budget is 160,000 tokens, 80% of your 200,000-token window." in haiku
+    assert "Your budget is 600,000 tokens, 60% of your 1,000,000-token window." in haiku
     assert "the turn that crosses it is that model's last" in haiku
     assert "a turn still running after 4 hours, which is treated as hung" in haiku
     assert "estimates" not in haiku
@@ -639,25 +639,25 @@ def test_each_turn_states_what_was_spent_and_what_remains(table, monkeypatch):
     roundtable.run(table)
     roundtable.decide(table, "close", "")
     roundtable.run(table)
-    assert "budget is 160,000 tokens. This is your first turn." in seats.prompt(
+    assert "budget is 600,000 tokens. This is your first turn." in seats.prompt(
         "haiku", 1
     )
     assert (
-        "You have used 30,000; your last turn added 30,000. 130,000 remain."
+        "You have used 30,000; your last turn added 30,000. 570,000 remain."
         in seats.prompt("haiku", 2)
     )
     assert (
-        "You have used 72,000; your last turn added 42,000. 88,000 remain."
+        "You have used 72,000; your last turn added 42,000. 528,000 remain."
         in seats.prompt("haiku", 3)
     )
 
 
 def test_a_seat_past_its_budget_takes_no_more_turns(table, monkeypatch):
     seats = Seats(monkeypatch)
-    seats.context[("haiku", 1)] = 170_000
+    seats.context[("haiku", 1)] = 650_000
     roundtable.run(table)
     board = (table / "board" / "board.md").read_text()
-    assert "Haiku has used its context budget (170,000 of 160,000 tokens)" in board
+    assert "Haiku has used its context budget (650,000 of 600,000 tokens)" in board
     assert not [p for p in seats.prompts if p["seat"] == "haiku" and p["round"] > 1]
     second = [e for e in roundtable.entries(table) if e["kind"] == "round"][1]
     assert "haiku" not in second["order"]
@@ -666,12 +666,12 @@ def test_a_seat_past_its_budget_takes_no_more_turns(table, monkeypatch):
         assert "of 2 this round" in head
         assert "Haiku" not in head, "nobody is told Haiku is still to come"
     text = roundtable.render_status(roundtable.status(table))
-    assert "retired after round 1: 170,000 of 160,000 tokens" in text
+    assert "retired after round 1: 650,000 of 600,000 tokens" in text
 
 
 def test_a_room_whose_every_seat_is_spent_cannot_go_on(table, monkeypatch):
     seats = Seats(monkeypatch)
-    for seat, spent in (("haiku", 170_000), ("luna", 500_000), ("gemini-flash", 0)):
+    for seat, spent in (("haiku", 650_000), ("luna", 500_000), ("gemini-flash", 0)):
         seats.context[(seat, 1)] = spent
     # agy's estimate is not what the stand-in writes, so retire it by hand.
     value = read(room.state_path(table, "gemini-flash"))
@@ -730,9 +730,10 @@ def test_agy_occupancy_is_its_last_step_request(tmp_path):
 def test_windows_are_known_before_a_model_has_run():
     known = drivers.stated_window
     assert known({"harness": "claude", "model": "haiku"}) == (
-        200_000,
+        1_000_000,
         "documented window",
     )
+    assert known({"harness": "claude", "model": "claude-haiku-5-5"})[0] == 1_000_000
     assert known({"harness": "claude", "model": "claude-opus-5-5"})[0] == 1_000_000
     assert known({"harness": "agy", "model": "gemini-3.1-pro-high"})[0] == 1_048_576
     codex = {
@@ -743,6 +744,17 @@ def test_windows_are_known_before_a_model_has_run():
     }
     assert known(codex) == (828_400, "Codex catalog")
     assert known({"harness": "agy", "model": "gpt-oss-120b-medium"}) == (None, None)
+
+
+def test_an_older_model_named_exactly_keeps_its_own_window():
+    # The family alias follows the newest Haiku, whose window is a million;
+    # Haiku 4.5, pinned by its id, still has the 200,000 it shipped with.
+    known = drivers.stated_window
+    for model in ("claude-haiku-4-5", "claude-haiku-4-5-20251001", "Claude-Haiku-4-5"):
+        assert known({"harness": "claude", "model": model}) == (
+            200_000,
+            "documented window",
+        ), model
 
 
 def test_a_table_prepared_before_budgets_keeps_its_old_context_line(table):

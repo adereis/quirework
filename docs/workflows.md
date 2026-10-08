@@ -464,7 +464,7 @@ and a folder the whole table shares.
 
 `quirework sop roundtable prepare PLAN NAME` stages it, and `run` takes
 turns until the supervisor is needed. A seat's name comes from its model
-family, without maker or version, so `claude-haiku-4-5` is still Haiku;
+family, without maker or version, so `claude-haiku-5-5` is still Haiku;
 a seat may set `name` instead. A table seats each model once, because
 two seats called Opus would bring back the attribution confusion that
 real names remove.
@@ -582,21 +582,24 @@ the board anyway.
 A table runs without compaction, so a seat's context has to last every
 round, and each seat is given a budget in tokens before its first turn.
 The budget is 80% of a window up to 500,000 tokens and 60% of a larger
-one, and a larger window never gets a smaller budget. Haiku's 200,000
-tokens become 160,000, and Sonnet's million become 600,000. Large
-windows keep less of themselves because every request re-sends the
+one, and a larger window never gets a smaller budget. A 400,000-token
+window keeps 320,000, and the million of Haiku or Sonnet keeps 600,000.
+Large windows keep less of themselves because every request re-sends the
 whole conversation, and a model reasons less reliably near the end of a
 very long one. The controller does not resume a seat whose context has
-passed its budget. The turn that crosses it is delivered like any
-other, the board then says the seat has used its budget, and later
-rounds run without it. A seat is never reopened in a fresh session,
-which would hand it a new window.
+passed its budget. The turn that crosses it is delivered like any other,
+the board then says the seat has used its budget, and later rounds run
+without it. A seat is never reopened in a fresh session, which would
+hand it a new window.
 
 The budget has to be stated before the first turn, but only Codex
 publishes a window before a model has run. Claude's windows and Gemini's
 come from the providers' documentation, and a model whose window nothing
-records is refused until the plan gives the seat a `window`. Every turn
-states what the seat has used, what its last turn added, and what
+records is refused until the plan gives the seat a `window`. A family
+alias such as `haiku` gets its newest model's window, because that is
+the model the CLI starts. An older model named by its exact id gets its
+own, so `claude-haiku-4-5` keeps the 200,000 tokens it always had. Every
+turn states what the seat has used, what its last turn added, and what
 remains. All three harnesses report the size of every request, and the
 latest one is what the seat is told: Claude in its assistant messages,
 Codex in its rollout, Antigravity in the usage each finished step

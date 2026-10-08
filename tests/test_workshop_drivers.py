@@ -203,6 +203,7 @@ def test_family_resolution_rules():
         "gemini-3.8-flash",
         "gemini-3.1-pro",
         "claude-haiku-4-5-20251001",
+        "claude-haiku-5-5",
     ]
     pick = d.newest_in_family
     # Versions compare as numbers, so 5.10 is newer than 5.4, and the
@@ -210,7 +211,8 @@ def test_family_resolution_rules():
     assert pick("terra", slugs) == "gpt-5.10-terra"
     assert pick("terra-mini", slugs) == "gpt-6-terra-mini"
     assert pick("Gemini-Pro", slugs) == "gemini-3.1-pro"
-    assert pick("haiku", slugs) == "claude-haiku-4-5-20251001"
+    # A date suffix is not a newer version: Haiku 5.5 outranks 4.5's snapshot.
+    assert pick("haiku", slugs) == "claude-haiku-5-5"
     assert pick("nova", slugs) is None
     with pytest.raises(
         ValueError, match=r"more than one family \(gemini-flash, gemini-pro\)"

@@ -802,17 +802,25 @@ REQUEST_EVIDENCE = {
 # own in the catalog, but Claude Code reports a window only in a finished
 # turn's result and Antigravity never does, so a procedure that must state a
 # budget before the first turn reads the window here. Claude's figures are
-# Anthropic's model table (cached 2026-06), and Claude Code reported the same
-# for Haiku and Sonnet in the September 2026 pilots. Gemini's is Google's
-# documented 1M-token input window for Gemini 3 models; Antigravity may cap
-# a session lower than that and has no way to say so.
+# Anthropic's model table (cached 2026-10); Claude Code reported the same for
+# Sonnet in the September 2026 pilots and for Haiku 5.5 in October 2026.
+# Gemini's is Google's documented 1M-token input window for Gemini 3 models;
+# Antigravity may cap a session lower than that and has no way to say so.
+#
+# A family's figure is its newest model's, because the CLI resolves a family
+# alias to that model. An older model named by its exact id can have a smaller
+# window than its family's newest, so it is listed under that id: Haiku 4.5
+# kept 200,000 tokens when Haiku 5.5 brought the family to a million.
 KNOWN_WINDOWS = {
-    "haiku": 200_000,
+    "haiku": 1_000_000,
     "sonnet": 1_000_000,
     "opus": 1_000_000,
     "fable": 1_000_000,
     "mythos": 1_000_000,
     "gemini": 1_048_576,
+}
+KNOWN_EXACT_WINDOWS = {
+    "claude-haiku-4-5": 200_000,
 }
 
 
@@ -830,7 +838,11 @@ def stated_window(config):
         # of 872,000 is the 828,400 its own token counts report.
         share = config.get("effective_context_window_percent") or 100
         return int(window * share / 100), "Codex catalog"
-    words = set(_words(config["model"]))
+    model = str(config["model"]).strip().lower()
+    for exact, window in KNOWN_EXACT_WINDOWS.items():
+        if model == exact or re.fullmatch(re.escape(exact) + r"-\d{8}", model):
+            return window, "documented window"
+    words = set(_words(model))
     for family, window in KNOWN_WINDOWS.items():
         if family in words:
             return window, "documented window"
