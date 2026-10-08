@@ -172,6 +172,45 @@ def test_codex_and_agy_report_the_same_two_shapes(tmp_path):
     assert quota.resumable("agy", agy_cut) == "cv-2"
 
 
+def codex_failed(path, error, *, produced=True):
+    rows = [dict(type="thread.started", thread_id="th-4")]
+    if produced:
+        rows.append(
+            dict(type="item.completed", item=dict(type="agent_message", text="half"))
+        )
+    return write(path / "events.jsonl", rows + [dict(type="turn.failed", error=error)])
+
+
+def test_a_codeless_codex_usage_limit_is_still_a_limit(tmp_path):
+    """A plan's limit arrives as a sentence with no code, and is resumable.
+
+    Read as a fault, it strands a seat that was most of the way through its
+    turn: the receipt is called ambiguous and nothing records the session to
+    continue.
+    """
+    notice = "You have hit your usage limit. Try again at 9:15 PM."
+    cut = codex_failed(tmp_path / "cut", dict(message=notice))
+    detail = quota.classify("codex", cut)
+    assert detail["phase"] == "interrupted"
+    assert detail["scope"] == "quota"
+    assert quota.resumable("codex", cut) == "th-4"
+
+    refused = codex_failed(tmp_path / "refused", dict(message=notice), produced=False)
+    assert quota.classify("codex", refused)["phase"] == "refused"
+
+
+def test_a_codex_fault_is_not_read_as_a_limit(tmp_path):
+    """The code wins where there is one; a codeless fault stays ambiguous."""
+    coded = codex_failed(
+        tmp_path / "coded",
+        dict(code="server_error", message="usage limit could not be checked"),
+    )
+    assert quota.classify("codex", coded) is None
+
+    dropped = codex_failed(tmp_path / "dropped", dict(message="stream disconnected"))
+    assert quota.classify("codex", dropped) is None
+
+
 def test_an_ambiguous_session_is_not_resumed(tmp_path):
     """Two sessions in one turn's stream means the record is not what it claims.
 

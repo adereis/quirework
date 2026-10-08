@@ -86,7 +86,8 @@ def spend_order(items, tier=lambda item: item.get("tier", "standard")):
 
 # What a provider says when it is a limit rather than a fault. Claude's
 # wording has been seen as both "You've hit your session limit" and
-# "Claude AI usage limit reached|<epoch>"; agy and codex report a code.
+# "Claude AI usage limit reached|<epoch>"; codex reports a code, except
+# that 0.161 states a plan's usage limit in prose with none.
 # The structured signals below are preferred wherever a harness emits one,
 # and this is the fallback for a harness that only returns prose.
 LIMIT_TEXT = re.compile(
@@ -221,11 +222,25 @@ def _claude(stream):
     )
 
 
+def _codex_limit(error):
+    """Whether a failed Codex turn says it stopped for an account limit.
+
+    The code is the structured signal and wins wherever it is present, so a
+    coded failure that is not a limit code stays a fault. Codex 0.161 reports
+    a ChatGPT plan's usage limit with no code at all, only the sentence, and a
+    seat stopped that way was filed as an ambiguous receipt and could not be
+    resumed. A codeless failure therefore falls back to the limit wording the
+    other harnesses are already read by.
+    """
+    code = error.get("code")
+    if code:
+        return code in CODEX_LIMIT_CODES
+    return bool(LIMIT_TEXT.search(str(error.get("message", ""))))
+
+
 def _codex(stream):
     stopped = [r for r in stream if r.get("type") == "turn.failed"]
-    failed = [
-        r for r in stopped if (r.get("error") or {}).get("code") in CODEX_LIMIT_CODES
-    ]
+    failed = [r for r in stopped if _codex_limit(r.get("error") or {})]
     if not failed:
         busy = [
             r
@@ -246,7 +261,7 @@ def _codex(stream):
     produced = any(r.get("type") == "item.completed" for r in stream)
     return dict(
         phase="interrupted" if produced else "refused",
-        scope=error.get("code"),
+        scope=error.get("code") or "quota",
         resets_at=error.get("resets_at"),
         detail=str(error.get("message", ""))[:200],
         output_tokens=None,
