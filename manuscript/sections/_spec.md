@@ -98,7 +98,7 @@ A tool built to avoid a book can still be how a book gets finished; it
 just is not the book it was built for. The book Quirework finishes is
 this one. Full Stop stays unfinished. The memoir's last chapter is
 called Full Stop because that is where the memoir stops and that book
-does not.
+does not. Nothing before that last chapter says how the book ends.
 
 ## Written with the tool it is about {#written-with-the-tool}
 

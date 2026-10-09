@@ -135,6 +135,11 @@
   Full Stop stays unfinished; the last chapter is named for where the
   memoir stops.
 
+- 2026-10-09T20:43:09Z · sharpen · claude-code
+  b4a3a485-e4aa-40a3-9ef7-9ee12164c6bf
+
+  The book's ending is said only in the last chapter, Full Stop.
+
 ## Written with the tool it is about {#written-with-the-tool}
 
 - 2026-10-09T20:11:55Z · seed · claude-code
