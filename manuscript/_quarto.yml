@@ -4,12 +4,24 @@ project:
 book:
   title: "Side Quest"
   author: "Cy Dequest"
-  # The nine chapters, in three parts, join this list once the story has
-  # named them. A chapter's file name is its identifier, so it waits for
-  # a name worth keeping.
   chapters:
     - index.qmd
     - sections/preface.qmd
+    - part: "The Book That Disagreed"
+      chapters:
+        - sections/hows-the-book.qmd
+        - sections/two-shops.qmd
+        - sections/index-cards.qmd
+    - part: "The Side Quest"
+      chapters:
+        - sections/otto.qmd
+        - sections/the-name.qmd
+        - sections/nine-hundred-lines.qmd
+    - part: "The Book That Got Finished"
+      chapters:
+        - sections/em.qmd
+        - sections/the-demo.qmd
+        - sections/full-stop.qmd
 format:
   html:
     theme: cosmo

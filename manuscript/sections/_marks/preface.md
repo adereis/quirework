@@ -5,5 +5,8 @@
 
 # Preface {.unnumbered #sec-preface}
 
-<!-- @todo no prose yet, and no bindings until there is prose to bind;
-     written once Cy has told the story -->
+<!-- @guidance shorter than a chapter; admits the book is written with
+     the tool, and says the names are changed once, flatly -->
+<!-- @bind(written-with-the-tool) -->
+<!-- @bind(side-quest) -->
+<!-- @todo no prose yet -->

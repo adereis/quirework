@@ -52,22 +52,41 @@ it in conversation, write it here in the same session.
 ## The book
 
 - A preface and nine chapters, in three parts, about twelve thousand
-  words in all.
+  words in all: each chapter about thirteen hundred words, the preface
+  shorter.
+- Part one, The Book That Disagreed: How's the Book?, Two Shops, Index
+  Cards. Part two, The Side Quest: Otto, The Name, Nine Hundred Lines.
+  Part three, The Book That Got Finished: Em, The Demo, Full Stop. The
+  book that got finished is this one; Full Stop stays unfinished.
 - The title is Side Quest.
 - The other book is Full Stop, a natural history of punctuation, which
   stalled eleven chapters in. That count is Full Stop's, not this
   book's: wherever the prose says "eleven chapters", its sidecar carries
   `<!-- @count(eleven chapters) Full Stop's, not this book's -->`.
-- No chapter files exist yet beyond the preface. Each chapter's file is
-  named for what it is about once the story gives it a name, because the
-  file name is the chapter's permanent identifier.
+- A chapter's file name is its permanent identifier. Retitling a chapter
+  does not rename its file.
 
 ## Cast
 
 Use only the pronouns recorded here. Where none is recorded, use the
 person's name or they/them, and ask Cy.
 
+Every name is changed. The two printer's shops in Full Stop are never
+named at all.
+
 - **Cy Dequest**: the author and narrator. Pronouns: they/them.
+- **Hedda Count**: Cy's manager. Kind, busy, ends every one-on-one with
+  "how's the book?" Pronouns: she/her.
+- **Red Penn**: Cy's editor at a small press. Waited three years for
+  chapter twelve of Full Stop. Pronouns: he/him.
+- **Otto Complete**: the AI assistant Cy used before Quirework existed.
+  Eager, agreeable, finishes Cy's sentences. A mirror, not a villain.
+  Pronouns: none, ever, and never "it". The book says "Otto" every time,
+  which is a little absurd and exactly right.
+- **Em Dash**: a colleague whose every message holds three em dashes. Cy
+  suspects Em is a language model and has never asked, and never will in
+  this book. Not a villain. Pronouns: never stated. The book says "Em"
+  every time.
 
 ## House rules for the prose
 
@@ -78,3 +97,8 @@ Add each rule here as Cy states it.
    hyphens and `&mdash;` both render as one. Use a colon, a comma, or
    two sentences. `quirework dev check` refuses one, so nobody has to
    remember.
+2. Dry and concrete.
+3. Never explain a joke.
+4. Short. If a paragraph can go, it goes.
+5. US spelling, everywhere: color, not colour. Cy's habits predate the
+   style guide; the style guide wins.
