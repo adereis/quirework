@@ -80,9 +80,14 @@ enforce. Otto's chapter does not raise the question.
 
 ## The name came from Otto {#the-name}
 
-Around two in the morning Cy typed "quirk" into a chat, Otto finished it
-as "quirework", and Cy liked it better than anything they would have
-chosen.
+The script was check.py for a month, then notes-check, then a directory
+of four files about to become a repository, which needed a name. Cy
+spent an evening on names, mostly puns. Around two in the morning Cy
+typed "quirk" into a chat, meaning to ask Otto something else entirely,
+Otto finished it as "quirework", and Cy liked it better than anything
+they would have chosen. The first commit message was "Name it". With a
+name, a repository, a README and a version number, the script is a tool,
+and Cy is the only person who has ever used it.
 
 ## No villains {#no-villains}
 
