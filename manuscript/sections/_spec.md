@@ -79,11 +79,15 @@ Hedda Count, Cy's manager, is kind and busy and ends every one-on-one
 with "how's the book?" Cy's answers go from "chapter four" to "I'm
 building something for chapter four" to a live demo, in Hedda's office,
 on Hedda's monitor, of the tool catching Cy's own book disagreeing with
-itself. Hedda watches all of it and asks whether the book is done.
+itself. Hedda watches all of it and asks whether the book is done. Hedda
+keeps a running document for their one-on-ones, copied forward each
+time, and its line "Book: ch. 4" survives every copy.
 
 Red Penn, Cy's editor at a small press, waits three years for chapter
 twelve and gets a nine-hundred-line README. Red reads all of it and
-writes back one line: "Is there a chapter in here?"
+writes back one line: "Is there a chapter in here?" Until then Red's
+emails are short: the subject line "Checking in", and a body that says
+"Checking in" and nothing else.
 
 Neither is a foil. Each asks the one question the book cannot answer
 yet, and each is right to.

@@ -115,6 +115,13 @@
   Hedda's three answers spread over the book: chapter one gets 'chapter
   four', Index Cards the second, The Demo the demo.
 
+- 2026-10-09T20:43:09Z · accept · claude-code
+  b4a3a485-e4aa-40a3-9ef7-9ee12164c6bf
+
+  Hedda's running document with 'Book: ch. 4', and Red's 'Checking in'
+  emails, both from draft A, become facts; Red's emails stay short to
+  set up his reply.
+
 ## The tool is not the book it was built for {#not-the-book-it-was-built-for}
 
 - 2026-10-09T20:18:07Z · seed · claude-code
