@@ -194,6 +194,14 @@
   Second answer lands in Index Cards; Hedda's line changes for the first
   time, to 'Book: ch. 4 (tool)'
 
+- 2026-10-09T21:19:44Z · sharpen · claude-code
+  26d889c8-715e-473d-8304-c602df3c9f08
+
+  Nine Hundred Lines material: the outline Cy meant to send, the README
+  sent because it was longest and had headings; best thing in three
+  years and documentation; Red quotes line 612 later; one line back;
+  Getting Started
+
 ## The tool is not the book it was built for {#not-the-book-it-was-built-for}
 
 - 2026-10-09T20:18:07Z · seed · claude-code

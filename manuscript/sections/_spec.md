@@ -126,10 +126,16 @@ answer, when Hedda says "Good", writes it down, and the line changes for
 the first time, to "Book: ch. 4 (tool)".
 
 Red Penn, Cy's editor at a small press, waits three years for chapter
-twelve and gets a nine-hundred-line README. Red reads all of it and
-writes back one line: "Is there a chapter in here?" Until then Red's
-emails are short: the subject line "Checking in", and a body that says
-"Checking in" and nothing else.
+twelve and gets a nine-hundred-line README: Cy meant to send an outline
+for chapter twelve and sent the README instead, because it was the
+longest thing Cy had written that year, and it had headings. It is the
+best thing Cy wrote in those three years, and it is documentation, which
+is Cy's job, which is the problem. Red reads all of it (he later quotes
+line six hundred and twelve back, in a different email) and that day
+writes back one line: "Is there a chapter in here?" There is not; there
+is a section called Getting Started. Until then Red's emails are short:
+the subject line "Checking in", and a body that says "Checking in" and
+nothing else.
 
 Neither is a foil. Each asks the one question the book cannot answer
 yet, and each is right to.
