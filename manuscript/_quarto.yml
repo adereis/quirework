@@ -1,0 +1,19 @@
+lang: en-US
+project:
+  type: book
+book:
+  title: "Side Quest"
+  author: "Cy Dequest"
+  # The nine chapters, in three parts, join this list once the story has
+  # named them. A chapter's file name is its identifier, so it waits for
+  # a name worth keeping.
+  chapters:
+    - index.qmd
+    - sections/preface.qmd
+format:
+  html:
+    theme: cosmo
+  typst: default
+  epub:
+    toc: true
+  docx: default

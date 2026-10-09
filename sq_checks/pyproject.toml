@@ -1,0 +1,16 @@
+[build-system]
+requires = ["setuptools>=61"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "sq-checks"
+version = "0.1.0"
+description = "Side Quest's own Quirework checks."
+requires-python = ">=3.11"
+
+# Not declared as a dependency: quirework loads this package through
+# checks.command, so an environment that can import it already has
+# quirework installed.
+
+[tool.setuptools.packages.find]
+where = ["src"]

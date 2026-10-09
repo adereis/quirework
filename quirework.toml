@@ -1,0 +1,40 @@
+schema = 2
+
+[project]
+name = "Side Quest"
+# Ignored by git: working notes with no authority, and material that must
+# never publish.
+scratchpad = "scratchpad"
+private = "private"
+
+[manuscript]
+source = "manuscript"
+quarto = "manuscript/_quarto.yml"
+chapters = "manuscript/sections"
+spec = "manuscript/sections/_spec.md"
+# Where each spec section came from: pointers into the sessions, kept in
+# the provenance ledger rather than in the spec, which states only what
+# holds now.
+spec_trail = "provenance/spec-trail.md"
+noncanonical_roots = ["scratchpad"]
+
+[publish]
+build = "build"
+
+[sops]
+root = "procedures"
+catalog = "procedures/catalog.json"
+skill_prefix = "sq-"
+
+[checks]
+# The book's own suite, in sq_checks/: the default suite, plus the house
+# rule against em dashes.
+command = "sq_checks.prose:main"
+
+[provenance]
+enabled = true
+# The ledger is committed with the book; the sessions themselves live in
+# the store named here, under the provenance home that
+# ~/.config/quirework/config.toml sets.
+root = "provenance"
+store = "side-quest"

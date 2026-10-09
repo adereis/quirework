@@ -1,0 +1,7 @@
+/build/
+/private/
+/scratchpad/
+/quirework.local.toml
+.quarto/
+__pycache__/
+*.egg-info/

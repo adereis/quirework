@@ -1,0 +1,30 @@
+{
+  "version": 1,
+  "families": [
+    {
+      "id": "authoring",
+      "label": "Authoring",
+      "question": "What do I do when I sit down to write?"
+    }
+  ],
+  "entries": {
+    "write-a-chapter": {
+      "family": "authoring",
+      "kind": "procedure",
+      "skill": true,
+      "requires": [],
+      "mechanics": [
+        "quirework spec notes --primer",
+        "quirework spec trail",
+        "quirework spec trail add",
+        "quirework spec units --check",
+        "quirework spec notes --check",
+        "quirework spec trail --check",
+        "quirework config check",
+        "quirework dev check"
+      ],
+      "followups": [],
+      "note": ""
+    }
+  }
+}
