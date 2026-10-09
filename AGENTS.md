@@ -92,6 +92,15 @@ it in conversation, write it here in the same session.
   `<!-- @count(eleven chapters) Full Stop's, not this book's -->`.
 - A chapter's file name is its permanent identifier. Retitling a chapter
   does not rename its file.
+- The back cover is `manuscript/sections/back-cover.qmd`, after Full
+  Stop, outside the parts, `.unnumbered .unlisted`: in the book in every
+  format, never numbered and never in the contents. It is not a chapter
+  and counts in none of the book's numbers. A roundtable wrote it on
+  2026-10-09, `provenance/roundtables/back-cover/`, and its text is Cy's
+  choice: change it only when Cy asks. A blurb of about a hundred and
+  twenty words from the book, and one author line, which is the one
+  place the facts come from Cy rather than the book. No comparable
+  titles, no endorsements, no real books or people.
 
 ## Cast
 
@@ -105,8 +114,9 @@ named at all.
   documentation engineer: Cy writes about software for a living, and is
   not a programmer. The prose never announces Cy's pronouns, since a
   first-person memoir doesn't, and a reader may guess wrong; the prose
-  stays as it is. The back cover's author line, when it is written, says
-  they/them.
+  stays as it is. The back cover's author line says they/them by using
+  "their". Cy works for a software company; the book never says so, and
+  only the author line does.
 - **Hedda Count**: Cy's manager. Kind, busy, ends every one-on-one with
   "how's the book?" Pronouns: she/her.
 - **Red Penn**: Cy's editor at a small press. Waited three years for

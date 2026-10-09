@@ -1,0 +1,413 @@
+{
+  "title": "Back-cover copy",
+  "goal": "Write the back cover of Side Quest: a blurb of about a hundred and twenty words, and one author line saying the author is they/them.",
+  "rounds": 3,
+  "effort": "low",
+  "brief": {
+    "path": "brief.md",
+    "local_source": "brief.md"
+  },
+  "shared_files": [
+    {
+      "path": "manuscript/sections/preface.qmd",
+      "source": "manuscript/sections/preface.qmd",
+      "inline": true
+    },
+    {
+      "path": "manuscript/sections/otto.qmd",
+      "source": "manuscript/sections/otto.qmd",
+      "inline": true
+    },
+    {
+      "path": "manuscript/sections/full-stop.qmd",
+      "source": "manuscript/sections/full-stop.qmd",
+      "inline": true
+    },
+    {
+      "path": "manuscript/sections/hows-the-book.qmd",
+      "source": "manuscript/sections/hows-the-book.qmd"
+    },
+    {
+      "path": "manuscript/sections/two-shops.qmd",
+      "source": "manuscript/sections/two-shops.qmd"
+    },
+    {
+      "path": "manuscript/sections/index-cards.qmd",
+      "source": "manuscript/sections/index-cards.qmd"
+    },
+    {
+      "path": "manuscript/sections/the-name.qmd",
+      "source": "manuscript/sections/the-name.qmd"
+    },
+    {
+      "path": "manuscript/sections/nine-hundred-lines.qmd",
+      "source": "manuscript/sections/nine-hundred-lines.qmd"
+    },
+    {
+      "path": "manuscript/sections/em.qmd",
+      "source": "manuscript/sections/em.qmd"
+    },
+    {
+      "path": "manuscript/sections/the-demo.qmd",
+      "source": "manuscript/sections/the-demo.qmd"
+    }
+  ],
+  "seats": [
+    {
+      "id": "haiku",
+      "name": "Haiku",
+      "maker": "Anthropic",
+      "config": {
+        "requested_model": "haiku",
+        "requested_effort": "low",
+        "catalog_entry": "family alias; the CLI picks its latest, and the receipt records the version served",
+        "harness": "claude",
+        "model": "haiku",
+        "effort": "low",
+        "tools": "workbench"
+      },
+      "window": 1000000,
+      "window_source": "documented window",
+      "allowance": 600000,
+      "occupancy": "measured",
+      "reads": [
+        "brief.md",
+        "manuscript/sections/em.qmd",
+        "manuscript/sections/full-stop.qmd",
+        "manuscript/sections/hows-the-book.qmd",
+        "manuscript/sections/index-cards.qmd",
+        "manuscript/sections/nine-hundred-lines.qmd",
+        "manuscript/sections/otto.qmd",
+        "manuscript/sections/preface.qmd",
+        "manuscript/sections/the-demo.qmd",
+        "manuscript/sections/the-name.qmd",
+        "manuscript/sections/two-shops.qmd"
+      ],
+      "input_hashes": {
+        "brief.md": "d77ec0e7430396d270f52dec53bd3315aeae49a007609ed5aeebf1dcd4f6dcc3",
+        "manuscript/sections/em.qmd": "717a77ddb5932d498e51b84d2c2844fd1bc97627ab520cbb46bc9cd78344969e",
+        "manuscript/sections/full-stop.qmd": "af29e1bc03a7810cf498ffa34f74082fdeee3dd31f336d09893b63b0578f606d",
+        "manuscript/sections/hows-the-book.qmd": "794d250d6f650d29102355390bc3643761935d2395153550e8823cd9f05e4683",
+        "manuscript/sections/index-cards.qmd": "e7e18d3e09c9841361273f4e239b734a3a16da23c4c33d5b92bf6ddc9ba5e6f3",
+        "manuscript/sections/nine-hundred-lines.qmd": "06d0de47a140a8d2ca10d683f560a71b2e744dc3c69d354ad51cc34bef94ca41",
+        "manuscript/sections/otto.qmd": "f59fc4ea443051440dd0cb8867b5066dfaedc9aca16c5a22aa7e800a6dd1b11f",
+        "manuscript/sections/preface.qmd": "154e1033e243294b52944375128162f098224528efdccb1a2840d460eb9fbb2c",
+        "manuscript/sections/the-demo.qmd": "2336181ba8e3df178ab0ffcad7f7db4944cfb3d1ca44c14ab6b5afa1097f2625",
+        "manuscript/sections/the-name.qmd": "9555dcdb6d38d4ee0952a880274fc6e36c957f2fb612ca083892d83e2002e841",
+        "manuscript/sections/two-shops.qmd": "6cc404ad076a234104cc904291472bf01a91a2c8588307b58cd7de33d75568bf"
+      },
+      "bin_hashes": {
+        "room": "bfc06b418b31946d3f6e7c35fdf259e89891777c113814f445cec472d6147c0b"
+      },
+      "start_sha256": "dc78cc1e5df22b2de9514b9b930ae9d8741673ba240a6137ab519b45c6d90ffc"
+    },
+    {
+      "id": "luna",
+      "name": "Luna",
+      "maker": "OpenAI",
+      "config": {
+        "requested_model": "luna",
+        "requested_effort": "low",
+        "catalog_source": "codex debug models",
+        "context_window": 272000,
+        "max_context_window": 872000,
+        "effective_context_window_percent": 95,
+        "catalog_entry": {
+          "slug": "gpt-6-luna",
+          "supported_reasoning_levels": [
+            {
+              "effort": "low",
+              "description": "Fast responses with lighter reasoning"
+            },
+            {
+              "effort": "medium",
+              "description": "Balances speed and reasoning depth for everyday tasks"
+            },
+            {
+              "effort": "high",
+              "description": "Greater reasoning depth for complex problems"
+            },
+            {
+              "effort": "xhigh",
+              "description": "Extra high reasoning depth for complex problems"
+            },
+            {
+              "effort": "max",
+              "description": "Maximum reasoning depth for the hardest problems"
+            }
+          ],
+          "context_window": 272000,
+          "max_context_window": 872000,
+          "effective_context_window_percent": 95
+        },
+        "harness": "codex",
+        "model": "gpt-6-luna",
+        "effort": "low",
+        "tools": "workbench"
+      },
+      "window": 828400,
+      "window_source": "Codex catalog",
+      "allowance": 497040,
+      "occupancy": "measured",
+      "reads": [
+        "brief.md",
+        "manuscript/sections/em.qmd",
+        "manuscript/sections/full-stop.qmd",
+        "manuscript/sections/hows-the-book.qmd",
+        "manuscript/sections/index-cards.qmd",
+        "manuscript/sections/nine-hundred-lines.qmd",
+        "manuscript/sections/otto.qmd",
+        "manuscript/sections/preface.qmd",
+        "manuscript/sections/the-demo.qmd",
+        "manuscript/sections/the-name.qmd",
+        "manuscript/sections/two-shops.qmd"
+      ],
+      "input_hashes": {
+        "brief.md": "d77ec0e7430396d270f52dec53bd3315aeae49a007609ed5aeebf1dcd4f6dcc3",
+        "manuscript/sections/em.qmd": "717a77ddb5932d498e51b84d2c2844fd1bc97627ab520cbb46bc9cd78344969e",
+        "manuscript/sections/full-stop.qmd": "af29e1bc03a7810cf498ffa34f74082fdeee3dd31f336d09893b63b0578f606d",
+        "manuscript/sections/hows-the-book.qmd": "794d250d6f650d29102355390bc3643761935d2395153550e8823cd9f05e4683",
+        "manuscript/sections/index-cards.qmd": "e7e18d3e09c9841361273f4e239b734a3a16da23c4c33d5b92bf6ddc9ba5e6f3",
+        "manuscript/sections/nine-hundred-lines.qmd": "06d0de47a140a8d2ca10d683f560a71b2e744dc3c69d354ad51cc34bef94ca41",
+        "manuscript/sections/otto.qmd": "f59fc4ea443051440dd0cb8867b5066dfaedc9aca16c5a22aa7e800a6dd1b11f",
+        "manuscript/sections/preface.qmd": "154e1033e243294b52944375128162f098224528efdccb1a2840d460eb9fbb2c",
+        "manuscript/sections/the-demo.qmd": "2336181ba8e3df178ab0ffcad7f7db4944cfb3d1ca44c14ab6b5afa1097f2625",
+        "manuscript/sections/the-name.qmd": "9555dcdb6d38d4ee0952a880274fc6e36c957f2fb612ca083892d83e2002e841",
+        "manuscript/sections/two-shops.qmd": "6cc404ad076a234104cc904291472bf01a91a2c8588307b58cd7de33d75568bf"
+      },
+      "bin_hashes": {
+        "room": "7352252669b62cc12f2448d8396f5f3e3cf553d69b3a4e82653a49c6ba75eddf"
+      },
+      "start_sha256": "5efcbe6dacb6e6b6ffbb8019201c6eb688c973d7b50ccb3a6e8adde324104998"
+    },
+    {
+      "id": "gemini-flash",
+      "name": "Gemini-Flash",
+      "maker": "Google",
+      "config": {
+        "requested_model": "gemini-flash",
+        "requested_effort": "low",
+        "catalog_entry": "gemini-3.8-flash-low",
+        "harness": "agy",
+        "model": "gemini-3.8-flash-low",
+        "effort": "low",
+        "tools": "workbench"
+      },
+      "window": 1048576,
+      "window_source": "documented window",
+      "allowance": 629145,
+      "occupancy": "measured",
+      "reads": [
+        "brief.md",
+        "manuscript/sections/em.qmd",
+        "manuscript/sections/full-stop.qmd",
+        "manuscript/sections/hows-the-book.qmd",
+        "manuscript/sections/index-cards.qmd",
+        "manuscript/sections/nine-hundred-lines.qmd",
+        "manuscript/sections/otto.qmd",
+        "manuscript/sections/preface.qmd",
+        "manuscript/sections/the-demo.qmd",
+        "manuscript/sections/the-name.qmd",
+        "manuscript/sections/two-shops.qmd"
+      ],
+      "input_hashes": {
+        "brief.md": "d77ec0e7430396d270f52dec53bd3315aeae49a007609ed5aeebf1dcd4f6dcc3",
+        "manuscript/sections/em.qmd": "717a77ddb5932d498e51b84d2c2844fd1bc97627ab520cbb46bc9cd78344969e",
+        "manuscript/sections/full-stop.qmd": "af29e1bc03a7810cf498ffa34f74082fdeee3dd31f336d09893b63b0578f606d",
+        "manuscript/sections/hows-the-book.qmd": "794d250d6f650d29102355390bc3643761935d2395153550e8823cd9f05e4683",
+        "manuscript/sections/index-cards.qmd": "e7e18d3e09c9841361273f4e239b734a3a16da23c4c33d5b92bf6ddc9ba5e6f3",
+        "manuscript/sections/nine-hundred-lines.qmd": "06d0de47a140a8d2ca10d683f560a71b2e744dc3c69d354ad51cc34bef94ca41",
+        "manuscript/sections/otto.qmd": "f59fc4ea443051440dd0cb8867b5066dfaedc9aca16c5a22aa7e800a6dd1b11f",
+        "manuscript/sections/preface.qmd": "154e1033e243294b52944375128162f098224528efdccb1a2840d460eb9fbb2c",
+        "manuscript/sections/the-demo.qmd": "2336181ba8e3df178ab0ffcad7f7db4944cfb3d1ca44c14ab6b5afa1097f2625",
+        "manuscript/sections/the-name.qmd": "9555dcdb6d38d4ee0952a880274fc6e36c957f2fb612ca083892d83e2002e841",
+        "manuscript/sections/two-shops.qmd": "6cc404ad076a234104cc904291472bf01a91a2c8588307b58cd7de33d75568bf"
+      },
+      "bin_hashes": {
+        "room": "cfe30df486c1f9b33989c3ff8251ae1ad7c991cc7f7fd059cbcbef5dd760e3ab"
+      },
+      "start_sha256": "86e9e72dd666f223779c55b601006aec777caafd3905fde1443bf8e67e871396"
+    },
+    {
+      "id": "cy",
+      "name": "Cy",
+      "human": true,
+      "description": "a human, Cy Dequest, who wrote the book.",
+      "position": "last",
+      "reads": [
+        "brief.md",
+        "manuscript/sections/em.qmd",
+        "manuscript/sections/full-stop.qmd",
+        "manuscript/sections/hows-the-book.qmd",
+        "manuscript/sections/index-cards.qmd",
+        "manuscript/sections/nine-hundred-lines.qmd",
+        "manuscript/sections/otto.qmd",
+        "manuscript/sections/preface.qmd",
+        "manuscript/sections/the-demo.qmd",
+        "manuscript/sections/the-name.qmd",
+        "manuscript/sections/two-shops.qmd"
+      ],
+      "input_hashes": {
+        "brief.md": "d77ec0e7430396d270f52dec53bd3315aeae49a007609ed5aeebf1dcd4f6dcc3",
+        "manuscript/sections/em.qmd": "717a77ddb5932d498e51b84d2c2844fd1bc97627ab520cbb46bc9cd78344969e",
+        "manuscript/sections/full-stop.qmd": "af29e1bc03a7810cf498ffa34f74082fdeee3dd31f336d09893b63b0578f606d",
+        "manuscript/sections/hows-the-book.qmd": "794d250d6f650d29102355390bc3643761935d2395153550e8823cd9f05e4683",
+        "manuscript/sections/index-cards.qmd": "e7e18d3e09c9841361273f4e239b734a3a16da23c4c33d5b92bf6ddc9ba5e6f3",
+        "manuscript/sections/nine-hundred-lines.qmd": "06d0de47a140a8d2ca10d683f560a71b2e744dc3c69d354ad51cc34bef94ca41",
+        "manuscript/sections/otto.qmd": "f59fc4ea443051440dd0cb8867b5066dfaedc9aca16c5a22aa7e800a6dd1b11f",
+        "manuscript/sections/preface.qmd": "154e1033e243294b52944375128162f098224528efdccb1a2840d460eb9fbb2c",
+        "manuscript/sections/the-demo.qmd": "2336181ba8e3df178ab0ffcad7f7db4944cfb3d1ca44c14ab6b5afa1097f2625",
+        "manuscript/sections/the-name.qmd": "9555dcdb6d38d4ee0952a880274fc6e36c957f2fb612ca083892d83e2002e841",
+        "manuscript/sections/two-shops.qmd": "6cc404ad076a234104cc904291472bf01a91a2c8588307b58cd7de33d75568bf"
+      },
+      "bin_hashes": {
+        "room": "e08e59559aae51eaa5deb3d74be1fa5f15e2f264f7f7612eefc42ab6285bbd94"
+      },
+      "start_sha256": "564f95150b7c6772af0e6e670fbeb247c259af9f78873676af98e8a0866affd3"
+    }
+  ],
+  "kind": "roundtable",
+  "schema": 1,
+  "post_words": 200,
+  "message_chars": 300,
+  "messages_per_turn": 3,
+  "turn_timeout": 14400,
+  "source_root": "/home/ademar/projects/side-quest/book",
+  "sources": [
+    {
+      "path": "brief.md",
+      "source": "/home/ademar/projects/side-quest/cy-home/.local/state/quirework/projects/1bfdb629a31e71f08724/tables/back-cover-plan/brief.md",
+      "sections": null,
+      "source_sha256": "d77ec0e7430396d270f52dec53bd3315aeae49a007609ed5aeebf1dcd4f6dcc3",
+      "git": null,
+      "inline": false
+    },
+    {
+      "path": "manuscript/sections/preface.qmd",
+      "source": "/home/ademar/projects/side-quest/book/manuscript/sections/preface.qmd",
+      "sections": null,
+      "source_sha256": "154e1033e243294b52944375128162f098224528efdccb1a2840d460eb9fbb2c",
+      "git": {
+        "commit": "03e9af8e97bb178a4cbe43e33a72fa89b3a01135",
+        "tracked": true,
+        "matches_commit": true
+      },
+      "inline": true
+    },
+    {
+      "path": "manuscript/sections/otto.qmd",
+      "source": "/home/ademar/projects/side-quest/book/manuscript/sections/otto.qmd",
+      "sections": null,
+      "source_sha256": "f59fc4ea443051440dd0cb8867b5066dfaedc9aca16c5a22aa7e800a6dd1b11f",
+      "git": {
+        "commit": "03e9af8e97bb178a4cbe43e33a72fa89b3a01135",
+        "tracked": true,
+        "matches_commit": true
+      },
+      "inline": true
+    },
+    {
+      "path": "manuscript/sections/full-stop.qmd",
+      "source": "/home/ademar/projects/side-quest/book/manuscript/sections/full-stop.qmd",
+      "sections": null,
+      "source_sha256": "af29e1bc03a7810cf498ffa34f74082fdeee3dd31f336d09893b63b0578f606d",
+      "git": {
+        "commit": "03e9af8e97bb178a4cbe43e33a72fa89b3a01135",
+        "tracked": true,
+        "matches_commit": true
+      },
+      "inline": true
+    },
+    {
+      "path": "manuscript/sections/hows-the-book.qmd",
+      "source": "/home/ademar/projects/side-quest/book/manuscript/sections/hows-the-book.qmd",
+      "sections": null,
+      "source_sha256": "794d250d6f650d29102355390bc3643761935d2395153550e8823cd9f05e4683",
+      "git": {
+        "commit": "03e9af8e97bb178a4cbe43e33a72fa89b3a01135",
+        "tracked": true,
+        "matches_commit": true
+      },
+      "inline": false
+    },
+    {
+      "path": "manuscript/sections/two-shops.qmd",
+      "source": "/home/ademar/projects/side-quest/book/manuscript/sections/two-shops.qmd",
+      "sections": null,
+      "source_sha256": "6cc404ad076a234104cc904291472bf01a91a2c8588307b58cd7de33d75568bf",
+      "git": {
+        "commit": "03e9af8e97bb178a4cbe43e33a72fa89b3a01135",
+        "tracked": true,
+        "matches_commit": true
+      },
+      "inline": false
+    },
+    {
+      "path": "manuscript/sections/index-cards.qmd",
+      "source": "/home/ademar/projects/side-quest/book/manuscript/sections/index-cards.qmd",
+      "sections": null,
+      "source_sha256": "e7e18d3e09c9841361273f4e239b734a3a16da23c4c33d5b92bf6ddc9ba5e6f3",
+      "git": {
+        "commit": "03e9af8e97bb178a4cbe43e33a72fa89b3a01135",
+        "tracked": true,
+        "matches_commit": true
+      },
+      "inline": false
+    },
+    {
+      "path": "manuscript/sections/the-name.qmd",
+      "source": "/home/ademar/projects/side-quest/book/manuscript/sections/the-name.qmd",
+      "sections": null,
+      "source_sha256": "9555dcdb6d38d4ee0952a880274fc6e36c957f2fb612ca083892d83e2002e841",
+      "git": {
+        "commit": "03e9af8e97bb178a4cbe43e33a72fa89b3a01135",
+        "tracked": true,
+        "matches_commit": true
+      },
+      "inline": false
+    },
+    {
+      "path": "manuscript/sections/nine-hundred-lines.qmd",
+      "source": "/home/ademar/projects/side-quest/book/manuscript/sections/nine-hundred-lines.qmd",
+      "sections": null,
+      "source_sha256": "06d0de47a140a8d2ca10d683f560a71b2e744dc3c69d354ad51cc34bef94ca41",
+      "git": {
+        "commit": "03e9af8e97bb178a4cbe43e33a72fa89b3a01135",
+        "tracked": true,
+        "matches_commit": true
+      },
+      "inline": false
+    },
+    {
+      "path": "manuscript/sections/em.qmd",
+      "source": "/home/ademar/projects/side-quest/book/manuscript/sections/em.qmd",
+      "sections": null,
+      "source_sha256": "717a77ddb5932d498e51b84d2c2844fd1bc97627ab520cbb46bc9cd78344969e",
+      "git": {
+        "commit": "03e9af8e97bb178a4cbe43e33a72fa89b3a01135",
+        "tracked": true,
+        "matches_commit": true
+      },
+      "inline": false
+    },
+    {
+      "path": "manuscript/sections/the-demo.qmd",
+      "source": "/home/ademar/projects/side-quest/book/manuscript/sections/the-demo.qmd",
+      "sections": null,
+      "source_sha256": "2336181ba8e3df178ab0ffcad7f7db4944cfb3d1ca44c14ab6b5afa1097f2625",
+      "git": {
+        "commit": "03e9af8e97bb178a4cbe43e33a72fa89b3a01135",
+        "tracked": true,
+        "matches_commit": true
+      },
+      "inline": false
+    }
+  ],
+  "inline": [
+    "manuscript/sections/preface.qmd",
+    "manuscript/sections/otto.qmd",
+    "manuscript/sections/full-stop.qmd"
+  ],
+  "seed": 1294072809,
+  "prepared_at": 1791583871.2931526
+}

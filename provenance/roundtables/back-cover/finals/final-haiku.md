@@ -1,0 +1,7 @@
+Cy Dequest was writing Full Stop, a natural history of punctuation. It had eleven chapters, a shelf of disputing sources, and an editor waiting for chapter twelve.
+
+Instead of finishing it, they built a tool to check what a book had promised against what its chapters said. The tool had no opinions about sentences. It kept a list of claims and said so when a chapter disagreed. Run on the book they wrote instead, it flagged Full Stop's chapter count as an error.
+
+This is an account of the months of evenings that went to the tool, an over-eager assistant who invented a seventeenth-century compositor, and the software built to avoid a book, which finished this one instead.
+
+Cy Dequest writes documentation for a software company, keeps their index cards in shoeboxes, and knows where all of them are but the one that fell behind the radiator.

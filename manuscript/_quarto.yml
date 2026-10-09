@@ -22,12 +22,19 @@ book:
         - sections/em.qmd
         - sections/the-demo.qmd
         - sections/full-stop.qmd
+    # The back cover: unnumbered, and out of the contents in every format.
+    - sections/back-cover.qmd
 # The book's one code block is the script's printout, in Index Cards. No
 # highlighting, so it prints in black like the rest of the page.
 highlight-style: none
 format:
   html:
     theme: cosmo
+    # Quarto lists every book file in the sidebar, .unlisted or not; this
+    # keeps the back cover out of the HTML contents too.
+    include-in-header:
+      - text: |
+          <style>.sidebar-item:has(a[href$="back-cover.html"]) { display: none; }</style>
   typst:
     # The cover is the PDF's first page, at the painting's own proportions,
     # ahead of the template's own title page.
