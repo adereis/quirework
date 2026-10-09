@@ -5,7 +5,7 @@
 
 # Nine Hundred Lines {#sec-nine-hundred-lines}
 
-<!-- @guidance about thirteen hundred words; closes part two -->
+<!-- @guidance closes part two -->
 <!-- @guidance Red's half of people-who-ask: the outline Cy meant to
      send, the README Cy sent, and Red's one line. Hedda stays out; her
      third answer is The Demo's -->

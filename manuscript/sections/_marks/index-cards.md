@@ -5,8 +5,7 @@
 
 # Index Cards {#sec-index-cards}
 
-<!-- @guidance about thirteen hundred words, plus the two hundred or so
-     Two Shops left unused: it has the most to carry; closes part one -->
+<!-- @guidance it has the most to carry; closes part one -->
 <!-- @guidance Cy's second answer to Hedda, "I'm building something for
      chapter four", lands here, when the script starts -->
 <!-- @guidance the first chapter to say out loud that the trouble is

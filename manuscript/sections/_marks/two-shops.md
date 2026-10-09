@@ -5,7 +5,6 @@
 
 # Two Shops {#sec-two-shops}
 
-<!-- @guidance about thirteen hundred words -->
 <!-- @guidance ends where the contradiction stops being about two shops
      and starts being about where the claims live, and does not say that
      last part out loud; Index Cards does -->

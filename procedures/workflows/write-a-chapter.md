@@ -11,7 +11,7 @@ prints the spec's commitments and every chapter's guidance and bindings;
 know what a chapter is supposed to express before changing what it says.
 
 Write or revise the one chapter Cy named. Keep every rule in
-`AGENTS.md`. The book is about twelve thousand words over a preface and
+`AGENTS.md`. The book is about seven thousand words over a preface and
 nine chapters, so a chapter that runs long is taking room from another
 one; say so rather than letting it.
 

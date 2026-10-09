@@ -5,8 +5,8 @@
 
 # The Name {#sec-the-name}
 
-<!-- @guidance about thirteen hundred words; the irony of who named the
-     tool is left for the reader to find -->
+<!-- @guidance the irony of who named the tool is left for the reader to
+     find -->
 <!-- @bind(the-name) -->
 <!-- @guidance the escalation names its last step: the notes become a
      tool with a name, a repository, a README and a version number, and

@@ -68,11 +68,11 @@ it in conversation, write it here in the same session.
 
 ## The book
 
-- A preface and nine chapters, in three parts, about twelve thousand
-  words in all: each chapter about thirteen hundred words, the preface
-  shorter. The book runs well under that; the figure stays as it is
-  until the blind read says whether the book wants more. A reader
-  decides that, not Cy or an assistant.
+- A preface and nine chapters, in three parts, about seven thousand
+  words in all, the preface shorter than any chapter. A blind read on
+  2026-10-09, `provenance/readings/blind-read/`, found that is the
+  length the book wants: its readers asked for gaps filled, not pages. A
+  chapter is as long as its material, and no chapter has a target.
 - Part one, The Book That Disagreed: How's the Book?, Two Shops, Index
   Cards. Part two, The Side Quest: Otto, The Name, Nine Hundred Lines.
   Part three, The Book That Got Finished: Em, The Demo, Full Stop. The

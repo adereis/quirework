@@ -8,8 +8,8 @@
 <!-- @guidance opens part two, The Side Quest; Otto gets no pronoun, and
      never "it" -->
 <!-- @guidance short on purpose, at most about seven hundred and fifty
-     words rather than the usual thirteen hundred: a chapter about a
-     sentence with no papers carries no padding of its own -->
+     words: a chapter about a sentence with no papers carries no padding
+     of its own -->
 <!-- @guidance Cy's regular-expression check is said plainly: tried on
      lines it should catch and lines it should not before it touches
      anything -->

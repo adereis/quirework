@@ -5,9 +5,8 @@
 
 # Em {#sec-em}
 
-<!-- @guidance about thirteen hundred words; opens part three, The Book
-     That Got Finished; Em gets no pronoun; ends with the question still
-     unasked -->
+<!-- @guidance opens part three, The Book That Got Finished; Em gets no
+     pronoun; ends with the question still unasked -->
 <!-- @guidance Em's question about checking for exactly three of
      something, "I didn't write that check" and "I've thought about why"
      stay unexplained, each on its own line -->
