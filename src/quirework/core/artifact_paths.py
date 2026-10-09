@@ -9,6 +9,10 @@ Directory names alone never endorse an analysis's conclusions.
 
 from quirework.project import current_project
 
+# An edition's blind drafts: one directory in each edition under
+# `publish.variants`, holding what each drafting model returned, as returned.
+EDITION_DRAFTS = "_raw"
+
 
 def run_roots() -> tuple[str, ...]:
     """Project-relative directories holding saved run records.
@@ -49,8 +53,32 @@ def run_operator_note(path: str) -> bool:
     return False
 
 
+def edition_draft(path: str) -> bool:
+    """Whether a project-relative path is one of an edition's blind drafts.
+
+    They are evidence wherever the editions root is, without a declaration:
+    a draft is what a model wrote, and an edition is composed beside it, so
+    reflowing it would rewrite the very text the composition is checked
+    against.
+    """
+    project = current_project()
+    if project.get("publish.variants") is None:
+        return False
+    try:
+        root = project.path("publish.variants").relative_to(project.root).as_posix()
+    except ValueError:
+        return False
+    found = _within(path, root)
+    if found is None:
+        return False
+    parts, segments = found
+    return len(parts) > len(segments) + 2 and parts[len(segments) + 1] == EDITION_DRAFTS
+
+
 def run_evidence(path: str) -> bool:
     """Other files inside a recorded run stay verbatim, at any depth."""
+    if edition_draft(path):
+        return True
     for root in run_roots():
         found = _within(path, root)
         if found is not None and len(found[0]) > len(found[1]) + 1:

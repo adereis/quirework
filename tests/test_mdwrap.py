@@ -479,6 +479,31 @@ def test_evidence_paths_are_read_from_the_project_root(tmp_path):
         assert mdwrap.classify(str(guide)) == "column"
 
 
+def test_an_editions_blind_drafts_are_evidence_without_a_declaration(tmp_path):
+    """A draft is what a model wrote, wherever the editions root is.
+
+    The edition composed beside it, its sidecars and its operator notes are
+    the author's and wrap like any other file of their kind.
+    """
+    from quirework.project import Project, project_scope
+
+    book = tmp_path / "harbour"
+    edition = book / "editions" / "children"
+    (edition / "_raw" / "deep").mkdir(parents=True)
+    (edition / "_marks").mkdir()
+    settings = {"publish": {"variants": "editions"}}
+    with project_scope(Project.from_settings(book, settings)):
+        for rel in ("_raw/tides.md", "_raw/deep/tides.md"):
+            assert mdwrap.classify(str(edition / rel)) == "skip", rel
+        assert mdwrap.classify(str(edition / "_marks" / "tides.md")) == "column"
+        assert mdwrap.classify(str(edition / "_fidelity.md")) == "column"
+        assert mdwrap.classify(str(edition / "tides.qmd")) == "sentence"
+        # A folder called _raw anywhere else is not an edition's.
+        assert mdwrap.classify(str(book / "_raw" / "tides.md")) == "column"
+    with project_scope(Project.from_settings(book, {})):
+        assert mdwrap.classify(str(edition / "_raw" / "tides.md")) == "column"
+
+
 def test_an_answering_no_ends_its_sentence():
     """The numero sign is "No." before a number, never before a word."""
     src = "Did the fuse hold?\nNo.\nThe lights went out.\n"

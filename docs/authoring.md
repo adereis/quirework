@@ -730,11 +730,11 @@ its reader. `quirework publish variant` lists the kinds and
 `variants/KIND/_raw/`, one per chapter. Each drafter reads the whole
 book with every mark stripped and no project files around it, so it
 retells the book as an outside reader would. The drafts are what a model
-wrote, and the edition is composed from them by the procedure: each
-draft read against the spec, then the documents written beside them with
-a `_quarto.yml` of the edition's own. A book-shaped edition lists its
-chapters as the book does. An edition that is one document is a plain
-Quarto project:
+wrote, so `text wrap` never reflows them. The edition is composed from
+them by the procedure: each draft read against the spec, then the
+documents written beside them with a `_quarto.yml` of the edition's own.
+A book-shaped edition lists its chapters as the book does. An edition
+that is one document is a plain Quarto project:
 
 ```yaml
 project:
@@ -767,10 +767,11 @@ also checks that `quirework text wrap` would change no Markdown file, so
 wrapping a chapter to fit one edit never reflows the rest of it. The
 wrapper leaves a saved run record alone only when `runs.evidence_roots`
 names its directory, so declare where a room or a review keeps its
-records before you wrap anything the check names. `text.modes` maps
-paths to formatting modes, so a project can wrap its guides at 72
-columns and keep its chapters one sentence per line; `text.classifier`
-selects a function instead, for a rule a glob cannot say.
+records before you wrap anything the check names. An edition's blind
+drafts need no declaration. `text.modes` maps paths to formatting modes,
+so a project can wrap its guides at 72 columns and keep its chapters one
+sentence per line; `text.classifier` selects a function instead, for a
+rule a glob cannot say.
 
 ## 8. A site instead of a book
 

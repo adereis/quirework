@@ -1035,7 +1035,9 @@ working material rather than authority, so a mark resting on one is
 reported. `runs.evidence_roots` names every directory holding saved run
 records. A project that keeps one needs only `runs.reviews`. Files
 inside a run record are never reflowed by `text wrap` and never read as
-authority, which is the guarantee these three settings buy.
+authority, which is the guarantee these three settings buy. An edition's
+blind drafts, in `_raw/` inside each edition under `publish.variants`,
+are never reflowed either, with no declaration.
 
 Each Markdown file directly inside a companion directory is an entry,
 except a `README.md`, which indexes the collection, and a file whose

@@ -24,12 +24,13 @@ from __future__ import annotations
 
 from pathlib import Path
 
+from quirework.core.artifact_paths import EDITION_DRAFTS
 from quirework.manuscript.quarto import BOOK_CONFIG
 from quirework.project import current_project
 
 # An edition's blind drafts: what each model wrote, kept as evidence. Never
 # staged, reflowed or read as a source.
-RAW = "_raw"
+RAW = EDITION_DRAFTS
 
 
 def root() -> Path | None:
