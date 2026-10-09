@@ -21,12 +21,10 @@ I opened a document, and by midnight it was a page long.
 
 Most of them were puns.
 Punctuation rewards a pun and shouldn't.
-There were names about checking, names about notes, names about stops and pauses and things that hold sentences together.
-Some were worse than puns.
 One had the word *colon* in it, and I had not thought it through.
 
 None of them was a name.
-They were all jokes I would have to explain to whoever asked, and in the README, and to myself, every time I typed one.
+They were jokes I would have to explain every time I typed one.
 
 I kept going, which is how two in the morning happens.
 

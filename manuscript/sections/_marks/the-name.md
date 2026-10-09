@@ -15,3 +15,5 @@
 <!-- @bind(notes-escalate) -->
 <!-- @guidance Cy's day job is said once in the book, in Index Cards,
      and not again here -->
+<!-- @guidance the evening of names is short: both blind readers wanted
+     to get on to Otto's word -->
