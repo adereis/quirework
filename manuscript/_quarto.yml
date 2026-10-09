@@ -22,6 +22,9 @@ book:
         - sections/em.qmd
         - sections/the-demo.qmd
         - sections/full-stop.qmd
+# The book's one code block is the script's printout, in Index Cards. No
+# highlighting, so it prints in black like the rest of the page.
+highlight-style: none
 format:
   html:
     theme: cosmo
