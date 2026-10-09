@@ -24,7 +24,7 @@ import sys
 from dataclasses import dataclass
 from pathlib import Path
 
-from quirework.manuscript import notes, trail, units
+from quirework.manuscript import editions, notes, trail, units
 from quirework.project import current_project
 
 _ANCHOR = re.compile(r"[A-Za-z][\w-]*")
@@ -128,6 +128,20 @@ def _binds(text: str, unit: str | None, old: str, new: str, known: set[str]):
     return notes._BIND_TOKEN.sub(swap, text), count
 
 
+def _omits(text: str, old: str, new: str):
+    """An edition's ``@omit`` tokens naming ``old``, which are always in full."""
+    count = 0
+
+    def swap(m):
+        nonlocal count
+        if m.group(1).strip() != old:
+            return m.group(0)
+        count += 1
+        return f"@omit({new})"
+
+    return notes._OMIT_TOKEN.sub(swap, text), count
+
+
 def _code_refs(text: str, old: str, new: str) -> tuple[str, int]:
     """Spec citations ``#slug`` inside code spans, as companion entries write them."""
     count = 0
@@ -175,8 +189,11 @@ def plan(old: str, new: str) -> tuple[str, list[Edit]]:
             names[old_anchor] = new_anchor
         change(spec, lambda t, n=names: _links(t, n), "link")
     for f in notes.mark_files():
-        unit = units.slug_of(notes._chapter_for(f))
+        # An edition's marks name sections in full, so its unit is the
+        # edition's own name, which no bare name resolves under.
+        unit = editions.unit_of(f) or units.slug_of(notes._chapter_for(f))
         change(f, lambda t, u=unit: _binds(t, u, old, new, known), "@bind")
+        change(f, lambda t: _omits(t, old, new), "@omit")
     for f in notes.companion_files():
         change(f, lambda t: _binds(t, None, old, new, known), "@bind")
         change(f, lambda t: _code_refs(t, old, new), "citation")

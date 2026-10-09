@@ -173,8 +173,9 @@ rendered into the book.
 A slug is a name, and a section can outgrow it: reverse what a section
 says and its slug may now say the opposite. The slug is written in the
 spec's heading and in its links, in every sidecar that binds the
-section, in companion citations, in the trail's heading and in the
-backfill ledger, so renaming it by hand means finding all of them.
+section, a derived edition's included, in an edition's `@omit` marks, in
+companion citations, in the trail's heading and in the backfill ledger,
+so renaming it by hand means finding all of them.
 `quirework spec rename OLD NEW` renames it in every one, and refuses
 before writing anything if it cannot: a new name already in use, an
 anchor that is not one, a unit's own section moved to another unit.
@@ -461,6 +462,9 @@ conventional ones:
 - `@todo`: open work.
 - `@figure(name)`: a note about a plate.
 - `@see(slug)`: a pointer into book-wide review notes.
+- `@omit(slug)`: in a derived edition's sidecar only, a spec section the
+  edition leaves out, and the reason, as its body (see Derived editions
+  below).
 - `@count(phrase)`: a spelled-out chapter count in this chapter that
   counts something else. `spec units --check` warns when a phrase such
   as "twelve chapters" differs from the book's own count, since an
@@ -777,6 +781,29 @@ format:
   html: default
   typst: default
 ```
+
+A composed edition answers to the same spec as the canon. Each of its
+documents may keep a marks sidecar, `_marks/STEM.md` beside it, whose
+headings mirror the document's as a chapter's sidecar does. `@bind`
+names a section the document carries, and `@omit` a section the edition
+leaves out, with the reason:
+
+```markdown
+## Why the kettle matters
+
+<!-- @bind(kettle-signal) -->
+<!-- @omit(cooling-asymmetry) A memo to the buyer has no room for the physics. -->
+```
+
+`spec notes bind --slug kettle-signal` then lists the chapter and every
+edition that carries the commitment, so changing it tells you every
+artifact that has to change with it. An edition's unit is named
+`KIND/STEM`, so an edition's `opening` is never taken for the canon's,
+and a trail or a backfill menu only ever hears of the canon.
+`spec notes --check` holds an edition's sidecars to the chapter rules,
+refuses an `@omit` with no reason or outside an edition, and lists as an
+advisory each section the canon binds that an edition neither binds nor
+omits.
 
 Once an edition has its `_quarto.yml`, `publish build` renders it after
 the book, through the same three stages, into

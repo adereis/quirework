@@ -199,7 +199,7 @@ def cited_by() -> dict[str, list[str]]:
     order = {u.slug: i for i, u in enumerate(units.registry())}
     out: dict[str, set[str]] = {}
     for a in citations():
-        out.setdefault(a.args[0], set()).add(units.slug_of(a.file))
+        out.setdefault(a.args[0], set()).add(notes.unit_name(a))
     return {
         k: sorted(v, key=lambda u: (order.get(u, len(order)), u))
         for k, v in out.items()

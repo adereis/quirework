@@ -14,6 +14,7 @@ Convention (one tag per comment; the parenthetical and body are optional):
     <!-- @bind(kettle-signal) -->
     <!-- @todo      make the kettle example concrete -->
     <!-- @variant(audio)  describe the signal for the audio edition -->
+    <!-- @omit(kettle-signal)  a derived edition's reason to leave a section out -->
     <!-- @ref       source:field-notes -- the interview that seeded this -->
     <!-- @see(em-dashes)  the long dialogue here is the worst offender -->
 
@@ -35,7 +36,7 @@ from pathlib import Path
 from typing import NamedTuple
 
 from quirework.core import frontmatter
-from quirework.manuscript import formats, units
+from quirework.manuscript import editions, formats, units
 from quirework.project import ConfigurationError, current_project
 
 # <!-- @kind(args)  body --> , possibly multi-line.
@@ -147,6 +148,7 @@ _LINE_PIN = re.compile(
 # by companion `Anchors:` joins. Semantic prose cites the spec as `#slug`.
 _BIND_REF = re.compile(r"@bind\(([\w-]+(?:/[\w-]+)?)\)")
 _BIND_TOKEN = re.compile(r"@bind\(([^)]*)\)")
+_OMIT_TOKEN = re.compile(r"@omit\(([^)]*)\)")
 # A semantic citation of the spec section itself. Exclude Pandoc
 # ``{#anchor}`` attributes; those name document locations, not commitments.
 _SPEC_REF = re.compile(r"(?<![\w{/])#([A-Za-z][\w-]*(?:/[A-Za-z][\w-]*)?)\b")
@@ -370,6 +372,7 @@ KIND_DESCRIPTIONS = {
     "ref": "prior-art / conversation pointers",
     "source": "a citation; @source(slug) names one in the sources register",
     "see": "pointer to a work-wide review note",
+    "omit": "a spec section a derived edition leaves out, and why",
 }
 
 # Other names a kind answers to on the command line. A harness that guards a
@@ -613,11 +616,17 @@ def spec_file_of(slug: str, docs: Path | None = None) -> Path | None:
     return None
 
 
+def default_roots(docs: Path | None = None) -> list[Path]:
+    """What `scan` reads by default: the manuscript's own files, then every
+    derived edition's marks sidecars."""
+    return [*units.harvest(docs), *editions.sidecars()]
+
+
 def mark_files(paths: list[Path] | None = None) -> list[Path]:
     """Every file `scan` reads marks from, below the given paths or the
-    manuscript's own."""
+    manuscript's own and its editions'."""
     out: list[Path] = []
-    for root in paths or units.harvest():
+    for root in paths or default_roots():
         root = Path(root)
         files = (
             [root]
@@ -634,11 +643,25 @@ def mark_files(paths: list[Path] | None = None) -> list[Path]:
 
 
 def scan(paths: list[Path] | None = None) -> list[Annotation]:
-    """Harvest annotations below the given paths or the manuscript's own files."""
+    """Harvest annotations below the given paths or the manuscript's own files.
+
+    An edition's sidecar is attributed to the edition's document beside it,
+    whatever the manuscript's own format pairs its sidecars by.
+    """
     annos: list[Annotation] = []
     for f in mark_files(paths):
-        annos.extend(scan_text(f.read_text(), _rel(_chapter_for(f)), _rel(f)))
+        prose = editions.prose_for(f) if editions.is_sidecar(f) else _chapter_for(f)
+        annos.extend(scan_text(f.read_text(), _rel(prose), _rel(f)))
     return annos
+
+
+def unit_name(a: Annotation) -> str:
+    """The unit a mark belongs to: an edition's `KIND/STEM`, or the canon's slug.
+
+    It is also the unit a bare spec name is resolved for. No section is named
+    `KIND/STEM/anchor`, so an edition's marks name sections in full.
+    """
+    return editions.unit_of(a.file) or units.slug_of(a.file)
 
 
 def _reading_order() -> dict[str, int]:
@@ -739,7 +762,7 @@ def _trail_marker(a: Annotation, held: dict[str, int], known: set[str]) -> str:
     """
     if a.kind != "bind" or not a.args:
         return ""
-    slug = resolve(a.args[0], units.slug_of(a.file), known)
+    slug = resolve(a.args[0], unit_name(a), known)
     return f"  [trail ×{held[slug]}]" if held.get(slug) else ""
 
 
@@ -920,7 +943,9 @@ def chapter_bindings(docs: Path | None = None) -> dict[str, set[str]]:
     sections = spec_sections(docs) if own else []
     known = {x.slug for x in sections if x.slug}
     for a in scan(roots):
-        if a.kind == "bind" and a.args:
+        # An edition retells the canon and is no chapter of it: its bindings
+        # are `edition_bindings`.
+        if a.kind == "bind" and a.args and not editions.unit_of(a.file):
             unit = units.slug_of(a.file)
             out.setdefault(unit, set()).add(resolve(a.args[0], unit, known))
     if own:
@@ -929,6 +954,32 @@ def chapter_bindings(docs: Path | None = None) -> dict[str, set[str]]:
             owner = spec_owner(s.path)
             if owner in present and s.slug:
                 out.setdefault(owner, set()).add(s.slug)
+    return out
+
+
+def edition_bindings() -> dict[str, dict[str, set[str]]]:
+    """edition kind -> {"bind": what it carries, "omit": what it leaves out}.
+
+    Each is a set of spec sections, gathered over every document of the
+    edition. A section that is both bound and omitted is in both, which the
+    check reports.
+    """
+    try:
+        known = spec_slugs()
+    except ConfigurationError:
+        known = set()
+    out: dict[str, dict[str, set[str]]] = {}
+    sidecars = editions.sidecars()
+    # An empty list would scan the default roots, the whole manuscript.
+    for a in scan(sidecars) if sidecars else []:
+        if a.kind not in ("bind", "omit") or len(a.args) != 1:
+            continue
+        unit = editions.unit_of(a.file)
+        if unit is None:
+            continue
+        kind = unit.split("/", 1)[0]
+        slots = out.setdefault(kind, {"bind": set(), "omit": set()})
+        slots[a.kind].add(resolve(a.args[0], unit, known))
     return out
 
 
@@ -1112,10 +1163,12 @@ def companion_check(
 
 def _findings(docs: Path) -> tuple[list[str], list[tuple[str, list[str]]]]:
     """Lint the split-metadata layout; replaces physical co-location as the
-    drift guard. Twelve hard invariants (any failure → exit 1):
+    drift guard. Thirteen hard invariants (any failure → exit 1):
 
-      1. no prose file carries an @-mark (marks live in sidecars);
-      2. every sidecar belongs to a unit on disk (no orphan sidecar);
+      1. no prose file carries an @-mark (marks live in sidecars), a derived
+         edition's documents included;
+      2. every sidecar belongs to a unit on disk (no orphan sidecar), and an
+         edition's sidecar to a document of that edition;
       3. every heading in a sidecar resolves to a real heading/anchor in its
          unit (the mirror can never drift from the prose it indexes);
       4. the spec's level-2 sections each carry an {#slug} anchor,
@@ -1147,8 +1200,11 @@ def _findings(docs: Path) -> tuple[list[str], list[tuple[str, list[str]]]]:
          shaped the spec, and `spec trail --check` follows those pointers.
      12. where `manuscript.sources` is set, every @source(slug) names a source
          in that register, and every source has a slug of its own.
+     13. every @omit sits in a derived edition's sidecar, names one spec
+         section, and gives its reason; no edition both binds and omits one.
 
-    Plus six advisories, printed but never fatal.
+    Plus seven advisories, printed but never fatal. The seventh names each
+    section the canon binds that a composed edition neither binds nor omits.
 
     Quotations in the companion collections that appear nowhere in canon.
     Heuristic by necessity (entries quote outside sources too, so only a
@@ -1209,9 +1265,28 @@ def _findings(docs: Path) -> tuple[list[str], list[tuple[str, list[str]]]]:
                 f"move it to {where}"
             )
 
+    for kind in editions.composed():
+        try:
+            prose_files = editions.documents(kind)
+        except ValueError as exc:
+            problems.append(f"{_rel(editions.root() / kind)}: {exc}")
+            continue
+        for prose in prose_files:
+            text = mask_fences(prose.read_text())
+            for m in _ANNO.finditer(text):
+                ln = text.count("\n", 0, m.start()) + 1
+                home = prose.parent / units.MARKS_DIR / f"{prose.stem}.md"
+                problems.append(
+                    f"{_rel(prose)}:{ln}: @{m.group(1).lower()} mark left in prose — "
+                    f"move it to {_rel(home)}"
+                )
+
     # 2. no orphan sidecars; 3. mirror integrity.
-    for side in units.sidecars(docs):
-        unit = units.prose_for_sidecar(side, docs)
+    paired = [
+        (side, units.prose_for_sidecar(side, docs)) for side in units.sidecars(docs)
+    ]
+    paired += [(side, editions.prose_for(side)) for side in editions.sidecars()]
+    for side, unit in paired:
         if unit is None or not unit.exists():
             named = _rel(unit) if unit is not None else f"'{units.sidecar_slug(side)}'"
             problems.append(
@@ -1226,7 +1301,7 @@ def _findings(docs: Path) -> tuple[list[str], list[tuple[str, list[str]]]]:
                     f"{{#anchor}} in {_rel(unit)} (the mirror has drifted)"
                 )
 
-    annos = scan(units.harvest(docs))
+    annos = scan(default_roots(docs))
 
     # 4. the register's binding namespace: anchored level-2 sections, unique
     # by full name, since a binding names a section and not a file. A unit's
@@ -1282,7 +1357,7 @@ def _findings(docs: Path) -> tuple[list[str], list[tuple[str, list[str]]]]:
     for a in annos:
         if a.kind != "bind":
             continue
-        slug = resolve(a.args[0], units.slug_of(a.file), spec) if a.args else None
+        slug = resolve(a.args[0], unit_name(a), spec) if a.args else None
         # The sidecar and line the mark actually lives at, so a gate failure
         # under pre-commit pressure points at the editable file (a.file is the
         # chapter, whose line numbers do not apply).
@@ -1307,6 +1382,41 @@ def _findings(docs: Path) -> tuple[list[str], list[tuple[str, list[str]]]]:
             f"{_spec_name(docs)}. Every @bind names a spec section: "
             f"name the section the {units.noun()} expresses, or add it."
         )
+
+    # 13. @omit is an edition's reason to leave one spec section out: it
+    # belongs to an edition, names one section, and says why.
+    for a in annos:
+        if a.kind != "omit":
+            continue
+        at = f"{a.source or a.file}:{a.line}"
+        if not editions.unit_of(a.file):
+            problems.append(
+                f"{at}: @omit belongs to a derived edition's sidecar; the canon "
+                f"states what it carries by binding it"
+            )
+            continue
+        if len(a.args) != 1:
+            problems.append(
+                f"{at}: @omit takes exactly one slug (got {len(a.args)}), "
+                f"one mark per section left out"
+            )
+            continue
+        slug = resolve(a.args[0], unit_name(a), spec)
+        if slug not in spec:
+            problems.append(
+                f"{at}: @omit('{slug}') names no section of {_spec_name(docs)}"
+            )
+        if not a.body:
+            problems.append(
+                f"{at}: @omit('{slug}') gives no reason. Say why the edition "
+                f"leaves the section out, so a reader can tell a choice from a gap"
+            )
+    for kind, slots in sorted(edition_bindings().items()):
+        for slug in sorted(slots["bind"] & slots["omit"]):
+            problems.append(
+                f"{_rel(editions.root() / kind)}: binds and omits '{slug}'; an "
+                f"edition carries a section or leaves it out"
+            )
 
     # 6. @see resolves to a book-wide note.
     rn = _configured_book_file(docs, "manuscript.review_notes")
@@ -1399,6 +1509,28 @@ def _findings(docs: Path) -> tuple[list[str], list[tuple[str, list[str]]]]:
                 f"  {_rel(f)}"
                 for f in spec_files(docs)
                 if (owner := spec_owner(f)) is not None and owner not in present
+            ],
+        )
+    )
+
+    # An edition retells what the canon commits to. A section the canon binds
+    # that an edition neither binds nor omits is the gap a reader cannot tell
+    # from a choice, so it is named until the edition says which it is.
+    carried = edition_bindings()
+    canon = set().union(*chapter_bindings(docs).values())
+    groups.append(
+        (
+            "{n} section(s) the canon binds are neither bound nor omitted by an "
+            "edition; bind each where the edition carries it, or @omit it with "
+            "the reason",
+            [
+                f"  {_rel(editions.root() / kind)}: {slug}"
+                for kind in editions.composed()
+                for slug in sorted(
+                    canon
+                    - carried.get(kind, {}).get("bind", set())
+                    - carried.get(kind, {}).get("omit", set())
+                )
             ],
         )
     )
@@ -1504,7 +1636,7 @@ def _findings(docs: Path) -> tuple[list[str], list[tuple[str, list[str]]]]:
                 for a in annos
                 if a.body
                 for slug in _SPEC_REF.findall(a.body)
-                if resolve(slug, units.slug_of(a.file), spec) not in spec
+                if resolve(slug, unit_name(a), spec) not in spec
             ],
         )
     )
@@ -1955,7 +2087,7 @@ def main(argv=None) -> int:
         def names(a):
             return [
                 *a.args,
-                *(resolve(x, units.slug_of(a.file), known) for x in a.args),
+                *(resolve(x, unit_name(a), known) for x in a.args),
             ]
 
         matching = [a for a in annos if any(sub in n.lower() for n in names(a))]

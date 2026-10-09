@@ -269,12 +269,14 @@ def _phrase(text: str) -> str:
 
 def count_marks(docs: Path | None = None) -> dict[str, dict[str, str]]:
     """unit slug -> {counted phrase: where its `@count` mark is}."""
-    from quirework.manuscript import notes
+    from quirework.manuscript import editions, notes
 
     out: dict[str, dict[str, str]] = {}
     roots = harvest(docs) if docs is not None else None
     for a in notes.scan(roots):
-        if a.kind == "count" and a.args:
+        # An exemption from the chapter-count advisory, which reads the
+        # canon: an edition's mark exempts nothing the canon says.
+        if a.kind == "count" and a.args and not editions.unit_of(a.file):
             where = f"{a.source}:{a.line}"
             out.setdefault(slug_of(a.file), {})[_phrase(a.args[0])] = where
     return out

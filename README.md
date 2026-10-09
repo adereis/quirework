@@ -117,13 +117,15 @@ when that claim changes.
 The annotations live in a sidecar rather than in the prose, so the
 rendered text never carries them and reflowing a paragraph never
 disturbs them. A book keeps them beside each chapter, and a site keeps
-them outside the tree its generator renders. `spec notes --check` gates
-twelve invariants: a mark left in the prose, a sidecar that no longer
-mirrors its chapter, a binding that names a commitment the spec does not
-declare, a reading order that disagrees with the files on disk.
-`spec quotes` checks that a phrase quoted in metadata still exists in
-the work, and `--grep TERM` lists every quotation of a term you just
-retired from the prose.
+them outside the tree its generator renders. A derived edition's
+documents bind the same spec, so a commitment can be followed from the
+chapter that states it into every edition that retells it.
+`spec notes --check` gates thirteen invariants: a mark left in the
+prose, a sidecar that no longer mirrors its chapter, a binding that
+names a commitment the spec does not declare, a reading order that
+disagrees with the files on disk. `spec quotes` checks that a phrase
+quoted in metadata still exists in the work, and `--grep TERM` lists
+every quotation of a term you just retired from the prose.
 
 ### Keeps track of what the work stands on
 

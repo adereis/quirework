@@ -22,34 +22,14 @@ because that is where figures are looked for: an embed is
 
 from __future__ import annotations
 
-from pathlib import Path
-
 from quirework.core.artifact_paths import EDITION_DRAFTS
+from quirework.manuscript.editions import composed, root  # noqa: F401
 from quirework.manuscript.quarto import BOOK_CONFIG
 from quirework.project import current_project
 
 # An edition's blind drafts: what each model wrote, kept as evidence. Never
 # staged, reflowed or read as a source.
 RAW = EDITION_DRAFTS
-
-
-def root() -> Path | None:
-    """The configured editions root, or None for a project with no editions."""
-    if current_project().get("publish.variants") is None:
-        return None
-    return current_project().path("publish.variants")
-
-
-def composed() -> list[str]:
-    """Every edition that has a Quarto file of its own, by kind, sorted."""
-    base = root()
-    if base is None or not base.is_dir():
-        return []
-    return sorted(
-        folder.name
-        for folder in base.iterdir()
-        if folder.is_dir() and (folder / BOOK_CONFIG).is_file()
-    )
 
 
 def project(kind: str):
