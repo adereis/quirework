@@ -15,6 +15,13 @@ capture preserves source mtime and records the source fingerprint it was made
 from, which is what a later sweep compares -- so a live session that has since
 grown is re-normalized, and a settled one is left alone.
 
+A capture holds the session's sub-agents too. Claude Code writes each to its
+own transcript beside the session's, and `ccfilter` folds them in as side-thread
+records under the same rule; the header records each one's fingerprint. A
+capture whose sub-agents no longer match the ones on disk is captured again, so
+a session captured before its sub-agents were read is captured once more, with
+its dialogue unchanged. `Survey.subagents_only` names those.
+
 Captures land in the store's pending area (`store.py`): a session is evidence
 only once `quirework provenance accept` takes it. A session already accepted is
 captured again only when its transcript has grown since, and then as a pending
@@ -106,6 +113,16 @@ def recorded_cwd(path: Path):
     return None
 
 
+def _fingerprint(header):
+    """The main transcript's ``(byte count, SHA-256)`` a header records."""
+    if not header:
+        return None
+    try:
+        return int(header["source_bytes"]), str(header["source_sha256"])
+    except (KeyError, TypeError, ValueError):
+        return None
+
+
 def captured_fingerprint(dst: Path):
     """The source ``(byte count, SHA-256)`` a capture was normalized from.
 
@@ -113,13 +130,7 @@ def captured_fingerprint(dst: Path):
     left over from before normalization gets re-captured rather than mistaken
     for a current one.
     """
-    header = ccfilter.capture_header(dst)
-    if not header:
-        return None
-    try:
-        return int(header["source_bytes"]), str(header["source_sha256"])
-    except (KeyError, TypeError, ValueError):
-        return None
+    return _fingerprint(ccfilter.capture_header(dst))
 
 
 def write_capture(src: Path, dst: Path) -> None:
@@ -149,8 +160,8 @@ def write_capture(src: Path, dst: Path) -> None:
             tmp.unlink(missing_ok=True)
 
 
-def captured_from(src: Path, dst: Path) -> bool:
-    """Whether the capture at ``dst`` was made from ``src`` as it stands now.
+def _dialogue_current(src: Path, dst: Path, captured) -> bool:
+    """Whether the session's own transcript is the one ``captured`` records.
 
     Two stages, because this runs from a `SessionEnd` hook on every session and
     the corpus is hundreds of files. A capture is a seventh the size of what it
@@ -160,7 +171,6 @@ def captured_from(src: Path, dst: Path) -> bool:
     Anything the cheap stage cannot vouch for falls through to the recorded
     SHA-256, which also catches an edit that leaves the byte count unchanged.
     """
-    captured = captured_fingerprint(dst)
     if captured is None:
         return False
     source_bytes, source_sha = captured
@@ -171,6 +181,75 @@ def captured_from(src: Path, dst: Path) -> bool:
         source_bytes,
         source_sha,
     )
+
+
+def _subagents_current(src: Path, dst: Path, header) -> bool:
+    """Whether the sub-agents a capture records are the session's sub-agents now.
+
+    A capture that names none matches a session that has none, whether it was
+    made before sub-agents were captured or after. The cheap stage is the main
+    transcript's: a sub-agent ends before the turn that started it does, so one
+    untouched since it was captured is no newer than the capture, whose mtime
+    is the session's, and its size vouches for the rest. A sub-agent that ran
+    on after its session last wrote is hashed on every sweep, which is the
+    price of never trusting a file newer than the capture.
+    """
+    recorded = {}
+    for agent in header.get("subagents") or ():
+        try:
+            recorded[str(agent["agent"])] = (
+                int(agent["source_bytes"]),
+                str(agent["source_sha256"]),
+            )
+        except (KeyError, TypeError, ValueError):
+            return False
+    present = {Path(p).stem: Path(p) for p in ccfilter.subagent_sources(src)}
+    if set(present) != set(recorded):
+        return False
+    limit = dst.stat().st_mtime_ns
+    for name, path in present.items():
+        size, sha = recorded[name]
+        st = path.stat()
+        if st.st_size != size:
+            return False
+        if st.st_mtime_ns > limit and ccfilter.source_fingerprint(path)[1] != sha:
+            return False
+    return True
+
+
+def captured_from(src: Path, dst: Path) -> bool:
+    """Whether the capture at ``dst`` was made from ``src`` as it stands now:
+    the session's own transcript and every sub-agent transcript beside it."""
+    header = ccfilter.capture_header(dst)
+    return _dialogue_current(src, dst, _fingerprint(header)) and _subagents_current(
+        src, dst, header
+    )
+
+
+def dialogue_unchanged(src: Path, dst: Path) -> bool:
+    """Whether ``dst`` holds ``src``'s own transcript as it stands, sub-agents aside."""
+    return dst.is_file() and _dialogue_current(src, dst, captured_fingerprint(dst))
+
+
+def subagents_only(capture: Path, others) -> bool:
+    """Whether ``capture`` differs from one of ``others`` only in its sub-agents.
+
+    Read off the headers alone: the same main transcript, recorded by the same
+    fingerprint, with a different set of sub-agents. Such a capture changes
+    nothing a reader of the dialogue sees, which is what lets a review keep
+    the verdict it already gave.
+    """
+    header = ccfilter.capture_header(capture)
+    mine = _fingerprint(header)
+    if mine is None:
+        return False
+    for other in others:
+        theirs = ccfilter.capture_header(other)
+        if _fingerprint(theirs) == mine and (theirs.get("subagents") or []) != (
+            header.get("subagents") or []
+        ):
+            return True
+    return False
 
 
 def is_current(src: Path, versions) -> bool:
@@ -212,6 +291,7 @@ class Survey:
 
     due: tuple[Path, ...]  # new or grown since every capture of it
     grown: frozenset[Path]  # those of `due` that an older capture exists for
+    subagents_only: frozenset[Path]  # those of `grown` whose dialogue is unchanged
     unchanged: int  # captured as they stand
     removed: int  # on the ledger's removed list, never captured
     foreign: int  # recorded as running in another project
@@ -239,7 +319,7 @@ def survey() -> Survey | None:
     excluding = worktrees.excluded_trees(current_project(), roots)
     pending = store.open_store().pending_dir(store.CC)
     accepted = accepted_versions(store.CC)
-    due, grown = [], set()
+    due, grown, only = [], set(), set()
     unchanged = foreign = 0
     for p in kept:
         versions = [pending / p.name, *accepted.get(p.name, ())]
@@ -251,8 +331,15 @@ def survey() -> Survey | None:
             due.append(p)
             if any(v.is_file() for v in versions):
                 grown.add(p)
+                if any(dialogue_unchanged(p, v) for v in versions):
+                    only.add(p)
     return Survey(
-        tuple(due), frozenset(grown), unchanged, len(sources) - len(kept), foreign
+        tuple(due),
+        frozenset(grown),
+        frozenset(only),
+        unchanged,
+        len(sources) - len(kept),
+        foreign,
     )
 
 

@@ -750,3 +750,204 @@ def fictitious_redaction_policy(tmp_path, isolated_project):
         )
     ):
         yield
+
+
+# --------------------------------------------------------------------------- #
+# sub-agents: part of the session, captured as side-threads
+# --------------------------------------------------------------------------- #
+ASK = "Read chapter 1 and report where the kettle first whistles."
+
+MAIN = [
+    {
+        "type": "user",
+        "timestamp": "2031-04-02T10:00:00Z",
+        "message": {"content": "Where does the kettle first whistle?"},
+    },
+    {
+        "type": "assistant",
+        "timestamp": "2031-04-02T10:00:05Z",
+        "message": {
+            "content": [
+                {
+                    "type": "tool_use",
+                    "id": "m1",
+                    "name": "Agent",
+                    "input": {"description": "Find the whistle", "prompt": ASK},
+                }
+            ]
+        },
+    },
+    {
+        "type": "assistant",
+        "timestamp": "2031-04-02T10:02:00Z",
+        "message": {"content": [{"type": "text", "text": "Page 3, it says."}]},
+    },
+]
+
+
+def _side(**fields):
+    return {"isSidechain": True, "agentId": "a1b2c3", **fields}
+
+
+SIDE = [
+    _side(type="user", timestamp="2031-04-02T10:00:06Z", message={"content": ASK}),
+    # The guides and memory the harness injects into every sub-agent.
+    _side(
+        type="attachment", attachment={"type": "instructions", "content": "Y" * 5000}
+    ),
+    _side(
+        type="assistant",
+        timestamp="2031-04-02T10:00:10Z",
+        message={
+            "model": "claude-haiku-5-5",
+            "usage": {"input_tokens": 50000},
+            "content": [
+                {
+                    "type": "tool_use",
+                    "id": "s1",
+                    "name": "Read",
+                    "input": {"file_path": "/book/chapter-1.md"},
+                }
+            ],
+        },
+    ),
+    _side(
+        type="user",
+        timestamp="2031-04-02T10:00:11Z",
+        message={
+            "content": [
+                {"type": "tool_result", "tool_use_id": "s1", "content": "X" * 5000}
+            ]
+        },
+    ),
+    _side(
+        type="assistant",
+        timestamp="2031-04-02T10:01:00Z",
+        message={
+            "content": [
+                {"type": "text", "text": "Page 3, second paragraph."},
+                {
+                    "type": "tool_use",
+                    "id": "s2",
+                    "name": "SubagentHandback",
+                    "input": {"message": "The kettle first whistles on page 3."},
+                },
+            ]
+        },
+    ),
+]
+
+META = {
+    "agentType": "general-purpose",
+    "description": "Find the whistle",
+    "model": "haiku",
+}
+
+
+def _with_subagent(folder, main, side, *, agent="agent-a1b2c3", meta=META):
+    """A session and one sub-agent beside it, laid out as Claude Code keeps them."""
+    folder.mkdir(parents=True, exist_ok=True)
+    session = folder / "s.jsonl"
+    session.write_text("".join(json.dumps(r) + "\n" for r in main), encoding="utf-8")
+    agents = folder / "s" / ccfilter.SUBAGENT_DIR
+    agents.mkdir(parents=True)
+    sub = agents / f"{agent}.jsonl"
+    sub.write_text("".join(json.dumps(r) + "\n" for r in side), encoding="utf-8")
+    if meta is not None:
+        (agents / f"{agent}.meta.json").write_text(json.dumps(meta), encoding="utf-8")
+    return session, sub
+
+
+def _rows(data):
+    rows = [json.loads(line) for line in data.decode("utf-8").splitlines()]
+    return rows[0], rows[1:]
+
+
+def test_a_capture_folds_in_its_subagents_as_side_threads(tmp_path):
+    session, sub = _with_subagent(tmp_path, MAIN, SIDE)
+    data = ccfilter.normalize_capture(session)
+    header, kept = _rows(data)
+
+    [agent] = header["subagents"]
+    size, sha = ccfilter.source_fingerprint(sub)
+    assert (agent["agent"], agent["source_bytes"], agent["source_sha256"]) == (
+        "agent-a1b2c3",
+        size,
+        sha,
+    )
+    assert agent["meta"] == META
+    assert agent["records"] == 4
+    # What it was given and what it read are gone; what it did stays.
+    assert agent["dropped"] == {
+        "attachment": 1,
+        "message.usage": 1,
+        "tool_result.content": 1,
+    }
+    assert b"Y" * 100 not in data and b"X" * 100 not in data
+    # The session's own census is its own: nothing of the sub-agent's in it.
+    assert header["dropped"] == {}
+    assert header["records"] == len(kept) == 7
+
+    # Interleaved by time, the session's own thread in its own order.
+    stamps = [r["timestamp"] for r in kept]
+    assert stamps == sorted(stamps)
+    assert [r.get("isSidechain", False) for r in kept] == [
+        False,
+        False,
+        True,
+        True,
+        True,
+        True,
+        False,
+    ]
+    read, _result, report = kept[3], kept[4], kept[5]
+    assert read["message"]["content"][0]["input"] == {"file_path": "/book/chapter-1.md"}
+    handback = report["message"]["content"][1]
+    assert handback["input"]["message"] == "The kettle first whistles on page 3."
+    # Deterministic, as every capture is.
+    assert ccfilter.normalize_capture(session) == data
+
+
+def test_a_session_without_subagents_captures_as_it_always_did(tmp_path):
+    header, _ = _capture(tmp_path, MAIN)
+    assert "subagents" not in header
+
+
+def test_a_subagent_record_not_stamped_as_a_side_thread_is_dropped(tmp_path):
+    stray = {
+        "type": "assistant",
+        "message": {"content": [{"type": "text", "text": "stray"}]},
+    }
+    session, _ = _with_subagent(tmp_path, MAIN, [*SIDE, stray])
+    header, kept = _rows(ccfilter.normalize_capture(session))
+    assert header["subagents"][0]["dropped"]["<not-a-side-thread>"] == 1
+    assert all("stray" not in json.dumps(r) for r in kept)
+
+
+def test_subagents_change_nothing_a_blind_analyst_reads(tmp_path):
+    """The cold-read render drops side-threads, so a capture that gained its
+    sub-agents renders exactly as the capture without them did."""
+    with_agents, _ = _with_subagent(tmp_path / "a", MAIN, SIDE)
+    without = tmp_path / "b" / "s.jsonl"
+    without.parent.mkdir()
+    without.write_text("".join(json.dumps(r) + "\n" for r in MAIN), encoding="utf-8")
+    renders = []
+    for source in (with_agents, without):
+        capture = source.with_name("capture.jsonl")
+        capture.write_bytes(ccfilter.normalize_capture(source))
+        renders.append(ccfilter.filter_session(str(capture))[0])
+    assert renders[0] == renders[1]
+    assert "Page 3, it says." in renders[0]
+    assert "second paragraph" not in renders[0]
+
+
+def test_interleaving_never_reorders_a_stream():
+    main = [
+        {"n": "m0", "timestamp": "2031-04-02T10:00:00Z"},
+        {"n": "m1", "timestamp": "2031-04-02T09:59:00Z"},  # logged out of order
+        {"n": "m2"},  # no timestamp: travels with the record before it
+        {"n": "m3", "timestamp": "2031-04-02T10:05:00Z"},
+    ]
+    side = [{"n": "s0", "timestamp": "2031-04-02T10:01:00Z"}]
+    order = [r["n"] for r in ccfilter._interleave([main, side])]
+    assert order == ["m0", "m1", "m2", "s0", "m3"]

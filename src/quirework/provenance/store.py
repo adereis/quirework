@@ -1045,11 +1045,22 @@ def cmd_status(_args):
     print(f"ledger    {shown(store.manifest)}")
     print(f"accepted  {len(accepted)} session(s), {len(entries)} file(s)")
     print(f"pending   {len(units)} session(s)")
+    earlier = None
     for (family, unit), found in sorted(
         units.items(), key=lambda kv: max(p.stat().st_mtime for p in kv[1].values())
     ):
         newest_mtime = max(p.stat().st_mtime for p in found.values())
         state = "grown" if (family, unit) in accepted else "new"
+        if state == "grown" and family == CC:
+            from quirework.provenance.ingestion import claude
+
+            if earlier is None:
+                earlier = claude.accepted_versions(CC)
+            if any(
+                claude.subagents_only(path, earlier.get(name, ()))
+                for name, path in found.items()
+            ):
+                state = "grown by its sub-agents only, dialogue unchanged"
         live = "" if settled(found.values(), family, now) else ", may still be running"
         print(
             f"  {KIND_OF[family]:5} {unit}  {state}, changed "
@@ -1060,7 +1071,11 @@ def cmd_status(_args):
         print(f"uncaptured {len(missed.due)} Claude Code session(s)")
         for path in sorted(missed.due, key=lambda p: p.stat().st_mtime):
             state = (
-                "grown since its capture" if path in missed.grown else "never captured"
+                "gained sub-agents since its capture, dialogue unchanged"
+                if path in missed.subagents_only
+                else "grown since its capture"
+                if path in missed.grown
+                else "never captured"
             )
             live = "" if settled([path], CC, now) else ", may still be running"
             print(

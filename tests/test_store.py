@@ -716,3 +716,90 @@ def test_status_is_silent_about_claude_code_where_it_never_ran(tmp_path, capsys)
     with project_scope(project):
         store.init()
         assert "uncaptured" not in _status(capsys)
+
+
+# --------------------------------------------------------------------------- #
+# sub-agents: captured with their session
+# --------------------------------------------------------------------------- #
+def _subagent(source, agent, *said):
+    """A sub-agent's transcript beside a session, where Claude Code keeps it."""
+    folder = source.with_suffix("") / "subagents"
+    folder.mkdir(parents=True, exist_ok=True)
+    path = folder / f"{agent}.jsonl"
+    path.write_text(
+        "".join(
+            json.dumps(
+                {
+                    "type": "assistant",
+                    "isSidechain": True,
+                    "agentId": agent.removeprefix("agent-"),
+                    "timestamp": "2031-04-02T10:00:30Z",
+                    "message": {"content": [{"type": "text", "text": text}]},
+                }
+            )
+            + "\n"
+            for text in said
+        )
+    )
+    old = time.time() - store.SETTLE_SECONDS - 60
+    os.utime(path, (old, old))
+    return path
+
+
+def test_a_session_captured_without_its_subagents_is_captured_again(tmp_path, capsys):
+    from quirework.provenance import ccfilter
+    from quirework.provenance.ingestion import claude
+
+    project = _claude_book(tmp_path)
+    source = _claude_home(tmp_path, project, KETTLE, "Boil the water.")
+    with project_scope(project):
+        store.init()
+        claude.main([])
+        store.accept(everything=True)
+        _subagent(source, "agent-a1b2c3", "The kettle is on.")
+        out = _status(capsys)
+        assert (
+            f"{KETTLE}  gained sub-agents since its capture, dialogue unchanged" in out
+        )
+
+        claude.main([])
+        assert "grown by its sub-agents only, dialogue unchanged" in _status(capsys)
+        [pending] = store.pending(store.CC)
+        names = [a["agent"] for a in ccfilter.capture_header(pending)["subagents"]]
+        assert names == ["agent-a1b2c3"]
+
+        store.accept(everything=True)
+        claude.main([])
+        assert store.pending(store.CC) == []
+        assert "uncaptured 0 Claude Code session(s)" in _status(capsys)
+
+
+def test_a_subagent_that_grows_makes_its_capture_stale(tmp_path):
+    from quirework.provenance.ingestion import claude
+
+    project = _claude_book(tmp_path)
+    source = _claude_home(tmp_path, project, KETTLE, "Boil the water.")
+    _subagent(source, "agent-a1b2c3", "The kettle is on.")
+    with project_scope(project):
+        store.init()
+        claude.main([])
+        assert claude.survey().due == ()
+        _subagent(source, "agent-a1b2c3", "The kettle is on.", "It whistles.")
+        found = claude.survey()
+        assert found.due == (source,)
+        assert found.subagents_only == {source}
+
+
+def test_a_session_whose_dialogue_grew_is_not_called_subagents_only(tmp_path, capsys):
+    from quirework.provenance.ingestion import claude
+
+    project = _claude_book(tmp_path)
+    source = _claude_home(tmp_path, project, KETTLE, "Boil the water.")
+    with project_scope(project):
+        store.init()
+        claude.main([])
+        store.accept(everything=True)
+        _claude_home(tmp_path, project, KETTLE, "Boil the water.", "Pour it.")
+        _subagent(source, "agent-a1b2c3", "The kettle is on.")
+        assert claude.survey().subagents_only == frozenset()
+        assert f"{KETTLE}  grown since its capture" in _status(capsys)

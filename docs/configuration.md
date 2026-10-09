@@ -506,6 +506,14 @@ branch whose ledger still lists the old version keeps reading exactly
 the bytes it accepted, so accepting on one branch never breaks the
 checks of another.
 
+A session also counts as grown when it gained sub-agents its capture
+does not hold, which is how every session captured before sub-agents
+were captured is taken again. Status says so: such a session is listed
+as having gained sub-agents, and once captured it is pending as grown by
+its sub-agents only, with its dialogue unchanged. Nothing a reader of
+the dialogue sees has changed, so a review can keep the verdict it
+already gave and accept it without reading it again.
+
 The catalog, search, metrics and the cold-read read accepted sessions
 only. `show` and the spec trail also read pending captures, so a
 session can be read before it is accepted; `show` says so in its source
@@ -715,6 +723,16 @@ capture in prose. A store directory's bare name, such as
 matching directory name inside another project's absolute path does not
 establish an evaluation of this project's corpus.
 
+A Claude Code session's sub-agents are part of it. Claude Code writes
+each sub-agent to its own transcript, in a `subagents` directory beside
+the session's, and capture folds them into the session's capture under
+the rule that shapes the session itself: what a sub-agent said and did
+is kept, and what it was given and what it read is not, so its injected
+instructions and the files and transcripts it read never reach the
+store. Its records keep the harness's side-thread stamp, and the
+capture's first line records each sub-agent's fingerprint and the task
+the session gave it.
+
 Capture reads each harness's transcripts where the harness keeps them:
 Claude Code's under `~/.claude/projects`, Codex's under
 `$CODEX_HOME/sessions` (normally `~/.codex/sessions`), and
@@ -751,6 +769,17 @@ model's slot when a request fails ("API Error: …"): it is the
 harness's, not the model's, so a turn it follows reads as unanswered,
 and a blind cold-read never sees it as something the model said.
 
+A sub-agent's records are not the session's dialogue either. Search, the
+trail and the blind cold-read leave them out, and `show` shows them only
+with `--raw`: the task the session gave the sub-agent as `agent`, and
+what the sub-agent wrote back, its prose and the report it handed back,
+as `subagent`. The catalog names a session's model and dates from its
+own thread, and counts its sub-agents' edits as the session's work. The
+effort metrics count sub-agents, their tool calls and their words in a
+block of their own, outside the conversation's totals and its
+AI-to-human ratio, because a sub-agent's task is written by the
+assistant and its report is read by the assistant.
+
 A spec trail reads sessions only where provenance is enabled. There,
 `spec trail add --find` also reads this project's live Claude Code and
 Codex transcripts, from the same locations capture sweeps, and never
@@ -772,11 +801,12 @@ by default: the archive is private, and an undeclared one stays out.
 `quirework provenance coldread` puts accepted sessions in front of blind
 analysts and keeps what they report. What it keeps lives in
 `provenance.coldread`: the reports, cached by the content they read so
-an unchanged session is never paid for twice; the manifest that indexes
-them; and the analyst briefs the project writes, `analyst-prompt.md`
-and, for sessions about the apparatus, `analyst-prompt-making.md`. It
-defaults to `coldread` inside the ledger, so the cache travels with the
-decisions it was made from.
+an unchanged session is never paid for twice, including one captured
+again only to add its sub-agents, whose blind copy is unchanged; the
+manifest that indexes them; and the analyst briefs the project writes,
+`analyst-prompt.md` and, for sessions about the apparatus,
+`analyst-prompt-making.md`. It defaults to `coldread` inside the ledger,
+so the cache travels with the decisions it was made from.
 
 The working copies are rebuilt on demand and default to the project's
 cache. `provenance.rendered` holds the filtered sessions staged for the

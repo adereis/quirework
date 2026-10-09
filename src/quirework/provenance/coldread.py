@@ -14,7 +14,9 @@ report::
            bumping the Codex parser leaves Claude Code reports alone;
            a bump revalidates against the recorded render hash first --
            a recipe change that did not alter what the analyst read
-           does not re-buy the report)
+           does not re-buy the report. The source hash still gates first,
+           with one exception: a Claude Code capture that gained its
+           session's sub-agents, whose render is unchanged by construction)
 
 Anything that changes what an analysis *means* -- the source content, the
 filter recipe, or the analyst prompt -- changes the key and misses the cache
@@ -558,25 +560,47 @@ def is_hit(manifest, relpath, sha, path=None, persona=None):
     scope = SCOPE.scope_of_id(Path(relpath).stem)
     if SCOPE.normalize(e.get("scope", SCOPE.WORK)) != scope:
         return False
-    if e.get("sha256") != sha or e.get("prompt_version") != PROMPT_VERSIONS[scope]:
+    if e.get("prompt_version") != PROMPT_VERSIONS[scope]:
         return False
     if not (
         current_project().path("provenance.coldread", ".quirework/provenance/coldread")
         / e.get("report", "")
     ).exists():
         return False
-    if e.get("filter_version") == filter_version_for(relpath):
+    current = filter_version_for(relpath)
+    moved = e.get("sha256") != sha
+    if not moved and e.get("filter_version") == current:
         return True
-    # The filter recipe moved. That only invalidates this report if it changed
-    # what the analyst read -- so ask, rather than assuming (see
-    # `render_sha256`). Rendering is the expensive part, so it happens only on
-    # this path: an otherwise-current entry after a filter bump.
+    # The source hash gates first: the render hash is a second check, never a
+    # bypass -- with one exception. A Claude Code capture that names sub-agents
+    # can differ from the bytes an analyst read only in side-thread records,
+    # which the render drops, so its render settles whether anything the
+    # analyst read changed. A session whose dialogue grew renders differently
+    # and still misses.
+    if moved and not (path is not None and _names_subagents(path)):
+        return False
+    # The filter recipe moved, or the bytes did as above. That only invalidates
+    # this report if it changed what the analyst read -- so ask, rather than
+    # assuming (see `render_sha256`). Rendering is the expensive part, so it
+    # happens only on this path.
     recorded = e.get("render_sha256")
     if recorded and path is not None and recorded == render_sha256(path):
-        e["filter_version"] = filter_version_for(relpath)  # revalidated, not re-bought
+        if e.get("sha256") != sha:
+            # Keep the bytes the analyst was actually given on the record.
+            e.setdefault("analyzed_sha256", e.get("sha256"))
+            e["sha256"] = sha
+        e["filter_version"] = current  # revalidated, not re-bought
         manifest["_dirty"] = True
         return True
     return False
+
+
+def _names_subagents(path):
+    """Whether ``path`` is a Claude Code capture whose header lists sub-agents."""
+    if store.family_of(path) != store.CC:
+        return False
+    header = FLT.capture_header(path)
+    return bool(header and header.get("subagents"))
 
 
 def classify(path, manifest, persona=None):

@@ -5,14 +5,18 @@ they pin the key exactly: source bytes + filter version + prompt version,
 with a filter bump revalidating against the recorded render hash first --
 a recipe change that did not alter what the analyst read must not re-buy
 the report (the v2->v3 bump nominally invalidated 217 sources and had
-actually changed 64).
+actually changed 64). The source hash gates first, except for a Claude Code
+capture that gained its session's sub-agents, which renders as it did.
 The model is provenance, never validity — a mixed-model corpus (Sonnet for
 most, Opus where depth earns its tokens) must be stable, not converge back
 to the default model by silent re-analysis.
 """
 
+import json
+
 from conftest import patch_project_path
 from conftest import project_at, patch_setting
+from quirework.project import project_scope
 from quirework.runs import commands as run_commands
 from quirework.provenance import coldread
 from quirework.provenance import scope as SCOPE
@@ -346,3 +350,101 @@ def test_a_report_name_carries_its_own_readers_version():
 
     sha = "0" * 64
     assert coldread.report_name(sha, filter_version=7).startswith(f"{sha[:12]}-f7p")
+
+
+# --------------------------------------------------------------------------- #
+# a capture that gained its session's sub-agents
+# --------------------------------------------------------------------------- #
+def _cc_transcripts(folder, said, agent_said=None):
+    """A Claude Code session, and a sub-agent beside it when ``agent_said``."""
+    folder.mkdir(parents=True)
+    session = folder / "s.jsonl"
+    session.write_text(
+        "".join(
+            json.dumps(
+                {
+                    "type": "user",
+                    "timestamp": f"2031-04-02T10:0{i}:00Z",
+                    "message": {"content": text},
+                }
+            )
+            + "\n"
+            for i, text in enumerate(said)
+        )
+    )
+    if agent_said:
+        agents = folder / "s" / "subagents"
+        agents.mkdir(parents=True)
+        (agents / "agent-a1b2c3.jsonl").write_text(
+            json.dumps(
+                {
+                    "type": "assistant",
+                    "isSidechain": True,
+                    "agentId": "a1b2c3",
+                    "timestamp": "2031-04-02T10:00:30Z",
+                    "message": {"content": [{"type": "text", "text": agent_said}]},
+                }
+            )
+            + "\n"
+        )
+    return session
+
+
+def _carried(tmp_path, monkeypatch, *, said_later):
+    """Accept a capture, record a report on it, then accept the next capture."""
+    from conftest import corpus_settings, keep_session
+    from quirework.project import Project
+    from quirework.provenance import ccfilter, store
+
+    ref = "cc-sessions/0badc0de-0000-4000-8000-000000000001.jsonl"
+    project = Project.from_settings(
+        tmp_path / "book", {"provenance": corpus_settings()}
+    )
+    first = ccfilter.normalize_capture(
+        _cc_transcripts(tmp_path / "one", ["Boil the water."])
+    )
+    later = ccfilter.normalize_capture(
+        _cc_transcripts(tmp_path / "two", said_later, agent_said="The kettle is on.")
+    )
+    with project_scope(project):
+        patch_project_path(monkeypatch, coldread, "provenance.coldread", tmp_path)
+        keep_session(project, ref, first.decode())
+        [old] = store.files(store.CC, "*.jsonl")
+        m = _manifest(
+            tmp_path,
+            _entry(
+                sha256=coldread.sha256_file(old),
+                render_sha256=coldread.render_sha256(old),
+            ),
+        )
+        m["sources"] = {ref: m["sources"]["src.jsonl"]}
+        m["sources"][ref]["filter_version"] = coldread.filter_version_for(ref)
+        keep_session(project, ref, later.decode())
+        [new] = store.files(store.CC, "*.jsonl")
+        assert new != old
+        hit = coldread.is_hit(m, ref, coldread.sha256_file(new), new)
+        return (
+            hit,
+            m["sources"][ref],
+            coldread.sha256_file(old),
+            coldread.sha256_file(new),
+        )
+
+
+def test_a_capture_that_gained_its_subagents_keeps_its_report(tmp_path, monkeypatch):
+    """Side-threads never reach a render, so the analyst would read what it read."""
+    hit, entry, old_sha, new_sha = _carried(
+        tmp_path, monkeypatch, said_later=["Boil the water."]
+    )
+    assert hit
+    assert entry["sha256"] == new_sha
+    assert entry["analyzed_sha256"] == old_sha  # what the analyst was given
+
+
+def test_a_capture_whose_dialogue_grew_is_analyzed_again(tmp_path, monkeypatch):
+    hit, entry, old_sha, _ = _carried(
+        tmp_path, monkeypatch, said_later=["Boil the water.", "Pour it."]
+    )
+    assert not hit
+    assert entry["sha256"] == old_sha
+    assert "analyzed_sha256" not in entry

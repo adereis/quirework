@@ -94,7 +94,13 @@ def _short_id(sid):
 # per-source metadata (all cheap; no model calls)
 # --------------------------------------------------------------------------- #
 def _cc_scan(path):
-    """Title / date span / primary model from a cc-session JSONL (one pass)."""
+    """Title / date span / primary model from a cc-session JSONL (one pass).
+
+    The session's own thread decides all three. A sub-agent's records sit in
+    the same capture, and one busy reader on a cheaper model would otherwise
+    name the session after itself. Its edits do count (`_cc_entry`): they are
+    the session's work, delegated.
+    """
     title = slug = first = last = None
     models = {}
     with open(path, encoding="utf-8", errors="replace") as fh:
@@ -105,6 +111,8 @@ def _cc_scan(path):
             try:
                 o = json.loads(line)
             except json.JSONDecodeError:
+                continue
+            if o.get("isSidechain"):
                 continue
             if o.get("aiTitle"):
                 title = o["aiTitle"]

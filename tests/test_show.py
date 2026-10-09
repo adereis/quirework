@@ -97,7 +97,43 @@ def test_cc_records_skips_meta_and_sidechain_unless_raw(tmp_path):
     ]
     raw = _roles(show.cc_records(p, raw=True))
     assert ("harness", "/clear") in raw  # raw keeps the meta turn, as harness
-    assert ("assistant", "subagent chatter") in raw
+    # ...and a side-thread's reply as the subagent's, never the session's own.
+    assert ("subagent", "subagent chatter") in raw
+    assert ("assistant", "subagent chatter") not in raw
+
+
+def test_raw_shows_a_subagents_task_reply_and_report_as_its_own(tmp_path):
+    side = {"isSidechain": True, "agentId": "a1b2c3"}
+    handback = {
+        "type": "tool_use",
+        "name": "SubagentHandback",
+        "input": {"message": "The kettle first whistles on page 3."},
+    }
+    p = _jsonl(
+        tmp_path / "s.jsonl",
+        [
+            _user("where does the kettle whistle?"),
+            _user("Read chapter 1 and report the whistle.", **side),
+            _user(
+                "<system-reminder>Hand your report back.</system-reminder>",
+                isMeta=True,
+                **side,
+            ),
+            _assistant(_text("Page 3."), handback, **side),
+            _assistant(_text("On page 3.")),
+        ],
+    )
+    assert _roles(show.cc_records(p)) == [
+        ("human", "where does the kettle whistle?"),
+        ("assistant", "On page 3."),
+    ]
+    assert _roles(show.cc_records(p, raw=True)) == [
+        ("human", "where does the kettle whistle?"),
+        ("agent", "Read chapter 1 and report the whistle."),
+        ("harness", "<system-reminder>Hand your report back.</system-reminder>"),
+        ("subagent", "Page 3.\n\nThe kettle first whistles on page 3."),
+        ("assistant", "On page 3."),
+    ]
 
 
 def test_cc_records_tolerates_bad_lines(tmp_path):

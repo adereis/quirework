@@ -88,8 +88,14 @@ ROLE_LABEL = {
     "human": "Human",
     "assistant": "Assistant",
     "agent": "Agent prompt (machine-written)",
+    "subagent": "Sub-agent (machine-written)",
     "harness": "Harness context",
 }
+
+# The tool a Claude Code sub-agent hands its final report back through. The
+# report is the sub-agent's own text, so `--raw` shows it with the sub-agent's
+# prose rather than dropping it with the other tool calls.
+_HANDBACK = "SubagentHandback"
 
 
 def _human_slot(text, raw):
@@ -126,8 +132,9 @@ def cc_records(path, *, thinking=False, raw=False):
     session resumes from, or the notice of a failed request written in the
     model's slot) and ``isSidechain`` (subagent side-threads) records are
     dropped unless ``raw``, which keeps them under the role of whoever wrote
-    them: a flagged record is ``harness``, and a side-thread's prompt is
-    ``agent``, the task the parent handed its subagent.
+    them: a flagged record is ``harness``, a side-thread's prompt is
+    ``agent``, the task the parent handed its subagent, and what the subagent
+    wrote back, its prose and the report it hands back, is ``subagent``.
     """
     out = []
     with open(path, encoding="utf-8", errors="replace") as fh:
@@ -151,7 +158,9 @@ def cc_records(path, *, thinking=False, raw=False):
                     continue
                 if o.get("isSidechain") or FLT.harness_flagged(o):
                     # Reached only with raw; neither was typed by the author.
-                    role = "agent" if o.get("isSidechain") else "harness"
+                    # The harness writes into a subagent's slot as it does
+                    # into the session's, so its flag wins over the thread's.
+                    role = "harness" if FLT.harness_flagged(o) else "agent"
                     if content.strip():
                         out.append((role, content.strip(), ts))
                     continue
@@ -179,11 +188,27 @@ def cc_records(path, *, thinking=False, raw=False):
                     t = (b.get("thinking") or b.get("text") or "").strip()
                     if t:
                         parts.append("[thinking]\n" + t)
-                # tool_use / tool_result: dropped
+                elif (
+                    bt == "tool_use"
+                    and b.get("name") == _HANDBACK
+                    and o.get("isSidechain")
+                ):
+                    report = (b.get("input") or {}).get("message")
+                    if isinstance(report, str) and report.strip():
+                        parts.append(report.strip())
+                # other tool_use / tool_result: dropped
             body = "\n\n".join(parts).strip()
             if body:
-                # Reached flagged only with raw: an error notice, not a reply.
-                role = "harness" if FLT.harness_flagged(o) else "assistant"
+                # Reached flagged or side-thread only with raw: an error
+                # notice is the harness's, and a side-thread's reply is the
+                # subagent's, never the session's own assistant.
+                role = (
+                    "harness"
+                    if FLT.harness_flagged(o)
+                    else "subagent"
+                    if o.get("isSidechain")
+                    else "assistant"
+                )
                 out.append((role, body, ts))
     return out
 
@@ -964,12 +989,13 @@ def main(argv=None):
     ap.add_argument("session", help="short id, full id, gemini-… name, or path")
     ap.add_argument(
         "--role",
-        choices=["all", "human", "assistant", "agent", "harness"],
+        choices=["all", "human", "assistant", "agent", "subagent", "harness"],
         default="all",
         help="restrict to one writer (default: all): human is the author; "
         "assistant is the model's reply; agent is a task one model wrote "
-        "for a subagent; harness is text the tool injected, shown only "
-        "with --raw",
+        "for a subagent, and subagent is what the subagent wrote back; "
+        "harness is text the tool injected; agent, subagent and harness are "
+        "shown only with --raw",
     )
     ap.add_argument(
         "--thinking",

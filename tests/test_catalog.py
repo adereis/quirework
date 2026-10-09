@@ -63,6 +63,34 @@ def test_cc_scan_reads_title_dates_and_primary_model(tmp_path):
     assert sc["model"] == "opus-4-8"
 
 
+def test_cc_scan_names_the_session_after_its_own_thread(tmp_path):
+    """A busy sub-agent on a cheaper model must not rename the session."""
+    p = tmp_path / "s.jsonl"
+    side = {"isSidechain": True, "agentId": "a1b2c3"}
+    _write_jsonl(
+        p,
+        [
+            {
+                "type": "assistant",
+                "timestamp": "2026-06-20T01:00:00Z",
+                "message": {"model": "claude-opus-5-5"},
+            },
+            *(
+                {
+                    "type": "assistant",
+                    "timestamp": "2026-06-22T01:00:00Z",
+                    "message": {"model": "claude-haiku-5-5"},
+                    **side,
+                }
+                for _ in range(3)
+            ),
+        ],
+    )
+    sc = catalog._cc_scan(p)
+    assert sc["model"] == "opus-5-5"
+    assert sc["date_end"] == "2026-06-20"
+
+
 def test_cc_scan_falls_back_to_slug_then_untitled(tmp_path):
     p = tmp_path / "slug.jsonl"
     _write_jsonl(p, [{"type": "x", "slug": "draft-next-section"}])

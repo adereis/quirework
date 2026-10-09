@@ -24,6 +24,7 @@ content hash over the source is a sound cache key.
 
 import collections
 import hashlib
+import heapq
 import json
 import os
 import re
@@ -370,8 +371,19 @@ def _blocks(content):
 # records the source fingerprint (so a sweep can tell a grown live session from
 # a settled one) and a census of what was dropped (so a later reader can see
 # what the file no longer holds instead of inferring it from absence).
+#
+# A session's sub-agents are part of the session. Claude Code writes each to
+# its own transcript (`subagent_sources`), and the capture folds them in under
+# the same rule, so what a sub-agent said and did is kept and what it was given
+# and what it read is not: its injected instructions arrive as `attachment`
+# records and its reading as tool output, both dropped above. Its records keep
+# their `isSidechain` stamp, which every reader already uses to keep a
+# side-thread out of the author's turns, the conversation metrics and the blind
+# render. That was the shape of a session when the harness still wrote its
+# sub-agents into the main transcript.
 CAPTURE_SCHEMA = "quirework-cc-v1"
 CAPTURE_TYPE = "capture-meta"
+SUBAGENT_DIR = "subagents"
 
 # Record types worth keeping. An allowlist rather than a blocklist: a harness
 # that invents a record type next release should be dropped by default and
@@ -379,8 +391,11 @@ CAPTURE_TYPE = "capture-meta"
 # be. The four non-dialogue types earn their place by being read --
 # `permission-mode` is how `metrics` attributes a tool call to gated or auto
 # mode, `ai-title` is `catalog`'s session title, and `queue-operation` is the
-# one type outside `user` that holds words the human typed (a prompt queued
-# mid-turn, sometimes withdrawn before it was ever sent). `system` earns its
+# one type outside `user` that can hold words the human typed (a prompt queued
+# mid-turn, sometimes withdrawn before it was ever sent). It is not only his:
+# the report a sub-agent hands back and a background task's notice queue the
+# same way, each inside its own `<agent-message>` or `<task-notification>`
+# wrapper, so a reader of this type must tell them apart. `system` earns its
 # place on a degenerate case the corpus actually contains: one session
 # (09e3caa7) opened, errored and closed without a single dialogue record, so
 # its `system` records carry the only timestamps `catalog` can date it by.
@@ -520,15 +535,46 @@ def _prune_blocks(content, record, tools, dropped):
     return out
 
 
-def normalize_capture(path):
-    """Return the bytes of a normalized provenance capture for one session.
+def subagent_sources(path):
+    """The sub-agent transcripts of the session at ``path``, in name order.
 
-    Deterministic: same source bytes give the same capture bytes, which is what
-    lets the sweep decide by fingerprint and lets a migration prove itself by
-    re-rendering. Malformed lines are counted and dropped -- the mirror can copy
-    a session mid-write, and one torn line must not cost the rest of the file.
+    Claude Code writes each sub-agent a session starts to its own transcript,
+    in a ``subagents`` directory named after the session's file: every record
+    stamped ``isSidechain`` and with the sub-agent's ``agentId``, and beside it
+    a small ``.meta.json`` naming the agent type, the parent's description of
+    the task and the model asked for. Nothing in the session's own transcript
+    holds that work, only the call that started it and the report it sent
+    back.
     """
-    dropped = collections.Counter()
+    folder = os.path.join(os.path.splitext(str(path))[0], SUBAGENT_DIR)
+    try:
+        names = os.listdir(folder)
+    except OSError:
+        return []
+    return [
+        os.path.join(folder, n)
+        for n in sorted(names)
+        if n.startswith("agent-") and n.endswith(".jsonl")
+    ]
+
+
+def _subagent_meta(path):
+    """The ``.meta.json`` beside a sub-agent transcript, or ``{}``."""
+    try:
+        with open(os.path.splitext(path)[0] + ".meta.json", encoding="utf-8") as fh:
+            meta = json.load(fh)
+    except (OSError, ValueError):
+        return {}
+    return meta if isinstance(meta, dict) else {}
+
+
+def _normalize_stream(path, dropped, *, sidechain_only=False):
+    """``(records kept, source SHA-256, source bytes)`` for one transcript.
+
+    ``sidechain_only`` is for a sub-agent's transcript: a record there that is
+    not stamped as a side-thread would read as the main dialogue to every
+    reader, so it is dropped and counted rather than relabelled.
+    """
     source = hashlib.sha256()
     source_bytes = 0
     kept = []
@@ -552,6 +598,9 @@ def normalize_capture(path):
             if kind not in KEEP_TYPES:
                 dropped[str(kind)] += 1
                 continue
+            if sidechain_only and obj.get("isSidechain") is not True:
+                dropped["<not-a-side-thread>"] += 1
+                continue
             rec = {k: v for k, v in obj.items() if k not in _DROP_RECORD}
             for field in _DROP_RECORD:
                 if field in obj:
@@ -568,20 +617,86 @@ def normalize_capture(path):
                     msg["content"] = _prune_blocks(msg["content"], rec, tools, dropped)
                 rec["message"] = msg
             kept.append(rec)
+    return kept, source.hexdigest(), source_bytes
+
+
+def _interleave(streams):
+    """Merge record streams by time, keeping each stream in its own order.
+
+    Each sub-agent's work lands where it happened in the session, which is
+    where the harness used to write it. A record without a timestamp sorts with
+    the stamped record before it in its own stream (or the first after it, at
+    the start), and the main thread, listed first, wins a tie, so the merge is
+    deterministic. Taking only ever the head of a stream means no stream is
+    reordered, even where its own timestamps are not monotonic.
+    """
+
+    def keyed(rank, stream):
+        stamps = [r.get("timestamp") for r in stream]
+        first = next((t for t in stamps if isinstance(t, str) and t), "")
+        last = first
+        for rec, ts in zip(stream, stamps):
+            if isinstance(ts, str) and ts:
+                last = ts
+            yield last, rank, rec
+
+    merged = heapq.merge(
+        *(keyed(rank, s) for rank, s in enumerate(streams)),
+        key=lambda k: (k[0], k[1]),
+    )
+    return [rec for _, _, rec in merged]
+
+
+def normalize_capture(path):
+    """Return the bytes of a normalized provenance capture for one session.
+
+    The capture holds the session's own transcript and its sub-agents'
+    (``subagent_sources``), each normalized by the same rule and interleaved by
+    time. The header records every source's fingerprint, so a sweep can tell a
+    session that grew, or gained a sub-agent, from one that is settled.
+
+    Deterministic: same source bytes give the same capture bytes, which is what
+    lets the sweep decide by fingerprint and lets a migration prove itself by
+    re-rendering. Malformed lines are counted and dropped -- the mirror can copy
+    a session mid-write, and one torn line must not cost the rest of the file.
+    """
+    dropped = collections.Counter()
+    kept, source_sha, source_bytes = _normalize_stream(path, dropped)
+    streams = [kept]
+    agents = []
+    for sub in subagent_sources(path):
+        sub_dropped = collections.Counter()
+        records, sha, size = _normalize_stream(sub, sub_dropped, sidechain_only=True)
+        streams.append(records)
+        agents.append(
+            {
+                "agent": os.path.splitext(os.path.basename(sub))[0],
+                "source_sha256": sha,
+                "source_bytes": size,
+                "records": len(records),
+                "dropped": dict(sorted(sub_dropped.items())),
+                "meta": _subagent_meta(sub),
+            }
+        )
+    rows = _interleave(streams)
 
     header = {
         "type": CAPTURE_TYPE,
         "capture_schema": CAPTURE_SCHEMA,
         "filter_version": FILTER_VERSION,
-        "source_sha256": source.hexdigest(),
+        "source_sha256": source_sha,
         "source_bytes": source_bytes,
-        "records": len(kept),
+        "records": len(rows),
         "dropped": dict(sorted(dropped.items())),
     }
-    rows = [header, *kept]
+    # Only a session that has sub-agents names them, so a capture of one that
+    # has none is byte for byte what it was before sub-agents were captured. A
+    # missing list therefore means none, in an old capture and a new one alike.
+    if agents:
+        header["subagents"] = agents
     return b"".join(
         json.dumps(r, ensure_ascii=False, separators=(",", ":")).encode("utf-8") + b"\n"
-        for r in rows
+        for r in [header, *rows]
     )
 
 

@@ -156,6 +156,11 @@ class Acc:
         self.gated_tools = 0  # tool calls issued under permissionMode=default
         self.auto_tools = 0  # tool calls issued under acceptEdits/bypass
         self.think_blocks = 0
+        # Delegated work: Claude Code sub-agents, counted apart from the
+        # conversation (see `delegate`).
+        self.subagents = 0
+        self.subagent_tool_calls = 0
+        self.subagent_words = 0
         self.models = {}  # model id -> assistant-turn count
         self.times = []  # all message timestamps (datetime, tz-aware)
         self.engaged = 0.0  # seconds, summed per-session first->last
@@ -179,6 +184,29 @@ class Acc:
         if mid:
             self.models[mid] = self.models.get(mid, 0) + 1
 
+    def delegate(self, content):
+        """Count one side-thread reply: a sub-agent's tool calls and prose.
+
+        Kept apart from ``ai``: a sub-agent's prompt is written by the
+        assistant and its words go back to the assistant, so counting them as
+        the session's responses would inflate the AI side of the ratio with
+        machine-to-machine text the author never read. Its report, handed
+        back through a tool call, counts as its prose.
+        """
+        if isinstance(content, str):
+            self.subagent_words += words(content)
+            return
+        for b in content if isinstance(content, list) else ():
+            if not isinstance(b, dict):
+                continue
+            if b.get("type") == "text":
+                self.subagent_words += words(b.get("text", ""))
+            elif b.get("type") == "tool_use":
+                self.subagent_tool_calls += 1
+                report = (b.get("input") or {}).get("message")
+                if b.get("name") == "SubagentHandback" and isinstance(report, str):
+                    self.subagent_words += words(report)
+
     def merge(self, o):
         for k in (
             "sessions",
@@ -194,6 +222,9 @@ class Acc:
             "gated_tools",
             "auto_tools",
             "think_blocks",
+            "subagents",
+            "subagent_tool_calls",
+            "subagent_words",
             "engaged",
         ):
             setattr(self, k, getattr(self, k) + getattr(o, k))
@@ -297,6 +328,7 @@ def claude_code(acc, scope=None, making=None):
         # records, NOT by the assistant records that hold tool_use. So track the
         # mode as running state and attribute each tool_use to the mode in force.
         mode = "default"
+        agents = set()  # the session's sub-agents, by their agentId
         for line in open(fp):
             line = line.strip()
             if not line:
@@ -310,7 +342,14 @@ def claude_code(acc, scope=None, making=None):
                 mode = o["permissionMode"]
             if t not in ("user", "assistant"):
                 continue
-            if FLT.harness_flagged(o) or o.get("isSidechain"):
+            if o.get("isSidechain"):
+                # A sub-agent's thread: counted as delegated work, never as
+                # the conversation's turns, words or timestamps.
+                agents.add(o.get("agentId"))
+                if t == "assistant":
+                    acc.delegate((o.get("message") or {}).get("content"))
+                continue
+            if FLT.harness_flagged(o):
                 continue
             ts.append(parse_ts(o.get("timestamp")))
             c = (o.get("message") or {}).get("content")
@@ -343,6 +382,7 @@ def claude_code(acc, scope=None, making=None):
                                 acc.auto_tools += 1
                 elif isinstance(c, str):
                     acc.ai(c)
+        acc.subagents += len(agents)
         session_span(ts, acc)
 
 
@@ -867,6 +907,21 @@ def report(accs, total, pst=None, scope=None):
             "  (Not an exact confirmation count: no 'approved' event is logged"
             " and the allowlist is machine-local. Lower bound on auto, loose"
             " upper bound on prompts.)"
+        )
+
+    # ---- delegated work (Claude Code sub-agents) ----
+    if code and code.subagents:
+        print(
+            "\nDelegated work (Claude Code sub-agents, counted apart from the above):"
+        )
+        print(f"  sub-agents              : {code.subagents:,}")
+        print(f"  their tool calls        : {code.subagent_tool_calls:,}")
+        print(f"  their words (prose)     : {code.subagent_words:,}")
+        print(
+            "  (Machine-to-machine: the assistant writes a sub-agent's task and"
+            " reads its report. None of it is in the human or AI totals, the"
+            " tool calls or the AI:human ratio above. A session counts here only"
+            " once it was captured with its sub-agents.)"
         )
 
     # ---- models ----
