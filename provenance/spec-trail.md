@@ -32,6 +32,11 @@
   Two Shops ends where the problem stops being the shops, without saying
   so; Index Cards says it out loud.
 
+- 2026-10-09T20:53:39Z · sharpen · claude-code
+  f17a9be6-cc15-4794-99ed-6c1daaa14b62
+
+  Index Cards states the thesis once, near its end, and never repeats it
+
 ## Two shops, one habit {#two-shops}
 
 - 2026-10-09T20:18:07Z · seed · claude-code
@@ -60,6 +65,14 @@
   1b7ad009-e68c-4219-a024-edbf242566b6
 
   Cards, spreadsheet, script, tool, name; Full Stop gets no ending.
+
+- 2026-10-09T20:53:39Z · sharpen · claude-code
+  f17a9be6-cc15-4794-99ed-6c1daaa14b62
+
+  Index Cards material: the radiator card is chapter nine's shop; the
+  colors go green, yellow, red, orange, then Legend and its note; the
+  script is forty lines on a Sunday, its fourteen are first taken for a
+  bug; two configuration files; no name in this chapter
 
 ## An assistant is worth what you can check {#worth-what-you-check}
 
@@ -141,6 +154,12 @@
   Hedda's running document with 'Book: ch. 4', and Red's 'Checking in'
   emails, both from draft A, become facts; Red's emails stay short to
   set up his reply.
+
+- 2026-10-09T20:53:39Z · sharpen · claude-code
+  f17a9be6-cc15-4794-99ed-6c1daaa14b62
+
+  Second answer lands in Index Cards; Hedda's line changes for the first
+  time, to 'Book: ch. 4 (tool)'
 
 ## The tool is not the book it was built for {#not-the-book-it-was-built-for}
 

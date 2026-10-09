@@ -12,7 +12,12 @@
 <!-- @guidance the first chapter to say out loud that the trouble is
      where the claims live, not the two shops; Two Shops only arrives
      there -->
+<!-- @guidance says the thesis once, plainly, near the end: the book
+     never failed at the sentences; its claims lived only in sentences.
+     It does not say it again -->
+<!-- @guidance the script stays unnamed here; the name comes later -->
 <!-- @bind(notes-escalate) -->
 <!-- @bind(claims-in-sentences) -->
 <!-- @bind(people-who-ask) -->
-<!-- @todo no prose yet -->
+<!-- @count(eleven chapters) Full Stop's, not this book's -->
+<!-- @count(Eleven chapters) Full Stop's, not this book's -->

@@ -74,7 +74,9 @@ person's name or they/them, and ask Cy.
 Every name is changed. The two printer's shops in Full Stop are never
 named at all.
 
-- **Cy Dequest**: the author and narrator. Pronouns: they/them.
+- **Cy Dequest**: the author and narrator. Pronouns: they/them. A
+  documentation engineer: Cy writes about software for a living, and is
+  not a programmer.
 - **Hedda Count**: Cy's manager. Kind, busy, ends every one-on-one with
   "how's the book?" Pronouns: she/her.
 - **Red Penn**: Cy's editor at a small press. Waited three years for
@@ -99,6 +101,7 @@ Add each rule here as Cy states it.
    remember.
 2. Dry and concrete.
 3. Never explain a joke.
-4. Short. If a paragraph can go, it goes.
+4. Short. If a paragraph can go, it goes. A chapter's word count is a
+   ceiling, not a target: short is a rule, not a shortfall.
 5. US spelling, everywhere: color, not colour. Cy's habits predate the
    style guide; the style guide wins.

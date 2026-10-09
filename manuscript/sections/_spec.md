@@ -18,7 +18,8 @@ Full Stop did not fail at the sentences. It failed because its claims
 lived only in sentences, scattered across eleven chapters, with nothing
 holding them together. Two Shops ends where the contradiction stops
 being about two shops, without saying so; Index Cards is the first
-chapter to say it out loud.
+chapter to say it out loud, once, plainly, near its end, and it does not
+say it again.
 
 ## Two shops, one habit {#two-shops}
 
@@ -40,11 +41,18 @@ they will admit in print.
 
 Cy keeps notes, and each kind outgrows the last. First index cards, one
 claim per card, in a shoebox; one falls behind the radiator and turns up
-in March. Then a spreadsheet of three hundred and twelve rows,
-color-coded until the colors need a legend. Then a forty-line script
-that checks whether each note still matches the sentence it is about.
-Its first run finds fourteen contradictions, not one. The script grows,
-becomes a tool, and gets a name. Full Stop does not get an ending.
+in March. It is the card for chapter nine's shop, and it says what
+chapter nine says, which by then nothing else does. Then a spreadsheet
+of three hundred and twelve rows, color-coded: green for a note that
+still matches its sentence, yellow for check, red for contradicts, then
+orange for contradicts but I like it, then a tab called Legend, then a
+note at the top of Legend explaining the orange. Then a forty-line
+script, written on a Sunday, that checks whether each note still matches
+the sentence it is about. Its first run finds fourteen contradictions,
+not one, and Cy assumes it is broken. It is not. The script grows a
+configuration file, then a second to explain the first, becomes a tool,
+and gets a name, though not in Index Cards. Full Stop does not get an
+ending.
 
 ## An assistant is worth what you can check {#worth-what-you-check}
 
@@ -91,7 +99,9 @@ building something for chapter four" to a live demo, in Hedda's office,
 on Hedda's monitor, of the tool catching Cy's own book disagreeing with
 itself. Hedda watches all of it and asks whether the book is done. Hedda
 keeps a running document for their one-on-ones, copied forward each
-time, and its line "Book: ch. 4" survives every copy.
+time, and its line "Book: ch. 4" survives every copy until the second
+answer, when Hedda says "Good", writes it down, and the line changes for
+the first time, to "Book: ch. 4 (tool)".
 
 Red Penn, Cy's editor at a small press, waits three years for chapter
 twelve and gets a nine-hundred-line README. Red reads all of it and
