@@ -585,6 +585,12 @@ class Runner:
     name: str
     home: str  # the runner's state dir, given a private copy
     creds: tuple[str, ...] = ()  # bound read-only ON TOP of that private dir
+    # Where the login is kept. A "file" login is one of `creds`, so a missing
+    # one means the runner cannot sign in and the seat is refused before it
+    # starts. A "keyring" login is in the desktop keyring, reached over the
+    # session bus: `creds` are then files an older release kept, bound back
+    # when present and never required, and the canary proves the login.
+    login: str = "file"
     probe: tuple[str, ...] = ("--version",)
     probes: tuple[Probe, ...] = ()  # free flag-liveness contract
     notes: str = ""
@@ -727,6 +733,12 @@ RUNNERS = {
             ),
         ),
         notes="~/.gemini/GEMINI.md (the global brief) replaced with the home",
+        # agy 1.3 signs in through the keyring and writes none of `creds` in a
+        # home it has never seen; they are what the Gemini CLI it grew out of
+        # left behind. A machine that has them binds them, and one that has
+        # not still runs: requiring them refused a seat whose canary had just
+        # passed.
+        login="keyring",
         # Its token lives in the login keyring, reached over the session bus.
         # The proxy lets this one name through, which still exposes every
         # secret the keyring holds, so the receipt flags it.
@@ -831,7 +843,7 @@ def runner_binds(names) -> tuple[list[Path], list[str]]:
         # Credentials are NOT returned here: they are bound by `jail_argv`
         # after the runner's private home, because they live inside it and a
         # bind in the wrong order is silently replaced by the one over it.
-        for c in RUNNERS[name].creds:
+        for c in RUNNERS[name].creds if RUNNERS[name].login == "file" else ():
             if not _expand(c).exists():
                 missing.append(f"{name}: {c} not found")
         if RUNNERS[name].bus_names and (reason := bus_proxy_missing()):

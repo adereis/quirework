@@ -743,3 +743,34 @@ def test_a_probe_verdict_fails_an_accepted_flag(monkeypatch):
         "image_generation reads true under the override",
     )
     assert blind.run_probe("codex", off) == (True, "")
+
+
+def test_a_keyring_login_needs_no_login_file_and_a_file_login_does(
+    tmp_path, monkeypatch
+):
+    """Antigravity signs in through the keyring, so a fresh home with none of
+    the files an older release kept still runs it; the canary proves the
+    login. Claude and Codex sign in with a file, and a home without it is
+    refused before any seat starts."""
+    bin_dir = tmp_path / "bin"
+    bin_dir.mkdir()
+    for name in ("agy", "codex", "claude"):
+        launcher = bin_dir / name
+        launcher.write_text("#!/bin/sh\n")
+        launcher.chmod(0o755)
+    monkeypatch.setenv("PATH", str(bin_dir))
+    monkeypatch.setenv("HOME", str(tmp_path / "fresh-home"))
+
+    _, missing = blind.runner_binds(["agy"])
+    assert not [m for m in missing if ".gemini" in m]
+    _, missing = blind.runner_binds(["codex"])
+    assert missing == ["codex: ~/.codex/auth.json not found"]
+    _, missing = blind.runner_binds(["claude"])
+    assert missing == ["claude: ~/.claude/.credentials.json not found"]
+
+    # A machine that kept the old files still binds them into the jail.
+    gemini = tmp_path / "fresh-home" / ".gemini"
+    gemini.mkdir(parents=True)
+    (gemini / "oauth_creds.json").write_text("{}")
+    assert blind.RUNNERS["agy"].login == "keyring"
+    assert "~/.gemini/oauth_creds.json" in blind.RUNNERS["agy"].creds
