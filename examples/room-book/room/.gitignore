@@ -1,3 +1,3 @@
-# A seat's private runner home. It is a live harness home and holds that
-# harness's credentials. Never commit it, and never copy one anywhere.
-seats/*.blind-state/
+# Where a seat reaches its private runner home, a live harness home. Never
+# commit it, and never copy one anywhere.
+seats/*.blind-state

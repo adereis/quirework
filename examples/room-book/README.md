@@ -63,9 +63,10 @@ Round 16 is the other one worth reading. Three seats talk the drafter
 out of a scene, and she refuses a seventy-word expansion on the grounds
 that a sidecar which changes how the bike rides is not a sidecar.
 
-`room/seats/*.blind-state/` is each seat's private runner home. It holds
-live harness credentials, it is ignored by `room/.gitignore`, and it is
-not part of the example.
+`room/seats/*.blind-state` is where each seat reached its private runner
+home, the harness's own state for the length of the room. A room
+prepared now keeps that home in the cache and leaves a link here. It is
+ignored by `room/.gitignore`, and it is not part of the example.
 
 ## What it cost
 
