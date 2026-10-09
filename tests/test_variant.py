@@ -79,6 +79,26 @@ def test_the_bundle_is_the_book_in_reading_order(tmp_path):
     assert "The kettle cools." in bundle
 
 
+def test_a_title_is_read_without_its_attribute_block(tmp_path):
+    root = _book(tmp_path)
+    (root / "manuscript" / "sections" / "opening.qmd").write_text(
+        "# Preface {.unnumbered #sec-preface}\n\nA kettle boils.\n"
+    )
+    with project_scope(_project(root)):
+        assert variant.chapter_order()[1]["title"] == "Preface"
+
+
+def test_a_title_page_with_nothing_to_retell_gets_no_drafter(tmp_path, capsys):
+    """It stays in the bundle every drafter reads, and costs no prompt of its own."""
+    root = _book(tmp_path)
+    with project_scope(_project(root)):
+        assert variant.cmd_build(["postcard", "--dry-run"]) == 0
+    out = capsys.readouterr().out
+    assert "skip         index" in out and "a title, nothing to retell" in out
+    assert "would draft  opening" in out and "would draft  index" not in out
+    assert "(2 chapter(s)" in out
+
+
 def test_the_reading_order_comes_from_the_configured_file(tmp_path):
     """A book that keeps its Quarto config under another name is still read."""
     root = _book(tmp_path)

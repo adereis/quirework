@@ -53,7 +53,10 @@ DEFAULT_PAR = 5
 
 _COMMENT = re.compile(r"<!--.*?-->", re.DOTALL)
 _QMD = re.compile(r"([\w./-]+\.qmd)")
-_H1 = re.compile(r"(?m)^#\s+(.*?)\s*(?:\{#[\w:-]+\})?\s*$")
+# The attribute block is any Pandoc one, `{.unnumbered #sec-preface}` as well
+# as a bare `{#sec-opening}`; a title read with its classes left on told every
+# drafter the preface was called "Preface {.unnumbered #sec-preface}".
+_H1 = re.compile(r"(?m)^#\s+(.*?)\s*(?:\{[^}]*\})?\s*$")
 _FM_TITLE = re.compile(r'(?ms)\A---\s*\n.*?^title:\s*"?(.*?)"?\s*$.*?^---\s*$')
 
 PROMPT_INTRO = """\
@@ -201,6 +204,20 @@ def _title_of(path: Path) -> str:
         return m.group(1).strip()
     m = _H1.search(text)
     return m.group(1).strip() if m else path.stem
+
+
+def has_prose(path: Path) -> bool:
+    """Whether a unit holds anything to retell beyond its title.
+
+    A title page that is only a heading still belongs in the bundle, since it
+    is part of the book a reader reads, but a drafter given it can only hand
+    the title back, at the price of a whole-book prompt.
+    """
+    text = strip_comments(path.read_text())
+    front = _FM_TITLE.match(text)
+    if front:
+        text = text[front.end() :]
+    return bool(_H1.sub("", text, count=1).strip())
 
 
 def chapter_order() -> list[dict]:
@@ -457,6 +474,8 @@ def cmd_build(argv: list[str]) -> int:
     bundle = build_bundle(all_chapters)  # always the WHOLE book for grounding
     policy = current_project().data("publish.variant_policy", {})
     assert_blind(bundle, tuple(policy.get("blind_tells", ())))
+    titles_only = [c for c in chapters if not has_prose(c["path"])]
+    chapters = [c for c in chapters if c not in titles_only]
 
     out_dir = out_dir or (current_project().path("publish.variants") / kind)
     raw_dir = out_dir / "_raw"
@@ -466,6 +485,13 @@ def cmd_build(argv: list[str]) -> int:
     )
     print(f"  bundle: {len(bundle.split())} words, blindness check OK")
     print(f"  raw drafts -> {raw_dir}")
+    for c in titles_only:
+        print(
+            f'  skip         {c["slug"]:28}  "{c["title"]}": a title, nothing to retell'
+        )
+    if not chapters:
+        print("no chapter has prose to retell", file=sys.stderr)
+        return 2
     if dry:
         for c in chapters:
             print(
