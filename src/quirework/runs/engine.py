@@ -1173,6 +1173,11 @@ class Run:
             jail, env, _ = harness.launch_context(
                 spec["config"], spec["policy"], self.workspace(seat), bus, proven
             )
+            blind.hold(
+                self.workspace(seat),
+                f"run {self.root.name}: seat {seat} continues this session "
+                "until it completes",
+            )
             record = self.record(seat, turn["id"])
             record.mkdir(parents=True, exist_ok=True)
             if (record / "events.jsonl").exists():
@@ -1307,9 +1312,36 @@ class Run:
             state = self.state(name)
             state["complete"] = True
             self.save(name, state)
+            self.settle_homes(name)
             if self.red_flags(name)[0]:
                 return "completed-with-red-flags"
             return "completed"
+
+    def settle_homes(self, name):
+        """Release what a seat that just completed no longer needs held.
+
+        Its own home, unless forked children are still checked against it;
+        then it stays held for them and says so. And its parent's, once the
+        last of the parent's children has completed.
+        """
+        parent = (self.seats[name].get("parent") or {}).get("seat")
+        for seat in (name, parent):
+            if not seat or not self.state(seat).get("complete"):
+                continue
+            waiting = [
+                child
+                for child, spec in self.seats.items()
+                if (spec.get("parent") or {}).get("seat") == seat
+                and not self.state(child).get("complete")
+            ]
+            if waiting:
+                blind.hold(
+                    self.workspace(seat),
+                    f"run {self.root.name}: forked seats {', '.join(waiting)} "
+                    f"are checked against seat {seat} until they complete",
+                )
+            else:
+                blind.release(self.workspace(seat))
 
     def check_parent_ready(self, name):
         parent = self.seats[name]["parent"]["seat"]
@@ -1786,4 +1818,6 @@ def import_answer(run, seat, turn, answer_path, provenance):
         complete=len(state["done"]) == len(spec["turns"]),
     )
     run.save(seat, state)
+    if state["complete"]:
+        run.settle_homes(seat)
     return receipt

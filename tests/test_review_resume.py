@@ -63,3 +63,25 @@ def test_an_unconfined_reviewer_keeps_its_session_in_the_operators_home(
     monkeypatch.setattr(review, "launch_context", launch)
     with pytest.raises(Launched):
         review._turn(RUN, "resume", "Look again.", store=record.parent, jailed=False)
+
+
+def test_a_jailed_review_holds_its_home_for_good(record, monkeypatch):
+    """Any turn can be continued later, so nothing ever releases it."""
+    native_session(record, "codex", "th-1")
+
+    class Launched(Exception):
+        pass
+
+    def launch(config, record, report_dir, **kwargs):
+        return [], {}, blind.state_root(record) / "codex", report_dir
+
+    def preflight(*args, **kwargs):
+        raise Launched
+
+    monkeypatch.setattr(review, "canary", lambda *a, **kw: None)
+    monkeypatch.setattr(review, "launch_context", launch)
+    monkeypatch.setattr(review, "preflight", preflight)
+    with pytest.raises(Launched):
+        review._turn(RUN, "resume", "Look again.", store=record.parent)
+    held = blind.held(blind.state_root(record))
+    assert held == f"review {RUN} can be continued, resumed or forked at any time"

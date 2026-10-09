@@ -892,9 +892,28 @@ every record, receipt and transcript, because a home's native
 transcripts have already been read into the receipts beside it and
 `launch.json` records the home's path whether or not it still exists.
 Where the link was, it leaves a tombstone naming when, so a later
-resume says the home was pruned. It refuses a home whose seat still has
-a live process, and by default keeps anything touched in the last hour,
-since a seat paused between turns looks idle.
+resume says the home was pruned.
+
+A seat paused between turns looks idle, so prune does not judge a home
+by its age alone. Each procedure that runs seats holds their homes from
+a seat's launch until it knows the run is finished with them, and
+releases them there:
+
+- a room once every round of its budget is published or it converged;
+- a roundtable once it closes or every seat has retired;
+- the run engine once a seat completes and no fork child is still
+  checked against it;
+- a workshop writer once it completes or is retried;
+- a chapter comparison's arms once it completes.
+
+Two homes stay held. A chapter comparison keeps its parent, because
+`inspect` checks every arm against it. A review is never finished,
+because any turn can be continued, resumed or forked later. Prune keeps
+a held home and names what holds it. `--force` removes it anyway, and
+the tombstone records the hold, so the resume that then fails says so.
+A home nothing holds was made before holds existed or by a command that
+runs one seat and is done. It is kept only while it was touched in the
+last hour. A home whose seat still has a live process is never removed.
 
 ## Usage records
 

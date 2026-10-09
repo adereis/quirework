@@ -611,6 +611,11 @@ class Experiment:
                 env={"DISABLE_COMPACT": "1", "DISABLE_AUTOUPDATER": "1"},
                 canary=proven,
             )
+            blind.hold(
+                work,
+                f"chapter comparison {self.record.name}: seat {seat} continues "
+                "this session until the comparison completes",
+            )
             # Give every arm the same logical paths without sharing a mount or
             # runtime home. The host's real seat path stays outside the prompt.
             # Replace the existing chdir argument rather than emitting a
@@ -816,6 +821,13 @@ class Experiment:
             self.state["canary_passed"] = True
         self.state["complete"] = True
         self.save()
+        for arm in self.plan["order"]:
+            blind.release(self.workspace(arm))
+        blind.hold(
+            self.workspace("parent"),
+            f"chapter comparison {self.record.name}: inspect checks every arm "
+            "against the parent's home",
+        )
         self.emit(f"Complete: {self.record}", terminal=True)
 
 

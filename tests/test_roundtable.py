@@ -72,6 +72,7 @@ class Seats:
         native_session(
             root / "seats" / name, seat["config"]["harness"], value["session_id"]
         )
+        blind.hold(root / "seats" / name, "held by its launch, as a real one is")
         value["rounds"][str(n)] = {"status": status, "error": None}
         write(room.state_path(root, name), value)
         spent = self.context.get((name, n))
@@ -374,6 +375,20 @@ def test_a_draft_left_in_the_outbox_is_named_with_what_to_do(table, monkeypatch)
     assert "keep drafts in your own folder" in seats.prompt(first, 2)
     start = " ".join((table / "seats" / first / "START.md").read_text().split())
     assert "- outbox/: what bin/room has queued this turn. Keep drafts" in start
+
+
+def test_the_seats_homes_are_held_until_the_table_closes(table, monkeypatch):
+    """A decision is a pause: the last round still resumes every session."""
+    Seats(monkeypatch)
+    _, plan = roundtable.load(table)
+    homes = [blind.state_root(table / "seats" / s["id"]) for s in plan["seats"]]
+    roundtable.run(table)
+    assert all(blind.held(home) for home in homes)
+    roundtable.decide(table, "close", "We have enough.")
+    assert all(blind.held(home) for home in homes)
+    _, where = roundtable.run(table)
+    assert where["kind"] == "closed"
+    assert not any(blind.held(home) for home in homes)
 
 
 def test_a_delivery_taken_twice_posts_once(table, monkeypatch):

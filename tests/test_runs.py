@@ -545,6 +545,24 @@ def test_a_failed_child_clone_leaves_no_home_in_the_cache(setup, monkeypatch):
     assert set(blind.homes_root().iterdir()) == before
 
 
+def test_a_parent_home_is_held_for_its_children_until_they_complete(setup):
+    """A fork child is checked against its parent's live home at every
+    collect, so the parent finishing first is not the parent being done."""
+    run = branched(setup)
+    parent = blind.state_root(run.workspace("reader"))
+    blind.hold(run.workspace("reader"), "held by its launch")
+    run.settle_homes("reader")
+    assert "forked seats child are checked against seat reader" in blind.held(parent)
+    run.checkpoint("child")
+    child = blind.state_root(run.workspace("child"))
+    blind.hold(run.workspace("child"), "held by its launch")
+    state = run.state("child")
+    state["complete"] = True
+    run.save("child", state)
+    run.settle_homes("child")
+    assert blind.held(parent) is None and blind.held(child) is None
+
+
 def test_existing_partial_child_is_rejected(setup):
     run = branched(setup)
     run.workspace("child").mkdir(parents=True)

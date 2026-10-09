@@ -954,6 +954,52 @@ def make_state_root(run_dir: Path) -> Path:
     return link
 
 
+# What keeps a run's homes from `prune`, at the root of the homes, beside the
+# runners' directories. Only those are bound into a jail, so no seat sees it.
+HOLD = "held.json"
+
+
+def hold(run_dir: Path, why: str) -> None:
+    """Keep a run's homes from `prune` until `release`, saying why.
+
+    A home holds a session a later command resumes: a room's next round, a
+    review continued next week, a fork's parent its children are checked
+    against. Only the procedure that runs the seats knows when that is
+    over, so it holds the homes when it launches a seat and releases them
+    where it knows the run is finished. One it never releases is kept
+    until a prune is forced or the cache rule collects it, which is the
+    safe way to be wrong.
+    """
+    entry = state_root(Path(run_dir))
+    if entry.is_dir():
+        (entry / HOLD).write_text(
+            json.dumps(
+                {
+                    "why": why,
+                    "since": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
+                }
+            )
+            + "\n"
+        )
+
+
+def release(run_dir: Path) -> None:
+    """Let `prune` take a run's homes once it is finished with them."""
+    entry = state_root(Path(run_dir))
+    if entry.is_dir():
+        (entry / HOLD).unlink(missing_ok=True)
+
+
+def held(home: Path) -> str | None:
+    """Why a run still needs these homes, or None once it has let them go."""
+    try:
+        return json.loads((home / HOLD).read_text())["why"]
+    except FileNotFoundError:
+        return None
+    except (OSError, ValueError, KeyError, TypeError):
+        return "held, for a reason that can no longer be read"
+
+
 def discard_state_root(run_dir: Path) -> None:
     """Remove a run's private homes, and whatever leads to them."""
     link = state_root(Path(run_dir))
@@ -1137,6 +1183,11 @@ def prune(roots, *, grace: float = 3600, force: bool = False, dry_run: bool = Fa
     where its rule is installed; this removes finished ones sooner, and
     reaches homes made before they moved into the cache.
 
+    A home its run still holds (`hold`) is kept unless ``force`` says
+    otherwise, and the tombstone then records what the run was holding it
+    for. Age is the only test for a home nothing holds: one made before
+    holds existed, or by a command that runs one seat and is done.
+
     Nothing here reads a receipt, an answer or a transcript, so pruning cannot
     remove evidence: the native transcripts inside a home have already been
     read into the receipts beside it, and `launch.json` records the home's path
@@ -1155,10 +1206,12 @@ def prune(roots, *, grace: float = 3600, force: bool = False, dry_run: bool = Fa
                 continue
             size, pid = _bytes(home), occupied(entry) if known else None
             age = time.time() - _touched(home)
-            # The age window is advice and `force` overrides it. A live seat
-            # is not: removing the home out from under a running harness would
-            # break the run it is in the middle of, and no flag here should be
-            # able to do that. Nor may "cannot tell" pass for "not in use".
+            needed = held(home)
+            # The age window and a hold are advice, and `force` overrides
+            # both. A live seat is not: removing the home out from under a
+            # running harness would break the run it is in the middle of, and
+            # no flag here should be able to do that. Nor may "cannot tell"
+            # pass for "not in use".
             if not known:
                 kept.append(
                     (
@@ -1170,6 +1223,8 @@ def prune(roots, *, grace: float = 3600, force: bool = False, dry_run: bool = Fa
                 )
             elif pid is not None:
                 kept.append((entry, size, f"in use by pid {pid}"))
+            elif needed and not force:
+                kept.append((entry, size, f"held: {needed}"))
             elif age < grace and not force:
                 kept.append((entry, size, f"touched {int(age)}s ago"))
             elif dry_run:
@@ -1182,6 +1237,8 @@ def prune(roots, *, grace: float = 3600, force: bool = False, dry_run: bool = Fa
                     {
                         "pruned_at": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
                         "freed_bytes": size,
+                        # What a forced prune overrode, for the resume it fails.
+                        **({"held": needed} if needed else {}),
                     },
                 )
                 removed.append((entry, size, "removed"))
@@ -1507,8 +1564,9 @@ not a wall".
           record. These are the harness installations bound over the
           real ones; they are large, they live in the cache, which
           collects one only after 30 idle days, and no receipt depends
-          on one surviving. A tombstone stays where each one was
-          reached. Defaults to this project's run store.
+          on one surviving. A home its run still holds, because a
+          later command resumes it, is kept. A tombstone stays where
+          each one was reached. Defaults to this project's run store.
   canary  COSTS TOKENS: one live seat per runner, asserting it really
           cannot read the tree and really has no web or MCP tool. Every
           launch already runs one when its runner release is new; this
@@ -1517,8 +1575,10 @@ not a wall".
 options for `prune`:
   PATH            where to look (default: the project's run store)
   --grace SECONDS keep a home touched more recently than this
-                  (default: 3600); a paused seat looks idle
-  --force         prune regardless of age; still refuses a live seat
+                  (default: 3600), where no run holds it
+  --force         prune a home its run still holds, and regardless of
+                  age; the tombstone records the hold. Still refuses a
+                  live seat
   --dry-run       report what would go, and how much, without removing
 
 options for `run`:

@@ -536,6 +536,26 @@ def test_changed_span_forks_once_then_resumes_each_arm(tmp_path, monkeypatch):
         assert second[:3] == (arm, f"arm-{arm}-01-last-change", "resume")
 
 
+def test_a_complete_comparison_lets_its_arms_go_and_keeps_its_parent(
+    tmp_path, monkeypatch
+):
+    """`inspect` checks every arm against the parent's home afterwards."""
+    experiment = make_experiment(tmp_path, monkeypatch)
+    experiment.plan.update(prompts={"next": "n"}, prefix=[], order=list(exp.ARMS))
+    for seat in ("parent", *exp.ARMS):
+        native_session(experiment.workspace(seat), "codex", f"s-{seat}")
+        exp.blind.hold(experiment.workspace(seat), "held by its launch")
+    for method in ("verify", "checkpoint", "check_parent", "fork_home", "turn"):
+        monkeypatch.setattr(experiment, method, lambda *args: None)
+    experiment.run()
+    home = exp.blind.state_root
+    assert "inspect checks every arm" in exp.blind.held(
+        home(experiment.workspace("parent"))
+    )
+    for arm in exp.ARMS:
+        assert exp.blind.held(home(experiment.workspace(arm))) is None
+
+
 def test_banked_history_includes_earlier_changed_chapters(tmp_path, monkeypatch):
     experiment = make_experiment(tmp_path, monkeypatch)
     experiment.plan.update(

@@ -1235,6 +1235,13 @@ def _turn(
             bus=bus,
             canary=proven,
         )
+        if jailed and not dry_run:
+            # A review is never finished: any turn can be continued, resumed
+            # or forked later, so nothing releases this.
+            blind.hold(
+                record,
+                f"review {record.name} can be continued, resumed or forked at any time",
+            )
         history = preflight(delta, record, env) if jailed else None
         if history and history["commits_readable"] is not None:
             print(

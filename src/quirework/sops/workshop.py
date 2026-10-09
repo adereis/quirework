@@ -616,6 +616,9 @@ def _collect(root, writer, *, external=None):
         write_json(record / "state.json", state)
         raise
     write_json(record / "state.json", state)
+    # A completed writer is never resumed; a failed one may be, after a
+    # quota stop, so it keeps its home until it is retried.
+    blind.release(work)
     return state
 
 
@@ -733,6 +736,11 @@ def run_writer(root, writer, *, manual=False, timeout=None, resume=None):
             )
             jail, env, private = drivers.launch_context(
                 state["config"], work, bus, proven
+            )
+            blind.hold(
+                work,
+                f"workshop {root.name}: writer {writer} can be resumed until it "
+                "completes or is retried",
             )
             _snapshot_driver(record)
             (record / "prompt.md").write_text(prompt + "\n")
@@ -973,6 +981,9 @@ def retry(root, writer, new_id):
             raise ValueError("new writer already exists")
         item = dict(state["config"], id=new_id, retry_of=writer)
         _prepare_writer(root, plan, item)
+        # The retry starts over in a session of its own, so the old writer's
+        # is never resumed.
+        blind.release(root / "writers" / writer)
     return item
 
 

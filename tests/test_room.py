@@ -961,6 +961,42 @@ def test_a_release_between_rounds_does_not_switch_a_seat_model(
     assert "model_pinned" not in sent[2]
 
 
+def test_a_seats_home_is_held_from_its_launch_until_the_room_finishes(
+    prepared, monkeypatch, canaries_pass
+):
+    """Between rounds a seat looks idle, and the next round resumes the
+    session its home holds, so only the room can say when it may go."""
+    from quirework.project import current_project
+
+    # The launch stands in the project root, which the fixture never makes.
+    current_project().root.mkdir(exist_ok=True)
+    _, plan = room.load(prepared)
+    seat = next(s for s in plan["seats"] if s["id"] == "ana-pell")
+    monkeypatch.setattr(room.drivers, "command", lambda *a, **kw: (["true"], b""))
+    monkeypatch.setattr(room.drivers, "receipt", lambda *a, **kw: {"session_id": "s"})
+    monkeypatch.setattr(
+        room.drivers,
+        "launch_context",
+        lambda config, work, *a: ([], {}, blind.make_state_root(work)),
+    )
+    monkeypatch.setattr(room.blind, "session_bus", lambda runners: nullcontext())
+    monkeypatch.setattr(
+        room.blind,
+        "popen",
+        lambda argv, bus, **kw: room.subprocess.Popen(["true"], **kw),
+    )
+    room.launch_turn(prepared, plan, seat, 1, "Open.", None)
+    home = blind.state_root(prepared / "seats" / "ana-pell")
+    assert f"room {prepared.name} resumes seat ana-pell's session" in blind.held(home)
+    words = iter("lantern harbour cellar orchard meadow quarry".split())
+    for n in (1, 2, 3):
+        assert blind.held(home), f"released with round {n} still to publish"
+        post(prepared, "ana-pell", f"{next(words)} and more.")
+        post(prepared, "bo-larke", f"{next(words)} besides.")
+        room.promote(prepared, n)
+    assert blind.held(home) is None
+
+
 def test_an_unknown_persona_is_refused_with_the_ones_that_exist(plan, tmp_path):
     spec = read(plan)
     spec["seats"][0]["persona"] = "ana-pel"

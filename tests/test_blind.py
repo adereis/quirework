@@ -226,6 +226,59 @@ def test_a_running_seat_keeps_its_home_through_the_link(tmp_path, monkeypatch):
     assert blind.occupied(link) == 4242
 
 
+def test_a_held_home_is_kept_however_old_it_is(tmp_path):
+    """A room between rounds looks idle, and its next round resumes the
+    session the home holds."""
+    work, link = linked(tmp_path, "mara")
+    blind.hold(work, "room r resumes seat mara's session until it finishes")
+    age(link.resolve())
+    report = blind.prune([tmp_path], grace=0)
+    assert link.resolve().is_dir()
+    assert report["kept"][0][2] == (
+        "held: room r resumes seat mara's session until it finishes"
+    )
+
+
+def test_a_released_home_goes_by_age_alone(tmp_path):
+    work, link = linked(tmp_path, "mara")
+    blind.hold(work, "a reason")
+    blind.release(work)
+    blind.release(work)  # releasing twice is not an error
+    age(link.resolve())
+    assert blind.prune([tmp_path], grace=3600)["removed"]
+
+
+def test_a_forced_prune_records_what_the_home_was_held_for(tmp_path):
+    work, link = linked(tmp_path, "mara")
+    blind.hold(work, "review r can be continued at any time")
+    blind.prune([tmp_path], grace=0, force=True)
+    assert blind.tombstone(link)["held"] == "review r can be continued at any time"
+    with pytest.raises(
+        blind.SessionGone, match="by force, while held: review r can be continued"
+    ):
+        blind.require_session(work, "codex", SESSION)
+
+
+def test_the_hold_is_out_of_every_seats_sight(tmp_path):
+    """Only a runner's own directory is bound over its home in the jail."""
+    work, link = linked(tmp_path, "mara")
+    blind.hold(work, "a reason")
+    assert (link / blind.HOLD).is_file()
+    assert not list((link / "codex").rglob(blind.HOLD))
+
+
+def test_holding_a_run_that_has_no_homes_makes_none(tmp_path):
+    blind.hold(tmp_path / "never-launched", "a reason")
+    blind.release(tmp_path / "never-launched")
+    assert not blind.state_root(tmp_path / "never-launched").exists()
+
+
+def test_an_unreadable_hold_still_holds(tmp_path):
+    work, link = linked(tmp_path, "mara")
+    (link / blind.HOLD).write_text("not json")
+    assert "can no longer be read" in blind.held(link)
+
+
 SESSION = "0199c0de-0000-7000-8000-00000000abcd"
 
 

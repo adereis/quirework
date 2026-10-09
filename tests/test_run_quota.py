@@ -557,6 +557,26 @@ def test_a_resume_is_refused_before_anything_is_staged_once_its_home_is_gone(
     assert run.state("stalled") == before
 
 
+def test_a_launch_holds_the_seats_home(two_seats, monkeypatch, canaries_pass):
+    """The next turn resumes this session, so prune must keep the home."""
+    run = two_seats
+    stopped_without_a_cause(run, claude_events_cut_by_a_fault())
+    engine.continue_turn(run, "stalled", "one", "stream dropped")
+    monkeypatch.setattr(harness, "command", lambda *a: (["fixture"], b"", a[4]))
+    monkeypatch.setattr(
+        harness, "launch_context", lambda *a: ([], {}, run.private("stalled"))
+    )
+
+    def fail_spawn(*a, **kw):
+        raise OSError("synthetic pre-spawn failure")
+
+    monkeypatch.setattr(engine.subprocess, "Popen", fail_spawn)
+    with pytest.raises(OSError, match="pre-spawn"):
+        run.turn("stalled", 0, 1)
+    home = blind.state_root(run.workspace("stalled"))
+    assert "seat stalled continues this session until it completes" in blind.held(home)
+
+
 def test_continue_refuses_what_it_cannot_honestly_continue(two_seats):
     run = two_seats
     with pytest.raises(ValueError, match="--reason"):

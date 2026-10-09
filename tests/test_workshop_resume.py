@@ -107,3 +107,37 @@ def test_a_home_removed_by_hand_reads_as_gone(stopped):
     blind.discard_state_root(run / "writers" / writer)
     with pytest.raises(blind.SessionGone, match="is gone"):
         workshop.resume(run, writer)
+
+
+def test_a_completed_writer_lets_its_home_go(stopped, monkeypatch):
+    """A completed writer is never resumed, so prune may take its home."""
+    run, writer, record = stopped
+    work = run / "writers" / writer
+    native_session(work, "claude", "sid-1")
+    blind.hold(work, "held by its launch")
+    plan = json.loads((run / "plan.json").read_text())
+    for item in plan["outputs"]:
+        (work / item["path"]).parent.mkdir(parents=True, exist_ok=True)
+        (work / item["path"]).write_text("A new paragraph. " * item["min_bytes"])
+    monkeypatch.setattr(
+        workshop.drivers,
+        "receipt",
+        lambda *a, **kw: {
+            "session_id": "sid-1",
+            "model": "m",
+            "native_transcripts": [],
+        },
+    )
+    assert workshop.collect(run, writer)["status"] == "completed"
+    assert blind.held(blind.state_root(work)) is None
+
+
+def test_a_failed_writer_keeps_its_home_until_it_is_retried(stopped):
+    """Its quota stop may still be resumed; a retry starts a session of its own."""
+    run, writer, _ = stopped
+    work = run / "writers" / writer
+    native_session(work, "claude", "sid-1")
+    blind.hold(work, "held by its launch")
+    assert blind.held(blind.state_root(work))
+    workshop.retry(run, writer, "second-try")
+    assert blind.held(blind.state_root(work)) is None

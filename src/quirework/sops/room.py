@@ -948,6 +948,7 @@ def promote(root, n):
         converged=signal["converged"],
         reason=signal["reason"],
     )
+    release_if_finished(root, plan)
     return {
         "posted": sorted(included),
         "absent": absent,
@@ -955,6 +956,23 @@ def promote(root, n):
             k: signal[k] for k in ("novelty", "closing", "converged", "reason")
         },
     }
+
+
+def release_if_finished(root, plan):
+    """Let `prune` take the seats' homes once the room is where `run` stops.
+
+    That is the stop rule `status` reports: no round held, and either every
+    round of the budget published or the room converged. Extending a room,
+    or running it past its convergence, is the operator's call, and so is
+    pruning before that; each seat launched again holds its home again.
+    """
+    value = status(root)
+    if value["held"]:
+        return
+    if len(value["published_rounds"]) < value["rounds"] and not value["converged"]:
+        return
+    for seat in plan["seats"]:
+        blind.release(root / "seats" / seat["id"])
 
 
 def open_round(root, n):
@@ -1094,6 +1112,10 @@ def launch_turn(
     with blind.session_bus([config["harness"]]) as bus:
         args, payload = drivers.command(config, work, prompt, resume=resume)
         jail, env, private = drivers.launch_context(config, work, bus, proven)
+        blind.hold(
+            work,
+            f"{workflow} {root.name} resumes seat {name}'s session until it finishes",
+        )
         for folder in readonly:
             jail += ["--ro-bind", str(work / folder), str(work / folder)]
         (record / "prompt.md").write_text(prompt)

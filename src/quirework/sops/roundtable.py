@@ -1611,7 +1611,21 @@ def deliver(root, plan, seat, n, t):
     }
     write(record / "delivered.json", outcome)
     room.event(root, round=n, seat=name, event="delivered", **outcome)
+    release_if_finished(root, plan)
     return outcome
+
+
+def release_if_finished(root, plan):
+    """Let `prune` take the seats' homes once the table has nothing left.
+
+    That is where `position` stops for good: closed after its last round,
+    or spent once every seat has retired. A decision, a held turn and a
+    person's turn are pauses, and the seats resume their sessions after
+    them, so their homes stay held.
+    """
+    if position(root, plan)["kind"] in ("closed", "spent"):
+        for seat in plan["seats"]:
+            blind.release(root / "seats" / seat["id"])
 
 
 def spent(record, seat, previous):
@@ -1899,6 +1913,7 @@ def decide(root, kind, text, *, to=None):
     words = f"{fact}\n\n{text.strip()}" if text and text.strip() else fact
     post_entry(root, plan, {"kind": "supervisor", "text": words, "decision": kind})
     room.event(root, event="decided", kind=kind, end=value["end"])
+    release_if_finished(root, plan)
     return fact
 
 
