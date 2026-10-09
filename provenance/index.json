@@ -3,6 +3,30 @@
   "filter_version": 5,
   "codex_filter_version": 2,
   "sources": {
+    "cc-sessions/f17a9be6-cc15-4794-99ed-6c1daaa14b62.jsonl": {
+      "id": "f17a9be6-cc15-4794-99ed-6c1daaa14b62",
+      "era": "c-refinement",
+      "title": "(untitled)",
+      "date": "2026-10-09",
+      "date_end": "2026-10-09",
+      "model": "opus-5-5",
+      "human_turns": 2,
+      "assistant_turns": 35,
+      "tokens": 2309,
+      "doc_edits": 8,
+      "meta_edits": 2,
+      "top_edited": [
+        "index-cards.qmd×4",
+        "_spec.md×3",
+        "AGENTS.md×2"
+      ],
+      "sha256": "445b3ee0785c6e45cb7e6ea6bbd61b506823da2b7619bc2effeefb93981afc47",
+      "coldread": false,
+      "scope": "work",
+      "highlight": false,
+      "note": "",
+      "tags": []
+    },
     "cc-sessions/b4a3a485-e4aa-40a3-9ef7-9ee12164c6bf.jsonl": {
       "id": "b4a3a485-e4aa-40a3-9ef7-9ee12164c6bf",
       "era": "c-refinement",
