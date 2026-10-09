@@ -37,6 +37,11 @@ command = "sq_checks.prose:main"
 # account's default.
 canary_models = {claude = "haiku", codex = "luna"}
 
+[runs]
+# Saved run records: what a model wrote, kept as it wrote it. Never
+# reflowed, never read as authority, and never held to the house rules.
+evidence_roots = ["provenance/workshops"]
+
 [provenance]
 enabled = true
 # The ledger is committed with the book; the sessions themselves live in

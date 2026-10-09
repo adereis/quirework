@@ -9,6 +9,10 @@ An em dash reaches a rendered page by more routes than the character
 itself. Pandoc's smart typography turns three hyphens into one, and an
 HTML entity renders as one, so both are refused as well. A line that is
 nothing but hyphens is a rule or a YAML delimiter, and passes.
+
+A saved run record, under `runs.evidence_roots`, is what a model wrote,
+kept as it wrote it. The rule is for the book, not for the evidence, so
+it never reads one, wherever it lies.
 """
 
 from __future__ import annotations
@@ -17,6 +21,7 @@ import argparse
 import re
 import subprocess
 
+from quirework.core.artifact_paths import run_roots
 from quirework.core.checks import default_checks
 from quirework.project import current_project
 
@@ -52,7 +57,10 @@ def _manuscript_files(root, source):
         text=True,
         check=True,
     )
+    evidence = tuple(f"{r}/" for r in run_roots())
     for rel in result.stdout.splitlines():
+        if rel.startswith(evidence):
+            continue
         path = root / rel
         if path.suffix in SUFFIXES and path.is_file():
             yield rel, path
