@@ -1,1 +1,136 @@
 # How's the Book? {#sec-hows-the-book}
+
+Hedda Count gives me thirty minutes every other Thursday, in her office.
+We spend twenty-six of them on work, which is what the thirty minutes are for.
+In the last four she turns her chair away from her monitor, folds her hands on the desk, and asks, "How's the book?"
+
+She has asked it at the end of every one-on-one we have ever had.
+She asked it the week of the reorganization, when she inherited six new reports and a calendar that looked like a parking garage.
+She asked it once from an airport gate, over a connection so bad I watched her mouth the words a full second before I heard them, and I answered the mouth.
+
+Hedda is kind and busy.
+Most people manage one or the other.
+The busy ones skip the question.
+The kind ones with time to spare ask a second question, and a third, until you are explaining your book to someone who only wanted to know if you were all right.
+Hedda asks one question and has a hard stop at the half hour.
+It is the best arrangement I have ever had with anyone about anything.
+
+The book was called Full Stop.
+It was a natural history of punctuation: where each mark came from, and who spread it.
+The comma, the colon, the semicolon, the dash, each with a chapter of its own and a small crowd of scribes, printers, and schoolmasters behind it, arguing.
+
+I knew things nobody needed.
+I knew what the pilcrow was for before it was for nothing.
+I knew which marks had been invented on purpose and which had simply happened to a tired scribe near the end of a page.
+I owned a shelf of books on the history of the comma, and two of them disagreed with each other, which at the time I took as a sign of a healthy field.
+
+I had been writing it for three years.
+It had eleven chapters.
+
+It still does.
+
+This is not that book.
+Full Stop stopped eleven chapters in, and instead of finishing it I built a piece of software called Quirework.
+The detour is what this book is about.
+Full Stop is in it the way the highway is in a story about a shortcut.
+
+But in the beginning there was no detour.
+There was a book, and there were people who asked about it.
+
+Outside work, when people asked what I was writing, I told them, and they made the face.
+It is the face you make when a stranger's dog sits on your foot: warm, polite, and quietly looking around for the owner.
+
+"Punctuation," they would say.
+
+"Punctuation."
+
+"Like commas?"
+
+"There's a chapter on commas."
+
+That was usually the end of it.
+Hedda never made the face.
+Hedda did not have time to make the face, and I have come to count that among her kindnesses.
+
+There was one other person who asked, and he had more right to.
+Red Penn is my editor at a small press, and he was waiting for chapter twelve.
+He had read the other eleven.
+He had said nice things about them, in writing, which meant I could not pretend he hadn't.
+Red did not ask often.
+Every few months he sent an email with the subject line "Checking in" and a body that said, in full, "Checking in."
+I answered every one.
+I would have preferred a longer email.
+A longer email can be answered at length, and length can be mistaken for progress.
+
+Hedda's question came every other Thursday, though, and it needed an answer that fit in four minutes.
+So when she asked how the book was, I said, "Chapter four."
+
+The book had eleven chapters, and four is not where you expect to find someone who has written eleven.
+I had written them.
+Then I had gone back.
+Chapter four is on the dash, and it had developed a disagreement with chapter nine.
+I will come to that.
+I came to it a great deal.
+
+"Chapter four" was the right size for a one-on-one.
+It was short.
+It was true.
+It had a number in it, and numbers sound like progress to anyone who is not watching them.
+Hedda would nod and say, "Good," and write something down, and we would both stand up.
+
+Two weeks later she would ask again, and I would say, "Chapter four."
+
+Hedda keeps a running document for our one-on-ones.
+Each time, she copies the previous section forward, puts the new date on it, and edits from there.
+Near the bottom, under Other, is a line that says *Book: ch.
+4*.
+I have watched that line get copied forward through a reorganization, a new quarter, a new fiscal year, and a change to the document's default font.
+It survived all of them without an edit.
+Nothing in Full Stop was that stable.
+
+I spent the first twenty-six minutes of every one-on-one aware of the last four.
+I would be talking about a deadline, or a ticket, or somebody's access to something, and a small part of me would be standing off to the side, rehearsing.
+
+I tried other answers in my head on the walk to her office.
+"Good" was a lie.
+"Slow" invited a second question, and Hedda does not have time for a second question, and I did not have an answer to one.
+"Coming along" is what people say about a cold.
+"Chapter four" was the only answer I had that was both honest and over quickly, and I gave it the way some people give their zip code.
+
+I occasionally selected the entire manuscript to see how many words I had.
+This was a useful thing to do when I had no new ones.
+The count included headings, abandoned passages, and instructions to myself to check things.
+I left those in.
+They had taken time to write.
+Then I clicked back into the text, carefully, so I wouldn't replace the whole book with the next letter I typed.
+This was the closest I came to starting again.
+
+Once, after I said it, she asked, "Still the dash one?"
+
+She remembered.
+That was the hard part.
+I could have handled not being listened to.
+A manager who asks how the book is and does not hear the answer is just saying goodbye.
+Hedda heard it.
+She kept the chapter number in a document and the subject of the chapter in her head, and she asked about the dash by name, and there was nothing to do but say yes.
+
+"Still the dash one," I said.
+
+"Good," she said, and wrote something down.
+
+I want to be careful about Hedda, because a book like this one seems to want someone standing in a doorway saying "Well?", and it would be easy to cast her in the part.
+She was not that.
+Neither was Red.
+Each of them asked the one question the book could not answer yet, and each of them was right to ask it.
+The book was the one with the problem.
+
+I did not know yet what the problem was.
+I thought it was chapter four.
+I thought that if I sat with chapter four long enough, and was careful enough, and read chapter nine one more time with a pencil, the two of them would agree, and I could tell Hedda "chapter twelve," and then something with no number in it at all.
+
+So every other Thursday, in the last four minutes, I walked into her office with the same answer in my pocket.
+
+"How's the book?"
+Hedda asked.
+
+"Chapter four," I said.

@@ -13,4 +13,4 @@
      Demo; Red's README belongs to Nine Hundred Lines -->
 <!-- @bind(people-who-ask) -->
 <!-- @bind(side-quest) -->
-<!-- @todo no prose yet -->
+<!-- @count(eleven chapters) Full Stop's, not this book's -->
