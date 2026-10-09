@@ -99,6 +99,30 @@
       "note": "",
       "tags": []
     },
+    "cc-sessions/aba6f617-39b8-4169-b878-57ee66d4cf02.jsonl": {
+      "id": "aba6f617-39b8-4169-b878-57ee66d4cf02",
+      "era": "c-refinement",
+      "title": "(untitled)",
+      "date": "2026-10-09",
+      "date_end": "2026-10-09",
+      "model": "opus-5-5",
+      "human_turns": 3,
+      "assistant_turns": 288,
+      "tokens": 10290,
+      "doc_edits": 0,
+      "meta_edits": 129,
+      "top_edited": [
+        "memo.qmd×28",
+        "memo.md×11",
+        "otto.qmd×9"
+      ],
+      "sha256": "e370899a7bdcfc924ea1c8c24e56ce9316f4cdd80fb3bdfb459893bc0ec6a2c0",
+      "coldread": false,
+      "scope": "work",
+      "highlight": false,
+      "note": "",
+      "tags": []
+    },
     "cc-sessions/813387bd-6788-4d19-9526-c2f6072fd3b6.jsonl": {
       "id": "813387bd-6788-4d19-9526-c2f6072fd3b6",
       "era": "c-refinement",
