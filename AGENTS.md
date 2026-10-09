@@ -65,6 +65,14 @@ it in conversation, write it here in the same session.
   black and grays rather than its default blue.
 - `scratchpad/` and `private/` are ignored by git. Nothing in
   `scratchpad/` has authority.
+- A blind read uses the `blind-read` reader preset, and its readers
+  mount the book from a `quirework publish packet --prose-dir` copy.
+  That copy goes under `~`, Cy's home (`$HOME`, not `/home/ademar`), at
+  a path that names neither the book nor the tool. It cannot go in
+  `scratchpad/`: `publish plan selfdriven` refuses a mount inside the
+  project, since a reader with a shell reads its own paths. Its run
+  records go in Quirework's state directory, never in the book; what the
+  readers wrote goes under `provenance/readings/`.
 
 ## The book
 
