@@ -101,7 +101,15 @@ book:
 format:
   html:
     theme: cosmo
+  typst: default
+  epub:
+    toc: true
+  docx: default
 ```
+
+`publish build` renders the formats this file lists, and only those:
+here all four, HTML, a PDF through Typst, an EPUB and a DOCX. A format
+left out is never built, and nothing says so.
 
 Declare `lang`, at the top level and not inside `book`. Without it the
 build inherits the machine's locale, which produces an EPUB whose stated

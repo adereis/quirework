@@ -273,10 +273,10 @@ is not checked, and `--check` says how many quotations that left.
 ## Publishing backends
 
 `publish.backend` names what renders the manuscript. `quarto`, the
-default, stages a book and renders HTML, a Typst PDF, EPUB and DOCX,
-and every other `publish` command is built on that staging: figures,
-fonts, red-pen copies, reader packets, derived editions and chapter
-comparisons.
+default, stages a book and renders the formats its Quarto file lists,
+any of HTML, a Typst PDF, EPUB and DOCX, and every other `publish`
+command is built on that staging: figures, fonts, red-pen copies,
+reader packets, derived editions and chapter comparisons.
 
 `hugo` builds a site with its own Hugo configuration:
 

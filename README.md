@@ -80,11 +80,13 @@ such as a book and the site that serves its editions, names each as a
 target, and a target can take another's output into its own. A book
 gets the rest of this section.
 
-`publish build` renders a Quarto manuscript to HTML, PDF through Typst,
-EPUB and DOCX. It stages three trees to do it, because the formats
-disagree about what they will carry, and it checks afterwards that a
-figure has the same number in every edition rather than assuming so. The
-source tree is never written into.
+`publish build` renders a Quarto manuscript to every format its
+`_quarto.yml` lists: HTML, PDF through Typst, EPUB and DOCX for a book
+that lists all four, as the authoring guide's example does. It stages
+three trees to do it, because the formats disagree about what they will
+carry, and it checks afterwards that a figure has the same number in
+every edition rather than assuming so. The source tree is never written
+into.
 
 It also does the things that go wrong silently. It generates a grayscale
 figure set from the color one, because e-ink desaturates color into mud.
