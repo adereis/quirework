@@ -102,6 +102,40 @@ it in conversation, write it here in the same session.
   place the facts come from Cy rather than the book. No comparable
   titles, no endorsements, no real books or people.
 
+## The editions
+
+- Three derived editions, under `variants/`: a six-pager for Hedda, a
+  young readers' edition, and the book as poems. Each is made from the
+  book and answers to the same spec; the book is the master, and nothing
+  in an edition feeds back into it.
+- `procedures/protocols/variant-common.md` holds what every edition
+  keeps, which is every house rule and every pronoun rule here, and how
+  one is drafted and composed. Each kind has its own procedure,
+  `procedures/workflows/variant-KIND.md`. Drafters are named in
+  `procedures/variant-policy.toml`: Opus, except the poems, which are
+  drafted on Codex so the editions are not all one model's voice.
+- A blind draft in an edition's `_raw/` is what a model wrote and is
+  never edited. The composed edition beside it has a sidecar per
+  document that binds or omits, with a reason, every spec section.
+  `quirework dev check` holds composed editions to the em dash rule.
+- The six-pager is one narrative memo, `variants/six-pager/memo.qmd`, in
+  Cy's first person, to Hedda as "you": full paragraphs, no bullets,
+  plain headings. It proposes nothing and asks her for nothing. Six
+  printed pages is a ceiling, counted in the rendered PDF. It carries no
+  figure: Hedda was there and saw the screen, and the prose is enough.
+  "This is the long answer, given once" is the memo, and telling Hedda
+  that every name has been changed is a joke Cy takes credit for.
+- No edition has a back cover, since a back cover belongs to a book you
+  can pick up. The drafters are not asked to retell it, and no composed
+  edition carries one.
+- The young readers' edition is for readers of about ten who read well
+  and alone: the same story, people, numbers and doubts, no
+  condescension, no glossary, no moral added.
+- The poems are one poem per chapter, light verse in real metre and
+  rhyme, the facts exact even when the rhyme would rather they weren't.
+  Em's chapter holds exactly one limerick; if Em needs more room than a
+  limerick, the poem around it gives it.
+
 ## Cast
 
 Use only the pronouns recorded here. Where none is recorded, use the

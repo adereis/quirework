@@ -5,6 +5,11 @@
       "id": "authoring",
       "label": "Authoring",
       "question": "What do I do when I sit down to write?"
+    },
+    {
+      "id": "editions",
+      "label": "Editions",
+      "question": "How do I make another shape of the finished book?"
     }
   ],
   "entries": {
@@ -22,6 +27,60 @@
         "quirework spec trail --check",
         "quirework config check",
         "quirework dev check"
+      ],
+      "followups": [],
+      "note": ""
+    },
+    "variant-common": {
+      "family": "editions",
+      "kind": "protocol",
+      "skill": false,
+      "requires": [],
+      "mechanics": [],
+      "followups": [],
+      "note": ""
+    },
+    "variant-six-pager": {
+      "family": "editions",
+      "kind": "procedure",
+      "skill": false,
+      "requires": ["variant-common"],
+      "mechanics": [
+        "quirework publish variant build six-pager",
+        "quirework spec notes --check",
+        "quirework spec notes bind",
+        "quirework dev check",
+        "quirework publish build --edition six-pager"
+      ],
+      "followups": [],
+      "note": ""
+    },
+    "variant-young-readers": {
+      "family": "editions",
+      "kind": "procedure",
+      "skill": false,
+      "requires": ["variant-common"],
+      "mechanics": [
+        "quirework publish variant build young-readers",
+        "quirework spec notes --check",
+        "quirework spec notes bind",
+        "quirework dev check",
+        "quirework publish build --edition young-readers"
+      ],
+      "followups": [],
+      "note": ""
+    },
+    "variant-poems": {
+      "family": "editions",
+      "kind": "procedure",
+      "skill": false,
+      "requires": ["variant-common"],
+      "mechanics": [
+        "quirework publish variant build poems",
+        "quirework spec notes --check",
+        "quirework spec notes bind",
+        "quirework dev check",
+        "quirework publish build --edition poems"
       ],
       "followups": [],
       "note": ""

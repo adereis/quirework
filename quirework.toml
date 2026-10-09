@@ -24,6 +24,10 @@ figures = "manuscript/sections/illustrations"
 # The book's two inks, black and the one orange, with grays between.
 # `quirework dev check` runs the same rule.
 figure_checks = ["sq_checks.figures:two_inks"]
+# The derived editions: a six-pager, a young readers' edition and the
+# poems, each made from the book and answering to its spec.
+variants = "variants"
+variant_policy = "procedures/variant-policy.toml"
 
 [sops]
 root = "procedures"

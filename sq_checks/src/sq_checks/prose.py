@@ -12,9 +12,14 @@ itself. Pandoc's smart typography turns three hyphens into one, and an
 HTML entity renders as one, so both are refused as well. A line that is
 nothing but hyphens is a rule or a YAML delimiter, and passes.
 
+The derived editions under `publish.variants` are the book too, in
+another shape, so their composed documents, sidecars and Quarto files are
+held to the same rule.
+
 A saved run record, under `runs.evidence_roots`, is what a model wrote,
-kept as it wrote it. The rule is for the book, not for the evidence, so
-it never reads one, wherever it lies.
+kept as it wrote it, and so is an edition's `_raw/` drafts. The rule is
+for the book, not for the evidence, so it never reads either, wherever it
+lies.
 """
 
 from __future__ import annotations
@@ -42,7 +47,7 @@ _TRIPLE = re.compile(r"(?<!-)---(?!-)")
 _ONLY_HYPHENS = re.compile(r"^\s*-{3,}\s*$")
 
 
-def _manuscript_files(root, source):
+def _manuscript_files(root, *sources):
     # The same listing the default suite reads: tracked and untracked
     # files, and never anything git ignores.
     result = subprocess.run(
@@ -55,7 +60,7 @@ def _manuscript_files(root, source):
             "--others",
             "--exclude-standard",
             "--",
-            source,
+            *sources,
         ],
         capture_output=True,
         text=True,
@@ -63,7 +68,7 @@ def _manuscript_files(root, source):
     )
     evidence = tuple(f"{r}/" for r in run_roots())
     for rel in result.stdout.splitlines():
-        if rel.startswith(evidence):
+        if rel.startswith(evidence) or "/_raw/" in rel:
             continue
         path = root / rel
         if path.suffix in SUFFIXES and path.is_file():
@@ -72,9 +77,9 @@ def _manuscript_files(root, source):
 
 def em_dashes():
     project = current_project()
-    source = project.path("manuscript.source")
+    sources = [project.path("manuscript.source"), project.path("publish.variants")]
     problems = []
-    for rel, path in _manuscript_files(project.root, source):
+    for rel, path in _manuscript_files(project.root, *sources):
         smart = path.suffix == ".qmd"
         lines = path.read_text(encoding="utf-8").splitlines()
         for n, line in enumerate(lines, 1):

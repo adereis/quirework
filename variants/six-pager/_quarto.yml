@@ -1,0 +1,12 @@
+lang: en-US
+project:
+  type: default
+  render:
+    - memo.qmd
+# The script's printout prints in black, as in the book.
+highlight-style: none
+# A memo is one document: rendered beside the book as a page and a PDF,
+# where its six pages are counted.
+format:
+  html: default
+  typst: default
