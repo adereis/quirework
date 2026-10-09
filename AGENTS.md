@@ -48,6 +48,18 @@ it in conversation, write it here in the same session.
   rules against em dashes and for the two inks. Run it before every
   commit. The package is installed editable, so a new module in it is
   found without reinstalling.
+- The cover painting, `art/cover.jpg`, was painted by Codex at Cy's own
+  terminal; it is a painting, not a figure, so house rule six does not
+  hold it, and its warm wash stays. `art/cover.svg` sets the title and
+  Cy's name on it, in black and a gray. `manuscript/cover.jpg` is made
+  from that file and is what the EPUB's cover and the PDF's first page
+  use. Both are JPEGs, at quality 88, to keep the EPUB small. To change
+  the cover, copy both sources into an empty directory under
+  `scratchpad/` and rasterize it with
+  `quirework publish figures png --set THAT_DIR --out THAT_DIR/out`,
+  which writes a PNG. Then Cy converts that PNG to
+  `manuscript/cover.jpg` at their own terminal, since an assistant here
+  cannot, and the build is run again.
 - `scratchpad/` and `private/` are ignored by git. Nothing in
   `scratchpad/` has authority.
 

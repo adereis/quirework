@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1600 2560" width="1600" height="2560" font-family="Spectral">
+  <title>Side Quest, by Cy Dequest: the cover</title>
+  <image href="cover.jpg" x="0" y="0" width="1600" height="2560"/>
+  <text x="128" y="350" fill="#000000" font-size="210">Side Quest</text>
+  <text x="134" y="470" fill="#333333" font-size="68">Cy Dequest</text>
+</svg>
