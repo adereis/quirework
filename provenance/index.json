@@ -3,6 +3,30 @@
   "filter_version": 5,
   "codex_filter_version": 2,
   "sources": {
+    "cc-sessions/b4a3a485-e4aa-40a3-9ef7-9ee12164c6bf.jsonl": {
+      "id": "b4a3a485-e4aa-40a3-9ef7-9ee12164c6bf",
+      "era": "c-refinement",
+      "title": "(untitled)",
+      "date": "2026-10-09",
+      "date_end": "2026-10-09",
+      "model": "opus-5-5",
+      "human_turns": 5,
+      "assistant_turns": 194,
+      "tokens": 8293,
+      "doc_edits": 24,
+      "meta_edits": 14,
+      "top_edited": [
+        "quirework.toml×6",
+        "hows-the-book.md×5",
+        "outline.md×4"
+      ],
+      "sha256": "9653195d04fa0b1f2404265a1d7b238a46aa52e25418c1742160460d688a85e0",
+      "coldread": false,
+      "scope": "work",
+      "highlight": false,
+      "note": "",
+      "tags": []
+    },
     "cc-sessions/1b7ad009-e68c-4219-a024-edbf242566b6.jsonl": {
       "id": "1b7ad009-e68c-4219-a024-edbf242566b6",
       "era": "c-refinement",
