@@ -7,7 +7,7 @@ session, regenerated from the files on every import. A session is
 accepted only after the keep/remove read, so accepted == curated-in;
 pending captures awaiting triage are absent by construction.
 
-**9** Claude Code sessions · **0** Antigravity sessions · **1** Codex
+**10** Claude Code sessions · **0** Antigravity sessions · **1** Codex
 sessions · **0** web dialogues · **0** curated out.
 
 Of those, **0** are scope `making` (the apparatus: tools, guards,
@@ -20,6 +20,7 @@ cold-read reads a session, nothing else -- see the ledger's
 | date | id | title | model | ~tok | doc/meta | scope | cold | ★ |
 | --- | --- | --- | --- | --: | --- | --- | :-: | :-: |
 | 2026-10-09 | `f17a9be6` | (untitled) | opus-5-5 | 2k | 8/2 | work | — |  |
+| 2026-10-09 | `df036d3e` | (untitled) | opus-5-5 | 9k | 29/23 | work | — |  |
 | 2026-10-09 | `db5f195e` | (untitled) | opus-5-5 | 6k | 20/15 | work | — |  |
 | 2026-10-09 | `b4a3a485` | (untitled) | opus-5-5 | 8k | 24/14 | work | — |  |
 | 2026-10-09 | `813387bd` | (untitled) | opus-5-5 | 2k | 9/1 | work | — |  |

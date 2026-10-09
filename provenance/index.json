@@ -27,6 +27,30 @@
       "note": "",
       "tags": []
     },
+    "cc-sessions/df036d3e-6d59-489e-97ae-ce2f8dd16a8e.jsonl": {
+      "id": "df036d3e-6d59-489e-97ae-ce2f8dd16a8e",
+      "era": "c-refinement",
+      "title": "(untitled)",
+      "date": "2026-10-09",
+      "date_end": "2026-10-09",
+      "model": "opus-5-5",
+      "human_turns": 3,
+      "assistant_turns": 254,
+      "tokens": 9229,
+      "doc_edits": 29,
+      "meta_edits": 23,
+      "top_edited": [
+        "AGENTS.md×8",
+        "index-cards.md×4",
+        "the-name.md×4"
+      ],
+      "sha256": "796cf981b888cacdc48bdf2ecbf65ea7114ff04dcb1fd419efe9797d23bac87a",
+      "coldread": false,
+      "scope": "work",
+      "highlight": false,
+      "note": "",
+      "tags": []
+    },
     "cc-sessions/db5f195e-d0b4-4d0d-b187-9408822c881b.jsonl": {
       "id": "db5f195e-d0b4-4d0d-b187-9408822c881b",
       "era": "c-refinement",
