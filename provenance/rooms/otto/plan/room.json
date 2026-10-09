@@ -1,0 +1,111 @@
+{
+  "title": "Side Quest, chapter four: Otto",
+  "chair": "Cy Dequest",
+  "harness": "claude",
+  "model": "opus",
+  "effort": "high",
+  "rounds": 6,
+  "silent_rounds": [1],
+  "post_words": 250,
+  "brief": {"path": "brief.md", "local_source": "brief.md"},
+  "shared_files": [
+    {"path": "book/_spec.md", "source": "manuscript/sections/_spec.md"},
+    {"path": "book/_marks/otto.md", "source": "manuscript/sections/_marks/otto.md"}
+  ],
+  "seats": [
+    {
+      "id": "manny-script",
+      "persona": "manny-script",
+      "harness": "claude",
+      "model": "opus",
+      "effort": "high",
+      "files": [
+        {"path": "book/preface.qmd", "source": "manuscript/sections/preface.qmd", "label": "the preface"},
+        {"path": "book/index-cards.qmd", "source": "manuscript/sections/index-cards.qmd", "label": "chapter three, Index Cards"}
+      ]
+    },
+    {
+      "id": "drew-contrary",
+      "persona": "drew-contrary",
+      "harness": "codex",
+      "model": "astra",
+      "effort": "high",
+      "files": []
+    },
+    {
+      "id": "archie-tecture",
+      "persona": "archie-tecture",
+      "harness": "agy",
+      "model": "gemini-3.1-pro-high",
+      "effort": "high",
+      "files": [
+        {"path": "book/preface.qmd", "source": "manuscript/sections/preface.qmd", "label": "the preface"},
+        {"path": "book/hows-the-book.qmd", "source": "manuscript/sections/hows-the-book.qmd", "label": "chapter one, How's the Book?"},
+        {"path": "book/two-shops.qmd", "source": "manuscript/sections/two-shops.qmd", "label": "chapter two, Two Shops"},
+        {"path": "book/index-cards.qmd", "source": "manuscript/sections/index-cards.qmd", "label": "chapter three, Index Cards"},
+        {"path": "book/_marks/preface.md", "source": "manuscript/sections/_marks/preface.md", "label": "the sidecar for every chapter, written or not"},
+        {"path": "book/_marks/hows-the-book.md", "source": "manuscript/sections/_marks/hows-the-book.md"},
+        {"path": "book/_marks/two-shops.md", "source": "manuscript/sections/_marks/two-shops.md"},
+        {"path": "book/_marks/index-cards.md", "source": "manuscript/sections/_marks/index-cards.md"},
+        {"path": "book/_marks/the-name.md", "source": "manuscript/sections/_marks/the-name.md"},
+        {"path": "book/_marks/nine-hundred-lines.md", "source": "manuscript/sections/_marks/nine-hundred-lines.md"},
+        {"path": "book/_marks/em.md", "source": "manuscript/sections/_marks/em.md"},
+        {"path": "book/_marks/the-demo.md", "source": "manuscript/sections/_marks/the-demo.md"},
+        {"path": "book/_marks/full-stop.md", "source": "manuscript/sections/_marks/full-stop.md"}
+      ]
+    },
+    {
+      "id": "joe-king",
+      "persona": "joe-king",
+      "harness": "codex",
+      "model": "sol",
+      "effort": "high",
+      "files": [
+        {"path": "book/hows-the-book.qmd", "source": "manuscript/sections/hows-the-book.qmd", "label": "chapter one, How's the Book?"},
+        {"path": "book/two-shops.qmd", "source": "manuscript/sections/two-shops.qmd", "label": "chapter two, Two Shops"}
+      ]
+    }
+  ],
+  "phases": [
+    {
+      "name": "opening",
+      "rounds": 1,
+      "instruction": "Before anyone drafts: what must this chapter do, what must it not do, and the one thing you would fight for. You are writing blind to your colleagues this round; say what you think, not what you expect them to say."
+    },
+    {
+      "name": "must-do",
+      "rounds": 1,
+      "instruction": "Read the board. Answer your colleagues by name: where you agree, where you do not, and what you would now change in your own position. Still no drafting."
+    },
+    {
+      "name": "draft",
+      "rounds": 1,
+      "seats": ["manny-script"],
+      "words": 1300,
+      "post_words": 150,
+      "deliverable": "otto.md",
+      "instruction": "Write the chapter itself, as finished prose. The length is a ceiling. In your post, say what you chose and what you left out on purpose."
+    },
+    {
+      "name": "owed",
+      "rounds": 1,
+      "seats": ["drew-contrary", "archie-tecture", "joe-king"],
+      "instruction": "What does this draft still owe its reader, and what did you expect and not get? Say what is already working and must survive the next pass. Faults come next round, not this one."
+    },
+    {
+      "name": "faults",
+      "rounds": 1,
+      "seats": ["drew-contrary", "archie-tecture", "joe-king"],
+      "instruction": "Now the faults. Quote the sentences. Answer your colleagues by name and say where you disagree with them."
+    },
+    {
+      "name": "rewrite",
+      "rounds": 1,
+      "seats": ["manny-script"],
+      "words": 1300,
+      "post_words": 200,
+      "deliverable": "otto.md",
+      "instruction": "Rewrite the chapter. In your post, say what you took, what you refused and why. A refusal on the record is worth more than a silent one."
+    }
+  ]
+}
