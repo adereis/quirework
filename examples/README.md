@@ -50,9 +50,9 @@ and its README lists the commands a companion runs on it.
 ## Why they are in this repository
 
 Each is documentation and a test at once. `tests/test_example_book.py`
-and `tests/test_example_site.py` run these gates on every test run, so
-a change to Quirework that would break a working project fails here
-rather than in somebody's book or site.
+and `tests/test_example_site.py` run these gates on every test run, so a
+change to Quirework that would break a working project fails here rather
+than in somebody's book or site.
 
 Writing it is also what found the bugs it was written to find. A
 directory named `docs`, a font stack read as a single family, a figure
