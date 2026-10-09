@@ -60,8 +60,23 @@ An assistant is useful exactly as far as you can check it, and the
 compositor is the proof. Otto Complete once supplied a quotation from a
 seventeenth-century compositor: "A Dash is but a Comma that hath lost
 its Nerve." Cy cited it for two weeks and read it aloud to people who
-had not asked. The compositor never existed. The quotation is given
-whole, spelled and capitalized exactly as Otto gave it.
+had not asked, once at a dinner, to a historian, who nodded. The
+compositor never existed. Cy found out on a Tuesday in the middle of the
+footnote war, a few weeks before the week both shops did it, adding the
+compositor's dates to a footnote in Full Stop's chapter four because by
+then every claim in four needed papers. Cy looked in the trade
+directories first, then in a list of every printer fined for anything
+that century, which is a list everyone is on: there were no dates, no
+compositor and no shop, only a very good sentence. The quotation is
+given whole, spelled and capitalized exactly as Otto gave it. Cy still
+uses Otto, for things Cy can check: the name of a forgotten mark, which
+Cy looks up (the hook under a c was a cedilla), and regular expressions
+for scripts, which Cy tries on lines they should catch and lines they
+should not before they touch anything, since running one proves only
+that it runs. Cy no longer asks Otto for dates. Quirework is not the
+cure for Otto: it checks a book against itself and cannot check a book
+against the world, and Otto's lesson is Cy's to keep, not the tool's to
+enforce. Otto's chapter does not raise the question.
 
 ## The name came from Otto {#the-name}
 
@@ -74,8 +89,10 @@ chosen.
 Nobody in this book is a villain, Otto and Em included. Otto is a
 mirror: eager, agreeable, quick to finish Cy's sentences, and the
 compositor happened because Cy wanted that sentence very much and Otto
-could tell. The fault the book finds is in where the claims lived, not
-in any person or program.
+could tell. Cy went back to the question that same night: it was three
+paragraphs long, with the asking in the third. Cy did not know there was
+no such voice; Cy wanted one. The fault the book finds is in where the
+claims lived, not in any person or program.
 
 ## Em is never asked {#em-never-asked}
 

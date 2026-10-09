@@ -86,6 +86,25 @@
 
   The quotation stays exactly as Otto gave it.
 
+- 2026-10-09T20:57:04Z · sharpen · claude-code
+  169bf679-47c8-4561-be4f-3859846c6d89
+
+  The discovery on a Tuesday, the historian at the dinner who nodded,
+  and Cy still using Otto for things Cy can check.
+
+- 2026-10-09T21:05:50Z · sharpen · claude-code
+  169bf679-47c8-4561-be4f-3859846c6d89
+
+  What Cy asks Otto for now (mark names, regular expressions, never
+  dates), when the Tuesday fell (the footnote war, before the week both
+  shops did it), and that Quirework is not the cure for Otto.
+
+- 2026-10-09T21:14:37Z · sharpen · claude-code
+  169bf679-47c8-4561-be4f-3859846c6d89
+
+  Where Cy looked on the Tuesday, and the regular-expression check said
+  plainly: tried on lines it should and should not catch.
+
 ## The name came from Otto {#the-name}
 
 - 2026-10-09T20:18:07Z · seed · claude-code
@@ -110,6 +129,12 @@
   1b7ad009-e68c-4219-a024-edbf242566b6
 
   Keeps the fault in where the claims lived, not in a person or program.
+
+- 2026-10-09T21:14:37Z · sharpen · claude-code
+  169bf679-47c8-4561-be4f-3859846c6d89
+
+  The mirror's evidence: Cy reread the three-paragraph question that
+  night; Cy did not know, Cy wanted.
 
 ## Em is never asked {#em-never-asked}
 
