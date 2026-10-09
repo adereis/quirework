@@ -13,10 +13,17 @@
 <!-- @guidance says nothing of how the book ends: the answer is "no",
      and the chapter stops at Hedda's line -->
 <!-- @figure(hedda-screen) the date claim on Hedda's monitor and its
-     four sentences: chapter three agrees, the other three disagree. No
-     orange: these are plain contradictions, drawn in black, and the
-     prose's "red" stays. The claim, the year and the sentences are Full
-     Stop's, invented for the drawing. Chapter eight stays off the
-     screen: four places is four places -->
+     five sentences: chapters three and eight agree, the other three
+     disagree, and each of those says 1684 outright. No orange: these
+     are plain contradictions, drawn in black, and the prose's "red"
+     stays. The claim, the year and the sentences are Full Stop's,
+     invented for the drawing. Chapter eight is on the screen because
+     the prose names it as where the date came from; the prose counts
+     five places and five lines. Chapter eight's sentence sits at the
+     same place in Full Stop that the script's first complaint names in
+     Index Cards -->
+<!-- @guidance two blind readers checked this screen against the prose
+     and both found it wrong: every sentence on it says what its label
+     says it does, and the prose's counts match the drawing -->
 <!-- @bind(people-who-ask) -->
 <!-- @bind(claims-in-sentences) -->

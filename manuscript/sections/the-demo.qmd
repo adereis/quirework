@@ -47,9 +47,9 @@ I had not rehearsed the book.
 
 The date was not only in chapter three.
 It was in three other sentences, in three other chapters, which had agreed with chapter three for years and had not been told.
-On Hedda's monitor the date sat at the top, once, as a claim, and under it were the four places it lived, three of them in red, disagreeing with a sentence I had written the night before.
+On Hedda's monitor the date sat at the top, once, as a claim, and under it were the five places it lived, three of them in red, disagreeing with a sentence I had written the night before.
 
-![Hedda's monitor.](illustrations/hedda-screen.svg){#fig-hedda-screen fig-alt="A plain framed screen. At the top, one claim: the dash is given its first printed rule, 1694. Under it four sentences, each with its chapter and line. Chapter three, line 212, agrees and says 1694. Chapter one, line 64, chapter six, line 141, and chapter ten, line 33, are each marked with a black square crossed in white and the word disagrees; each says 1684."}
+![Hedda's monitor.](illustrations/hedda-screen.svg){#fig-hedda-screen fig-alt="A plain framed screen. At the top, one claim: the dash is given its first printed rule, 1694. Under it five sentences, each with its chapter and line. Chapter three, line 212, and chapter eight, line 77, agree and say 1694. Chapter one, line 64, chapter six, line 141, and chapter ten, line 33, are each marked with a black square crossed in white and the word disagrees; each says 1684."}
 
 I had a sentence ready for the two shops.
 I had nothing ready for this.
@@ -59,12 +59,12 @@ I pointed at the claim, and at each sentence under it, and said which chapter it
 It took longer than four minutes.
 It was easier than any answer I had given her in three years.
 I did not have to describe the problem.
-It was on her monitor, in four lines.
+It was on her monitor, in five lines.
 
 Hedda read it.
 Not the summary at the bottom: the sentences.
 
-Somewhere around the third of the four lines, the half hour ended.
+Somewhere around the third of the five lines, the half hour ended.
 Hedda has a hard stop at the half hour.
 She watched all of it.
 
