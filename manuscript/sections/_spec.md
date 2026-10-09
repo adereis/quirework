@@ -166,10 +166,14 @@ line six hundred and twelve back, in a different email) and that day
 writes back one line: "Is there a chapter in here?" There is not; there
 is a section called Getting Started. Until then Red's emails are short:
 the subject line "Checking in", and a body that says "Checking in" and
-nothing else.
+nothing else. The later email that quotes line six hundred and twelve,
+by which time Red has read the README twice, asks a different question:
+"Is there a book in here?", meaning the tool, the three years and Cy. Cy
+says they do not know, and starts this book, which is how they find out.
 
 Neither is a foil. Each asks the one question the book cannot answer
-yet, and each is right to.
+yet, and each is right to. In the last chapter Hedda asks once more, and
+Cy answers "Which one?"; she writes that down.
 
 ## The tool is not the book it was built for {#not-the-book-it-was-built-for}
 
@@ -177,11 +181,19 @@ A tool built to avoid a book can still be how a book gets finished; it
 just is not the book it was built for. The book Quirework finishes is
 this one. Full Stop stays unfinished. The memoir's last chapter is
 called Full Stop because that is where the memoir stops and that book
-does not. Nothing before that last chapter says how the book ends.
+does not. Nothing before that last chapter says how the book ends. The
+last chapter says the first sentence of this section once, and does not
+explain it or add a moral. It does not end on the words "full stop".
 
 ## Written with the tool it is about {#written-with-the-tool}
 
-This book is written with Quirework, and the preface admits it. The
+This book is written with Quirework, and the preface admits it; the last
+chapter says it again, in nearly the preface's words, out of one scene.
+The first night Cy writes this book, they run the tool on it, and it
+finds one problem: this book says "eleven chapters" and has nine, and
+the tool built for Full Stop flags Full Stop's own number as a mistake.
+Cy writes the tool a note that the count belongs to another book, the
+first thing Cy has told it about Full Stop that is not a complaint. The
 irony is known to the author and used on purpose: the book counts on it
 rather than apologizing for it. The preface also says, once, in one flat
 sentence, that every name is changed and everything that deserved it is

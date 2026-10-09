@@ -53,7 +53,9 @@ it in conversation, write it here in the same session.
 
 - A preface and nine chapters, in three parts, about twelve thousand
   words in all: each chapter about thirteen hundred words, the preface
-  shorter.
+  shorter. The book runs well under that; the figure stays as it is
+  until the blind read says whether the book wants more. A reader
+  decides that, not Cy or an assistant.
 - Part one, The Book That Disagreed: How's the Book?, Two Shops, Index
   Cards. Part two, The Side Quest: Otto, The Name, Nine Hundred Lines.
   Part three, The Book That Got Finished: Em, The Demo, Full Stop. The

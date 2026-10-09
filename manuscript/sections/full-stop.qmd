@@ -1,1 +1,65 @@
 # Full Stop {#sec-full-stop}
+
+After the demo I didn't decide to stop working on Full Stop.
+I didn't decide anything.
+I just didn't open it the next evening, or the one after.
+
+The evenings went to the tool, as they had for months.
+Nobody noticed, including me.
+
+The wall above my desk stayed empty.
+The pin holes are still there, in pairs.
+
+The email in which Red quoted line six hundred and twelve back to me was the one where he asked a different question.
+He had read the README twice by then.
+
+"Is there a book in here?"
+
+He meant the tool, and the three years, and me.
+
+I said I didn't know.
+Then I started this one, which is how I found out.
+
+The first night, I ran the tool on it, the way I had run it on Full Stop a thousand times.
+There wasn't much of it yet.
+
+It found one problem.
+
+It printed the sentence, with the chapter and the line, the way it always did.
+This book said "eleven chapters".
+This book has nine.
+
+The tool, which I had built for Full Stop, had flagged Full Stop's own number as a mistake.
+
+I looked at it for a while.
+Then I wrote the tool a note telling it that the count belonged to another book.
+It took one line.
+
+It was the first time I had told the tool anything about Full Stop that wasn't a complaint.
+
+I ran it again.
+Nothing.
+
+This book was written with the tool.
+Every night it read every chapter against what the book had promised, and told me when one disagreed.
+It told me several times.
+I fixed most of them.
+
+A tool built to avoid a book can still be how a book gets finished.
+It just isn't the book it was built for.
+
+Full Stop has eleven chapters.
+It still does.
+Chapter four still credits its shop, and chapter nine still credits the rival, and the footnotes still point at each other.
+I've stopped minding.
+
+The shoeboxes are in a closet.
+The card from behind the radiator is in one of them.
+I'm still not sure where.
+
+Last week, in the last four minutes, Hedda turned her chair away from her monitor and asked how the book was.
+
+"Which one?"
+I said.
+
+She wrote that down.

@@ -243,6 +243,12 @@
   Keeps every Demo invention as true, and the ending on Book: demo. with
   nothing after it
 
+- 2026-10-09T21:31:50Z · sharpen · claude-code
+  813387bd-6788-4d19-9526-c2f6072fd3b6
+
+  Red's later email asks 'Is there a book in here?'; Cy starts this
+  book; Hedda's last answer is 'Which one?'
+
 ## The tool is not the book it was built for {#not-the-book-it-was-built-for}
 
 - 2026-10-09T20:18:07Z · seed · claude-code
@@ -260,6 +266,12 @@
   b4a3a485-e4aa-40a3-9ef7-9ee12164c6bf
 
   The book's ending is said only in the last chapter, Full Stop.
+
+- 2026-10-09T21:31:50Z · sharpen · claude-code
+  813387bd-6788-4d19-9526-c2f6072fd3b6
+
+  The last chapter says the sentence once, unexplained, no moral, and
+  does not end on 'full stop'
 
 ## Written with the tool it is about {#written-with-the-tool}
 
@@ -279,3 +291,16 @@
   The names line gets its other half back: every name changed and
   everything that deserved it exaggerated, in one flat sentence; and the
   book keeps 'I fixed most of them', not claiming full consistency.
+
+- 2026-10-09T21:31:50Z · sharpen · claude-code
+  813387bd-6788-4d19-9526-c2f6072fd3b6
+
+  The last chapter repeats the admission: it read every chapter nightly,
+  told me several times, I fixed most
+
+- 2026-10-09T21:34:08Z · sharpen · claude-code
+  813387bd-6788-4d19-9526-c2f6072fd3b6
+
+  The first night's run: the tool flags this book's 'eleven chapters';
+  Cy writes it a note that the count belongs to another book; the
+  admission comes out of that scene
