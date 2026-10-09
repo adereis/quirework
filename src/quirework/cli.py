@@ -54,6 +54,11 @@ COMMANDS = {
         "List the units and check references to them",
         "manuscript",
     ),
+    ("spec", "rename"): Command(
+        "manuscript.rename",
+        "Rename a spec section everywhere its slug is written",
+        "manuscript",
+    ),
     ("publish", "build"): Command(
         "publish.build", "Render the manuscript through its backend", "publish"
     ),

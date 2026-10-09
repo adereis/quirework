@@ -613,11 +613,11 @@ def spec_file_of(slug: str, docs: Path | None = None) -> Path | None:
     return None
 
 
-def scan(paths: list[Path] | None = None) -> list[Annotation]:
-    """Harvest annotations below the given paths or the manuscript's own files."""
-    roots = paths or units.harvest()
-    out: list[tuple[Path, str, str]] = []  # (file to read, chapter, source)
-    for root in roots:
+def mark_files(paths: list[Path] | None = None) -> list[Path]:
+    """Every file `scan` reads marks from, below the given paths or the
+    manuscript's own."""
+    out: list[Path] = []
+    for root in paths or units.harvest():
         root = Path(root)
         files = (
             [root]
@@ -629,11 +629,15 @@ def scan(paths: list[Path] | None = None) -> list[Annotation]:
                 if f.name not in SKIP_NAMES
             ]
         )
-        for f in sorted(set(files)):
-            out.append((f, _rel(_chapter_for(f)), _rel(f)))
+        out += sorted(set(files))
+    return out
+
+
+def scan(paths: list[Path] | None = None) -> list[Annotation]:
+    """Harvest annotations below the given paths or the manuscript's own files."""
     annos: list[Annotation] = []
-    for f, rel, src in out:
-        annos.extend(scan_text(f.read_text(), rel, src))
+    for f in mark_files(paths):
+        annos.extend(scan_text(f.read_text(), _rel(_chapter_for(f)), _rel(f)))
     return annos
 
 

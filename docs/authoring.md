@@ -170,6 +170,16 @@ commitment; it names the section it expresses, so changing a commitment
 tells you which chapters have to change with it. The spec is not
 rendered into the book.
 
+A slug is a name, and a section can outgrow it: reverse what a section
+says and its slug may now say the opposite. The slug is written in the
+spec's heading and in its links, in every sidecar that binds the
+section, in companion citations, in the trail's heading and in the
+backfill ledger, so renaming it by hand means finding all of them.
+`quirework spec rename OLD NEW` renames it in every one, and refuses
+before writing anything if it cannot: a new name already in use, an
+anchor that is not one, a unit's own section moved to another unit.
+`--dry-run` lists the files it would change.
+
 `quirework spec notes --primer` prints the spec's sections first, then
 the marks in reading order. That is the one command to run at the start
 of a writing session.
@@ -275,9 +285,10 @@ it was wrong about which section the turn shaped.
 
 `spec notes --check` fails a trail heading that names a section the spec
 no longer has, so a renamed section takes its trail along in the same
-edit. `spec trail --check` follows every breadcrumb to your turn. It
-fails a pointer that leads to no turn, one into a session that curation
-removed, and one that names its session by a prefix. It only warns about
+edit; `spec rename` does that for you. `spec trail --check` follows
+every breadcrumb to your turn. It fails a pointer that leads to no
+turn, one into a session that curation removed, and one that names its
+session by a prefix. It only warns about
 a session not captured yet, or captured before the turn was made, which
 is what pointing at a live conversation costs until that session is
 captured.
