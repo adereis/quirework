@@ -902,7 +902,8 @@ releases them there:
 - a room once every round of its budget is published or it converged;
 - a roundtable once it closes or every seat has retired;
 - the run engine once a seat completes and no fork child is still
-  checked against it;
+  checked against it, and the copy of that seat's home its fork
+  checkpoint keeps, which lives in the cache too, at the same point;
 - a workshop writer once it completes or is retried;
 - a chapter comparison's arms once it completes.
 

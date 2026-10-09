@@ -2,6 +2,7 @@
 
 from quirework.runs import commands as run_commands
 import json
+import shutil
 from pathlib import Path
 
 import pytest
@@ -13,6 +14,7 @@ from quirework.providers import blind
 from quirework.providers import harness
 from quirework.runs.storage import digest
 from quirework.runs.storage import hashes
+from quirework.runs.storage import read, write
 
 
 @pytest.fixture
@@ -554,6 +556,8 @@ def test_a_parent_home_is_held_for_its_children_until_they_complete(setup):
     run.settle_homes("reader")
     assert "forked seats child are checked against seat reader" in blind.held(parent)
     run.checkpoint("child")
+    copy = blind.state_root(run.root / "checkpoints" / "reader" / "home")
+    assert "seat reader's checkpoint until they complete" in blind.held(copy)
     child = blind.state_root(run.workspace("child"))
     blind.hold(run.workspace("child"), "held by its launch")
     state = run.state("child")
@@ -561,6 +565,57 @@ def test_a_parent_home_is_held_for_its_children_until_they_complete(setup):
     run.save("child", state)
     run.settle_homes("child")
     assert blind.held(parent) is None and blind.held(child) is None
+    assert blind.held(copy) is None
+
+
+def test_a_checkpoint_keeps_its_home_copy_in_the_cache(setup):
+    """The copy is a whole home; only the hashes are the run's evidence."""
+    run = branched(setup)
+    run.checkpoint("child")
+    snap = run.root / "checkpoints" / "reader"
+    assert not (snap / "home").exists()
+    link = blind.state_root(snap / "home")
+    assert link.is_symlink() and link.resolve().parent == blind.homes_root()
+    assert hashes(run.snapshot_home("reader")) == read(snap / "hashes.json")
+    assert (snap / "workspace").is_dir()
+
+
+def test_a_failed_checkpoint_leaves_no_home_copy(setup, monkeypatch):
+    run = branched(setup)
+    before = set(blind.homes_root().iterdir())
+    real = engine.shutil.copytree
+
+    def fails_into_the_cache(source, target, *a, **kw):
+        if Path(target).resolve().is_relative_to(blind.homes_root()):
+            raise OSError("synthetic interruption")
+        return real(source, target, *a, **kw)
+
+    monkeypatch.setattr(engine.shutil, "copytree", fails_into_the_cache)
+    with pytest.raises(OSError, match="interruption"):
+        run.checkpoint("child")
+    assert not (run.root / "checkpoints" / "reader").exists()
+    assert set(blind.homes_root().iterdir()) == before
+
+
+def test_a_lost_checkpoint_copy_is_named_rather_than_called_changed(setup):
+    run = branched(setup)
+    run.checkpoint("child")
+    blind.discard_state_root(run.root / "checkpoints" / "reader" / "home")
+    with pytest.raises(blind.SessionGone, match="seat reader's checkpoint"):
+        run.check_parent("child")
+
+
+def test_a_checkpoint_from_before_the_move_is_read_where_it_is(setup):
+    run = branched(setup)
+    snap = run.root / "checkpoints" / "reader"
+    snap.mkdir(parents=True)
+    shutil.copytree(run.private("reader"), snap / "home")
+    shutil.copytree(run.workspace("reader"), snap / "workspace")
+    write(snap / "hashes.json", hashes(run.private("reader")))
+    write(snap / "workspace-hashes.json", hashes(run.workspace("reader")))
+    run.checkpoint("child")
+    assert run.snapshot_home("reader") == snap / "home"
+    assert hashes(run.private("child")) == hashes(run.private("reader"))
 
 
 def test_existing_partial_child_is_rejected(setup):

@@ -626,13 +626,46 @@ class Run:
         if state.get("pending") or not state.get("complete"):
             raise RuntimeError("parent is not completed and idle")
         self.require_parent(seat)
+        self.require_snapshot(name)
         expected = read(snap / "hashes.json")
         if hashes(self.workspace(name)) != read(
             snap / "workspace-hashes.json"
         ) or hashes(snap / "workspace") != read(snap / "workspace-hashes.json"):
             raise RuntimeError("parent workspace changed after checkpoint")
-        if hashes(self.private(name)) != expected or hashes(snap / "home") != expected:
+        if (
+            hashes(self.private(name)) != expected
+            or hashes(self.snapshot_home(name)) != expected
+        ):
             raise RuntimeError("parent/checkpoint changed after branching")
+
+    def snapshot_home(self, parent):
+        """The copy of a parent's home its checkpoint keeps for its children.
+
+        It lives in the cache with every other home, linked from the
+        checkpoint, while the workspace copy and the hashes stay in the
+        record. A checkpoint taken before homes moved keeps its copy in the
+        record, and that copy is read where it is.
+        """
+        snap = self.root / "checkpoints" / parent
+        if (snap / "home").is_dir():
+            return snap / "home"
+        harness = self.seats[parent]["config"]["harness"]
+        return blind.state_root(snap / "home") / harness
+
+    def require_snapshot(self, parent):
+        """Refuse once the checkpoint's home copy is gone, rather than misname it.
+
+        A pruned or cleared copy hashes as one that changed, which would read
+        as a checkpoint tampered with after its children branched from it.
+        """
+        home = self.snapshot_home(parent)
+        if not home.is_dir():
+            entry = blind.state_root(self.root / "checkpoints" / parent / "home")
+            raise blind.SessionGone(
+                f"seat {parent}'s checkpoint, which its forked seats are cloned "
+                f"from and checked against, has lost its home copy: "
+                f"{blind.gone(entry, home)}. The run's records are intact"
+            )
 
     def checkpoint(self, seat):
         parent = self.seats[seat]["parent"]["seat"]
@@ -646,11 +679,16 @@ class Run:
                 try:
                     home_hashes = hashes(self.private(parent))
                     work_hashes = hashes(self.workspace(parent))
-                    shutil.copytree(self.private(parent), temporary / "home")
+                    # The home's copy goes to the cache with every other home,
+                    # linked from inside the checkpoint, so the rename that
+                    # publishes the checkpoint publishes the link with it.
+                    copy = blind.make_state_root(temporary / "home")
+                    copy = copy / self.seats[parent]["config"]["harness"]
+                    shutil.copytree(self.private(parent), copy)
                     shutil.copytree(self.workspace(parent), temporary / "workspace")
                     if (
                         hashes(self.private(parent)) != home_hashes
-                        or hashes(temporary / "home") != home_hashes
+                        or hashes(copy) != home_hashes
                         or hashes(self.workspace(parent)) != work_hashes
                         or hashes(temporary / "workspace") != work_hashes
                     ):
@@ -659,8 +697,10 @@ class Run:
                     write(temporary / "workspace-hashes.json", work_hashes)
                     temporary.rename(snap)
                 except BaseException:
+                    blind.discard_state_root(temporary / "home")
                     shutil.rmtree(temporary)
                     raise
+                blind.hold(snap / "home", self.checkpoint_held(parent))
             self.check_parent(seat)
             target = self.workspace(seat).parent
             if not target.exists():
@@ -671,7 +711,7 @@ class Run:
                     # clone publishes the link with it.
                     home = blind.make_state_root(temporary / "seat")
                     home = home / self.seats[seat]["config"]["harness"]
-                    shutil.copytree(snap / "home", home)
+                    shutil.copytree(self.snapshot_home(parent), home)
                     shutil.copytree(snap / "workspace", temporary / "seat")
                     if hashes(home) != read(snap / "hashes.json") or hashes(
                         temporary / "seat"
@@ -1335,14 +1375,23 @@ class Run:
                 if (spec.get("parent") or {}).get("seat") == seat
                 and not self.state(child).get("complete")
             ]
+            checkpoint = self.root / "checkpoints" / seat / "home"
             if waiting:
                 blind.hold(
                     self.workspace(seat),
                     f"run {self.root.name}: forked seats {', '.join(waiting)} "
                     f"are checked against seat {seat} until they complete",
                 )
+                blind.hold(checkpoint, self.checkpoint_held(seat))
             else:
                 blind.release(self.workspace(seat))
+                blind.release(checkpoint)
+
+    def checkpoint_held(self, parent):
+        return (
+            f"run {self.root.name}: forked seats are cloned from and checked "
+            f"against seat {parent}'s checkpoint until they complete"
+        )
 
     def check_parent_ready(self, name):
         parent = self.seats[name]["parent"]["seat"]
