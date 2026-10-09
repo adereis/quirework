@@ -44,6 +44,37 @@ def _setup(tmp_path, monkeypatch, name="doubling"):
     return canonical, illus, build_illus
 
 
+def _no_gallery(tmp_path, chapter):
+    """A book that configures no figure directory, as one without plates does."""
+    canonical = tmp_path / "plain" / "docs" / "canon"
+    canonical.mkdir(parents=True)
+    (canonical / "ch.qmd").write_text(chapter)
+    settings = {
+        "manuscript": {"source": "docs", "chapters": "docs/canon"},
+        "publish": {"build": "build"},
+    }
+    return Project.from_settings(tmp_path / "plain", settings)
+
+
+def test_a_book_without_figures_builds_with_no_gallery(tmp_path):
+    with project_scope(_no_gallery(tmp_path, "# C\n\nNo plates here.\n")):
+        assert figures.build(stage=tmp_path / "stage") == 0
+        assert figures.sources() == []
+        assert figures.inventory() == 0
+        from quirework.publish import fonts
+
+        assert fonts._stacks_in_figures() == []
+
+
+def test_an_embed_without_a_gallery_names_the_figure(tmp_path):
+    from quirework.project import ConfigurationError
+
+    chapter = "# C\n\n![caption](illustrations/kettle.svg){#fig-kettle}\n"
+    with project_scope(_no_gallery(tmp_path, chapter)):
+        with pytest.raises(ConfigurationError, match="'kettle'"):
+            figures.build(stage=tmp_path / "stage")
+
+
 def test_gallery_default_lives_under_build_not_docs():
     """The materialized gallery is a build artifact: its default home is under
     build/ (the render workdir), never the docs/ source tree."""

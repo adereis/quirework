@@ -48,7 +48,7 @@ import xml.etree.ElementTree as ET
 from pathlib import Path
 
 from quirework.publish import figfonts as _figfonts
-from quirework.project import current_project
+from quirework.project import ConfigurationError, current_project
 
 
 # The gallery directory name, as it appears in a chapter's embed
@@ -99,7 +99,13 @@ def _settings():
     from types import SimpleNamespace
 
     CANONICAL = current_project().path("manuscript.chapters")
-    ILLUSTRATIONS = current_project().path("publish.figures")
+    # A book with no illustrations names no gallery, and has nothing to build,
+    # check or count; only an embed needs one, and `resolve` says so.
+    ILLUSTRATIONS = (
+        current_project().path("publish.figures")
+        if current_project().get("publish.figures") is not None
+        else None
+    )
     BUILD_BOOK = current_project().path("publish.build", "build") / "book"
     BUILD_ILLUSTRATIONS = BUILD_BOOK / current_project().chapter_subdir / GALLERY
     BUILD_DIR = current_project().path("publish.build", "build") / "figures"
@@ -166,7 +172,19 @@ def unparsed_embeds(canonical: Path | None = None) -> list[str]:
 
 def resolve(name: str) -> Path:
     """Source path for one figure name."""
-    return _settings().ILLUSTRATIONS / f"{name}.svg"
+    gallery = _settings().ILLUSTRATIONS
+    if gallery is None:
+        raise ConfigurationError(
+            f"a chapter embeds the figure '{name}', and publish.figures names "
+            f"no directory to find it in"
+        )
+    return gallery / f"{name}.svg"
+
+
+def sources() -> list[Path]:
+    """Every figure source in the gallery; none when the book configures none."""
+    gallery = _settings().ILLUSTRATIONS
+    return sorted(gallery.glob("*.svg")) if gallery is not None else []
 
 
 def _ensure_source(src: Path) -> None:
@@ -538,7 +556,7 @@ def inventory(uses: str | None = None) -> int:
     # A figure that does not parse cannot be counted, and a count that left it
     # out would read as complete. It is named, and the command fails.
     unreadable: list[str] = []
-    for svg in sorted(_settings().ILLUSTRATIONS.glob("*.svg")):
+    for svg in sources():
         try:
             found = references(svg)
         except ET.ParseError as exc:

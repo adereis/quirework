@@ -74,7 +74,11 @@ def _settings():
         if current_project().get("publish.typst_template") is not None
         else None
     )
-    ILLUSTRATIONS = current_project().path("publish.figures")
+    ILLUSTRATIONS = (
+        current_project().path("publish.figures")
+        if current_project().get("publish.figures") is not None
+        else None
+    )
     return SimpleNamespace(ILLUSTRATIONS=ILLUSTRATIONS, TEMPLATE=TEMPLATE)
 
 
@@ -135,7 +139,8 @@ def _stacks_in_figures() -> list[tuple[str, ...]]:
     family was never checked at all.
     """
     stacks: dict[tuple[str, ...], None] = {}
-    for svg in sorted(_settings().ILLUSTRATIONS.glob("*.svg")):
+    gallery = _settings().ILLUSTRATIONS
+    for svg in sorted(gallery.glob("*.svg")) if gallery is not None else []:
         for match in _FONT_FAMILY.finditer(svg.read_text(encoding="utf-8")):
             names = tuple(
                 name
