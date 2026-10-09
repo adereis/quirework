@@ -146,6 +146,30 @@
       "highlight": false,
       "note": "",
       "tags": []
+    },
+    "cc-sessions/0663b488-1b9b-4e04-bb27-d52321b9ced8.jsonl": {
+      "id": "0663b488-1b9b-4e04-bb27-d52321b9ced8",
+      "era": "c-refinement",
+      "title": "(untitled)",
+      "date": "2026-10-09",
+      "date_end": "2026-10-09",
+      "model": "opus-5-5",
+      "human_turns": 3,
+      "assistant_turns": 86,
+      "tokens": 5673,
+      "doc_edits": 18,
+      "meta_edits": 4,
+      "top_edited": [
+        "_spec.md×10",
+        "the-demo.qmd×4",
+        "spec-trail.md×2"
+      ],
+      "sha256": "77c6affcf001ee69ba2c612b4de94eec9b93d9c668a818e11984e0b332f23693",
+      "coldread": false,
+      "scope": "work",
+      "highlight": false,
+      "note": "",
+      "tags": []
     }
   },
   "removed": []
