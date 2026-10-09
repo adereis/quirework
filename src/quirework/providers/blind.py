@@ -41,6 +41,7 @@ dir is not a wall") owns the rule.
 
 from __future__ import annotations
 
+import errno
 import glob
 import json
 import os
@@ -826,27 +827,166 @@ def runner_binds(names) -> tuple[list[Path], list[str]]:
     return paths, missing
 
 
-# The one suffix that mints a private runner home. Every workflow that
+# The one suffix that names a run's private runner homes. Every workflow that
 # confines a seat -- the run engine, the workshop, a room, a contextual
-# review, a chapter comparison -- gets its home from `state_root`, so this
-# module owns the name and is therefore the only place that can find them all
-# again afterwards.
+# review, a chapter comparison -- reaches its homes through `state_root`, so
+# this module owns the name and is therefore the only place that can find
+# them all again afterwards.
 STATE_SUFFIX = ".blind-state"
+
+# https://bford.info/cachedir/: borg, restic and GNU tar skip a directory
+# holding this file when asked to exclude caches, wherever it sits.
+CACHEDIR_SIGNATURE = "Signature: 8a477f597d28d172789f06886806bc55"
+CACHEDIR_TAG = (
+    f"{CACHEDIR_SIGNATURE}\n"
+    "# This file is a cache directory tag created by quirework.\n"
+    "# Private runner homes of confined seats; their runs' records are elsewhere.\n"
+    "# For information about cache directory tags see https://bford.info/cachedir/\n"
+)
+
+
+def homes_root() -> Path:
+    """`$XDG_CACHE_HOME/quirework/homes`, where every private runner home lives.
+
+    A home is a harness's own installation and scratch state: tens of
+    megabytes, holding nothing a record needs once the run is over. Kept
+    beside the records under the state directory, homes were nearly all of
+    its bytes, and backups keep a state directory by default. The cache
+    directory is where data that can be lost lives, and the tag makes
+    backup tools skip it wherever it is. Not `/tmp` or the runtime
+    directory: both are emptied at reboot or logout, and a run held on a
+    provider limit waits hours to resume its sessions.
+    """
+    base = os.environ.get("XDG_CACHE_HOME") or Path.home() / ".cache"
+    return Path(base).expanduser() / "quirework" / "homes"
 
 
 def state_root(run_dir: Path) -> Path:
-    """Where a run's private runner homes live: beside the run dir, never in it.
+    """The path a run's private runner homes are reached by, beside the run dir.
 
-    Outside for the same reason the receipt is outside -- a seat that can see
-    its own jail furniture can tell it is in one -- and because a runner's
-    state dir is bound *over* its real path, so it must not also be visible as
-    an ordinary directory in the seat's workspace.
+    Never inside it, for the same reason the receipt is outside -- a seat
+    that can see its own jail furniture can tell it is in one -- and because
+    a runner's state dir is bound *over* its real path, so it must not also
+    be visible as an ordinary directory in the seat's workspace.
+
+    What sits there is a link into `homes_root` (`make_state_root`). A run
+    whose homes were made before they moved holds a directory instead, and a
+    pruned run a tombstone naming when (`tombstone`).
     """
     return run_dir.parent / f"{run_dir.name}{STATE_SUFFIX}"
 
 
+def _tagged(base: Path) -> bool:
+    try:
+        return (base / "CACHEDIR.TAG").read_text().startswith(CACHEDIR_SIGNATURE)
+    except OSError:
+        return False
+
+
+def home_target(link: Path) -> Path | None:
+    """The cache directory a home link leads to, if this module made it.
+
+    Only a directory directly inside a tagged `homes` directory qualifies,
+    under the cache in use now or the one in use when the home was made.
+    A link leading anywhere else is never followed into a removal.
+    """
+    target = Path(os.readlink(link))
+    if not target.is_absolute():
+        target = link.parent / target
+    if target.is_symlink() or not target.is_dir():
+        return None
+    if target.parent.name != "homes" or not _tagged(target.parent):
+        return None
+    return target
+
+
+def tombstone(entry: Path) -> dict | None:
+    """What `prune` left where a run's homes were, or None if it left nothing."""
+    if entry.is_symlink() or not entry.is_file():
+        return None
+    try:
+        return json.loads(entry.read_text())
+    except (OSError, ValueError):
+        return {}
+
+
+def make_state_root(run_dir: Path) -> Path:
+    """A run's private homes, made in the cache and linked beside the run dir.
+
+    Returns the link. A run that has its homes keeps them. A run whose homes
+    were made before they moved has them moved into the cache the first time
+    it launches again, so a run already under way leaves the backed-up state
+    without losing its sessions; a cache on another filesystem cannot take
+    a rename, and the directory then stays where it is. A tombstone, or a
+    link the cache cleaner left dangling, gives way to a fresh home: a launch
+    that needed the old session was refused before it got here.
+    """
+    link = state_root(Path(run_dir))
+    if link.is_symlink() and link.is_dir():
+        return link
+    base = homes_root()
+    base.mkdir(mode=0o700, parents=True, exist_ok=True)
+    if not _tagged(base):
+        (base / "CACHEDIR.TAG").write_text(CACHEDIR_TAG)
+    import tempfile
+
+    stem = f"{Path(run_dir).parent.name}.{Path(run_dir).name}".lstrip(".")[:60]
+    target = Path(tempfile.mkdtemp(prefix=f"{stem}-", dir=base))
+    if link.is_dir():
+        try:
+            # Onto the empty directory just made, which rename replaces.
+            os.rename(link, target)
+        except OSError as exc:
+            os.rmdir(target)
+            if exc.errno == errno.EXDEV:
+                return link
+            raise
+    elif link.is_symlink() or link.exists():
+        link.unlink()
+    link.parent.mkdir(parents=True, exist_ok=True)
+    try:
+        os.symlink(target, link)
+    except FileExistsError:
+        # Another launch of the same run made its homes first.
+        shutil.rmtree(target)
+        if not (link.is_symlink() and link.is_dir()):
+            raise
+    return link
+
+
+def discard_state_root(run_dir: Path) -> None:
+    """Remove a run's private homes, and whatever leads to them."""
+    link = state_root(Path(run_dir))
+    if link.is_symlink():
+        target = home_target(link) if link.exists() else None
+        if target is not None:
+            shutil.rmtree(target)
+        link.unlink()
+    elif link.is_dir():
+        shutil.rmtree(link)
+    elif link.exists():
+        link.unlink()
+
+
 class SessionGone(RuntimeError):
     """A resume or a fork whose session the private home no longer holds."""
+
+
+def gone(entry: Path, home: Path) -> str:
+    """Why a run's private home is missing, as far as anything recorded it."""
+    buried = tombstone(entry)
+    if buried is not None:
+        when = buried.get("pruned_at", "an unrecorded time")
+        held = buried.get("held")
+        return f"its private homes were pruned at {when}" + (
+            f", by force, while held: {held}" if held else ""
+        )
+    if entry.is_symlink():
+        return (
+            f"its private home {home} is gone: the cache it lived in, "
+            f"{os.readlink(entry)}, was cleared"
+        )
+    return f"its private home {home} is gone"
 
 
 def session_paths(home: Path, runner: str, session_id: str) -> list[Path]:
@@ -871,9 +1011,10 @@ def require_session(run_dir: Path, runner: str, session_id: str) -> Path:
     turn it meant to continue. Every verb that resumes or forks calls this
     first and changes nothing on disk when it raises.
     """
-    home = state_root(Path(run_dir)) / runner
+    entry = state_root(Path(run_dir))
+    home = entry / runner
     if not home.is_dir():
-        why = f"its private home {home} is gone"
+        why = gone(entry, home)
     else:
         found = session_paths(home, runner, session_id)
         if found:
@@ -887,9 +1028,23 @@ def require_session(run_dir: Path, runner: str, session_id: str) -> Path:
 
 
 def private_homes(root: Path) -> list[Path]:
-    """Every private runner home under ``root``, newest last."""
+    """Where each run under ``root`` reaches its private homes, newest last.
+
+    A link into the cache, or the directory of a run whose homes were made
+    before they moved there. A tombstone, and a link whose home the cache
+    cleaner already took, lead to nothing left to remove.
+    """
     found = [p for p in Path(root).rglob(f"*{STATE_SUFFIX}") if p.is_dir()]
     return sorted(found, key=lambda p: (_touched(p), str(p)))
+
+
+def _home_of(entry: Path) -> Path | None:
+    """The directory pruning ``entry`` removes, or None where it may not."""
+    if entry.is_symlink():
+        return home_target(entry)
+    if entry.is_dir() and entry.name.endswith(STATE_SUFFIX):
+        return entry
+    return None
 
 
 def _touched(home: Path) -> float:
@@ -938,12 +1093,14 @@ def occupied(home: Path) -> int | None:
 
     A confined harness keeps its working directory inside the seat workspace
     while its runner home is bound over the real one, so either path turning up
-    as a live process's cwd means that seat has not finished. Best effort by
-    construction: ``/proc`` refuses processes this user does not own, and a
-    seat merely paused between turns looks idle, which is what the age window
-    in ``prune`` is for.
+    as a live process's cwd means that seat has not finished. ``home`` is
+    where the run reaches its homes, and the cache directory it leads to
+    counts too. Best effort by construction: ``/proc`` refuses processes this
+    user does not own, and a seat merely paused between turns looks idle,
+    which is what the age window in ``prune`` is for.
     """
     seat = home.parent / home.name[: -len(STATE_SUFFIX)]
+    places = {home, home.resolve(), seat}
     procs = Path("/proc")
     if not procs.is_dir():
         return None
@@ -954,9 +1111,20 @@ def occupied(home: Path) -> int | None:
             cwd = (entry / "cwd").readlink()
         except OSError:
             continue
-        if cwd in (home, seat) or home in cwd.parents or seat in cwd.parents:
+        if cwd in places or any(place in cwd.parents for place in places):
             return int(entry.name)
     return None
+
+
+def bury(entry: Path, record: dict) -> None:
+    """Leave a tombstone where a run reached its homes, saying they went.
+
+    A later resume then reports that they were pruned, and when, rather
+    than that they vanished.
+    """
+    if entry.is_symlink():
+        entry.unlink()
+    entry.write_text(json.dumps(record, indent=2) + "\n")
 
 
 def prune(roots, *, grace: float = 3600, force: bool = False, dry_run: bool = False):
@@ -965,21 +1133,27 @@ def prune(roots, *, grace: float = 3600, force: bool = False, dry_run: bool = Fa
     A home is the harness's own installation and scratch state, bound over the
     real one so a seat cannot reach the operator's credentials or memory. It is
     large -- one measured codex seat kept 53 MB against 1.6 MB of records for
-    the whole room -- and nothing collects it, because the state directory is
-    deliberately outside what the cache tmpfiles rule touches.
+    the whole room. The cache cleaner collects a home untouched for 30 days
+    where its rule is installed; this removes finished ones sooner, and
+    reaches homes made before they moved into the cache.
 
     Nothing here reads a receipt, an answer or a transcript, so pruning cannot
     remove evidence: the native transcripts inside a home have already been
     read into the receipts beside it, and `launch.json` records the home's path
-    whether or not the directory still exists.
+    whether or not the directory still exists. Each run pruned keeps a
+    tombstone where it reached its homes.
     """
     removed, kept, freed = [], [], 0
     known = liveness_known()
     for root in roots:
-        for home in private_homes(Path(root).expanduser().resolve()):
-            if home.name[-len(STATE_SUFFIX) :] != STATE_SUFFIX or not home.is_dir():
-                continue  # belt and braces: never rmtree something else
-            size, pid = _bytes(home), occupied(home) if known else None
+        for entry in private_homes(Path(root).expanduser().resolve()):
+            home = _home_of(entry)
+            if home is None:
+                kept.append(
+                    (entry, 0, "leads outside the homes directory; not followed")
+                )
+                continue
+            size, pid = _bytes(home), occupied(entry) if known else None
             age = time.time() - _touched(home)
             # The age window is advice and `force` overrides it. A live seat
             # is not: removing the home out from under a running harness would
@@ -988,22 +1162,29 @@ def prune(roots, *, grace: float = 3600, force: bool = False, dry_run: bool = Fa
             if not known:
                 kept.append(
                     (
-                        home,
+                        entry,
                         size,
                         f"liveness unknown without /proc on {sys.platform}; "
                         "check for a live seat and remove the home by hand",
                     )
                 )
             elif pid is not None:
-                kept.append((home, size, f"in use by pid {pid}"))
+                kept.append((entry, size, f"in use by pid {pid}"))
             elif age < grace and not force:
-                kept.append((home, size, f"touched {int(age)}s ago"))
+                kept.append((entry, size, f"touched {int(age)}s ago"))
             elif dry_run:
-                removed.append((home, size, "would remove"))
+                removed.append((entry, size, "would remove"))
                 freed += size
             else:
                 shutil.rmtree(home)
-                removed.append((home, size, "removed"))
+                bury(
+                    entry,
+                    {
+                        "pruned_at": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
+                        "freed_bytes": size,
+                    },
+                )
+                removed.append((entry, size, "removed"))
                 freed += size
     return {"removed": removed, "kept": kept, "freed": freed}
 
@@ -1100,12 +1281,14 @@ def jail_argv(
         and not visible(project, blanked)
     ):
         argv += ["--tmpfs", str(project)]
-    root = state_root(run_dir)
+    # Bound at the directory the link leads to, so the launch record names
+    # where the home really lives.
+    root = make_state_root(run_dir).resolve() if runners else None
     creds: list[Path] = []
     for name in runners:
         r = RUNNERS[name]
         private = root / name
-        private.mkdir(parents=True, exist_ok=True)
+        private.mkdir(exist_ok=True)
         argv += ["--bind", str(private), str(_expand(r.home))]
         if bind_credentials:
             creds += [_expand(c) for c in r.creds if _expand(c).exists()]
@@ -1214,6 +1397,9 @@ def seat_dir() -> Path:
 
         d = Path(tempfile.mkdtemp(dir=ensure_neutral_cwd(), prefix=".seat-"))
         atexit.register(shutil.rmtree, d, True)
+        # Registered second so it runs first; the home is its own tree, in
+        # the cache, and removing the seat's directory never reached it.
+        atexit.register(discard_state_root, d)
         _SEAT_DIR = d
     return _SEAT_DIR
 
@@ -1319,9 +1505,10 @@ not a wall".
           global briefs and a sibling seat's dir are all unreachable
   prune   remove finished seats' private runner homes, keeping every
           record. These are the harness installations bound over the
-          real ones; they are large, nothing collects them, and no
-          receipt depends on one surviving. Defaults to this project's
-          run store.
+          real ones; they are large, they live in the cache, which
+          collects one only after 30 idle days, and no receipt depends
+          on one surviving. A tombstone stays where each one was
+          reached. Defaults to this project's run store.
   canary  COSTS TOKENS: one live seat per runner, asserting it really
           cannot read the tree and really has no web or MCP tool. Every
           launch already runs one when its runner release is new; this

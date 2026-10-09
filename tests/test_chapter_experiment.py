@@ -5,6 +5,7 @@ import json
 from pathlib import Path
 
 import pytest
+from conftest import native_session
 
 from quirework.publish import experiment as exp
 
@@ -160,6 +161,19 @@ def test_a_pruned_parent_is_named_rather_than_called_changed(tmp_path, monkeypat
     experiment.state["sessions"]["parent"] = "p-1"
     with pytest.raises(exp.blind.SessionGone, match="p-1: its private home .* gone"):
         experiment.check_parent()
+
+
+def test_an_arm_home_is_cloned_into_the_cache(tmp_path, monkeypatch):
+    experiment = make_experiment(tmp_path, monkeypatch)
+    experiment.state["sessions"]["parent"] = "p-1"
+    native_session(experiment.workspace("parent"), "codex", "p-1")
+    experiment.state["checkpoint"] = exp.snapshot(
+        experiment.home("parent"), experiment.root / "checkpoint"
+    )
+    experiment.fork_home("a")
+    link = exp.blind.state_root(experiment.workspace("a"))
+    assert link.is_symlink() and link.resolve().parent == exp.blind.homes_root()
+    assert exp.tree_hashes(experiment.home("a")) == experiment.state["checkpoint"]
 
 
 def test_assignment_cannot_change_on_resume(tmp_path, monkeypatch):
@@ -462,7 +476,7 @@ def test_access_only_jail_omits_credential_file_mounts(tmp_path):
     )
     for value in args:
         assert not value.endswith("/.credentials.json")
-    assert str(exp.blind.state_root(tmp_path) / "claude") in args
+    assert str(exp.blind.state_root(tmp_path).resolve() / "claude") in args
 
 
 def test_failed_canary_cannot_mark_experiment_complete(tmp_path, monkeypatch):

@@ -69,7 +69,8 @@ def test_pwd_is_rewritten_and_oldpwd_dropped(tmp_path):
 # --------------------------------------------------------------------------- #
 def test_runner_gets_a_private_home_bound_over_the_real_one(tmp_path):
     argv = _argv(tmp_path, runners=["claude"])
-    private = blind.state_root(tmp_path) / "claude"
+    # Bound where the link leads, so the launch record names the real place.
+    private = blind.state_root(tmp_path).resolve() / "claude"
     real = Path(blind.os.path.expanduser("~/.claude")).resolve()
     assert (str(private), str(real)) in _pairs(argv, "--bind")
 

@@ -87,15 +87,18 @@ def load(root, *, verify=True):
 ROOMS = "rooms"
 
 # A seat's runner home is a live harness home: the adapter binds it over
-# `~/.claude` or `~/.codex` for the duration of a turn, so it accumulates that
-# harness's credentials. `prepare` accepts a path as readily as a name, and a
-# room prepared into a checkout puts `codex/auth.json` one `git add` away from
-# being published. The room writes this itself because the operator who most
-# needs it is the one who has not yet looked inside a room directory.
+# `~/.claude` or `~/.codex` for the duration of a turn, with the harness's
+# credentials mounted into it. `prepare` accepts a path as readily as a name,
+# and a room prepared into a checkout puts the seat's sessions, and in a room
+# older than the cache its whole home, one `git add` away from being
+# published. The pattern names no directory, because what sits there now is
+# a link into the cache, or a tombstone once the home is pruned. The room
+# writes this itself because the operator who most needs it is the one who
+# has not yet looked inside a room directory.
 IGNORE = """\
-# A seat's private runner home. It is a live harness home and holds that
-# harness's credentials. Never commit it, and never copy one anywhere.
-seats/*.blind-state/
+# Where a seat reaches its private runner home, a live harness home. Never
+# commit it, and never copy one anywhere.
+seats/*.blind-state
 """
 
 

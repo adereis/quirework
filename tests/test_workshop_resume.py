@@ -1,7 +1,6 @@
 """A writer a limit stopped is resumed only while its session survives."""
 
 import json
-import shutil
 import subprocess
 
 import pytest
@@ -102,9 +101,9 @@ def test_resume_goes_on_while_the_session_survives(stopped, monkeypatch):
     assert (record / "attempts" / "01" / "events.jsonl").exists()
 
 
-def test_a_pruned_home_reads_as_gone(stopped):
+def test_a_home_removed_by_hand_reads_as_gone(stopped):
     run, writer, _ = stopped
     native_session(run / "writers" / writer, "claude", "sid-1")
-    shutil.rmtree(blind.state_root(run / "writers" / writer))
+    blind.discard_state_root(run / "writers" / writer)
     with pytest.raises(blind.SessionGone, match="is gone"):
         workshop.resume(run, writer)

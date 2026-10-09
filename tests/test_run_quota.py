@@ -11,7 +11,6 @@ and a seat stalled this way never withholds the seats that finished.
 
 from quirework.runs import commands as run_commands
 import json
-import shutil
 
 import pytest
 from conftest import native_session
@@ -550,7 +549,7 @@ def test_a_resume_is_refused_before_anything_is_staged_once_its_home_is_gone(
     run = two_seats
     stopped_without_a_cause(run, claude_events_cut_by_a_fault())
     engine.continue_turn(run, "stalled", "one", "stream dropped")
-    shutil.rmtree(blind.state_root(run.workspace("stalled")))
+    blind.discard_state_root(run.workspace("stalled"))
     before = run.state("stalled")
     monkeypatch.setattr(harness, "command", lambda *a: pytest.fail("launched"))
     with pytest.raises(blind.SessionGone, match="session sid: its private home"):

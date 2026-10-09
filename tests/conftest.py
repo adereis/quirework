@@ -96,7 +96,7 @@ def native_session(run_dir, harness, session_id):
     """
     from quirework.providers import blind
 
-    path = blind.state_root(Path(run_dir)) / harness
+    path = blind.make_state_root(Path(run_dir)) / harness
     path = path / NATIVE_SESSION[harness].format(id=session_id)
     path.parent.mkdir(parents=True, exist_ok=True)
     path.touch()

@@ -482,7 +482,7 @@ def test_the_cache_cleanup_rule_is_a_tmpfiles_line_systemd_accepts():
 
     text = files("quirework").joinpath("templates", "tmpfiles.conf").read_text()
     lines = [ln for ln in text.splitlines() if ln.strip() and not ln.startswith("#")]
-    assert len(lines) == 1
+    assert len(lines) == 2
     kind, path, mode, user, group, age = lines[0].split()
     # `e` never creates the directory, so the rule is inert until something is
     # cached; `d` would make one on every timer run.
@@ -491,6 +491,9 @@ def test_the_cache_cleanup_rule_is_a_tmpfiles_line_systemd_accepts():
     assert path == "%C/quirework"
     assert (mode, user, group) == ("-", "-", "-")
     assert age.endswith("d") and int(age[:-1]) > 0
+    # The tag that keeps the homes out of backups is exempt from the age, so
+    # it outlives a month with no seat launched to write it again.
+    assert lines[1].split() == ["x", "%C/quirework/homes/CACHEDIR.TAG"]
     # Run records are evidence and live under the state directory, whose
     # specifier is %S. No rule in this file may ever reach them.
     assert "%S" not in text

@@ -858,17 +858,6 @@ quirework config template tmpfiles \
 systemd-tmpfiles --user --clean   # apply now instead of waiting
 ```
 
-`quirework sop blind prune` collects the other half. Every confined seat
-gets a private runner home beside its workspace, bound over the real one
-so the seat cannot reach the operator's credentials or memory. Those
-homes are large and nothing else removes them: one measured room held 92
-MB of them against 1.6 MB of records. Pruning keeps every record,
-receipt and transcript, because a home's native transcripts have already
-been read into the receipts beside it and `launch.json` records the
-home's path whether or not it still exists. It refuses a home whose seat
-still has a live process, and by default keeps anything touched in the
-last hour, since a seat paused between turns looks idle.
-
 It removes entries under the cache directory that have gone untouched
 for 30 days, leaving anything a current project still reads. It creates
 nothing, so it is inert until Quirework has cached something, and it
@@ -876,6 +865,36 @@ never touches the state directory, where run records live. A
 distribution package installs the same file as
 `/usr/share/user-tmpfiles.d/quirework.conf`, which a user's own copy in
 `~/.config` overrides.
+
+Every confined seat gets a private runner home, bound over the real one
+so the seat cannot reach the operator's credentials or memory. A home
+is the harness's own installation and scratch state. It is large and
+worth nothing once its run is over: one measured room held 92 MB of
+them against 1.6 MB of records. So homes live in the cache, under
+`$XDG_CACHE_HOME/quirework/homes/`, and a run reaches each of its homes
+through a link beside its run directory, named for that directory with
+`.blind-state` added. The homes directory carries a `CACHEDIR.TAG`, so
+borg, restic and GNU tar skip it under their exclude-caches option
+wherever the cache is, while the records stay in the state directory a
+backup keeps. A home made before homes moved stays beside its run until
+that run launches a seat again, which moves it into the cache. A cache
+on another filesystem cannot take that move, and the home then stays
+where it is.
+
+The cache rule collects a home with the rest of the cache, 30 days after
+anything in it last changed. A run that waited that long loses its
+sessions with it: its next resume refuses, says the cache was cleared,
+and leaves the records as they were.
+
+`quirework sop blind prune` removes finished homes sooner, and it is the
+only thing that removes a home made before the move. Pruning keeps
+every record, receipt and transcript, because a home's native
+transcripts have already been read into the receipts beside it and
+`launch.json` records the home's path whether or not it still exists.
+Where the link was, it leaves a tombstone naming when, so a later
+resume says the home was pruned. It refuses a home whose seat still has
+a live process, and by default keeps anything touched in the last hour,
+since a seat paused between turns looks idle.
 
 ## Usage records
 

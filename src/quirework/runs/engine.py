@@ -665,23 +665,20 @@ class Run:
             if not target.exists():
                 temporary = Path(tempfile.mkdtemp(prefix=".branch-", dir=target.parent))
                 try:
-                    shutil.copytree(
-                        snap / "home",
-                        temporary
-                        / "seat.blind-state"
-                        / self.seats[seat]["config"]["harness"],
-                    )
+                    # The child's home lives where every home does, linked
+                    # from inside the clone, so the rename that publishes the
+                    # clone publishes the link with it.
+                    home = blind.make_state_root(temporary / "seat")
+                    home = home / self.seats[seat]["config"]["harness"]
+                    shutil.copytree(snap / "home", home)
                     shutil.copytree(snap / "workspace", temporary / "seat")
-                    if hashes(
-                        temporary
-                        / "seat.blind-state"
-                        / self.seats[seat]["config"]["harness"]
-                    ) != read(snap / "hashes.json") or hashes(
+                    if hashes(home) != read(snap / "hashes.json") or hashes(
                         temporary / "seat"
                     ) != read(snap / "workspace-hashes.json"):
                         raise RuntimeError("incomplete child clone")
                     temporary.rename(target)
                 except BaseException:
+                    blind.discard_state_root(temporary / "seat")
                     shutil.rmtree(temporary)
                     raise
             elif not self.state(seat).get("session_id") and not self.state(seat).get(

@@ -49,8 +49,8 @@ def test_an_old_home_goes_and_its_records_stay(tmp_path):
     for item in [home, *home.rglob("*")]:
         os.utime(item, (old, old))
     report = blind.prune([tmp_path], grace=3600)
-    assert not home.exists()
-    assert report["freed"] > 0
+    assert not home.is_dir()
+    assert blind.tombstone(home)["freed_bytes"] == report["freed"] > 0
     # The seat's own workspace and its drafts are untouched.
     assert (work / "drafts" / "post.md").read_text() == "the evidence"
 
@@ -106,6 +106,126 @@ def test_disk_is_counted_once_per_inode(tmp_path):
     assert blind._bytes(home) == pytest.approx(once, rel=0.01)
 
 
+# --------------------------------------------------------------------------- #
+# homes in the cache
+# --------------------------------------------------------------------------- #
+def linked(root, name):
+    """A workspace whose private homes were made where every new one is."""
+    work = root / name
+    work.mkdir(parents=True)
+    link = blind.make_state_root(work)
+    (link / "codex" / "sessions").mkdir(parents=True)
+    (link / "codex" / "sessions" / "0.jsonl").write_bytes(b"x" * 2048)
+    return work, link
+
+
+def age(path, seconds=7200):
+    old = time.time() - seconds
+    for item in [path, *path.rglob("*")]:
+        os.utime(item, (old, old))
+
+
+def test_a_home_lives_in_the_tagged_cache_and_is_linked_beside_the_run(tmp_path):
+    """Backups keep a state directory and skip a tagged cache; the records
+    stay where they were and only the home moves."""
+    work, link = linked(tmp_path, "mara")
+    target = link.resolve()
+    assert link.is_symlink() and link == blind.state_root(work)
+    assert target.parent == blind.homes_root()
+    assert blind.homes_root().is_relative_to(Path(os.environ["XDG_CACHE_HOME"]))
+    tag = (blind.homes_root() / "CACHEDIR.TAG").read_text()
+    assert tag.startswith("Signature: 8a477f597d28d172789f06886806bc55\n")
+    assert oct(target.stat().st_mode & 0o777) == "0o700"
+    assert blind.make_state_root(work) == link and link.resolve() == target
+
+
+def test_a_home_made_before_the_move_follows_its_run_into_the_cache(tmp_path):
+    """A run already under way leaves the backed-up state at its next turn,
+    sessions and all."""
+    work, home = seat(tmp_path, "mara")
+    sessions = sorted(p.name for p in (home / "codex" / "sessions").iterdir())
+    blind.make_state_root(work)
+    assert home.is_symlink() and home.resolve().parent == blind.homes_root()
+    assert sorted(p.name for p in (home / "codex" / "sessions").iterdir()) == sessions
+
+
+def test_a_home_on_another_filesystem_stays_where_it_is(tmp_path, monkeypatch):
+    work, home = seat(tmp_path, "mara")
+
+    def across(source, target):
+        raise OSError(blind.errno.EXDEV, "Invalid cross-device link")
+
+    monkeypatch.setattr(blind.os, "rename", across)
+    assert blind.make_state_root(work) == home
+    assert home.is_dir() and not home.is_symlink()
+    stem = f"{tmp_path.name}.mara-"
+    assert not [p for p in blind.homes_root().iterdir() if p.name.startswith(stem)]
+
+
+def test_a_cleared_or_pruned_home_gives_way_to_a_fresh_one(tmp_path):
+    work, link = linked(tmp_path, "mara")
+    shutil.rmtree(link.resolve())
+    fresh = blind.make_state_root(work)
+    assert fresh.is_dir() and not list(fresh.iterdir())
+    blind.bury(fresh, {"pruned_at": "2026-01-01T00:00:00Z"})
+    assert blind.make_state_root(work).is_dir()
+
+
+def test_discarding_a_home_removes_the_cache_and_the_link(tmp_path):
+    work, link = linked(tmp_path, "mara")
+    target = link.resolve()
+    blind.discard_state_root(work)
+    assert not target.exists() and not link.is_symlink()
+    blind.discard_state_root(work)  # nothing left, and nothing to refuse
+
+
+def test_prune_removes_the_cache_and_leaves_a_tombstone(tmp_path):
+    work, link = linked(tmp_path / "room" / "seats", "mara")
+    target = link.resolve()
+    age(target)
+    assert blind.private_homes(tmp_path) == [link]
+    report = blind.prune([tmp_path], grace=3600)
+    assert report["removed"] == [(link, report["freed"], "removed")]
+    assert not target.exists() and not link.is_symlink()
+    assert blind.tombstone(link)["freed_bytes"] == report["freed"] > 0
+    assert blind.private_homes(tmp_path) == []
+
+
+def test_prune_never_follows_a_link_out_of_the_homes_directory(tmp_path):
+    """A link is only a name; what it leads to is checked before removal."""
+    keep = tmp_path / "elsewhere"
+    (keep / "codex").mkdir(parents=True)
+    (keep / "codex" / "notes.txt").write_text("not a home")
+    age(keep)
+    blind.state_root(tmp_path / "runs" / "mara").parent.mkdir(parents=True)
+    blind.state_root(tmp_path / "runs" / "mara").symlink_to(keep)
+    report = blind.prune([tmp_path / "runs"], grace=0, force=True)
+    assert (keep / "codex" / "notes.txt").exists()
+    assert "outside the homes directory" in report["kept"][0][2]
+    blind.discard_state_root(tmp_path / "runs" / "mara")
+    assert (keep / "codex" / "notes.txt").exists()
+
+
+def test_a_running_seat_keeps_its_home_through_the_link(tmp_path, monkeypatch):
+    """A process standing in the cache directory is in that seat's home."""
+    _, link = linked(tmp_path, "mara")
+    here = link.resolve() / "codex"
+    iterdir, readlink = Path.iterdir, Path.readlink
+    monkeypatch.setattr(
+        Path,
+        "iterdir",
+        lambda self: (
+            iter([Path("/proc/4242")]) if self == Path("/proc") else iterdir(self)
+        ),
+    )
+    monkeypatch.setattr(
+        Path,
+        "readlink",
+        lambda self: here if self == Path("/proc/4242/cwd") else readlink(self),
+    )
+    assert blind.occupied(link) == 4242
+
+
 SESSION = "0199c0de-0000-7000-8000-00000000abcd"
 
 
@@ -140,6 +260,25 @@ def test_a_resume_is_refused_once_the_home_is_gone(tmp_path):
 def test_a_resume_is_refused_when_the_home_lost_the_session(tmp_path):
     work, _ = seat(tmp_path, "mara")
     with pytest.raises(blind.SessionGone, match="no longer holds it"):
+        blind.require_session(work, "codex", SESSION)
+
+
+def test_a_resume_says_when_its_home_was_pruned(tmp_path):
+    work, link = linked(tmp_path, "mara")
+    age(link.resolve())
+    blind.prune([tmp_path], grace=3600)
+    with pytest.raises(blind.SessionGone, match=r"pruned at \d{4}-\d\d-\d\dT"):
+        blind.require_session(work, "codex", SESSION)
+
+
+def test_a_resume_says_the_cache_was_cleared(tmp_path):
+    """The cache cleaner takes a home untouched for a month, link and all
+    left behind, and that is a different cause from a prune."""
+    work, link = linked(tmp_path, "mara")
+    shutil.rmtree(link.resolve())
+    with pytest.raises(
+        blind.SessionGone, match="the cache it lived in, .*, was cleared"
+    ):
         blind.require_session(work, "codex", SESSION)
 
 

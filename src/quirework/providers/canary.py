@@ -433,7 +433,7 @@ def run(
         kept.write_text(text)
         out["kept"] = str(kept)
     shutil.rmtree(workdir, ignore_errors=True)
-    shutil.rmtree(blind.state_root(workdir), ignore_errors=True)
+    blind.discard_state_root(workdir)
     return out
 
 

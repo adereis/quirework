@@ -111,6 +111,10 @@ def test_prepare_ignores_the_seats_runner_homes(prepared):
     assert any(
         fnmatch.fnmatch(relative, pattern.rstrip("/") + "/*") for pattern in declared
     )
+    # What sits there now is a link into the cache, which a pattern naming
+    # only directories would miss.
+    link = "seats/bo-larke.blind-state"
+    assert any(fnmatch.fnmatch(link, p) and not p.endswith("/") for p in declared)
 
 
 def test_compaction_is_detected_and_raised(prepared, tmp_path):

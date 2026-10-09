@@ -1,7 +1,6 @@
 """The roundtable's mechanics: names, order, turns, limits and the supervisor."""
 
 import json
-import shutil
 import subprocess
 import sys
 from contextlib import nullcontext
@@ -272,7 +271,7 @@ def test_a_turn_is_refused_before_its_round_opens_once_its_session_is_gone(
     Seats(monkeypatch)
     roundtable.run(table, to=1)
     first = order(table, 2)[0]
-    shutil.rmtree(blind.state_root(table / "seats" / first))
+    blind.discard_state_root(table / "seats" / first)
     trail = (table / "room.log").read_text()
     with pytest.raises(blind.SessionGone, match=f"s-{first}.*is gone"):
         roundtable.run_turn(table)

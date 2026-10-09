@@ -7,6 +7,7 @@ version observes the native JSONL locations used by the shared adapters.
 import json
 from pathlib import Path
 
+from quirework.providers import blind
 from quirework.runs.storage import digest
 from quirework.runs.storage import identifier
 from quirework.runs.storage import read
@@ -110,7 +111,7 @@ def observe(root):
     for seat in plan["seats"]:
         name = identifier(seat["id"])
         harness = seat["config"]["harness"]
-        private = root / "work" / name / "seat.blind-state" / harness
+        private = blind.state_root(root / "work" / name / "seat") / harness
         patterns = NATIVE_TRANSCRIPTS
         if harness not in patterns:
             seats[name] = {

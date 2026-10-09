@@ -2,7 +2,6 @@
 
 from quirework.runs import commands as run_commands
 import json
-import shutil
 from pathlib import Path
 
 import pytest
@@ -515,10 +514,35 @@ def test_checkpoint_failure_does_not_publish_partial_state(setup, monkeypatch):
 def test_a_child_names_a_parent_home_that_is_gone(setup):
     """A pruned parent hashed as one that changed after branching."""
     run = branched(setup)
-    shutil.rmtree(blind.state_root(run.workspace("reader")))
+    blind.discard_state_root(run.workspace("reader"))
     with pytest.raises(blind.SessionGone, match="session parent: its private home"):
         run.run_seat("child")
     assert not run.workspace("child").parent.exists()
+
+
+def test_a_child_home_is_cloned_into_the_cache(setup):
+    run = branched(setup)
+    run.checkpoint("child")
+    link = blind.state_root(run.workspace("child"))
+    assert link.is_symlink() and link.resolve().parent == blind.homes_root()
+    assert hashes(run.private("child")) == hashes(run.private("reader"))
+
+
+def test_a_failed_child_clone_leaves_no_home_in_the_cache(setup, monkeypatch):
+    run = branched(setup)
+    before = set(blind.homes_root().iterdir()) if blind.homes_root().exists() else set()
+    real = engine.shutil.copytree
+
+    def fails_into_the_cache(source, target, *a, **kw):
+        if Path(target).resolve().is_relative_to(blind.homes_root()):
+            raise OSError("synthetic interruption")
+        return real(source, target, *a, **kw)
+
+    monkeypatch.setattr(engine.shutil, "copytree", fails_into_the_cache)
+    with pytest.raises(OSError, match="interruption"):
+        run.checkpoint("child")
+    assert not run.workspace("child").parent.exists()
+    assert set(blind.homes_root().iterdir()) == before
 
 
 def test_existing_partial_child_is_rejected(setup):

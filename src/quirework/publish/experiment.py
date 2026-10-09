@@ -599,6 +599,7 @@ class Experiment:
             if self.runner == "claude":
                 # Claude also keeps runtime configuration beside ~/.claude.
                 # Persist a fresh per-seat file; never mount the user's file.
+                blind.make_state_root(work)
                 config = self.home(seat) / "runtime-config.json"
                 config.parent.mkdir(parents=True, exist_ok=True)
                 if not config.exists():
@@ -770,7 +771,7 @@ class Experiment:
         self.check_parent()
         home = self.home(seat)
         if not home.exists():
-            home.parent.mkdir(parents=True)
+            blind.make_state_root(self.workspace(seat))
             snapshot(self.root / "checkpoint", home)
         elif seat not in self.state["sessions"] and not self.state["pending"]:
             if tree_hashes(home) != self.state["checkpoint"]:
