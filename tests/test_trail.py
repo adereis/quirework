@@ -393,6 +393,56 @@ def test_a_turn_in_the_live_conversation_is_found_before_capture(
         assert "live transcript is still on this machine" in capsys.readouterr().err
 
 
+def _captured_then_grown(tmp_path, project, turns, later):
+    """A transcript captured partway through, which then kept going."""
+    from quirework.provenance import ccfilter
+
+    encoded = str(project.root.resolve()).replace("/", "-").replace(".", "-")
+    transcript = _session(tmp_path / "home" / encoded, SESSION, turns)
+    keep_session(
+        project,
+        f"cc-sessions/{SESSION}.jsonl",
+        ccfilter.normalize_capture(str(transcript)),
+    )
+    if later:
+        with transcript.open("a", encoding="utf-8") as fh:
+            fh.write(_lines(later))
+    return transcript
+
+
+def test_a_turn_made_after_its_session_was_captured_is_found_live(
+    tmp_path, monkeypatch, capsys
+):
+    """The capture is a snapshot; the conversation went on past it."""
+    monkeypatch.setenv("CODEX_HOME", str(tmp_path / "codex-home"))
+    project = _book(tmp_path, provenance=True)
+    later = [
+        ("assistant", "Both sections drafted.", "2031-04-02T10:10:00Z"),
+        ("human", "The kettle never apologizes.", "2031-04-02T10:12:00.000Z"),
+    ]
+    _captured_then_grown(tmp_path, project, MORNING, later)
+    with project_scope(project):
+        crumb, turn = trail.add("kettle-signal", "sharpen", find="never apologizes")
+        assert turn.live and turn.number == 4 and crumb.session == SESSION
+        _, first = trail.add("kettle-signal", "seed", find="nobody thinks")
+        assert first.number == 1, "an early turn is found once, not twice"
+        assert trail.check() == 0
+        err = capsys.readouterr().err
+        assert "captured before Human 4" in err
+
+
+def test_a_session_captured_as_it_stands_is_read_from_its_capture(
+    tmp_path, monkeypatch
+):
+    monkeypatch.setenv("CODEX_HOME", str(tmp_path / "codex-home"))
+    project = _book(tmp_path, provenance=True)
+    _captured_then_grown(tmp_path, project, MORNING, [])
+    with project_scope(project):
+        assert trail.Corpus().live() == {}
+        _, turn = trail.add("cooling-asymmetry", "correct", find="a route, not a speed")
+        assert not turn.live and turn.number == 3
+
+
 def test_a_hand_written_pointer_into_the_live_conversation_takes_its_whole_id(
     tmp_path, monkeypatch
 ):

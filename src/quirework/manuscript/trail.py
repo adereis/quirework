@@ -595,6 +595,27 @@ def _probe(phrase):
     return max(words, key=len).casefold() if words else None
 
 
+def _grown(family, path, captured_family, capture):
+    """Whether a live transcript holds dialogue its newest capture lacks.
+
+    Read off the fingerprint each capture records of its source, so a settled
+    session costs a stat and a short read. A capture that records none is
+    treated as behind, which only means its transcript is read instead: a
+    transcript holds everything a capture made from it does.
+    """
+    if family != captured_family:
+        return False
+    path, capture = Path(path), Path(capture)
+    if family == "cc":
+        from quirework.provenance.ingestion import claude
+
+        return not claude.dialogue_unchanged(path, capture)
+    from quirework.provenance.ingestion import codex
+
+    recorded = codex.captured_source_fingerprint(capture)
+    return recorded is None or codex.source_fingerprint(path) != recorded
+
+
 class Corpus:
     """The sessions one command reads: the captured corpus, then live logs.
 
@@ -632,7 +653,14 @@ class Corpus:
         return self._index
 
     def live(self):
-        """Sessions only the harness holds so far: this project's own transcripts.
+        """Sessions the harness holds more of than the corpus does.
+
+        A session joins when no capture holds it, and also when its dialogue
+        has grown since its newest capture. A session captured while it was
+        still going on keeps going, and the turns after that capture exist only
+        in the live transcript; reading the capture alone told an agent that
+        the author's latest words did not exist. A session in both is read
+        here, since its transcript holds everything the capture does.
 
         Read-only. Claude Code and Codex list their transcripts without writing
         anything; Antigravity's live logs are laid out differently from its
@@ -653,8 +681,16 @@ class Corpus:
                 if sid:
                     found.setdefault(sid, ("codex", path))
             captured = self.captured()
-            self._live = {k: v for k, v in found.items() if k not in captured}
+            self._live = {
+                k: v
+                for k, v in found.items()
+                if k not in captured or _grown(*v, *captured[k])
+            }
         return self._live
+
+    def grown(self, sid):
+        """Whether ``sid`` is captured and its live transcript holds more."""
+        return sid in self.captured() and sid in self.live()
 
     def turns(self, sid, family, path, live=False):
         key = (family, Path(path))
@@ -685,29 +721,40 @@ class Corpus:
         return found
 
     def session(self, prefix):
-        """``(sid, family, path, live)`` for an id prefix, or raise ``LookupError``."""
-        hits = [
-            (sid, family, path, live)
+        """``(sid, family, path, live)`` for an id prefix, or raise ``LookupError``.
+
+        A session both captured and grown since is one session, read live.
+        """
+        hits = {
+            sid: (sid, family, path, live)
             for live, table in ((False, self.captured()), (True, self.live()))
             for sid, (family, path) in table.items()
             if sid.startswith(prefix)
-        ]
+        }
         if not hits:
             raise LookupError(f"no session, captured or live, matches '{prefix}'")
         if len(hits) > 1:
-            names = ", ".join(sid for sid, *_ in hits)
+            names = ", ".join(sorted(hits))
             raise LookupError(f"'{prefix}' is ambiguous: {names}")
-        return hits[0]
+        return next(iter(hits.values()))
 
     def find(self, phrase, prefix="", *, within=None, live=True):
         """Every author turn holding ``phrase``: captured ones, else live ones.
 
         ``within`` is a set of captured session ids already known to hold the
         phrase's probe word, for a caller that looked many phrases up in one
-        pass; ``live=False`` keeps the search to the captured corpus.
+        pass; ``live=False`` keeps the search to the captured corpus. A session
+        that grew past its capture is searched in its live transcript only, so
+        an early turn is not found twice and a late one is found at all.
         """
         probe = _probe(phrase)
-        tables = [(False, self.captured())] + [(True, self.live())] * live
+        tables = [(False, self.captured())]
+        if live:
+            current = self.live()
+            tables = [
+                (False, {k: v for k, v in self.captured().items() if k not in current}),
+                (True, current),
+            ]
         for is_live, table in tables:
             table = {k: v for k, v in table.items() if k.startswith(prefix)}
             if within is not None and not is_live:
@@ -774,6 +821,12 @@ def _removed():
     return {entry["id"] for entry in catalog._removed()}
 
 
+def _matching(crumb, turns):
+    if crumb.turn is not None:
+        return [t for t in turns if t.number == crumb.turn]
+    return [t for t in turns if t.logged is not None and crumb.holds(t.logged)]
+
+
 def locate(crumb, corpus, removed=frozenset()):
     """Follow one breadcrumb into the corpus as far as it goes."""
     if crumb.session in removed:
@@ -785,10 +838,12 @@ def locate(crumb, corpus, removed=frozenset()):
     if family != crumb.family:
         return Located("harness", detail=_HARNESS_OF[family])
     turns = corpus.turns(crumb.session, family, path)
-    if crumb.turn is not None:
-        match = [t for t in turns if t.number == crumb.turn]
-    else:
-        match = [t for t in turns if t.logged is not None and crumb.holds(t.logged)]
+    match = _matching(crumb, turns)
+    if not match and corpus.grown(crumb.session):
+        # Captured while it was still going on: a later turn is only live.
+        family, path = corpus.live()[crumb.session]
+        turns = corpus.turns(crumb.session, family, path, live=True)
+        match = _matching(crumb, turns)
     if not match:
         return Located("no-turn", detail=str(len(turns)))
     if len(match) > 1:
@@ -1234,9 +1289,9 @@ def check():
     Fatal: a structure problem, among them a session named by a prefix of its
     id; a breadcrumb into a session curation removed;
     a time or turn matching no author turn, or several; an excerpt the turn
-    does not hold. Advisory: a session not captured yet, or captured and not
-    yet kept, which is the price of pointing at a conversation while it is
-    still going on. Without provenance only the structure can be checked, and
+    does not hold. Advisory: a session not captured yet, captured before the
+    turn was made, or captured and not yet kept, which is the price of
+    pointing at a conversation while it is still going on. Without provenance only the structure can be checked, and
     the report says so.
     """
     sidecar = load()
@@ -1275,7 +1330,13 @@ def check():
                         f"{at}: the excerpt is not in {crumb.harness} "
                         f"{crumb.short} Human {found.turn.number}"
                     )
-                if store.area(found.turn.path) == "pending":
+                if found.turn.live:
+                    advisories.append(
+                        f"  {at}: {crumb.harness} {crumb.short} was captured "
+                        f"before Human {found.turn.number}; its live transcript "
+                        f"holds the turn until the session is captured again"
+                    )
+                elif store.area(found.turn.path) == "pending":
                     advisories.append(
                         f"  {at}: {crumb.harness} {crumb.short} is captured but "
                         f"not yet accepted into the corpus"
@@ -1730,10 +1791,14 @@ def _add_main(argv):
     if target is None:
         print("  not verified: Quirework cannot read this session")
     elif target.live:
+        held = (
+            "was captured before this turn"
+            if target.session in Corpus().captured()
+            else "is not in the corpus yet"
+        )
         print(
             f"  Human {target.number}, read from the live transcript: the "
-            f"session is not in the corpus yet, so capture it before relying "
-            f"on this breadcrumb"
+            f"session {held}, so capture it before relying on this breadcrumb"
         )
     else:
         print(

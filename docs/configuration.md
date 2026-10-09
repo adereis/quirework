@@ -784,8 +784,10 @@ A spec trail reads sessions only where provenance is enabled. There,
 `spec trail add --find` also reads this project's live Claude Code and
 Codex transcripts, from the same locations capture sweeps, and never
 writes to them. That is how a turn in a conversation still going on is
-pointed at before the session is captured. Without provenance, a trail
-can still be kept by hand and read as pointers.
+pointed at before the session is captured. A session captured while it
+was still going on is read from its transcript once that has grown past
+the capture, since the later turns exist only there. Without provenance,
+a trail can still be kept by hand and read as pointers.
 
 `provenance.redpen` names the archive of red-pen rounds that
 `publish redpen archive` writes: your marks on a rendered copy of the

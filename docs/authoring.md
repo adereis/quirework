@@ -242,9 +242,12 @@ quirework spec trail add cooling-asymmetry --kind correct \
 `--find` takes words you typed. It looks for them in the corpus and then
 in this project's live Claude Code and Codex transcripts, so a turn from
 the conversation still going on can be pointed at before it is captured.
-`--session ID --turn N` takes the number `provenance search` printed. An
-`--excerpt` is optional: it highlights words in a long turn where they
-would otherwise be buried, and it must be words the turn holds.
+A session captured partway through, say by a sweep run in the middle of
+it, is read from its transcript while that holds turns the capture does
+not. `--session ID --turn N` takes the number `provenance search`
+printed. An `--excerpt` is optional: it highlights words in a long turn
+where they would otherwise be buried, and it must be words the turn
+holds.
 
 `--harness H --session ID --at TIME` writes a pointer by hand, for a
 conversation Quirework may not be able to read. A breadcrumb leads only
@@ -267,8 +270,9 @@ no longer has, so a renamed section takes its trail along in the same
 edit. `spec trail --check` follows every breadcrumb to your turn. It
 fails a pointer that leads to no turn, one into a session that curation
 removed, and one that names its session by a prefix. It only warns about
-a session not captured yet, which is what pointing at a live
-conversation costs until that session is captured.
+a session not captured yet, or captured before the turn was made, which
+is what pointing at a live conversation costs until that session is
+captured.
 
 ### Backfilling a trail
 
