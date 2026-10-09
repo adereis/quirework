@@ -44,8 +44,10 @@ it in conversation, write it here in the same session.
 - The store's backup and the EPUB validator are Cy's to set up at their
   own terminal. Leave both alone.
 - `quirework dev check` runs the book's own suite, the `sq_checks`
-  package in `sq_checks/`: Quirework's default suite plus the house rule
-  against em dashes. Run it before every commit.
+  package in `sq_checks/`: Quirework's default suite plus the house
+  rules against em dashes and for the two inks. Run it before every
+  commit. The package is installed editable, so a new module in it is
+  found without reinstalling.
 - `scratchpad/` and `private/` are ignored by git. Nothing in
   `scratchpad/` has authority.
 
@@ -110,3 +112,11 @@ Add each rule here as Cy states it.
    ceiling, not a target: short is a rule, not a shortfall.
 5. US spelling, everywhere: color, not colour. Cy's habits predate the
    style guide; the style guide wins.
+6. Two inks: black, and one orange, `#E8740C`, the spreadsheet's
+   "contradicts, but I like it". Grays are fine. Nothing else, in any
+   figure. Orange keeps that one meaning, so a plain contradiction is
+   drawn in black. A figure is drawn, not photographed, plain like a
+   diagram in a manual, and never lets color alone carry a meaning: the
+   EPUB is gray. The prose may name colors the inks lack (Hedda's screen
+   shows red); a drawing is a drawing. `quirework dev check` refuses any
+   other color in a figure, and an em dash in a figure's text.

@@ -20,6 +20,10 @@ noncanonical_roots = ["scratchpad"]
 
 [publish]
 build = "build"
+figures = "manuscript/sections/illustrations"
+# The book's two inks, black and the one orange, with grays between.
+# `quirework dev check` runs the same rule.
+figure_checks = ["sq_checks.figures:two_inks"]
 
 [sops]
 root = "procedures"

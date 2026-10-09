@@ -2,8 +2,10 @@
 
 Everything Quirework's default suite checks, plus the book's first house
 rule: no em dash anywhere in the manuscript. That covers every Markdown,
-Quarto and YAML file under `manuscript.source`: the chapters, the spec,
-the sidecars and the Quarto file, whose title reaches the page too.
+Quarto, YAML and SVG file under `manuscript.source`: the chapters, the
+spec, the sidecars, the Quarto file, whose title reaches the page too,
+and the figures, whose text does. Then the figures' own rule, the book's
+two inks, from `figures`.
 
 An em dash reaches a rendered page by more routes than the character
 itself. Pandoc's smart typography turns three hyphens into one, and an
@@ -25,10 +27,12 @@ from quirework.core.artifact_paths import run_roots
 from quirework.core.checks import default_checks
 from quirework.project import current_project
 
+from sq_checks import figures
+
 RULE = "No em dash"
 RULE_DESCRIPTION = "nothing in the manuscript renders as an em dash"
 
-SUFFIXES = (".qmd", ".md", ".yml", ".yaml")
+SUFFIXES = (".qmd", ".md", ".yml", ".yaml", ".svg")
 
 # Spelled as an escape, so this file never holds the character it refuses.
 EM_DASH = chr(0x2014)
@@ -92,6 +96,7 @@ def main(argv=None):
         default_checks(["--list"])
         print("Side Quest:")
         print(f"  {RULE:22} {RULE_DESCRIPTION}")
+        print(f"  {figures.RULE:22} {figures.RULE_DESCRIPTION}")
         return 0
     # The default suite takes --staged as it always does. The em dash rule
     # reads the whole manuscript either way: it is small, and a staged-only
@@ -101,4 +106,8 @@ def main(argv=None):
     for problem in problems:
         print(problem)
     print(f"{RULE}: {'failed' if problems else 'passed'}")
-    return status | int(bool(problems))
+    inks = figures.two_inks()
+    for problem in inks:
+        print(problem)
+    print(f"{figures.RULE}: {'failed' if inks else 'passed'}")
+    return status | int(bool(problems)) | int(bool(inks))

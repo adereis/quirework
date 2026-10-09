@@ -12,5 +12,11 @@
      says it; Index Cards already did -->
 <!-- @guidance says nothing of how the book ends: the answer is "no",
      and the chapter stops at Hedda's line -->
+<!-- @figure(hedda-screen) the date claim on Hedda's monitor and its
+     four sentences: chapter three agrees, the other three disagree. No
+     orange: these are plain contradictions, drawn in black, and the
+     prose's "red" stays. The claim, the year and the sentences are Full
+     Stop's, invented for the drawing. Chapter eight stays off the
+     screen: four places is four places -->
 <!-- @bind(people-who-ask) -->
 <!-- @bind(claims-in-sentences) -->
