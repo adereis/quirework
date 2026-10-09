@@ -246,6 +246,14 @@ the conversation still going on can be pointed at before it is captured.
 `--excerpt` is optional: it highlights words in a long turn where they
 would otherwise be buried, and it must be words the turn holds.
 
+`--harness H --session ID --at TIME` writes a pointer by hand, for a
+conversation Quirework may not be able to read. A breadcrumb leads only
+to a whole session id, so the id is taken whole: given a prefix, such as
+the eight characters `show` heads a session with, the pointer takes the
+whole id of the one session Quirework can read that starts with it,
+captured or still live, and a prefix that names several sessions, or
+none, is refused.
+
 The judgment is the agent's, and it should err toward including. Add a
 breadcrumb for every turn that seeds, sharpens, corrects, reverses,
 accepts or probes what a section holds, since a reader can skip one but
@@ -257,10 +265,10 @@ it was wrong about which section the turn shaped.
 `spec notes --check` fails a trail heading that names a section the spec
 no longer has, so a renamed section takes its trail along in the same
 edit. `spec trail --check` follows every breadcrumb to your turn. It
-fails a pointer that leads to no turn, and one into a session that
-curation removed. It only warns about a session not captured yet, which
-is what pointing at a live conversation costs until that session is
-captured.
+fails a pointer that leads to no turn, one into a session that curation
+removed, and one that names its session by a prefix. It only warns about
+a session not captured yet, which is what pointing at a live
+conversation costs until that session is captured.
 
 ### Backfilling a trail
 

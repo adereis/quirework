@@ -94,6 +94,20 @@ _NAMED = ("gemini-", "redpen-")
 
 _STAMP = re.compile(r"\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.(\d{1,6}))?Z")
 _SESSION = re.compile(r"[A-Za-z0-9][\w.-]*")
+# Every harness that is not a named source identifies a session by a UUID, and
+# a breadcrumb leads only to the whole of one: `locate` looks the id up exactly,
+# so a prefix written into the trail can never be followed, not even after its
+# session is captured.
+_UUID = re.compile(
+    r"[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}", re.I
+)
+
+
+def _whole(session):
+    """Whether ``session`` is an id a breadcrumb can lead to: named, or a UUID."""
+    return session.startswith(_NAMED) or bool(_UUID.fullmatch(session))
+
+
 _SEPARATORS = {"·", "—", "-", "|"}
 _CONTEXT = (
     "The trail is context, never authority: the spec states what the work "
@@ -501,6 +515,12 @@ def structure_problems(slugs=None, sidecar=None):
                     f"{where}:{crumb.line}: {crumb.harness} {crumb.short} "
                     f"{crumb.when} is already on this section's trail"
                 )
+            if not _whole(crumb.session):
+                problems.append(
+                    f"{where}:{crumb.line}: {crumb.harness} '{crumb.session}' is "
+                    "a prefix, and a breadcrumb leads only to a whole session "
+                    "id; `quirework provenance show` prints it"
+                )
     return problems
 
 
@@ -881,9 +901,13 @@ def prepare(
             raise ValueError(f"'{session}' is not a session id")
         if harness in _TIMELESS:
             raise ValueError(f"a {harness} source logs no times; use --turn")
+        reading = current_project().get("provenance.enabled", False)
+        if reading:
+            corpus = corpus or Corpus()
+        session = _full_session(corpus if reading else None, harness, session)
         crumb = Crumb(kind, harness, session, _normal_stamp(at), None, note, excerpt)
-        if current_project().get("provenance.enabled", False):
-            found = locate(crumb, corpus or Corpus())
+        if reading:
+            found = locate(crumb, corpus)
             if found.state not in ("turn", "uncaptured"):
                 raise LookupError(_explain(crumb, found))
             target = found.turn
@@ -915,6 +939,41 @@ def prepare(
             f"{target.number}; an excerpt highlights words the turn holds"
         )
     return crumb, target
+
+
+def _full_session(corpus, harness, session):
+    """The whole id a hand-written pointer names, or ``LookupError``.
+
+    `--at` writes a pointer for a conversation Quirework may not be able to
+    read, so it used to store the id as given. Given the eight characters
+    `show` heads a session with, that wrote a breadcrumb no lookup could
+    follow, and the trail called it uncaptured long after the session was
+    accepted. So a prefix of exactly one session Quirework can read, captured
+    or still live, becomes that session's whole id; a prefix of several is
+    refused as ambiguous; and a prefix of none is refused, because nothing
+    could ever lead from it.
+    """
+    if _whole(session):
+        return session
+    if corpus is not None:
+        family = HARNESSES[harness]
+        hits = sorted(
+            {
+                sid
+                for table in (corpus.captured(), corpus.live())
+                for sid, (fam, _path) in table.items()
+                if fam == family and sid.startswith(session)
+            }
+        )
+        if len(hits) == 1:
+            return hits[0]
+        if hits:
+            raise LookupError(f"'{session}' is ambiguous: {', '.join(hits)}")
+    raise LookupError(
+        f"'{session}' is not a whole {harness} session id, and no {harness} "
+        "session Quirework can read starts with it; give the whole id, since "
+        "a breadcrumb leads only to that"
+    )
 
 
 def append(slug, crumbs, titles=None):
@@ -1172,7 +1231,8 @@ def session_view(prefix, *, utc=False):
 def check():
     """Every breadcrumb parses, mirrors the spec, and leads to its author turn.
 
-    Fatal: a structure problem; a breadcrumb into a session curation removed;
+    Fatal: a structure problem, among them a session named by a prefix of its
+    id; a breadcrumb into a session curation removed;
     a time or turn matching no author turn, or several; an excerpt the turn
     does not hold. Advisory: a session not captured yet, or captured and not
     yet kept, which is the price of pointing at a conversation while it is

@@ -325,6 +325,56 @@ def test_a_session_not_captured_yet_is_an_advisory(book, capsys):
     assert "not in the corpus yet" in err and "no live transcript" in err
 
 
+def test_a_session_named_by_a_prefix_fails_the_check(book, capsys):
+    """A breadcrumb leads only to a whole id, so a prefix can never be followed."""
+    _write(
+        book,
+        "## A kettle signals without thinking {#kettle-signal}\n\n"
+        f"- 2031-04-02T10:00:05Z · seed · claude-code {SESSION[:8]}\n",
+    )
+    assert trail.check() == 1
+    assert f"'{SESSION[:8]}' is a prefix" in capsys.readouterr().err
+
+
+# --------------------------------------------------------------------------- #
+# a pointer written by hand
+# --------------------------------------------------------------------------- #
+def test_a_hand_written_pointer_takes_the_whole_id_its_prefix_names(book):
+    crumb, turn = trail.add(
+        "kettle-signal",
+        "seed",
+        harness="claude-code",
+        session=SESSION[:8],
+        at="2031-04-02T10:00:05Z",
+    )
+    assert crumb.session == SESSION and turn.number == 1
+    assert trail.check() == 0
+
+
+def test_a_prefix_two_sessions_share_is_refused(book):
+    _keep(book, OTHER, MORNING)
+    with pytest.raises(LookupError, match="ambiguous"):
+        trail.add(
+            "kettle-signal",
+            "seed",
+            harness="claude-code",
+            session=SESSION[:8],
+            at="2031-04-02T10:00:05Z",
+        )
+
+
+def test_a_prefix_of_no_session_is_refused(book):
+    with pytest.raises(LookupError, match="not a whole claude-code session id"):
+        trail.add(
+            "kettle-signal",
+            "seed",
+            harness="claude-code",
+            session="deadbeef",
+            at="2031-04-02T10:00:05Z",
+        )
+    assert not book.path("manuscript.spec_trail").exists()
+
+
 # --------------------------------------------------------------------------- #
 # the live conversation
 # --------------------------------------------------------------------------- #
@@ -343,6 +393,26 @@ def test_a_turn_in_the_live_conversation_is_found_before_capture(
         assert "live transcript is still on this machine" in capsys.readouterr().err
 
 
+def test_a_hand_written_pointer_into_the_live_conversation_takes_its_whole_id(
+    tmp_path, monkeypatch
+):
+    monkeypatch.setenv("CODEX_HOME", str(tmp_path / "codex-home"))
+    project = _book(tmp_path)
+    encoded = str(project.root.resolve()).replace("/", "-").replace(".", "-")
+    running = "5ca1ab1e-0000-4000-8000-000000000003"
+    live = [("human", "Say the kettle never argues back.", "2031-04-05T08:00:00Z")]
+    _session(tmp_path / "home" / encoded, running, live)
+    with project_scope(project):
+        crumb, _ = trail.add(
+            "kettle-signal",
+            "sharpen",
+            harness="claude-code",
+            session=running[:8],
+            at="2031-04-05T08:00:00Z",
+        )
+        assert crumb.session == running
+
+
 # --------------------------------------------------------------------------- #
 # without provenance
 # --------------------------------------------------------------------------- #
@@ -351,6 +421,15 @@ def test_a_trail_is_kept_by_hand_and_read_as_pointers_without_provenance(tmp_pat
     with project_scope(project):
         with pytest.raises(ConfigurationError, match="needs provenance"):
             trail.add("kettle-signal", "seed", find="nobody thinks")
+        # Nothing can be read to expand a prefix, so only a whole id is taken.
+        with pytest.raises(LookupError, match="not a whole claude.ai session id"):
+            trail.add(
+                "kettle-signal",
+                "seed",
+                harness="claude.ai",
+                session="5e55e55e",
+                at="2031-04-02T07:00:05-03:00",
+            )
         crumb, turn = trail.add(
             "kettle-signal",
             "seed",
