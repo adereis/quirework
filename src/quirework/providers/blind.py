@@ -595,6 +595,10 @@ class Runner:
     # session id. A resume continues that file, so its absence is the whole
     # question `require_session` answers.
     session: str = ""
+    # Directories in the home the runner fills with what it unpacks for one
+    # launch and needs from no other. Each launch gets them as a fresh tmpfs,
+    # so what is unpacked there never reaches the disk.
+    scratch: tuple[str, ...] = ()
 
 
 def _reads_false(feature: str) -> Callable[[str], str | None]:
@@ -728,6 +732,14 @@ RUNNERS = {
         # secret the keyring holds, so the receipt flags it.
         bus_names=("org.freedesktop.secrets",),
         session="antigravity-cli/brain/{id}/.system_generated/logs/transcript_full.jsonl",
+        # agy unpacks its 17 MB browser recorder here before every session in
+        # a home that lacks it, and only after a model has been chosen. 93
+        # seat homes on one machine held 1.5 GB of copies. A clone of the
+        # operator's own copy was tried first, and agy replaced it: an older
+        # release had unpacked that one, as it will have for anyone who runs
+        # agy mostly through seats. The directory holds nothing a resumed
+        # session needs, and agy writes it afresh when it is empty.
+        scratch=("antigravity-cli/bin",),
     ),
     "codex": Runner(
         "codex",
@@ -1347,6 +1359,16 @@ def jail_argv(
         private = root / name
         private.mkdir(exist_ok=True)
         argv += ["--bind", str(private), str(_expand(r.home))]
+        for rel in r.scratch:
+            # A copy unpacked before scratch existed would only sit under the
+            # tmpfs, taking room and never read again. The seat could have
+            # put a link there, and removing one never follows it.
+            stale = private / rel
+            if stale.is_symlink() or stale.is_file():
+                stale.unlink()
+            elif stale.is_dir():
+                shutil.rmtree(stale)
+            argv += ["--size", str(TMPFS_BYTES), "--tmpfs", str(_expand(r.home) / rel)]
         if bind_credentials:
             creds += [_expand(c) for c in r.creds if _expand(c).exists()]
     binds, _ = runner_binds(runners)

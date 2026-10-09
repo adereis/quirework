@@ -477,6 +477,53 @@ def fake_bus(tmp_path, monkeypatch, request):
     return runtime
 
 
+@pytest.fixture
+def scratch_runner(monkeypatch):
+    """Codex given a scratch directory, so no session bus is needed."""
+    from dataclasses import replace
+
+    runner = replace(blind.RUNNERS["codex"], scratch=("unpacked/bin",))
+    monkeypatch.setitem(blind.RUNNERS, "codex", runner)
+    monkeypatch.setattr(blind, "runner_binds", lambda names: ([], []))
+    return blind._expand(runner.home) / "unpacked" / "bin"
+
+
+def test_a_scratch_directory_is_a_fresh_tmpfs_over_the_home(tmp_path, scratch_runner):
+    """What a runner unpacks for one launch never reaches the disk."""
+    argv = blind.jail_argv(tmp_path / "seat", runners=["codex"], canary=blind.PROBE)
+    home = argv.index(str(blind._expand(blind.RUNNERS["codex"].home)))
+    mount = argv.index(str(scratch_runner))
+    assert argv[mount - 1] == "--tmpfs" and argv[mount - 3] == "--size"
+    assert mount > home, "mounted over the bound home, so after it"
+
+
+def test_a_copy_unpacked_before_is_removed_at_launch(tmp_path, scratch_runner):
+    stale = blind.make_state_root(tmp_path / "seat") / "codex" / "unpacked" / "bin"
+    stale.mkdir(parents=True)
+    (stale / "recorder").write_bytes(b"x" * 4096)
+    blind.jail_argv(tmp_path / "seat", runners=["codex"], canary=blind.PROBE)
+    assert not stale.exists()
+
+
+def test_a_link_a_seat_left_there_is_removed_and_never_followed(
+    tmp_path, scratch_runner
+):
+    """The home is the seat's to write, and the cleanup runs on the host."""
+    outside = tmp_path / "operator"
+    outside.mkdir()
+    (outside / "keep.txt").write_text("the operator's")
+    planted = blind.make_state_root(tmp_path / "seat") / "codex" / "unpacked" / "bin"
+    planted.parent.mkdir(parents=True)
+    planted.symlink_to(outside)
+    blind.jail_argv(tmp_path / "seat", runners=["codex"], canary=blind.PROBE)
+    assert not planted.is_symlink()
+    assert (outside / "keep.txt").read_text() == "the operator's"
+
+
+def test_agy_unpacks_its_recorder_into_scratch():
+    assert "antigravity-cli/bin" in blind.RUNNERS["agy"].scratch
+
+
 def test_agy_gets_a_filtered_bus_and_nothing_else_of_the_runtime_dir(
     tmp_path, fake_bus, monkeypatch
 ):

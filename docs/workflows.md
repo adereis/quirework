@@ -922,7 +922,10 @@ a runner needs (`/usr`, `/etc`, and `/opt`, `/var/lib`, `/sys`, `/nix` or
 exists inside, so the operator's home, network shares and removable
 media are simply absent. The home, `/tmp` and `/var/tmp` are empty, and
 the seat's own run directory, runner state and credentials are bound
-back. A reviewer that must see the repository is given it back
+back. Where a runner unpacks something into its state for one launch,
+as agy does with a 17 MB browser recorder before every session, that
+directory gets a fresh tmpfs each launch instead, so the copy never
+reaches the disk. A reviewer that must see the repository is given it back
 read-only. The seat has its own process and IPC namespaces and a
 minimal `/dev`. `sop blind check` prints the root, and a confinement
 receipt lists it.
