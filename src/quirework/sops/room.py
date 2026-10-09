@@ -1126,6 +1126,14 @@ def launch_turn(
                 "argv": args,
                 "jail": jail,
                 "resumed": resume,
+                # Where the session stood before this turn was sent, so a turn
+                # the provider refuses can be cut back out of it and sent
+                # again into the same session (`recovery`).
+                "resume_point": quota.session_marks(
+                    blind.session_paths(private, config["harness"], resume)
+                )
+                if resume
+                else None,
                 "harness_version": blind.runner_version(config["harness"]),
                 "private_runtime": str(private),
                 "window_assurance": drivers.window_assurance(config["harness"]),
@@ -1235,13 +1243,13 @@ def continue_seat(root, n, name, *, timeout=None):
     """Take one seat's turn again after a provider limit stopped it.
 
     Two stops, opposite recoveries, and `quota` owns which is which. *Refused*
-    means the provider declined before the model ran, so nothing exists to
-    continue: the identical turn is delivered again, in a fresh session, out
-    of the prompt the stopped attempt was given. Nothing is lost by that,
-    because nothing was produced. *Interrupted* means the model ran and the
-    wall arrived partway, so the session holds the reading and the reasoning
-    and the turn is continued inside it, with no re-delivery of anything the
-    seat has already been shown.
+    means the provider declined before the model ran, so nothing of the turn
+    exists to continue: the identical turn is delivered again, out of the
+    prompt the stopped attempt was given, into the session it was continuing
+    and with the refused attempt's rows cut from it (`recovery`). *Interrupted*
+    means the model ran and the wall arrived partway, so the session holds the
+    reading and the reasoning and the turn is continued inside it, with no
+    re-delivery of anything the seat has already been shown.
 
     It refuses everything that is not a classified quota stop. A crash, a
     timeout and an ambiguous transport fault look identical to this at the
@@ -1271,12 +1279,9 @@ def continue_seat(root, n, name, *, timeout=None):
             f"{name} does not carry a provider quota stop in round {n}; "
             "diagnose the failure rather than taking the turn again"
         )
-    resume = quota.resumable_session(stop)
-    if resume:
-        # Before the stopped attempt is filed away, so a refusal leaves the
-        # round exactly as it was.
-        blind.require_session(root / "seats" / name, config["harness"], resume)
-    prompt = quota.continuation() if resume else (record / "prompt.md").read_text()
+    resume, prompt, rewound = recovery(
+        record, root / "seats" / name, config["harness"], stop
+    )
     number = len(list((record / "attempts").glob("[0-9][0-9]"))) + 1
     folder = record / "attempts" / f"{number:02d}"
     folder.mkdir(parents=True)
@@ -1298,6 +1303,7 @@ def continue_seat(root, n, name, *, timeout=None):
             "quota_stop": stop["phase"],
             "quota_scope": stop.get("scope"),
             "resumed": resume,
+            "rewound": rewound,
         }
     )
     write(state_path(root, name), state)
@@ -1308,9 +1314,48 @@ def continue_seat(root, n, name, *, timeout=None):
         event="continuing",
         quota_stop=stop["phase"],
         resumed=resume,
+        rewound=rewound,
         attempt=number,
     )
     return launch_turn(root, plan, seat, n, prompt, resume, timeout=timeout)
+
+
+def recovery(record, work, harness, stop):
+    """How a turn a provider limit stopped is taken again.
+
+    Returns the session to launch into (None for a fresh one), the prompt,
+    and whether the session was rewound first. An *interrupted* turn is
+    continued inside the session that holds its reading, with a short notice.
+    Any other stop is the identical turn delivered again, out of the prompt
+    the stopped attempt was given. A turn that opened the seat's session goes
+    in a fresh one, since nothing of it exists. A turn that was itself a
+    resume, which is every round after a seat's first, goes back into the
+    session it was continuing, because that session holds the seat's earlier
+    rounds. Sending it in a fresh one lost them, and its prompt, written for
+    a seat that remembers them, reached one with no assignment at all.
+
+    The rows the refused attempt appended are cut away first, back to the
+    mark its launch took, as the run engine does. A launch from before marks
+    were taken left none, and the session then still shows the refused
+    prompt once before the same prompt again. The session is checked before
+    anything changes, and the rewind comes last, so a refusal of either kind
+    leaves the turn as it was.
+    """
+    session = quota.resumable_session(stop)
+    if session:
+        blind.require_session(work, harness, session)
+        return session, quota.continuation(), False
+    launch = read(record / "launch.json") if (record / "launch.json").exists() else {}
+    prompt = (record / "prompt.md").read_text()
+    session = launch.get("resumed")
+    if not session:
+        return None, prompt, False
+    blind.require_session(work, harness, session)
+    marks = launch.get("resume_point")
+    if marks is None:
+        return session, prompt, False
+    quota.rewind_sessions(marks)
+    return session, prompt, True
 
 
 def run_round(root, n, *, jobs=1, timeout=None):

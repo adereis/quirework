@@ -21,6 +21,7 @@ from pathlib import Path
 
 from quirework.providers import blind
 from quirework.providers import quota
+from quirework.providers.quota import rewind_sessions, session_marks
 from quirework.providers import models as workshop_drivers
 from quirework.sops import personas
 from quirework.project import current_project
@@ -1611,26 +1612,6 @@ def retire_attempt(run, seat, turn, reason):
     run.save(seat, state)
 
 
-def session_marks(paths):
-    """Record each native session file's length and the digest of that prefix.
-
-    The pair is what makes a later rewind safe: length alone would truncate a
-    file the client had rewritten rather than appended to, and a digest alone
-    could not say where to cut.
-    """
-    marks = []
-    for path in paths:
-        data = path.read_bytes()
-        marks.append(
-            dict(
-                path=str(path),
-                size=len(data),
-                sha256=hashlib.sha256(data).hexdigest(),
-            )
-        )
-    return marks
-
-
 class QuotaPaused(RuntimeError):
     """A provider account limit stopped a turn, in one of its two shapes.
 
@@ -1655,32 +1636,6 @@ def quota_delay(detail, now=None):
     if isinstance(resets, (int, float)) and resets > now:
         return min(resets - now + 30, 6 * 3600)
     return 300
-
-
-def rewind_sessions(marks):
-    """Return each recorded session file to the state in `marks`.
-
-    Refuses unless the file still begins with exactly the bytes that were
-    there before, so this can only ever remove the refused turn's own
-    appended rows. A session that shrank, or whose prefix changed, is not
-    rewound: that is no longer a clean resume and the operator decides.
-    """
-    for mark in marks or []:
-        path = Path(mark["path"])
-        if not path.exists():
-            if mark["size"]:
-                raise RuntimeError(f"session file vanished: {path}")
-            continue
-        data = path.read_bytes()
-        if len(data) < mark["size"]:
-            raise RuntimeError(f"session file shrank; not a clean rewind: {path}")
-        prefix = data[: mark["size"]]
-        if hashlib.sha256(prefix).hexdigest() != mark["sha256"]:
-            raise RuntimeError(f"session prefix changed; not a clean rewind: {path}")
-        if len(data) == mark["size"]:
-            continue
-        with path.open("r+b") as handle:
-            handle.truncate(mark["size"])
 
 
 def retry(run, seat, turn):

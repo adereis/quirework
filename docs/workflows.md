@@ -256,7 +256,13 @@ not judge a post. A missing or empty outbox records the seat as absent
 for that round rather than failing the round.
 
 A round is a resume of the session a seat already holds, so a seat keeps
-its reading and its reasoning and is handed only what changed. The first
+its reading and its reasoning and is handed only what changed. That
+holds after a provider limit too. `continue` takes an interrupted turn
+on inside its session. It sends a refused one again into the session it
+was continuing, first cutting away what the refused attempt appended,
+so the seat keeps every round it has had. Only a seat's very first
+turn, if refused, goes again in a fresh session, because there is
+nothing yet to keep. A roundtable's `continue` does the same. The first
 round has no board. A round listed in `silent_rounds` has one and is
 deliberately not shown it, which keeps opening positions independent.
 

@@ -10,6 +10,7 @@ from conftest import native_session
 
 from quirework.providers import blind
 from quirework.providers import models as drivers
+from quirework.providers import quota
 from quirework.runs.storage import read, write
 from quirework.sops import room, roundtable
 
@@ -58,20 +59,33 @@ class Seats:
         monkeypatch.setattr(roundtable.room, "launch_turn", self.launch)
 
     def launch(self, root, plan, seat, n, prompt, resume, **kw):
-        name = seat["id"]
+        name, harness = seat["id"], seat["config"]["harness"]
         record = root / "records" / name / f"r{n:03d}"
         record.mkdir(parents=True, exist_ok=True)
         (record / "prompt.md").write_text(prompt)
-        self.prompts.append({"seat": name, "round": n, "text": prompt, **kw})
+        self.prompts.append(
+            {"seat": name, "round": n, "text": prompt, "resume": resume, **kw}
+        )
+        # What a real launch records before it sends the turn.
+        private = blind.state_root(root / "seats" / name) / harness
+        marks = blind.session_paths(private, harness, resume) if resume else None
+        write(
+            record / "launch.json",
+            {
+                "resumed": resume,
+                "resume_point": quota.session_marks(marks) if resume else None,
+            },
+        )
         action = self.script.get((name, n))
         if action:
             action(root / "seats" / name)
         status = self.statuses.get((name, n), "answered")
         value = read(room.state_path(root, name))
         value["session_id"] = value.get("session_id") or f"s-{name}"
-        native_session(
-            root / "seats" / name, seat["config"]["harness"], value["session_id"]
-        )
+        session = native_session(root / "seats" / name, harness, value["session_id"])
+        # The harness appends the turn to its session, served or refused.
+        with session.open("a") as out:
+            out.write(f"round {n}\n")
         blind.hold(root / "seats" / name, "held by its launch, as a real one is")
         value["rounds"][str(n)] = {"status": status, "error": None}
         write(room.state_path(root, name), value)
@@ -296,6 +310,57 @@ def test_continue_files_nothing_away_once_the_session_is_gone(table, monkeypatch
     assert (record / "events.jsonl").exists()
     assert not (record / "attempts").exists()
     assert read(room.state_path(table, first)) == before
+
+
+# A turn the provider refused before the model ran, as each harness reports it.
+REFUSED = {
+    "claude": [
+        {"type": "system", "subtype": "init", "session_id": "sid-1"},
+        {
+            "type": "result",
+            "is_error": True,
+            "session_id": "sid-1",
+            "result": "You've hit your session limit",
+        },
+    ],
+    "codex": [
+        {"type": "thread.started", "thread_id": "th-9"},
+        {
+            "type": "turn.failed",
+            "error": {"code": "rate_limit_exceeded", "message": "limit"},
+        },
+    ],
+    "agy": [
+        {"event": "init", "conversation_id": "cv-2"},
+        {"event": "result", "result": {"status": "ERROR", "error": "429 rate limit"}},
+    ],
+}
+
+
+def test_a_refused_later_turn_goes_back_into_the_seats_own_session(table, monkeypatch):
+    """Round two resumes the session that holds round one; sent to a fresh
+    one, the seat lost the table so far and its turn read as a stranger's."""
+    seats = Seats(monkeypatch)
+    roundtable.run(table, to=1)
+    first = order(table, 2)[0]
+    seats.statuses[(first, 2)] = "quota"
+    assert roundtable.run_turn(table)["kind"] == "held"
+    _, plan = roundtable.load(table)
+    harness = roundtable.seat_by(plan, first)["config"]["harness"]
+    record = roundtable.record_dir(table, first, 2)
+    (record / "events.jsonl").write_text(
+        "".join(json.dumps(r) + "\n" for r in REFUSED[harness])
+    )
+    home = blind.state_root(table / "seats" / first) / harness
+    (session,) = blind.session_paths(home, harness, f"s-{first}")
+    assert session.read_text() == "round 1\nround 2\n"
+    seats.statuses[(first, 2)] = "answered"
+    roundtable.continue_turn(table)
+    again = seats.prompts[-1]
+    assert again["resume"] == f"s-{first}" and again["round"] == 2
+    assert again["text"] == (record / "attempts" / "01" / "prompt.md").read_text()
+    assert session.read_text() == "round 1\nround 2\n", "cut back, then sent again"
+    assert roundtable.state(table, first)["attempts"][-1]["rewound"]
 
 
 def test_a_turn_is_handed_what_happened_since_it_last_spoke(table, monkeypatch):

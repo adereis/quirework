@@ -14,7 +14,7 @@ Two shapes, and they need different recoveries:
     The harness has nonetheless already appended the prompt -- and often
     its own refusal notice -- to the session, which is why the shared
     runner rewinds the session file and resubmits the identical turn
-    (``runs/engine.rewind_sessions``). Cheap and exact.
+    (``rewind_sessions``). Cheap and exact.
 
 ``interrupted``
     The model ran, used tools, wrote files, and the wall arrived partway
@@ -34,6 +34,7 @@ reach it, and two of those must not pull the engine in behind them.
 
 from __future__ import annotations
 
+import hashlib
 import json
 import re
 from pathlib import Path
@@ -343,13 +344,15 @@ def resumable(harness, record):
     ran, so there is no reasoning to continue from and the turn has to be
     delivered again rather than continued.
 
-    *How* it is delivered again is the caller's, not this module's. The shared
-    runner rewinds to the pre-submission mark and resubmits the identical turn,
-    which it can do only because it marked the session files before sending
-    (``runs/engine.session_marks``). A driver that takes no such mark -- the
-    prose workshop, the review driver -- relaunches the turn in a fresh session
-    instead, and loses nothing by it: its unit is one assignment in its own
-    session, so there is no earlier turn a rewind would have preserved.
+    *How* it is delivered again is the caller's, not this module's. Where the
+    refused turn was itself a resume -- the shared runner's later turns, and
+    every round after a room or roundtable seat's first -- its session holds
+    the turns before it. That caller rewinds to the mark it took before
+    sending (``session_marks``) and resubmits the identical turn into the
+    same session; a fresh one would lose every earlier turn. A driver whose
+    unit is one assignment in its own session -- the prose workshop, the
+    review driver -- relaunches the turn in a fresh session instead, and
+    loses nothing by it, since there is no earlier turn to keep.
     """
     return resumable_session(classify(harness, record))
 
@@ -366,6 +369,52 @@ def resumable_session(detail):
     if not detail or detail["phase"] != "interrupted":
         return None
     return detail["session_id"]
+
+
+def session_marks(paths):
+    """Record each native session file's length and the digest of that prefix.
+
+    The pair is what makes a later rewind safe: length alone would truncate a
+    file the client had rewritten rather than appended to, and a digest alone
+    could not say where to cut.
+    """
+    marks = []
+    for path in paths:
+        data = path.read_bytes()
+        marks.append(
+            dict(
+                path=str(path),
+                size=len(data),
+                sha256=hashlib.sha256(data).hexdigest(),
+            )
+        )
+    return marks
+
+
+def rewind_sessions(marks):
+    """Return each recorded session file to the state in `marks`.
+
+    Refuses unless the file still begins with exactly the bytes that were
+    there before, so this can only ever remove the refused turn's own
+    appended rows. A session that shrank, or whose prefix changed, is not
+    rewound: that is no longer a clean resume and the operator decides.
+    """
+    for mark in marks or []:
+        path = Path(mark["path"])
+        if not path.exists():
+            if mark["size"]:
+                raise RuntimeError(f"session file vanished: {path}")
+            continue
+        data = path.read_bytes()
+        if len(data) < mark["size"]:
+            raise RuntimeError(f"session file shrank; not a clean rewind: {path}")
+        prefix = data[: mark["size"]]
+        if hashlib.sha256(prefix).hexdigest() != mark["sha256"]:
+            raise RuntimeError(f"session prefix changed; not a clean rewind: {path}")
+        if len(data) == mark["size"]:
+            continue
+        with path.open("r+b") as handle:
+            handle.truncate(mark["size"])
 
 
 def resume_argv(harness, session):

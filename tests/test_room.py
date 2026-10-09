@@ -961,23 +961,27 @@ def test_a_release_between_rounds_does_not_switch_a_seat_model(
     assert "model_pinned" not in sent[2]
 
 
-def test_a_seats_home_is_held_from_its_launch_until_the_room_finishes(
-    prepared, monkeypatch, canaries_pass
-):
-    """Between rounds a seat looks idle, and the next round resumes the
-    session its home holds, so only the room can say when it may go."""
+@pytest.fixture
+def launches(prepared, monkeypatch, canaries_pass):
+    """`launch_turn` with every harness call stubbed, running `true` unjailed.
+
+    The private home is made as a real launch makes it, so what a launch
+    leaves there and records about it can be read back.
+    """
     from quirework.project import current_project
 
     # The launch stands in the project root, which the fixture never makes.
     current_project().root.mkdir(exist_ok=True)
-    _, plan = room.load(prepared)
-    seat = next(s for s in plan["seats"] if s["id"] == "ana-pell")
     monkeypatch.setattr(room.drivers, "command", lambda *a, **kw: (["true"], b""))
     monkeypatch.setattr(room.drivers, "receipt", lambda *a, **kw: {"session_id": "s"})
     monkeypatch.setattr(
         room.drivers,
         "launch_context",
-        lambda config, work, *a: ([], {}, blind.make_state_root(work)),
+        lambda config, work, *a: (
+            [],
+            {},
+            blind.make_state_root(work) / config["harness"],
+        ),
     )
     monkeypatch.setattr(room.blind, "session_bus", lambda runners: nullcontext())
     monkeypatch.setattr(
@@ -985,6 +989,31 @@ def test_a_seats_home_is_held_from_its_launch_until_the_room_finishes(
         "popen",
         lambda argv, bus, **kw: room.subprocess.Popen(["true"], **kw),
     )
+    _, plan = room.load(prepared)
+    return plan
+
+
+def test_a_resumed_launch_marks_where_its_session_stood(prepared, launches):
+    """The mark is what lets a refused turn be cut back out of the session."""
+    seat = next(s for s in launches["seats"] if s["id"] == "bo-larke")
+    session = native_session(prepared / "seats" / "bo-larke", "agy", "s-1")
+    session.write_text("round one\n")
+    room.launch_turn(prepared, launches, seat, 2, "Round two.", "s-1")
+    launch = read(prepared / "records" / "bo-larke" / "r002" / "launch.json")
+    assert launch["resumed"] == "s-1"
+    assert launch["resume_point"] == quota.session_marks([session])
+    room.launch_turn(prepared, launches, seat, 1, "Open.", None)
+    first = read(prepared / "records" / "bo-larke" / "r001" / "launch.json")
+    assert first["resume_point"] is None
+
+
+def test_a_seats_home_is_held_from_its_launch_until_the_room_finishes(
+    prepared, launches
+):
+    """Between rounds a seat looks idle, and the next round resumes the
+    session its home holds, so only the room can say when it may go."""
+    plan = launches
+    seat = next(s for s in plan["seats"] if s["id"] == "ana-pell")
     room.launch_turn(prepared, plan, seat, 1, "Open.", None)
     home = blind.state_root(prepared / "seats" / "ana-pell")
     assert f"room {prepared.name} resumes seat ana-pell's session" in blind.held(home)
@@ -1389,6 +1418,103 @@ def test_continue_files_nothing_away_once_the_session_is_gone(prepared):
     assert (record / "events.jsonl").exists()
     assert not (record / "attempts").exists()
     assert read(room.state_path(prepared, "ana-pell"))["rounds"] == state["rounds"]
+
+
+AGY_REFUSED = [
+    {"event": "init", "conversation_id": "s-1"},
+    {
+        "event": "result",
+        "conversation_id": "s-1",
+        "result": {"status": "ERROR", "error": "429 rate limit reached"},
+    },
+]
+
+
+def refused_in_round_two(prepared, *, marked=True):
+    """Bo Larke's round-two turn, a resume of round one's session, refused.
+
+    The harness appended the refused prompt to the session before the
+    provider declined, as a real one does.
+    """
+    session = native_session(prepared / "seats" / "bo-larke", "agy", "s-1")
+    session.write_text("round one\n")
+    marks = quota.session_marks([session])
+    with session.open("a") as out:
+        out.write("round two, refused\n")
+    record = prepared / "records" / "bo-larke" / "r002"
+    _stream(record, AGY_REFUSED)
+    (record / "prompt.md").write_text("Round two: read the board and reply.")
+    launch = {"resumed": "s-1", **({"resume_point": marks} if marked else {})}
+    write(record / "launch.json", launch)
+    state = read(room.state_path(prepared, "bo-larke"))
+    state["session_id"] = "s-1"
+    state["rounds"] = {
+        "1": {"status": "answered"},
+        "2": {"status": "quota", "quota_stop": "refused"},
+    }
+    write(room.state_path(prepared, "bo-larke"), state)
+    return session, record
+
+
+@pytest.fixture
+def relaunched(monkeypatch):
+    """What `continue` launches, instead of launching it."""
+    sent = []
+
+    def launch(root, plan, seat, n, prompt, resume, **kwargs):
+        sent.append({"prompt": prompt, "resume": resume})
+        return "answered"
+
+    monkeypatch.setattr(room, "launch_turn", launch)
+    return sent
+
+
+def test_a_refused_later_round_goes_back_into_the_seats_own_session(
+    prepared, relaunched
+):
+    """A fresh session lost every earlier round, and the round's prompt,
+    written for a seat that remembers them, reached one with no assignment."""
+    session, _ = refused_in_round_two(prepared)
+    room.continue_seat(prepared, 2, "bo-larke")
+    assert relaunched == [
+        {"prompt": "Round two: read the board and reply.", "resume": "s-1"}
+    ]
+    assert session.read_text() == "round one\n", "the refused rows are cut away"
+    attempt = read(room.state_path(prepared, "bo-larke"))["attempts"][-1]
+    assert attempt["resumed"] == "s-1" and attempt["rewound"]
+
+
+def test_a_turn_launched_before_marks_is_resent_into_its_session_as_it_is(
+    prepared, relaunched
+):
+    session, _ = refused_in_round_two(prepared, marked=False)
+    room.continue_seat(prepared, 2, "bo-larke")
+    assert relaunched[0]["resume"] == "s-1"
+    assert session.read_text() == "round one\nround two, refused\n"
+    assert not read(room.state_path(prepared, "bo-larke"))["attempts"][-1]["rewound"]
+
+
+def test_a_refused_first_turn_still_opens_a_fresh_session(prepared, relaunched):
+    """Nothing of the seat's exists yet, so there is nothing to go back into."""
+    record = prepared / "records" / "ana-pell" / "r001"
+    _stream(record, AGY_REFUSED)
+    (record / "prompt.md").write_text("Round one.")
+    write(record / "launch.json", {"resumed": None, "resume_point": None})
+    state = read(room.state_path(prepared, "ana-pell"))
+    state["rounds"] = {"1": {"status": "quota", "quota_stop": "refused"}}
+    write(room.state_path(prepared, "ana-pell"), state)
+    room.continue_seat(prepared, 1, "ana-pell")
+    assert relaunched == [{"prompt": "Round one.", "resume": None}]
+
+
+def test_a_session_changed_since_its_mark_is_not_rewound(prepared, relaunched):
+    """Cutting a file someone rewrote would cut the wrong rows."""
+    session, record = refused_in_round_two(prepared)
+    session.write_text("ROUND ONE, rewritten\nround two, refused\n")
+    with pytest.raises(RuntimeError, match="not a clean rewind"):
+        room.continue_seat(prepared, 2, "bo-larke")
+    assert relaunched == []
+    assert (record / "events.jsonl").exists() and not (record / "attempts").exists()
 
 
 def test_the_cli_can_still_read_a_room_after_every_branch(prepared, capsys):

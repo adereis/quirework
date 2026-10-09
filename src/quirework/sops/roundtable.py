@@ -1727,11 +1727,12 @@ def speak(root, seat, *, post=None, messages=(), passing=False):
 def continue_turn(root, *, timeout=None):
     """Take a held turn again after a provider limit stopped it.
 
-    The same two recoveries as a room's: a turn refused before the model ran
-    is delivered again in a fresh session, and one interrupted partway is
-    continued inside the session that holds its reading. Anything that is
-    not a classified quota stop is refused, because re-running a crash can
-    duplicate work that really happened.
+    The same two recoveries as a room's (`room.recovery`): a turn refused
+    before the model ran is delivered again into the session it was
+    continuing, and one interrupted partway is continued inside the session
+    that holds its reading. Anything that is not a classified quota stop is
+    refused, because re-running a crash can duplicate work that really
+    happened.
     """
     root, plan = load(root)
     with lock(root / "room.lock"):
@@ -1747,14 +1748,9 @@ def continue_turn(root, *, timeout=None):
                 f"{seat['name']}'s round {n} turn carries no provider quota stop; "
                 "diagnose it rather than taking the turn again"
             )
-        resume = quota.resumable_session(stop)
-        if resume:
-            # Before the stopped attempt is filed away, so a refusal leaves
-            # the turn exactly as it was.
-            blind.require_session(
-                root / "seats" / name, seat["config"]["harness"], resume
-            )
-        prompt = quota.continuation() if resume else (record / "prompt.md").read_text()
+        resume, prompt, rewound = room.recovery(
+            record, root / "seats" / name, seat["config"]["harness"], stop
+        )
         number = len(list((record / "attempts").glob("[0-9][0-9]"))) + 1
         folder = record / "attempts" / f"{number:02d}"
         folder.mkdir(parents=True)
@@ -1775,10 +1771,18 @@ def continue_turn(root, *, timeout=None):
                 "attempt": number,
                 "quota_stop": stop["phase"],
                 "resumed": resume,
+                "rewound": rewound,
             }
         )
         write(room.state_path(root, name), value)
-        room.event(root, round=n, seat=name, event="continuing", resumed=resume)
+        room.event(
+            root,
+            round=n,
+            seat=name,
+            event="continuing",
+            resumed=resume,
+            rewound=rewound,
+        )
         status = room.launch_turn(
             root,
             plan,
