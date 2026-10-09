@@ -254,6 +254,17 @@ def test_render_md_is_deterministic_and_complete():
     assert "Codex sessions" in md and "reviewer" in md
 
 
+def test_the_rendered_catalog_is_at_the_wrapper_s_fixed_point(tmp_path):
+    """A project that commits its catalog must pass its own `dev check`, which
+    asks the wrapper whether any Markdown would move."""
+    from quirework.text import mdwrap
+
+    page = tmp_path / "INDEX.md"
+    page.write_text(catalog.render_md(_sample_index()), encoding="utf-8")
+    assert mdwrap.at_fixed_point(str(page))
+    assert page.read_text(encoding="utf-8").endswith("\n")
+
+
 def test_dump_json_is_deterministic():
     idx = _sample_index()
     assert catalog._dump_json(idx) == catalog._dump_json(idx)

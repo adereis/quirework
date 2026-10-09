@@ -634,7 +634,13 @@ def render_md(index):
     else:
         L.append("_none_")
     L.append("")
-    return "\n".join(L)
+    # Generated Markdown is committed beside the work, so it must round-trip
+    # through the wrapper as the procedure catalog and the skills do: off its
+    # fixed point it fails the project's own `dev check` on the first capture,
+    # and wrapping it by hand only makes `catalog --check` call it stale.
+    from quirework.text.mdwrap import reflow_columns
+
+    return reflow_columns("\n".join(L))
 
 
 # --------------------------------------------------------------------------- #
