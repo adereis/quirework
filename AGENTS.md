@@ -95,7 +95,10 @@ named at all.
 
 - **Cy Dequest**: the author and narrator. Pronouns: they/them. A
   documentation engineer: Cy writes about software for a living, and is
-  not a programmer.
+  not a programmer. The prose never announces Cy's pronouns, since a
+  first-person memoir doesn't, and a reader may guess wrong; the prose
+  stays as it is. The back cover's author line, when it is written, says
+  they/them.
 - **Hedda Count**: Cy's manager. Kind, busy, ends every one-on-one with
   "how's the book?" Pronouns: she/her.
 - **Red Penn**: Cy's editor at a small press. Waited three years for
