@@ -253,9 +253,14 @@ def test_generated_skills_name_the_project_own_guide(tmp_path):
     directory.mkdir()
     (directory / "tidy.md").write_text("# Tidy\n\n<!-- @skill: Tidy it. -->\n")
     settings = {"sops": {"root": "procedures", "catalog": "procedures/index.json"}}
+
+    def words():
+        # The skill is wrapped, so where its lines break says nothing.
+        return " ".join(commands._skill_md("tidy", "Tidy it.").split())
+
     with project_scope(Project.from_settings(tmp_path, settings)):
-        body = commands._skill_md("tidy", "Tidy it.")
-        assert 'per AGENTS.md\n("How work happens")' in body
+        body = words()
+        assert 'per AGENTS.md ("How work happens"): drive' in body
         # The route goes through the command, not the file, so the read is
         # counted; the file is still named as the source of truth.
         assert "Run `quirework sop show tidy`" in body
@@ -264,14 +269,13 @@ def test_generated_skills_name_the_project_own_guide(tmp_path):
     named = dict(settings)
     named["sops"] = {**settings["sops"], "operator_guide": "CONTRIBUTING.md"}
     with project_scope(Project.from_settings(tmp_path, named)):
-        body = commands._skill_md("tidy", "Tidy it.")
+        body = words()
         assert "per CONTRIBUTING.md: drive" in body
         assert "AGENTS.md" not in body
     silent = dict(settings)
     silent["sops"] = {**settings["sops"], "operator_guide": ""}
     with project_scope(Project.from_settings(tmp_path, silent)):
-        body = commands._skill_md("tidy", "Tidy it.")
-        assert "as the operator: drive" in body
+        assert "as the operator: drive" in words()
 
 
 def test_a_generic_font_family_is_not_a_missing_typeface(tmp_path):

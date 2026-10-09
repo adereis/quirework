@@ -159,6 +159,20 @@ def test_the_route_names_the_modes_only_when_there_are_some(notebook):
     assert "--mode" not in commands._skill_md("tidy", "Tidy it.")
 
 
+def test_a_generated_skill_is_at_the_wrapper_s_fixed_point(notebook):
+    """A skill the project's own check names is a file nobody can keep.
+
+    Wrapping it by hand makes `sop skills --check` call it stale, and
+    regenerating it brings the drift back, so the generator wraps it.
+    """
+    from quirework.text import mdwrap
+
+    path = notebook.root / ".claude" / "skills" / "tidy" / "SKILL.md"
+    path.parent.mkdir(parents=True)
+    path.write_text(commands._skill_md("tidy", "Tidy a small notebook."))
+    assert mdwrap.at_fixed_point(str(path))
+
+
 def test_a_partial_read_is_still_recorded_as_a_read_of_the_procedure(notebook, capsys):
     assert (
         invoke(("sop", "show"), ["tidy", "--section", "One page"], project=notebook)

@@ -158,7 +158,7 @@ def _implicit_skills() -> set[str]:
 # none) must be able to say so rather than point agents at a missing file. The
 # default is the layout this tool grew up in, and carries the line break that
 # keeps the generated paragraph wrapped; an empty setting drops the clause.
-_DEFAULT_OPERATOR_GUIDE = 'AGENTS.md\n("How work happens")'
+_DEFAULT_OPERATOR_GUIDE = 'AGENTS.md ("How work happens")'
 
 
 def _operator_guide() -> str:
@@ -169,6 +169,8 @@ def _operator_guide() -> str:
 def _skill_md(
     stem: str, description: str, portable: bool = False, allow_implicit: bool = False
 ) -> str:
+    from quirework.text.mdwrap import reflow_columns
+
     from . import sections
 
     path = source_path(stem)
@@ -200,7 +202,10 @@ def _skill_md(
         "reads and mechanical steps within an authorized task need no new request;\n"
         "an optional follow-up that starts another model run does.\n"
     )
-    return (
+    # Generated content must round-trip through the wrapper, as the catalog
+    # does: a skill off its fixed point is named by `dev check`, and wrapping
+    # it by hand only makes `sop skills --check` call it stale.
+    return reflow_columns(
         f"---\n"
         f"name: {_prefix()}{stem}\n"
         f"description: {_yaml_quote(description)}\n"
