@@ -80,6 +80,12 @@
   script is forty lines on a Sunday, its fourteen are first taken for a
   bug; two configuration files; no name in this chapter
 
+- 2026-10-09T22:01:14Z · sharpen · claude-code
+  df036d3e-6d59-489e-97ae-ce2f8dd16a8e
+
+  After the blind read: the script's first complaint is quoted in Index
+  Cards, one line, the date chapter eight moved, with nothing after it
+
 ## An assistant is worth what you can check {#worth-what-you-check}
 
 - 2026-10-09T20:18:07Z · seed · claude-code

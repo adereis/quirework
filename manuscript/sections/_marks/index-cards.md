@@ -16,6 +16,9 @@
      never failed at the sentences; its claims lived only in sentences.
      It does not say it again -->
 <!-- @guidance the script stays unnamed here; the name comes later -->
+<!-- @guidance the script is seen working once: its first complaint on
+     the first Sunday, quoted, one line, the date chapter eight had
+     moved, and nothing after it explains it -->
 <!-- @bind(notes-escalate) -->
 <!-- @bind(claims-in-sentences) -->
 <!-- @bind(people-who-ask) -->

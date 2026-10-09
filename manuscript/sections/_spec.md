@@ -50,8 +50,10 @@ still matches its sentence, yellow for check, red for contradicts, then
 orange for contradicts but I like it, then a tab called Legend, then a
 note at the top of Legend explaining the orange. Then a forty-line
 script, written on a Sunday, that checks whether each note still matches
-the sentence it is about. Its first run finds fourteen contradictions,
-not one, and Cy assumes it is broken. It is not. The script grows a
+the sentence it is about. Its first complaint, quoted in one line, is
+the date chapter eight had moved, the same date that is on Hedda's
+monitor in The Demo. Its first run finds fourteen contradictions, not
+one, and Cy assumes it is broken. It is not. The script grows a
 configuration file, then a second to explain the first, becomes a tool,
 and gets a name, though not in Index Cards. Full Stop does not get an
 ending.

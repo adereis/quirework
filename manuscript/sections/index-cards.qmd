@@ -62,6 +62,12 @@ It had no opinion about the dash.
 It did not know there was a dash.
 
 I ran it that evening.
+The first thing it printed was this:
+
+```
+ch. 8, line 77: changed. The note says 1684; the sentence says 1694.
+```
+
 It found fourteen contradictions.
 
 I assumed it was broken.
