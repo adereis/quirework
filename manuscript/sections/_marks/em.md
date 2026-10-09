@@ -13,6 +13,9 @@
      stay unexplained, each on its own line -->
 <!-- @guidance Hedda and Red stay out; Hedda's third answer is The
      Demo's -->
+<!-- @guidance the order is said plainly, the tool first and the README
+     after, and the joke that everyone does it in that order is not
+     explained -->
 <!-- @bind(em-never-asked) -->
 <!-- @bind(em-dashes-off-the-page) -->
 <!-- @bind(no-villains) -->

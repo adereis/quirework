@@ -49,7 +49,7 @@ I didn't write that check.
 
 I've thought about why.
 
-Then Em read the README, in that order, which is the order everyone does it in.
+Then Em read the README: the tool first, the README after, which is the order everyone does it in.
 All nine hundred lines.
 That made two readers, not counting me.
 
