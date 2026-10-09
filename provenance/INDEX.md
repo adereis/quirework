@@ -2,14 +2,18 @@
 
 # Provenance catalog
 
-Complete index of the *accepted* provenance corpus -- one row per session,
-regenerated from the files on every import.
-A session is accepted only after the keep/remove read, so accepted == curated-in;
+Complete index of the *accepted* provenance corpus -- one row per
+session, regenerated from the files on every import. A session is
+accepted only after the keep/remove read, so accepted == curated-in;
 pending captures awaiting triage are absent by construction.
 
-**1** Claude Code sessions · **0** Antigravity sessions · **0** Codex sessions · **0** web dialogues · **0** curated out.
+**1** Claude Code sessions · **0** Antigravity sessions · **0** Codex
+sessions · **0** web dialogues · **0** curated out.
 
-Of those, **0** are scope `making` (the apparatus: tools, guards, process rules) and the rest are scope `work`. Scope decides which blind cold-read reads a session, nothing else -- see the ledger's `making-sessions.txt`.
+Of those, **0** are scope `making` (the apparatus: tools, guards,
+process rules) and the rest are scope `work`. Scope decides which blind
+cold-read reads a session, nothing else -- see the ledger's
+`making-sessions.txt`.
 
 ## Claude Code sessions (`cc-sessions/`)
 
@@ -34,7 +38,7 @@ Of those, **0** are scope `making` (the apparatus: tools, guards, process rules)
 
 ## Curated out
 
-Captured but deliberately excluded as non-canonical-text work
-(see the ledger's `removed-sessions.txt`).
+Captured but deliberately excluded as non-canonical-text work (see the
+ledger's `removed-sessions.txt`).
 
 _none_
