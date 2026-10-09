@@ -2,6 +2,8 @@
 
 import subprocess
 
+import pytest
+
 from quirework.core import checks
 from quirework.project import Project, project_scope
 
@@ -224,3 +226,30 @@ def test_a_project_inside_the_project_answers_to_its_own_rules(tmp_path, capsys)
     printed = capsys.readouterr().out
     assert "needs wrapping: examples/README.md\n" in printed
     assert "one.md" not in printed
+
+
+def test_a_project_s_own_suite_replaces_the_default(tmp_path, monkeypatch):
+    """`checks.command` names a function of the project's own, which `dev
+    check` calls with its arguments in place of the default suite."""
+    ext = tmp_path / "ext"
+    ext.mkdir()
+    (ext / "harbour_checks.py").write_text(
+        "CALLS = []\n\ndef main(argv):\n    CALLS.append(argv)\n    return 3\n"
+    )
+    monkeypatch.syspath_prepend(str(ext))
+    project = Project.from_settings(
+        tmp_path / "harbour", {"checks": {"command": "harbour_checks:main"}}
+    )
+    with project_scope(project):
+        assert checks.main(["--staged"]) == 3
+    import harbour_checks
+
+    assert harbour_checks.CALLS == [["--staged"]]
+
+
+def test_a_suite_may_not_name_the_dispatcher_itself(tmp_path):
+    project = Project.from_settings(
+        tmp_path, {"checks": {"command": "quirework.core.checks:main"}}
+    )
+    with project_scope(project), pytest.raises(ValueError, match="recursively"):
+        checks.main([])

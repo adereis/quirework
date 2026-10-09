@@ -254,3 +254,23 @@ def test_png_set_path_rasterizes_that_directory_as_is(tmp_path, monkeypatch):
     )
     assert figures.render_png(str(loose), tmp_path / "out") == 0
     assert seen == ["hand-made.svg"]
+
+
+def test_a_book_s_own_figure_check_runs_with_the_gate(tmp_path, monkeypatch, capsys):
+    """`publish.figure_checks` loads a function of the book's own and reports
+    what it returns, so a convention only that book has fails the gate."""
+    _setup(tmp_path, monkeypatch)
+    ext = tmp_path / "ext"
+    ext.mkdir()
+    (ext / "harbour_figures.py").write_text(
+        "def no_amber():\n"
+        "    return ['doubling.svg: amber is the storm plate\\'s colour alone']\n"
+    )
+    monkeypatch.syspath_prepend(str(ext))
+    from quirework.project import current_project
+
+    settings = current_project().describe()["settings"]
+    settings["publish"]["figure_checks"] = ["harbour_figures:no_amber"]
+    with project_scope(Project.from_settings(tmp_path, settings)):
+        assert figures.check() == 1
+    assert "amber is the storm plate's colour alone" in capsys.readouterr().err
