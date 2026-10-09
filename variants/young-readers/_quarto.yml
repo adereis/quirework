@@ -1,0 +1,36 @@
+lang: en-US
+project:
+  type: book
+book:
+  title: "Side Quest"
+  subtitle: "The young readers' edition"
+  author: "Cy Dequest"
+  # The book's parts and chapters, under the same file names. No back
+  # cover: a back cover belongs to a book you can pick up.
+  chapters:
+    - index.qmd
+    - preface.qmd
+    - part: "The Book That Disagreed"
+      chapters:
+        - hows-the-book.qmd
+        - two-shops.qmd
+        - index-cards.qmd
+    - part: "The Side Quest"
+      chapters:
+        - otto.qmd
+        - the-name.qmd
+        - nine-hundred-lines.qmd
+    - part: "The Book That Got Finished"
+      chapters:
+        - em.qmd
+        - the-demo.qmd
+        - full-stop.qmd
+# The script's printout prints in black, as in the book.
+highlight-style: none
+format:
+  html:
+    theme: cosmo
+  typst: default
+  epub:
+    toc: true
+  docx: default

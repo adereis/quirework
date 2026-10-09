@@ -1,0 +1,67 @@
+# How's the Book?
+
+I have a job at a company. Hedda Count is the person whose job is to help me do mine. Every other Thursday she gives me thirty minutes, in her office. We spend twenty-six of them on work, because that is what the thirty minutes are for. In the last four, she turns her chair away from her computer screen, folds her hands on the desk, and asks, "How's the book?"
+
+She has asked it at the end of every one of those meetings we have ever had. She asked it the week the company moved people around and she suddenly had six more people to help, and a calendar with every space taken, like a parking garage. Once she asked it on a video call from an airport while she waited for a plane. The connection was so bad that I watched her mouth make the words a full second before I heard them, and I answered the mouth.
+
+Hedda is kind and busy. Most people manage one or the other. The busy ones skip the question. The kind ones with time to spare ask a second question, and a third, until you are explaining your whole book to someone who only wanted to know if you were all right. Hedda asks one question, and she always stops at exactly half an hour. It is the best arrangement I have ever had with anyone about anything.
+
+The book was called Full Stop. It was a history of punctuation: where each mark came from, and who spread it. The comma, the colon, the semicolon, the dash, each had a chapter of its own, with a small crowd of scribes, printers, and schoolteachers behind it, arguing.
+
+I knew things nobody needed. I knew what the pilcrow was for, back before it was for nothing. I knew which marks had been invented on purpose and which had just happened to a tired scribe near the bottom of a page. I owned a whole shelf of books on the history of the comma, and two of them disagreed with each other. At the time I thought that meant the history of the comma was alive and well.
+
+I had been writing it for three years. It had eleven chapters.
+
+It still does.
+
+This is not that book. Full Stop stopped eleven chapters in, and instead of finishing it I built a computer program called Quirework. That detour is what this book is about. Full Stop is in it the way the highway is in a story about a shortcut.
+
+But in the beginning there was no detour. There was a book, and there were people who asked about it.
+
+Away from work, when people asked what I was writing, I told them, and they made the face. It is the face you make when a stranger's dog sits on your foot: warm, polite, and quietly looking around for the owner.
+
+"Punctuation," they would say.
+
+"Punctuation."
+
+"Like commas?"
+
+"There's a chapter on commas."
+
+That was usually the end of it. Hedda never made the face. Hedda did not have time to make the face, and I have come to count that as one of her kindnesses.
+
+There was one other person who asked, and he had more right to. Red Penn works at a small company that makes books, and his job was to help turn mine into one. He was waiting for chapter twelve. He had read the other eleven. He had said nice things about them, in writing, which meant I could not pretend he hadn't. Red did not ask often. Every few months he sent an email that said "Checking in" at the top and, underneath, in full, "Checking in." I answered every one. I would have liked a longer email better. You can answer a long email at length, and length can be mistaken for progress.
+
+Hedda's question came every other Thursday, though, and the answer had to fit in four minutes. So when she asked how the book was, I said, "Chapter four."
+
+The book had eleven chapters, and four is not where you expect to find someone who has written eleven. I had written them. Then I had gone back. Chapter four is about the dash, and it had started disagreeing with chapter nine. I will come to that. I came to it a great deal.
+
+"Chapter four" was the right size for those four minutes. It was short. It was true. It had a number in it, and numbers sound like progress to anyone who isn't watching them. Hedda would nod and say, "Good," and write something down, and we would both stand up.
+
+Two weeks later she would ask again, and I would say, "Chapter four."
+
+Hedda keeps notes on our meetings in one long document on her computer. Each time, she copies the last meeting's notes, pastes them in underneath, puts the new date on them, and changes what needs changing. Near the bottom, under Other, is a line that says *Book: ch. 4*. I have watched that line get copied forward through the week people were moved around, through a new season of the company's year, through a whole new company year, and through the day every letter in the document changed shape. It survived all of them without a single change. Nothing in Full Stop was that steady.
+
+I spent the first twenty-six minutes of every meeting thinking about the last four. I would be talking about a deadline, or a problem someone needed fixed, and a small part of me would be standing off to the side, practicing.
+
+On the walk to her office I tried other answers in my head. "Good" was a lie. "Slow" would get a second question, and Hedda did not have time for a second question, and I did not have an answer to one. "Coming along" is what people say about a cold. "Chapter four" was the only answer I had that was both true and over quickly, and I said it the way some people say their zip code.
+
+Sometimes I highlighted the whole book on my computer, every word at once, so the computer would count them for me. This was a useful thing to do when I had no new ones. The count included the chapter titles, parts I had given up on, and notes to myself to check things. I left those in. They had taken time to write. Then I clicked back into the book very carefully, because if you type while everything is highlighted, the whole book turns into the one letter you typed. That was the closest I came to starting over.
+
+Once, after I said it, she asked, "Still the dash one?"
+
+She remembered. That was the hard part. I could have handled someone not listening. Someone who asks how the book is and doesn't hear the answer is really just saying goodbye. Hedda heard it. She kept the chapter number in her document and what the chapter was about in her head, and she asked about the dash by name, and there was nothing to do but say yes.
+
+"Still the dash one," I said.
+
+"Good," she said, and wrote something down.
+
+I want to be careful about Hedda. A book like this one seems to want someone standing in a doorway saying "Well?", and it would be easy to give her that part. She was not that. Neither was Red. Each of them asked the one question the book could not answer yet, and each of them was right to ask it. The book was the one with the problem.
+
+I didn't know yet what the problem was. I thought it was chapter four. I thought that if I sat with chapter four long enough, and was careful enough, and read chapter nine one more time with a pencil, the two of them would agree. Then I could tell Hedda "chapter twelve," and after that, something with no number in it at all.
+
+So every other Thursday, in the last four minutes, I walked into her office with the same answer in my pocket.
+
+"How's the book?" Hedda asked.
+
+"Chapter four," I said.

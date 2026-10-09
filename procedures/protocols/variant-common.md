@@ -20,10 +20,10 @@ what a model wrote.
 
 No edition has a back cover: a back cover belongs to a book you can pick
 up. The tool plans a seat for every unit with prose, the back cover
-included, and has no way to leave one out. So a chapter-shaped edition
-is built with `--plan-only`, the `draft-back-cover` seat is taken out of
-the plan it writes, and the plan is then prepared, started and imported
-with the commands the build prints.
+included, and has no way to leave one out. So a chapter-shaped edition's
+back cover is drafted with the rest and never composed: its draft stays
+in `_raw/`, as every draft does, and the edition's `_quarto.yml` does
+not list it.
 
 ## Composing
 

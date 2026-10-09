@@ -129,8 +129,14 @@ it in conversation, write it here in the same session.
   can pick up. The drafters are not asked to retell it, and no composed
   edition carries one.
 - The young readers' edition is for readers of about ten who read well
-  and alone: the same story, people, numbers and doubts, no
-  condescension, no glossary, no moral added.
+  and alone, and have never had a job: the same story, people, numbers
+  and doubts, no condescension, no glossary, no moral added. Where the
+  book leans on an adult thing (a manager, a one-on-one, a README, a
+  fiscal year) the sentence shows what it is, without defining it. A
+  joke that lands only for adults becomes one a ten-year-old gets, built
+  on the same fact, and the fact stays exact. Shorter chapters and fewer
+  scenes are fine if the story holds. A first draft that kept the adult
+  words was the book with its sentences split, and was not an edition.
 - The poems are one poem per chapter, light verse in real metre and
   rhyme, the facts exact even when the rhyme would rather they weren't.
   Em's chapter holds exactly one limerick; if Em needs more room than a

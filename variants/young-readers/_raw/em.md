@@ -1,0 +1,95 @@
+# Em
+
+Every message Em Dash sends me has three em dashes in it, the long kind of dash.
+Not two.
+Not four.
+Three.
+
+Em works at the same company I do.
+We have never been on the same team, but we have been in a great many of the same long email conversations.
+Em writes short messages, mostly.
+The messages are always clear, and they always have three.
+
+I noticed it the way you notice a clock: not at all, and then all the time.
+
+Once I had noticed, I wanted to know whether it held.
+So for a month I counted, in a spreadsheet, because of course I did.
+Each message got its own row in the grid.
+One column was for the date, one for the number of words, and one for the number of dashes.
+
+The words went up and down.
+The dashes did not move.
+
+That month included a two-word message, which is harder than it sounds.
+
+I don't quote any of them here.
+This book has promised not to, and the software is checking.
+
+Near the end of the month, someone asked a group of us to come to a meeting, and Em answered with a haiku.
+Nobody had asked for a haiku.
+As far as I could tell, it said yes.
+Seventeen syllables, three dashes.
+
+I checked the syllables too.
+
+Somewhere in the second week of the spreadsheet, I had started to suspect that Em is a language model: not a person at all, but a computer program that writes.
+I had nothing to go on but the spreadsheet, and I had learned that a spreadsheet only knows what you type into it.
+
+Around then I put a link to Quirework in the chat where my whole team talks, so anyone could find the tool and every change I had made to it.
+I posted it on a Friday afternoon, when nobody is paying attention to anything.
+Most people ignored it.
+
+Em was the first person after me to use the tool.
+
+A few days later Em sent me a question.
+I won't quote that one either.
+Em wanted to know whether the tool could check that a piece of writing had exactly three of something.
+
+It could.
+
+I didn't write that check.
+
+I've thought about why.
+
+Then Em read the README, the nine hundred lines I had written to explain how the tool works.
+Em used the tool first and read the README after, which is the order everyone does it in.
+All nine hundred lines.
+That made two readers, not counting me.
+
+Em sent notes.
+They were kind.
+They were useful.
+They were better organized than the README.
+They were numbered and grouped by section.
+They were sorted by how much trouble each problem would cause someone using the tool for the first time.
+My own list of problems, at the end of the README, was in order of how much they embarrassed me.
+Em's order was the one it should have been in.
+
+Writing instructions like these is my job.
+I used every note.
+
+The notes filled two pages.
+There were three dashes in them.
+
+That evening I decided to ask.
+
+I opened a message to Em and typed, "Are you a language model?"
+On the screen it looked like an accusation.
+I deleted it.
+
+The second try was friendlier.
+It started by saying thank you for the notes, which I meant, and got to the question in the third sentence.
+
+The third try was a joke, so that whatever Em said, we could both decide I hadn't really asked.
+
+The fourth try was a whole paragraph.
+It had more punctuation in it than anything Em has ever sent me.
+
+I sent none of them.
+
+I stopped keeping the spreadsheet a long time ago.
+Em still writes to me most weeks.
+I still count.
+It is still three.
+
+I still haven't asked.
