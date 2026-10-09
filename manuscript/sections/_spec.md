@@ -102,16 +102,29 @@ claims lived, not in any person or program.
 ## Em is never asked {#em-never-asked}
 
 Every message from Em Dash contains three em dashes, never two, never
-four. Em once replied to a meeting invite with a haiku. Cy suspects Em
-is a language model and has never asked, and the book never settles it.
-The question stays unasked to the end, and that is how Em's part of the
-story closes, not a gap in it.
+four. Cy counted for a month, in a spreadsheet, and the month included a
+two-word message. Em once replied to a meeting invite with a haiku:
+seventeen syllables, three dashes, and Cy checked the syllables too. Em
+is the first person after Cy to use the tool, and asks whether it can
+check that a document has exactly three of something. It can. Cy did not
+write that check, and has thought about why; the book does not say why.
+Em reviews the nine-hundred-line README, after using the tool, and is
+its second full reader, after Red; the notes are kind, useful and better
+organized than the README, and hold three dashes. Cy suspects Em is a
+language model and has never asked, and the book never settles it. Cy
+drafts the question four times: "Are you a language model?", a
+friendlier one, a joke, and a paragraph with more punctuation than
+anything Em has ever sent, and sends none of them. The question stays
+unasked to the end, and that is how Em's part of the story closes, not a
+gap in it.
 
 ## Em's dashes stay off the page {#em-dashes-off-the-page}
 
 The prose contains no em dash anywhere, so Em's are counted and never
 shown. A message from Em is reported or paraphrased, never quoted with
-its punctuation intact.
+its punctuation intact. The book says why in its own terms: it has
+promised not to, and the software is checking. The word "spec" never
+reaches the reader.
 
 ## The people who ask about the book {#people-who-ask}
 

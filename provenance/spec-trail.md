@@ -156,12 +156,34 @@
 
   Never settled; the unasked question is how the chapter ends.
 
+- 2026-10-09T21:24:11Z · sharpen · claude-code
+  0663b488-1b9b-4e04-bb27-d52321b9ced8
+
+  Em chapter material: the month of counting, the haiku's syllables, Em
+  as the tool's second user asking to check for exactly three of
+  something, the README review, and four unsent drafts of the question
+
+  > I didn't write that check. I've thought about why.
+
+- 2026-10-09T21:27:15Z · accept · claude-code
+  0663b488-1b9b-4e04-bb27-d52321b9ced8
+
+  Keeps every invented detail in Em as true: the team channel link, Em
+  reading the README after using the tool, the two readers, the unsent
+  drafts
+
 ## Em's dashes stay off the page {#em-dashes-off-the-page}
 
 - 2026-10-09T20:20:12Z · accept · claude-code
   1b7ad009-e68c-4219-a024-edbf242566b6
 
   Takes the drafted rule: Em's dashes counted, never shown.
+
+- 2026-10-09T21:27:15Z · sharpen · claude-code
+  0663b488-1b9b-4e04-bb27-d52321b9ced8
+
+  The prose gives the rule as the book's promise and the software's
+  check, never naming the spec
 
 ## The people who ask about the book {#people-who-ask}
 

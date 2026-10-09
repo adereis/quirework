@@ -8,7 +8,11 @@
 <!-- @guidance about thirteen hundred words; opens part three, The Book
      That Got Finished; Em gets no pronoun; ends with the question still
      unasked -->
+<!-- @guidance Em's question about checking for exactly three of
+     something, "I didn't write that check" and "I've thought about why"
+     stay unexplained, each on its own line -->
+<!-- @guidance Hedda and Red stay out; Hedda's third answer is The
+     Demo's -->
 <!-- @bind(em-never-asked) -->
 <!-- @bind(em-dashes-off-the-page) -->
 <!-- @bind(no-villains) -->
-<!-- @todo no prose yet -->

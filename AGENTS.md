@@ -87,8 +87,11 @@ named at all.
   which is a little absurd and exactly right.
 - **Em Dash**: a colleague whose every message holds three em dashes. Cy
   suspects Em is a language model and has never asked, and never will in
-  this book. Not a villain. Pronouns: never stated. The book says "Em"
-  every time.
+  this book. Never on Cy's team, always on the same threads. The first
+  person after Cy to use the tool, from a link Cy posted in the team
+  channel on a Friday afternoon; read the README after using the tool,
+  and was its second full reader, after Red. Not a villain. Pronouns:
+  never stated. The book says "Em" every time.
 
 ## House rules for the prose
 
