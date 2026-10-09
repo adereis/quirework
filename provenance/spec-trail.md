@@ -109,6 +109,12 @@
 
   Keeps: neither is a foil, each is right to ask.
 
+- 2026-10-09T20:26:06Z · sharpen · claude-code
+  b4a3a485-e4aa-40a3-9ef7-9ee12164c6bf
+
+  Hedda's three answers spread over the book: chapter one gets 'chapter
+  four', Index Cards the second, The Demo the demo.
+
 ## The tool is not the book it was built for {#not-the-book-it-was-built-for}
 
 - 2026-10-09T20:18:07Z · seed · claude-code

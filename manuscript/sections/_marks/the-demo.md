@@ -5,7 +5,8 @@
 
 # The Demo {#sec-the-demo}
 
-<!-- @guidance about thirteen hundred words -->
+<!-- @guidance about thirteen hundred words; Cy's third answer to Hedda,
+     the live demo on her monitor -->
 <!-- @bind(people-who-ask) -->
 <!-- @bind(claims-in-sentences) -->
 <!-- @todo no prose yet -->
