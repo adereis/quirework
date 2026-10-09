@@ -397,6 +397,8 @@ def test_every_codex_seat_turns_off_what_codex_leaves_on(project, tmp_path):
         )[0]
     wanted = blind.CODEX_SEAT[1::2]
     assert "features.apps=false" in wanted
+    assert "features.plugins=false" in wanted
+    assert "features.remote_plugin=false" in wanted
     assert "features.image_generation=false" in wanted
     assert "features.multi_agent_v2.max_concurrent_threads_per_session=1" in wanted
     for name, argv in built.items():

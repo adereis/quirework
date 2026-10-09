@@ -99,6 +99,19 @@ NO_MCP = ["--mcp-config", '{"mcpServers":{}}', "--strict-mcp-config"]
 # that brings the apps back by another switch refuses the launch.
 CODEX_NO_APPS = ["-c", "features.apps=false"]
 
+# The account's plugins arrive the same way, and Codex 0.162 turns both
+# switches on. Every launch into a fresh private home then installs each
+# remote plugin the account enables and caches the plugin catalogue: one
+# refused launch grew a home from 3 MB to 33 MB, and longer seats held about
+# 55 MB each. They are the same connected apps packaged as plugins, so they
+# close with the apps, on every seat.
+CODEX_NO_PLUGINS = [
+    "-c",
+    "features.plugins=false",
+    "-c",
+    "features.remote_plugin=false",
+]
+
 # Codex's catalogue puts most models on its second multi-agent version, which
 # ignores `features.multi_agent=false`: every seat, a tool-free one included,
 # is offered `spawn_agent` with overrides naming other models, so a seat
@@ -122,7 +135,7 @@ CODEX_NO_IMAGES = ["-c", "features.image_generation=false"]
 # Browser and computer use, also on by default, give a `codex exec` seat on
 # Linux no tool under Codex 0.160.1, measured from the tools in the request
 # a seat sends; the tool-free seats name them off regardless.
-CODEX_SEAT = [*CODEX_NO_APPS, *CODEX_NO_SUBAGENTS, *CODEX_NO_IMAGES]
+CODEX_SEAT = [*CODEX_NO_APPS, *CODEX_NO_PLUGINS, *CODEX_NO_SUBAGENTS, *CODEX_NO_IMAGES]
 
 
 def _options():

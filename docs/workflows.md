@@ -943,7 +943,11 @@ sub-agent, with overrides naming other models. No setting removes the
 tool, so every Codex launch limits its session to one thread, the seat
 itself, and a spawn fails. Without the limit, a seat could hand part of
 its work to a model its receipt never names. Image generation is off
-on every Codex seat too, since no seat is asked for an image. Browser
+on every Codex seat too, since no seat is asked for an image. So are
+the account's plugins (`plugins` and `remote_plugin`), which are its
+connected apps packaged as plugins. Left on, Codex installs each one
+into a seat's fresh private home on every launch, tens of megabytes
+per seat, and caches the plugin catalogue beside them. Browser
 and computer use, also on by default, give a Codex seat no tool under
 Codex 0.160.1.
 
