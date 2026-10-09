@@ -1020,7 +1020,12 @@ and visual choices out of Quirework's implementation:
 - `sops.persona_policy`: the optional `default` persona ID.
 - `sops.review_policy`: review frames, reviewable source paths, and
   `hidden`, the checkout paths a jailed reviewer must not read.
-- `publish.variant_policy`: the selected model and optional assignment.
+- `publish.variant_policy`: who drafts each derived edition.
+  `default_model`, `default_harness` and `default_effort` apply to every
+  kind, and a `[kinds.KIND]` table overrides any of `model`, `harness`
+  and `effort` for one kind. `blind_tells` names marks of the project's
+  own that a drafter's bundle must never contain, and `prompt_intro`
+  replaces the drafter's opening instructions.
 - `provenance.metrics_policy` and `provenance.coldread_policy`:
   historical source classifications, explicitly selected analysis
   models, and `output_counts`, which names each collection the metrics
@@ -1143,17 +1148,18 @@ The records are per machine, in `providers/canaries.json` under the
 project's cache, because blindness is a property of the runner installed
 here. Each launch writes the record it relied on into its own receipt,
 `launch.json` or the blind receipt, so the evidence stays with the run.
-The cold-read and the variant drafts keep no launch receipt; they print
-the canary instead. `quirework sop blind canary` runs the canary on
-demand under the shared blind flag set, the set a command written by
-hand for `sop blind run` is proven under, and `sop blind check` reports
-which releases have been canaried without failing on one that has not. A
-command written by hand has to carry that set itself. A Codex command
-without `-c features.apps=false`, for example, holds the account's
-connected apps however its canary passed. `providers.validation_record`,
-which kept a record in the repository and failed `check` on a minor
-version change, is retired, and a project that still sets it is refused
-with that explanation.
+The cold-read keeps no launch receipt; it prints the canary instead. An
+edition's blind drafts run as seats of a run, with its receipts.
+`quirework sop blind canary` runs the canary on demand under the shared
+blind flag set, the set a command written by hand for `sop blind run` is
+proven under, and `sop blind check` reports which releases have been
+canaried without failing on one that has not. A command written by hand
+has to carry that set itself. A Codex command without
+`-c features.apps=false`, for example, holds the account's connected
+apps however its canary passed. `providers.validation_record`, which
+kept a record in the repository and failed `check` on a minor version
+change, is retired, and a project that still sets it is refused with
+that explanation.
 
 `QUIREWORK_CANARY=0` forbids live canaries in one process, so any launch
 there that has no record is refused. A test suite sets it: a test that

@@ -728,13 +728,39 @@ its reader. `quirework publish variant` lists the kinds and
 
 `quirework publish variant build KIND` fetches blind drafts into
 `variants/KIND/_raw/`, one per chapter. Each drafter reads the whole
-book with every mark stripped and no project files around it, so it
-retells the book as an outside reader would. The drafts are what a model
-wrote, so `text wrap` never reflows them. The edition is composed from
-them by the procedure: each draft read against the spec, then the
-documents written beside them with a `_quarto.yml` of the edition's own.
-A book-shaped edition lists its chapters as the book does. An edition
-that is one document is a plain Quarto project:
+book with every mark stripped, in a seat of a run with no tools and no
+project files around it, so it retells the book as an outside reader
+would. Any harness the run engine drives can draft. The variant policy
+says which, for every kind or for one:
+
+```toml
+# config/variant-policy.toml, named by publish.variant_policy
+default_model = "opus"
+default_effort = "high"
+
+[kinds.poems]
+harness = "codex"
+model = "gpt-sol"
+```
+
+`--harness`, `--model` and `--effort` override it for one build. The
+plan and its record stay in the project's private state, outside the
+checkout. Each draft comes in with an entry in `_raw/receipts.json`: the
+harness, the model asked for and the model that answered, the effort,
+the price where the harness reports one, and the run and seat it came
+from. A seat that has not answered, or that raised a red flag, stays out
+of `_raw/`, and the build prints the commands that reconcile its run and
+import what it then finishes, `publish variant import KIND RECORD`.
+`--plan-only` writes the plan and prints those commands without starting
+it, and `--only` redrafts the chapters it names, leaving every other
+draft and receipt as it was.
+
+The drafts are what a model wrote, so `text wrap` never reflows them.
+The edition is composed from them by the procedure: each draft read
+against the spec, then the documents written beside them with a
+`_quarto.yml` of the edition's own. A book-shaped edition lists its
+chapters as the book does. An edition that is one document is a plain
+Quarto project:
 
 ```yaml
 project:

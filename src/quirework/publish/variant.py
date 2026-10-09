@@ -1,55 +1,57 @@
 """Build an audience or medium variant of the canonical book.
 
-Three entry points, dispatched from ``main``:
+Four entry points, dispatched from ``main``:
 
-    quirework publish variant                 list the variant kinds
-    quirework publish variant <kind>          print the variant SOP (operator playbook)
-    quirework publish variant build <kind>    run the MECHANICAL layer of the build
+    quirework publish variant                       list the variant kinds
+    quirework publish variant <kind>                print the variant SOP
+    quirework publish variant build <kind>          draft it blind, through the run engine
+    quirework publish variant import <kind> RECORD  bring a finished run's drafts in
 
 ``build`` is the part the project's ``variant-common`` procedure hands to a
 tool: assemble a *blindness-safe* bundle of the canonical book -- every
 ``<!-- ... -->`` comment stripped, so the ``@bind``/``@todo``/``@figure`` marks
-(the project's own self-understanding) never reach the drafter -- then fan out
-one headless, blind ``claude -p`` per chapter. Each drafter is fed
-the whole book for grounding but asked to rewrite only its chapter, from a
-neutral CWD with tools off (no project ``CLAUDE.md``/memory loads there), so it
-is structurally an outside reader. The raw drafts land under
-``variants/<kind>/_raw/`` for the operator's fidelity/honesty/voice pass.
+(the project's own self-understanding) never reach the drafter -- then plan
+one seat per chapter and run the plan through the run engine. Each seat is
+fed the whole book for grounding but asked to rewrite only its chapter, with
+no tools, in the engine's isolated workspace, so it is structurally an
+outside reader. Any harness the engine drives can draft, and every draft
+has the engine's receipt, which names the model that actually served it.
+The drafts land under ``variants/<kind>/_raw/``, with a ``receipts.json``
+beside them, for the operator's fidelity, honesty and voice pass.
 
 The tool stops at raw drafts on purpose: the *analyze* and *compose* steps
 (checking each draft against what the book commits to, fixing any drift, wiring
 the figures, writing the final ``.qmd`` and ``_quarto.yml``) are human
-judgment, and the project's own procedures own them. This mirrors
-``coldread analyze``'s blind-``claude -p`` mechanism; the shared rule lives in
-docs/workflows.md#execution-and-recovery.
+judgment, and the project's own procedures own them. The shared rule for
+blind runs lives in docs/workflows.md#execution-and-recovery.
 """
 
 from __future__ import annotations
 
-import concurrent.futures as cf
+import hashlib
+import json
 import re
-import subprocess
+import shutil
 import sys
+from datetime import date
 from pathlib import Path
 
 from quirework.project import current_project
-from quirework.providers.blind import BLIND_SETTINGS
-from quirework.providers.blind import NO_SETTING_SOURCES
-from quirework.providers.blind import MIN_TOOLS
-from quirework.providers.blind import NO_MCP
-from quirework.providers.blind import confine
-from quirework.providers.blind import seat_dir
-from quirework.providers import canary
 from quirework.manuscript import notes as _notes
+from quirework.publish.editions import RAW
 
 
-# Blind drafters run headless from a neutral CWD with a minimal tool allow-list,
-# exactly like the cold-read analysts.
-# Subagents inherit the project framing and are NOT blind -- never use them
-# here (docs/workflows.md#execution-and-recovery).
+# Blind drafters are run-engine seats with no tools, each in its own isolated
+# workspace. Subagents inherit the project framing and are NOT blind -- never
+# use them here (docs/workflows.md#execution-and-recovery).
 
 DEFAULT_TIMEOUT_S = 600
 DEFAULT_PAR = 5
+# The engine needs an effort for every seat, and every harness it drives
+# accepts this one, so a project that names none still gets a valid plan.
+DEFAULT_EFFORT = "high"
+TURN = "draft"
+RECEIPTS = "receipts.json"
 
 _COMMENT = re.compile(r"<!--.*?-->", re.DOTALL)
 _QMD = re.compile(r"([\w./-]+\.qmd)")
@@ -81,16 +83,6 @@ need is in this message; do not use any tools."""
 # --------------------------------------------------------------------------- #
 # pure helpers (unit-tested; no I/O)
 # --------------------------------------------------------------------------- #
-
-
-def _options():
-    """Read policy from the selected project for this operation."""
-    from types import SimpleNamespace
-
-    DEFAULT_MODEL = (
-        current_project().data("publish.variant_policy", {}).get("default_model", None)
-    )
-    return SimpleNamespace(DEFAULT_MODEL=DEFAULT_MODEL)
 
 
 def _settings():
@@ -346,53 +338,180 @@ def assert_blind(bundle: str, tells: tuple[str, ...] = ()) -> None:
 
 
 # --------------------------------------------------------------------------- #
-# the blind claude -p fan-out
+# the blind drafters, as a run plan
 # --------------------------------------------------------------------------- #
-def _have_claude() -> bool:
-    from shutil import which
+def drafter(kind: str, harness=None, model=None, effort=None) -> dict:
+    """The harness, model and effort the ``kind`` edition's drafters run on.
 
-    return which("claude") is not None
+    An invocation's own choice wins, then the kind's table under ``kinds`` in
+    the variant policy, then the policy's defaults. A harness left unnamed is
+    inferred from the model, which recognizes Claude's names and sends
+    anything else to Codex; Antigravity is always named.
+    """
+    from quirework.providers import models
+
+    policy = current_project().data("publish.variant_policy", {})
+    table = (policy.get("kinds") or {}).get(kind) or {}
+    model = model or table.get("model") or policy.get("default_model")
+    harness = (
+        harness
+        or table.get("harness")
+        or policy.get("default_harness")
+        or (models.harness_for(model) if model else None)
+    )
+    effort = (
+        effort or table.get("effort") or policy.get("default_effort") or DEFAULT_EFFORT
+    )
+    return {"harness": harness, "model": model, "effort": effort}
 
 
-def _drafter_argv(model):
-    """The blind drafter's command; the prompt arrives on stdin."""
+def seat_id(unit: str) -> str:
+    return f"draft-{unit}"
+
+
+def plan(kind: str, drafts: list[dict], seat: dict) -> dict:
+    """One run-engine seat per draft, each a single no-tools turn.
+
+    ``drafts`` are ``{unit, title, source, prompt}``. The metadata is what
+    ``import_drafts`` reads back: which edition, and which unit each answer
+    is the draft of.
+    """
+    harness = seat["harness"]
+    return {
+        "title": f"The {kind} edition: {len(drafts)} blind draft(s)",
+        "metadata": {"variant": {"kind": kind}},
+        "seats": [
+            {
+                "id": seat_id(d["unit"]),
+                **seat,
+                # agy audits file access and cannot enforce isolation; the seat
+                # has no tools either way, and its receipt says which it was.
+                "policy": {
+                    "tools": "none",
+                    "filesystem": "audited" if harness == "agy" else "enforced",
+                },
+                # agy keeps its login in the keyring, which every agy jail can
+                # reach; a seat with no tools cannot use it.
+                **({"accept_red_flags": ["session-bus"]} if harness == "agy" else {}),
+                "metadata": {
+                    "variant": {
+                        "kind": kind,
+                        "unit": d["unit"],
+                        "title": d["title"],
+                        "source": d["source"],
+                    }
+                },
+                "turns": [{"id": TURN, "prompt": d["prompt"], "min_bytes": 20}],
+            }
+            for d in drafts
+        ],
+    }
+
+
+def run_directory(kind: str, model: str) -> Path:
+    """A new directory in the project's private state for one drafting run.
+
+    The plan holds the whole book once per seat and the record holds every
+    prompt and answer, so both stay outside the checkout. A second run on
+    the same day takes the next free suffix.
+    """
+    root = current_project().state_root
+    stem = re.sub(
+        r"[^A-Za-z0-9.-]+", "-", f"variant-{kind}-{date.today().isoformat()}-{model}"
+    )
+    candidate, n = root / stem, 1
+    while candidate.exists():
+        n += 1
+        candidate = root / f"{stem}-{n}"
+    return candidate
+
+
+def recovery_lines(kind: str, record: Path) -> list[str]:
     return [
-        "claude",
-        "-p",
-        "--model",
-        model,
-        *BLIND_SETTINGS,
-        *NO_SETTING_SOURCES,
-        *MIN_TOOLS,
-        *NO_MCP,
+        f"  quirework sop runs inspect {record}",
+        f"  quirework sop runs start {record}",
+        f"  quirework publish variant import {kind} {record}",
     ]
 
 
-def _drafter_twin(prompt, model, workdir, session):
-    return canary.Twin(_drafter_argv(model), prompt.encode())
+def import_drafts(kind: str, record, out_dir: Path | None = None) -> int:
+    """Copy each finished seat's answer into the edition's drafts; 0 if all.
 
-
-def run_blind(prompt: str, model: str, timeout: int, proven) -> tuple[bool, str]:
-    """One headless, blind ``claude -p``, confined. (ok, text-or-error).
-
-    ``proven`` is the drafter's canary record, from ``canary.require``.
+    The record is verified first, so a changed answer or input is refused. A
+    seat with a red flag its plan did not accept is held, and a seat with no
+    answer yet is reported, so neither reaches ``_raw/``. Each draft that
+    does is entered in ``receipts.json`` beside it under its unit, replacing
+    that unit's earlier entry and leaving the others, so redrafting one
+    chapter keeps the rest of the edition's record.
     """
-    sd = seat_dir()
-    try:
-        res = subprocess.run(
-            confine(_drafter_argv(model), sd, runners=["claude"], canary=proven),
-            input=prompt,
-            text=True,
-            capture_output=True,
-            cwd=str(sd),
-            timeout=timeout,
+    from quirework.runs.engine import Run
+
+    run = Run(record)
+    run.verify()
+    if (run.plan.get("metadata") or {}).get("variant", {}).get("kind") != kind:
+        raise ValueError(f"{record} is not a run of the {kind} edition's drafters")
+    raw = (out_dir or (current_project().path("publish.variants") / kind)) / RAW
+    raw.mkdir(parents=True, exist_ok=True)
+    ledger = raw / RECEIPTS
+    receipts = (
+        json.loads(ledger.read_text(encoding="utf-8"))
+        if ledger.is_file()
+        else {"drafts": {}}
+    )
+    missing = 0
+    for name, seat in run.seats.items():
+        meta = (seat.get("metadata") or {}).get("variant") or {}
+        unit = meta.get("unit")
+        if not unit:
+            continue
+        done = run.state(name)["done"].get(TURN)
+        if not done:
+            missing += 1
+            print(f"  WAIT  {unit:28} not answered")
+            continue
+        open_flags, accepted = run.red_flags(name)
+        if open_flags:
+            missing += 1
+            print(f"  HELD  {unit:28} {'; '.join(open_flags)}")
+            continue
+        answer = (run.record(name, TURN) / "answers" / "answer.md").read_text(
+            encoding="utf-8"
         )
-    except subprocess.TimeoutExpired:
-        return False, f"TIMEOUT after {timeout}s"
-    if res.returncode != 0:
-        return False, f"claude exited {res.returncode}: {res.stderr.strip()[:200]}"
-    body = res.stdout.strip()
-    return (bool(body), body or "empty response")
+        body = answer.strip() + "\n"
+        (raw / f"{unit}.md").write_text(body, encoding="utf-8")
+        receipt = done["receipt"]
+        config = seat["config"]
+        receipts["drafts"][unit] = {
+            "source": meta.get("source"),
+            "harness": config["harness"],
+            "requested_model": config.get("requested_model", config["model"]),
+            "model": receipt.get("model"),
+            "effort": receipt.get("effort", config.get("effort")),
+            "cost_usd": receipt.get("cost_usd"),
+            "billing": receipt.get("billing"),
+            "session_id": receipt.get("session_id"),
+            "accepted_flags": accepted,
+            "run": run.plan.get("id"),
+            "record": Path(record).resolve().parent.name,
+            "seat": name,
+            "sha256": hashlib.sha256(body.encode()).hexdigest(),
+        }
+        cost = receipt.get("cost_usd")
+        priced = ""
+        if isinstance(cost, (int, float)):
+            priced = f"  ${cost:.2f}" if cost >= 0.01 else f"  ${cost:.4f}"
+        print(
+            f"  OK    {unit:28} ({len(body.split())} words)  "
+            f"{config['harness']} {receipt.get('model')}{priced}"
+        )
+    receipts["drafts"] = dict(sorted(receipts["drafts"].items()))
+    ledger.write_text(json.dumps(receipts, indent=2) + "\n", encoding="utf-8")
+    print(f"drafts in {_rel(raw)}, receipts in {_rel(ledger)}")
+    if missing:
+        print(f"{missing} draft(s) not imported. Reconcile the run, then import:")
+        print("\n".join(recovery_lines(kind, Path(record).resolve())))
+        return 1
+    return 0
 
 
 # --------------------------------------------------------------------------- #
@@ -420,22 +539,34 @@ def _print_sop(kind: str | None) -> int:
 def cmd_build(argv: list[str]) -> int:
     kind = None
     out_dir = None
-    model = _options().DEFAULT_MODEL
+    chosen = {}
     par = DEFAULT_PAR
     timeout = DEFAULT_TIMEOUT_S
     only = None
     dry = False
+    plan_only = False
     i = 0
     while i < len(argv):
         a = argv[i]
         if a in ("-h", "--help"):
             print(USAGE, end="")
             return 0
+        elif a in (
+            "--out",
+            "--harness",
+            "--model",
+            "--effort",
+            "--par",
+            "--only",
+            "--timeout",
+        ) and i + 1 >= len(argv):
+            print(f"build: {a} needs a value", file=sys.stderr)
+            return 2
         elif a == "--out":
             out_dir = Path(argv[i + 1])
             i += 2
-        elif a == "--model":
-            model = argv[i + 1]
+        elif a in ("--harness", "--model", "--effort"):
+            chosen[a[2:]] = argv[i + 1]
             i += 2
         elif a == "--par":
             par = int(argv[i + 1])
@@ -448,6 +579,9 @@ def cmd_build(argv: list[str]) -> int:
             i += 2
         elif a == "--dry-run":
             dry = True
+            i += 1
+        elif a == "--plan-only":
+            plan_only = True
             i += 1
         elif not a.startswith("-") and kind is None:
             kind = a
@@ -477,14 +611,15 @@ def cmd_build(argv: list[str]) -> int:
     titles_only = [c for c in chapters if not has_prose(c["path"])]
     chapters = [c for c in chapters if c not in titles_only]
 
+    seat = drafter(kind, **chosen)
     out_dir = out_dir or (current_project().path("publish.variants") / kind)
-    raw_dir = out_dir / "_raw"
     print(
         f"variant build: {kind}  ({len(chapters)} chapter(s), "
-        f"model={model or 'unset'}, par={par})"
+        f"{seat['harness'] or 'harness unset'} {seat['model'] or 'model unset'} "
+        f"at {seat['effort']}, par={par})"
     )
     print(f"  bundle: {len(bundle.split())} words, blindness check OK")
-    print(f"  raw drafts -> {raw_dir}")
+    print(f"  raw drafts -> {_rel(out_dir / RAW)}")
     for c in titles_only:
         print(
             f'  skip         {c["slug"]:28}  "{c["title"]}": a title, nothing to retell'
@@ -498,62 +633,88 @@ def cmd_build(argv: list[str]) -> int:
                 f'  would draft  {c["slug"]:28}  "{c["title"]}"  '
                 f"({len(figures_for(c['path']))} figure(s))"
             )
-        print("dry run: no claude -p launched.")
+        print("dry run: no plan written, no seat started.")
         return 0
-    if model is None:
+    if seat["model"] is None:
         print(
             "no model selected: pass --model, or set default_model in the file "
             "publish.variant_policy names.",
             file=sys.stderr,
         )
         return 2
-    if not _have_claude():
-        print(
-            "`claude` not found on PATH; cannot run the blind drafters.",
-            file=sys.stderr,
-        )
-        return 127
 
-    raw_dir.mkdir(parents=True, exist_ok=True)
-    prompts = {
-        c["slug"]: assemble_prompt(
-            kind_label, bundle, c, reader, voice, figures_for(c["path"])
-        )
+    drafts = [
+        {
+            "unit": c["slug"],
+            "title": c["title"],
+            "source": _rel(c["path"]),
+            "prompt": assemble_prompt(
+                kind_label, bundle, c, reader, voice, figures_for(c["path"])
+            ),
+        }
         for c in chapters
-    }
+    ]
+    run_dir = run_directory(kind, seat["model"])
+    (run_dir / "plan").mkdir(parents=True)
+    plan_path = run_dir / "plan" / "plan.json"
+    plan_path.write_text(json.dumps(plan(kind, drafts, seat), indent=2) + "\n")
+    record = run_dir / "record"
+    print(f"  plan: {plan_path}", flush=True)
+    if plan_only:
+        print("next:")
+        print(f"  quirework sop runs prepare {plan_path} {record}")
+        print("\n".join(recovery_lines(kind, record)[1:]))
+        return 0
+
+    from quirework.runs import commands as runs
+    from quirework.runs import engine
 
     try:
-        proven = canary.require("variant drafter", "claude", _drafter_twin)
-    except canary.CanaryError as exc:
+        engine.prepare(plan_path, record)
+    except (ValueError, RuntimeError, OSError) as exc:
+        # Nothing ran and nothing else names this directory yet, so a plan
+        # the engine refuses leaves nothing behind.
+        shutil.rmtree(run_dir)
+        print(f"variant: cannot prepare the drafters' run: {exc}", file=sys.stderr)
+        return 2
+    print(f"  record: {record}", flush=True)
+    runs.main(["start", str(record), "--jobs", str(par), "--timeout", str(timeout)])
+    rc = import_drafts(kind, record, out_dir)
+    if rc == 0:
+        print(
+            "next (operator): the analyze and compose steps in "
+            f"{_rel(procedure('variant-common'))}. Composing the edition "
+            "is judgment, so the tool stops here."
+        )
+    return rc
+
+
+def cmd_import(argv: list[str]) -> int:
+    out_dir = None
+    rest = []
+    i = 0
+    while i < len(argv):
+        if argv[i] in ("-h", "--help"):
+            print(USAGE, end="")
+            return 0
+        if argv[i] == "--out" and i + 1 < len(argv):
+            out_dir = Path(argv[i + 1])
+            i += 2
+            continue
+        rest.append(argv[i])
+        i += 1
+    if len(rest) != 2 or any(a.startswith("-") for a in rest):
+        print("usage: quirework publish variant import KIND RECORD", file=sys.stderr)
+        return 2
+    kind, record = rest
+    try:
+        return import_drafts(kind, Path(record).expanduser(), out_dir)
+    except (ValueError, RuntimeError, OSError) as exc:
         print(f"variant: {exc}", file=sys.stderr)
-        return 1
-
-    def _one(c):
-        ok, body = run_blind(prompts[c["slug"]], model, timeout, proven)
-        if ok:
-            (raw_dir / f"{c['slug']}.md").write_text(body + "\n")
-        return c["slug"], ok, body
-
-    fails = 0
-    with cf.ThreadPoolExecutor(max_workers=max(1, par)) as pool:
-        for slug, ok, body in pool.map(_one, chapters):
-            if ok:
-                nwords = len((raw_dir / f"{slug}.md").read_text().split())
-                print(f"  OK    {slug:28} ({nwords} words)")
-            else:
-                fails += 1
-                print(f"  FAIL  {slug:28} {body}")
-
-    print(f"\n{len(chapters) - fails}/{len(chapters)} drafts written to {raw_dir}")
-    print(
-        "next (operator): the analyze and compose steps in "
-        f"{_rel(procedure('variant-common'))}. Composing the edition "
-        "is judgment, so the tool stops here."
-    )
-    return 1 if fails else 0
+        return 2
 
 
-USAGE = """usage: quirework publish variant [KIND | build KIND [OPTIONS]]
+USAGE = """usage: quirework publish variant [KIND | build KIND [OPTIONS] | import KIND RECORD]
 
 Derived editions of the book, one per audience or medium the project declares
 as a variant-KIND procedure. The canonical text is always the master; a variant
@@ -562,19 +723,30 @@ is generated from it, never the other way round.
   quirework publish variant                 list the kinds
   quirework publish variant KIND            print that kind's operator playbook (SOP)
   quirework publish variant build KIND      run the mechanical layer: assemble a
-                                     blindness-safe bundle, then fan out one
-                                     blind `claude -p` per chapter into
-                                     publish.variants/KIND/_raw/ for the operator's
-                                     analyze + compose pass
+                                     blindness-safe bundle, plan one blind,
+                                     no-tools seat per chapter, run the plan
+                                     through the run engine, and import the
+                                     drafts into publish.variants/KIND/_raw/
+                                     with receipts.json beside them
+  quirework publish variant import KIND RECORD
+                                     import a run's finished drafts, after
+                                     `sop runs start RECORD` finished or
+                                     resumed it
 
 build options:
-  --out DIR      output dir (default: publish.variants/KIND/)
-  --model M      model for the per-chapter runs (default: the variant
-                 policy's default_model)
-  --par N        how many chapters to run in parallel (default: 5)
+  --harness H    claude, codex or agy (default: the kind's table in the
+                 variant policy, then default_harness, then the one the
+                 model's name implies)
+  --model M      model for the drafters (default: the kind's table, then
+                 default_model)
+  --effort E     effort for the drafters (default: the kind's table, then
+                 default_effort, then high)
+  --par N        how many drafters to run at once (default: 5)
   --only SUBSTR  restrict to chapters whose slug contains SUBSTR
-  --timeout S    per-chapter timeout in seconds (default: 600)
-  --dry-run      print what would run, run nothing
+  --timeout S    per-draft timeout in seconds (default: 600)
+  --out DIR      edition dir (default: publish.variants/KIND/)
+  --plan-only    write the plan and print the commands that run it
+  --dry-run      print what would run, write and run nothing
 
 options:
   -h, --help     show this help message and exit
@@ -588,6 +760,8 @@ def main(argv=None) -> int:
         return 0
     if argv and argv[0] == "build":
         return cmd_build(argv[1:])
+    if argv and argv[0] == "import":
+        return cmd_import(argv[1:])
     if not argv:
         return _print_sop(None)
     return _print_sop(argv[0])
