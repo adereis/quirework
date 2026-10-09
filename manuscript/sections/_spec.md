@@ -19,7 +19,9 @@ lived only in sentences, scattered across eleven chapters, with nothing
 holding them together. Two Shops ends where the contradiction stops
 being about two shops, without saying so; Index Cards is the first
 chapter to say it out loud, once, plainly, near its end, and it does not
-say it again.
+say it again. The Demo carries it by showing it: on Hedda's monitor a
+claim stands once, with the sentences it lives in under it, and the
+chapter never says what that means.
 
 ## Two shops, one habit {#two-shops}
 
@@ -132,11 +134,27 @@ Hedda Count, Cy's manager, is kind and busy and ends every one-on-one
 with "how's the book?" Cy's answers go from "chapter four" to "I'm
 building something for chapter four" to a live demo, in Hedda's office,
 on Hedda's monitor, of the tool catching Cy's own book disagreeing with
-itself. Hedda watches all of it and asks whether the book is done. Hedda
-keeps a running document for their one-on-ones, copied forward each
-time, and its line "Book: ch. 4" survives every copy until the second
-answer, when Hedda says "Good", writes it down, and the line changes for
-the first time, to "Book: ch. 4 (tool)".
+itself. Hedda keeps a running document for their one-on-ones, copied
+forward each time, and its line "Book: ch. 4" survives every copy until
+the second answer, when Hedda says "Good", writes it down, and the line
+changes for the first time, to "Book: ch. 4 (tool)".
+
+The third answer is not a sentence: Cy says "Can I show you?" and Hedda
+turns her monitor toward Cy. Cy rehearsed for a week, at the kitchen
+table, against a four-minute timer, and the tool found only the two
+shops every night. On Hedda's monitor it finds the two shops in under a
+second, as expected, and three new contradictions, not expected: the
+night before, Cy made chapter three's date agree with chapter eight, and
+three other chapters still held the old one. Cy had rehearsed the demo,
+not the book. The demo runs past Hedda's hard stop, and they stand up
+nine minutes late. Hedda watches all of it, and asks one question in the
+middle, what the orange means: "contradicts, but I like it". She writes
+that down, and Cy does not know where. At the end she asks whether the
+book is done. Cy says no, the first time the true answer is shorter than
+the demo. The document is shared with Cy, and that week its line changes
+again, to "Book: demo." The chapter ends on that line, with nothing
+after it; that it is the first version without a number is left for the
+reader.
 
 Red Penn, Cy's editor at a small press, waits three years for chapter
 twelve and gets a nine-hundred-line README: Cy meant to send an outline

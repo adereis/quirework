@@ -37,6 +37,12 @@
 
   Index Cards states the thesis once, near its end, and never repeats it
 
+- 2026-10-09T21:24:11Z · sharpen · claude-code
+  0663b488-1b9b-4e04-bb27-d52321b9ced8
+
+  The Demo shows the claims on Hedda's screen and does not repeat Index
+  Cards' statement
+
 ## Two shops, one habit {#two-shops}
 
 - 2026-10-09T20:18:07Z · seed · claude-code
@@ -223,6 +229,19 @@
   sent because it was longest and had headings; best thing in three
   years and documentation; Red quotes line 612 later; one line back;
   Getting Started
+
+- 2026-10-09T21:24:11Z · sharpen · claude-code
+  0663b488-1b9b-4e04-bb27-d52321b9ced8
+
+  The Demo material: Can I show you?, the week of rehearsal, the two
+  shops and three new contradictions, the orange, whether the book is
+  done, and Book: demo.
+
+- 2026-10-09T21:29:56Z · accept · claude-code
+  0663b488-1b9b-4e04-bb27-d52321b9ced8
+
+  Keeps every Demo invention as true, and the ending on Book: demo. with
+  nothing after it
 
 ## The tool is not the book it was built for {#not-the-book-it-was-built-for}
 
