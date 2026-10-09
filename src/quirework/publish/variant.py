@@ -79,6 +79,32 @@ Output ONLY the rewritten chapter, as Markdown, beginning with a single "# "
 title line. No preamble, no sign-off, no notes about your choices. Everything you
 need is in this message; do not use any tools."""
 
+# The opening of the one prompt an edition in the document shape is drafted
+# from: the whole book retold as one piece, such as a memo, rather than one
+# chapter at a time.
+DOCUMENT_INTRO = """\
+You are a book editor. You are making the {KIND} edition of the supplied book. Your one job in this message:
+retell the WHOLE book as ONE document for the target reader, keeping every idea and every
+honest doubt, but recast for that reader and that form.
+
+The message has five parts:
+  [1] THE WHOLE BOOK, the source you retell.
+  [2] YOUR TASK.
+  [3] THE READER you are writing for.
+  [4] VOICE RULES.
+  [5] ILLUSTRATIONS that already exist; lean on them instead of describing them
+      in full.
+
+Output ONLY the document, as Markdown, beginning with a single "# " title line and
+using "## " headings for its sections. No preamble, no sign-off, no notes about your
+choices. Everything you need is in this message; do not use any tools."""
+
+# How an edition is drafted: one seat per chapter, or one seat for the whole
+# edition as a single document.
+SHAPES = ("chapters", "document")
+# The unit a document-shaped edition's single draft is filed under.
+DOCUMENT = "document"
+
 
 # --------------------------------------------------------------------------- #
 # pure helpers (unit-tested; no I/O)
@@ -262,15 +288,15 @@ def figures_for(path: Path) -> list[dict]:
     return out
 
 
-def _figure_block(figs: list[dict]) -> str:
+def _figure_block(figs: list[dict], scope: str = "THIS chapter") -> str:
     if not figs:
         return (
-            "No illustration is assigned to this chapter specifically. If a simple "
-            "picture would obviously help, you may suggest one in a single bracketed "
-            "line like [PICTURE: a short caption], but do not force it."
+            f"No illustration is assigned to {scope.lower()} specifically. If a "
+            "simple picture would obviously help, you may suggest one in a single "
+            "bracketed line like [PICTURE: a short caption], but do not force it."
         )
     lines = [
-        "Pictures that already exist for THIS chapter (refer to them, don't re-describe):"
+        f"Pictures that already exist for {scope} (refer to them, don't re-describe):"
     ]
     for f in figs:
         lines.append(f'  - "{f["name"]}": {f["desc"]}')
@@ -320,6 +346,34 @@ def assemble_prompt(
     )
 
 
+def assemble_document_prompt(
+    kind_label: str, bundle: str, reader: str, voice: str, figs: list[dict]
+) -> str:
+    """The one prompt a document-shaped edition is drafted from."""
+    task = (
+        f"Retell the whole book below as one document: the {kind_label} edition. "
+        f"Keep the book's argument and the order it is made in, unless the reader "
+        f'needs another. Keep every hedge and every "maybe" the original holds; '
+        f"simpler is allowed, more confident is not."
+    )
+    intro = (
+        current_project()
+        .data("publish.variant_policy", {})
+        .get("document_intro", DOCUMENT_INTRO)
+    )
+    return (
+        f"{intro.format(KIND=kind_label.upper())}\n\n"
+        f"=== [1] THE WHOLE BOOK (the source you retell) ===\n\n"
+        f"{bundle}\n\n"
+        f"=== [2] YOUR TASK ===\n\n{task}\n\n"
+        f"=== [3] THE READER ===\n\n{reader}\n\n"
+        f"=== [4] VOICE RULES ===\n\n{voice}\n\n"
+        f"=== [5] ILLUSTRATIONS ===\n\n{_figure_block(figs, 'the book')}\n\n"
+        f"=== END. Now output ONLY the {kind_label} edition, as one Markdown "
+        f"document. ===\n"
+    )
+
+
 def assert_blind(bundle: str, tells: tuple[str, ...] = ()) -> None:
     """Fail fast if any project marginalia survived into the drafter's bundle.
 
@@ -363,6 +417,18 @@ def drafter(kind: str, harness=None, model=None, effort=None) -> dict:
         effort or table.get("effort") or policy.get("default_effort") or DEFAULT_EFFORT
     )
     return {"harness": harness, "model": model, "effort": effort}
+
+
+def shape(kind: str) -> str:
+    """How the ``kind`` edition is drafted: by chapter, or as one document."""
+    policy = current_project().data("publish.variant_policy", {})
+    value = ((policy.get("kinds") or {}).get(kind) or {}).get("shape", SHAPES[0])
+    if value not in SHAPES:
+        raise ValueError(
+            f"kinds.{kind}.shape in the variant policy is {value!r}; "
+            f"it is one of {', '.join(SHAPES)}"
+        )
+    return value
 
 
 def seat_id(unit: str) -> str:
@@ -597,6 +663,18 @@ def cmd_build(argv: list[str]) -> int:
         return 2
 
     kind_label = kind.replace("-", " ")
+    try:
+        form = shape(kind)
+    except ValueError as exc:
+        print(f"variant: {exc}", file=sys.stderr)
+        return 2
+    if form == DOCUMENT and only:
+        print(
+            f"--only picks chapters, and the {kind} edition is drafted as one "
+            "document; redraft it whole",
+            file=sys.stderr,
+        )
+        return 2
     voice, reader = read_brief(kind)
     all_chapters = chapter_order()
     chapters = all_chapters
@@ -613,13 +691,20 @@ def cmd_build(argv: list[str]) -> int:
 
     seat = drafter(kind, **chosen)
     out_dir = out_dir or (current_project().path("publish.variants") / kind)
+    scope = (
+        f"one document from {len(all_chapters)} chapter(s)"
+        if form == DOCUMENT
+        else f"{len(chapters)} chapter(s)"
+    )
     print(
-        f"variant build: {kind}  ({len(chapters)} chapter(s), "
+        f"variant build: {kind}  ({scope}, "
         f"{seat['harness'] or 'harness unset'} {seat['model'] or 'model unset'} "
         f"at {seat['effort']}, par={par})"
     )
     print(f"  bundle: {len(bundle.split())} words, blindness check OK")
     print(f"  raw drafts -> {_rel(out_dir / RAW)}")
+    if form == DOCUMENT:
+        titles_only = []
     for c in titles_only:
         print(
             f'  skip         {c["slug"]:28}  "{c["title"]}": a title, nothing to retell'
@@ -627,6 +712,11 @@ def cmd_build(argv: list[str]) -> int:
     if not chapters:
         print("no chapter has prose to retell", file=sys.stderr)
         return 2
+    if dry and form == DOCUMENT:
+        figs = [f for c in all_chapters for f in figures_for(c["path"])]
+        print(f"  would draft  {DOCUMENT:28}  the whole book  ({len(figs)} figure(s))")
+        print("dry run: no plan written, no seat started.")
+        return 0
     if dry:
         for c in chapters:
             print(
@@ -643,17 +733,33 @@ def cmd_build(argv: list[str]) -> int:
         )
         return 2
 
-    drafts = [
-        {
-            "unit": c["slug"],
-            "title": c["title"],
-            "source": _rel(c["path"]),
-            "prompt": assemble_prompt(
-                kind_label, bundle, c, reader, voice, figures_for(c["path"])
-            ),
-        }
-        for c in chapters
-    ]
+    if form == DOCUMENT:
+        drafts = [
+            {
+                "unit": DOCUMENT,
+                "title": f"The {kind_label} edition",
+                "source": _rel(_settings().QUARTO),
+                "prompt": assemble_document_prompt(
+                    kind_label,
+                    bundle,
+                    reader,
+                    voice,
+                    [f for c in all_chapters for f in figures_for(c["path"])],
+                ),
+            }
+        ]
+    else:
+        drafts = [
+            {
+                "unit": c["slug"],
+                "title": c["title"],
+                "source": _rel(c["path"]),
+                "prompt": assemble_prompt(
+                    kind_label, bundle, c, reader, voice, figures_for(c["path"])
+                ),
+            }
+            for c in chapters
+        ]
     run_dir = run_directory(kind, seat["model"])
     (run_dir / "plan").mkdir(parents=True)
     plan_path = run_dir / "plan" / "plan.json"
@@ -724,7 +830,8 @@ is generated from it, never the other way round.
   quirework publish variant KIND            print that kind's operator playbook (SOP)
   quirework publish variant build KIND      run the mechanical layer: assemble a
                                      blindness-safe bundle, plan one blind,
-                                     no-tools seat per chapter, run the plan
+                                     no-tools seat per chapter (or one for a
+                                     document-shaped kind), run the plan
                                      through the run engine, and import the
                                      drafts into publish.variants/KIND/_raw/
                                      with receipts.json beside them
@@ -742,7 +849,8 @@ build options:
   --effort E     effort for the drafters (default: the kind's table, then
                  default_effort, then high)
   --par N        how many drafters to run at once (default: 5)
-  --only SUBSTR  restrict to chapters whose slug contains SUBSTR
+  --only SUBSTR  restrict to chapters whose slug contains SUBSTR (an
+                 edition whose kind has shape = "document" is drafted whole)
   --timeout S    per-draft timeout in seconds (default: 600)
   --out DIR      edition dir (default: publish.variants/KIND/)
   --plan-only    write the plan and print the commands that run it

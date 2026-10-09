@@ -743,8 +743,14 @@ harness = "codex"
 model = "gpt-sol"
 ```
 
-`--harness`, `--model` and `--effort` override it for one build. The
-plan and its record stay in the project's private state, outside the
+An edition that is one piece rather than a book, such as a memo, is
+drafted whole. `shape = "document"` in its kind's table gives it one
+seat, which reads the book and retells all of it as a single document
+with `##` sections, into `_raw/document.md`. Its brief then describes
+the whole document's reader and form, not a chapter's.
+
+`--harness`, `--model` and `--effort` override the policy for one build.
+The plan and its record stay in the project's private state, outside the
 checkout. Each draft comes in with an entry in `_raw/receipts.json`: the
 harness, the model asked for and the model that answered, the effort,
 the price where the harness reports one, and the run and seat it came

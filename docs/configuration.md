@@ -1020,12 +1020,14 @@ and visual choices out of Quirework's implementation:
 - `sops.persona_policy`: the optional `default` persona ID.
 - `sops.review_policy`: review frames, reviewable source paths, and
   `hidden`, the checkout paths a jailed reviewer must not read.
-- `publish.variant_policy`: who drafts each derived edition.
+- `publish.variant_policy`: who drafts each derived edition, and how.
   `default_model`, `default_harness` and `default_effort` apply to every
   kind, and a `[kinds.KIND]` table overrides any of `model`, `harness`
-  and `effort` for one kind. `blind_tells` names marks of the project's
-  own that a drafter's bundle must never contain, and `prompt_intro`
-  replaces the drafter's opening instructions.
+  and `effort` for one kind. Its `shape` is `chapters`, one draft per
+  chapter, or `document`, one draft of the whole edition. `blind_tells`
+  names marks of the project's own that a drafter's bundle must never
+  contain, and `prompt_intro` and `document_intro` replace the opening
+  instructions of a chapter's drafter and a document's.
 - `provenance.metrics_policy` and `provenance.coldread_policy`:
   historical source classifications, explicitly selected analysis
   models, and `output_counts`, which names each collection the metrics

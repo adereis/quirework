@@ -261,6 +261,63 @@ def test_the_drafter_is_the_invocations_then_the_kinds_then_the_defaults(tmp_pat
         assert variant.drafter("postcard", model="opus")["effort"] == "high"
 
 
+def test_an_edition_is_drafted_by_chapter_unless_its_kind_says_document(tmp_path):
+    root = _book(tmp_path)
+    with project_scope(
+        _policy(
+            root, '[kinds.postcard]\nshape = "document"\n[kinds.odd]\nshape = "x"\n'
+        )
+    ):
+        assert variant.shape("postcard") == "document"
+        assert variant.shape("telegram") == "chapters"
+        with pytest.raises(ValueError, match="one of chapters, document"):
+            variant.shape("odd")
+
+
+def test_a_document_edition_is_one_seat_given_the_whole_book(
+    tmp_path, capsys, monkeypatch
+):
+    root = _book(tmp_path)
+    (root / "config").mkdir()
+    (root / "config" / "variant-policy.toml").write_text(
+        'default_model = "sonnet"\n[kinds.postcard]\nshape = "document"\n'
+    )
+    (root / "quirework.toml").write_text(
+        _CONFIG.replace(
+            'variants = "variants"',
+            'variants = "variants"\nvariant_policy = "config/variant-policy.toml"',
+        )
+    )
+    monkeypatch.setenv("XDG_STATE_HOME", str(tmp_path / "state"))
+    from quirework.cli import main
+
+    def build(*args):
+        return main(
+            ["--project", str(root), "publish", "variant", "build", "postcard", *args]
+        )
+
+    assert build("--dry-run") == 0
+    out = capsys.readouterr().out
+    assert "one document from 3 chapter(s)" in out
+    assert "would draft  document" in out and "(1 figure(s))" in out
+
+    assert build("--only", "opening") == 2
+    assert "drafted as one document" in capsys.readouterr().err
+
+    assert build("--plan-only") == 0
+    (plan,) = (tmp_path / "state").rglob("plan.json")
+    (seat,) = json.loads(plan.read_text())["seats"]
+    assert seat["id"] == "draft-document"
+    assert seat["metadata"]["variant"]["source"] == "manuscript/_quarto.yml"
+    prompt = seat["turns"][0]["prompt"]
+    assert "retell the WHOLE book as ONE document" in prompt
+    assert "A kettle boils." in prompt and "The kettle cools." in prompt
+    assert "A reader in a hurry." in prompt and "Short sentences." in prompt
+    # The figures of every chapter, since the document retells all of them.
+    assert '"kettle": A kettle with steam leaving the spout' in prompt
+    assert "Rewrite the chapter titled" not in prompt
+
+
 def test_each_chapter_is_one_blind_seat_with_no_tools(tmp_path):
     drafts = [
         {"unit": u, "title": u.title(), "source": f"s/{u}.qmd", "prompt": f"P {u}"}
