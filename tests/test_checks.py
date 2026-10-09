@@ -1,6 +1,9 @@
 """The default check suite; no project corpus and no live tooling required."""
 
+import subprocess
+
 from quirework.core import checks
+from quirework.project import Project, project_scope
 
 SOURCE = "def keep(value):\n    return value\n"
 DRIFTED = "def keep( value ):\n  return  value\n"
@@ -111,3 +114,25 @@ def test_listing_a_suite_runs_nothing(monkeypatch, capsys):
     monkeypatch.setattr(checks.subprocess, "run", refuse)
     assert checks.default_checks(["--list"]) == 0
     assert "passed" not in capsys.readouterr().out
+
+
+def test_staged_files_are_named_from_the_project_not_the_repository(tmp_path, capsys):
+    """A book kept inside a larger repository is checked, and only it is.
+
+    Git names staged files from the repository's top, and the check reads
+    them from the project's root. For such a book the two differ, so every
+    staged path named a file that was not there and the suite passed
+    having read nothing at all.
+    """
+    repo = tmp_path / "repo"
+    book = repo / "book"
+    book.mkdir(parents=True)
+    subprocess.run(["git", "init", "-q", str(repo)], check=True)
+    (book / "broken.py").write_text("def (:\n")
+    (repo / "outside.py").write_text("def (:\n")
+    subprocess.run(["git", "-C", str(repo), "add", "."], check=True)
+    with project_scope(Project.from_settings(book, {})):
+        assert checks.default_checks(["--staged"]) == 1
+    printed = capsys.readouterr().out
+    assert "broken.py" in printed
+    assert "outside.py" not in printed

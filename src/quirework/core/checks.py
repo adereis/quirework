@@ -30,6 +30,10 @@ def default_checks(argv=None):
             print(f"  {name:22} {description}")
         return 0
     root = current_project().root
+    # Both listings name files from the project's root and stop at its edge.
+    # `ls-files` does that on its own; `diff` names them from the repository's
+    # top unless told otherwise, which for a book kept inside a larger
+    # repository pointed every path at a file that was not there.
     command = (
         [
             "git",
@@ -39,6 +43,7 @@ def default_checks(argv=None):
             "--cached",
             "--name-only",
             "--diff-filter=ACMR",
+            "--relative",
         ]
         if args.staged
         else [
