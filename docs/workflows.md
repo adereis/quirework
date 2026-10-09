@@ -56,8 +56,8 @@ flag every session once and leaves the decision, section by section, to
 a strong model. That decision needs the judgment of a strong model, so a
 project gives backfill a procedure of its own. Capturing and curating
 sessions is different work, mechanical enough for a small model, and a
-project's ingest procedure may name backfill as a follow-up without
-ever running it.
+project's ingest procedure may name backfill as a follow-up without ever
+running it.
 
 ## Procedures and skills
 
@@ -72,9 +72,10 @@ catalog. `quirework sop skills --target both` generates thin entry
 points for Claude Code and portable agents such as Codex. The generated
 skill routes the companion to the SOP through `quirework sop show`,
 which prints it verbatim and records that it was read. A SOP that
-declares modes gets them named in its route, and `sop show NAME --mode
-MODE` prints only the part that request needs. The SOP remains the
-content owner. Project configuration selects the skill-name prefix.
+declares modes gets them named in its route, and
+`sop show NAME --mode MODE` prints only the part that request needs. The
+SOP remains the content owner. Project configuration selects the
+skill-name prefix.
 
 Personas specify perspectives. Instruments specify questions. Panels
 specify an allocation of perspectives and models. None grants filesystem
@@ -149,24 +150,25 @@ A minimal plan contains explicit seats and ordered turns:
 }
 ```
 
-The model is an explicit choice, and it is best named by family:
-`opus`, `fable`, `sonnet`, `terra`, `sol`, `luna`, `gemini-pro`,
-`flash`. Preparation resolves a family to the newest version that
-harness's own catalog lists and freezes it, so a plan written today
-picks up next month's release without an edit. For example, `luna`
-prepares as `gpt-5.6-luna` today, and every turn of that run uses it.
-A version such as `opus-5.5` or `gpt-5.6-luna` pins the seat instead.
-A name no catalog can place is refused, and the refusal lists the
-families that exist. Claude Code keeps no local catalog, so a Claude
-family passes to the CLI as its own alias and the receipt records the
-version that answered. Every later turn of that session is pinned to
-the version that answered first, and its receipt shows the pin as
-`model_pinned`. An Opus released between a room's second and third
-rounds therefore does not change who is speaking.
+The model is an explicit choice, and it is best named by family: `opus`,
+`fable`, `sonnet`, `terra`, `sol`, `luna`, `gemini-pro`, `flash`.
+Preparation resolves a family to the newest version that harness's own
+catalog lists and freezes it, so a plan written today picks up next
+month's release without an edit. For example, `luna` prepares as
+`gpt-5.6-luna` today, and every turn of that run uses it. A version such
+as `opus-5.5` or `gpt-5.6-luna` pins the seat instead. A name no catalog
+can place is refused, and the refusal lists the families that exist.
+Claude Code keeps no local catalog, so a Claude family passes to the CLI
+as its own alias and the receipt records the version that answered.
+Every later turn of that session is pinned to the version that answered
+first, and its receipt shows the pin as `model_pinned`. An Opus released
+between a room's second and third rounds therefore does not change who
+is speaking.
 
-`quirework sop models list PROVIDER` and `resolve PROVIDER MODEL
---effort LEVEL` inspect available information without starting a model
-session. Unsupported capabilities fail during preparation.
+`quirework sop models list PROVIDER` and
+`resolve PROVIDER MODEL --effort LEVEL` inspect available information
+without starting a model session. Unsupported capabilities fail during
+preparation.
 
 Codex's catalog is what `codex debug models` prints, because the file
 Codex keeps at `~/.codex/models_cache.json` is written only by a real
@@ -259,12 +261,12 @@ A round is a resume of the session a seat already holds, so a seat keeps
 its reading and its reasoning and is handed only what changed. That
 holds after a provider limit too. `continue` takes an interrupted turn
 on inside its session. It sends a refused one again into the session it
-was continuing, first cutting away what the refused attempt appended,
-so the seat keeps every round it has had. Only a seat's very first
-turn, if refused, goes again in a fresh session, because there is
-nothing yet to keep. A roundtable's `continue` does the same. The first
-round has no board. A round listed in `silent_rounds` has one and is
-deliberately not shown it, which keeps opening positions independent.
+was continuing, first cutting away what the refused attempt appended, so
+the seat keeps every round it has had. Only a seat's very first turn, if
+refused, goes again in a fresh session, because there is nothing yet to
+keep. A roundtable's `continue` does the same. The first round has no
+board. A round listed in `silent_rounds` has one and is deliberately not
+shown it, which keeps opening positions independent.
 
 The digest concatenates a round's posts whole, attributed, in an order
 rotated by round number. It never summarizes. The staged packet and the
@@ -475,14 +477,15 @@ a seat may set `name` instead. A table seats each model once, because
 two seats called Opus would bring back the attribution confusion that
 real names remove.
 
-A shared file can be an excerpt. An entry with `"sections": ["slug",
-...]` takes the named sections of a Markdown file by their heading
-anchors, each with its subsections, verbatim and in the order given, so
-a table can read the three sections of a long specification that bear
-on its goal rather than all of it. The frozen plan records each packet
-file's source digest and, inside a Git repository, the commit it was
-read against and whether the file matched that commit. A packet
-described as quoting the book at a commit can then be checked to.
+A shared file can be an excerpt. An entry with
+`"sections": ["slug", ...]` takes the named sections of a Markdown file
+by their heading anchors, each with its subsections, verbatim and in the
+order given, so a table can read the three sections of a long
+specification that bear on its goal rather than all of it. The frozen
+plan records each packet file's source digest and, inside a Git
+repository, the commit it was read against and whether the file matched
+that commit. A packet described as quoting the book at a commit can then
+be checked to.
 
 An entry marked `"inline": true` is also handed in full with each
 model's first turn, in the order the plan lists it, and the standing
@@ -502,12 +505,12 @@ A person can take a seat as well:
 
 The roster describes the person in the plan's words and never as one
 more model, because a table whose roster lies about one seat is no
-evidence of how models work when told the truth. The standing
-assignment then names the collaboration as one between models and a
-person, says no one outranks another, and extends the checking norm to
-the person's posts. A model told that a user convened the room tends to
-defer to whoever sounds like that user, and agreement given to a person
-is agreement nobody tested.
+evidence of how models work when told the truth. The standing assignment
+then names the collaboration as one between models and a person, says no
+one outranks another, and extends the checking norm to the person's
+posts. A model told that a user convened the room tends to defer to
+whoever sounds like that user, and agreement given to a person is
+agreement nobody tested.
 
 A person's seat has no model, window or budget. Its place in the order
 is drawn like any other seat's unless the plan fixes it. With
@@ -554,17 +557,17 @@ that, seats follow the same neighbour as rarely as possible. A rotation
 would leave Luna answering Haiku in every round. With three seats the
 first two rules leave only a rotation, so the neighbours change when the
 next block begins. `order TABLE ROUND SEAT...` sets a round that has not
-opened, and the `--reason` is read out on the board when it opens,
-never earlier. Each turn tells the seat who has spoken and who follows,
-so it can address the people who will read it next.
+opened, and the `--reason` is read out on the board when it opens, never
+earlier. Each turn tells the seat who has spoken and who follows, so it
+can address the people who will read it next.
 
 `rounds` is a minimum. Before the round the table was promised as its
 last, the controller stops and waits for the supervisor:
 `decide TABLE close` makes it final, and `decide TABLE extend --to N`
-moves the end and draws orders for the rounds it adds. The same
-question then comes back before the new last round. Either way the
-decision goes on the board with the supervisor's `--message`. The
-controller never makes that call itself.
+moves the end and draws orders for the rounds it adds. The same question
+then comes back before the new last round. Either way the decision goes
+on the board with the supervisor's `--message`. The controller never
+makes that call itself.
 
 The closing message shapes the last round. Asking the table for one
 joint synthesis invites the convergence the checking norm works against:
@@ -575,15 +578,15 @@ objection to it, and what would change its mind keeps a disagreement
 visible to the end.
 
 `run` also stops at the end of any round in which a seat wrote to the
-supervisor or a turn failed. `inbox` reads the supervisor's mail, `mail
-TABLE [--round N]` reads every direct message in the order sent, which
-is what briefing a person seated at the table needs, `reply TABLE SEAT
-TEXT` answers one seat at its next turn, and `announce TABLE TEXT` posts
-to the board. None of them needs the table's lock, so the supervisor can
-write while a seat is mid-turn. The standing assignment asks seats to
-keep messages for questions and answers: in a pilot most messages that
-went unanswered were announcements of a post every seat would read on
-the board anyway.
+supervisor or a turn failed. `inbox` reads the supervisor's mail,
+`mail TABLE [--round N]` reads every direct message in the order sent,
+which is what briefing a person seated at the table needs,
+`reply TABLE SEAT TEXT` answers one seat at its next turn, and
+`announce TABLE TEXT` posts to the board. None of them needs the table's
+lock, so the supervisor can write while a seat is mid-turn. The standing
+assignment asks seats to keep messages for questions and answers: in a
+pilot most messages that went unanswered were announcements of a post
+every seat would read on the board anyway.
 
 A table runs without compaction, so a seat's context has to last every
 round, and each seat is given a budget in tokens before its first turn.
@@ -628,10 +631,10 @@ supervisor watches, or what would earn an extension.
 The standing assignment also says the user expects both collaboration
 and disagreement, and asks every seat to check the others' work rather
 than take it on trust. That is a norm for every seat, not a skeptic's
-chair for one. A chair lets the other seats hand their doubts to it,
-and a seat told to expect disagreement may raise objections only to
-comply. A first pilot given only permission to disagree had all three
-seats signing off by its third round.
+chair for one. A chair lets the other seats hand their doubts to it, and
+a seat told to expect disagreement may raise objections only to comply.
+A first pilot given only permission to disagree had all three seats
+signing off by its third round.
 
 `status TABLE` reads the table and changes nothing. It names what the
 table waits for, each seat's served model, turns and context, anything
@@ -680,18 +683,18 @@ text references. It prints no alt text: the seat opens the figures
 themselves, and a description beside each embed let a seat rate plates
 it never opened. A directory has no pages, so it carries the book's
 Parts as text instead: the first chapter of each Part opens with that
-Part's divider title above a rule, every later chapter of the Part
-opens with a running head naming it, and a chapter outside any Part
-carries neither. A seat can then say which Part a chapter sat in, as a
-print reader can. Its provenance goes beside the directory, never in it,
+Part's divider title above a rule, every later chapter of the Part opens
+with a running head naming it, and a chapter outside any Part carries
+neither. A seat can then say which Part a chapter sat in, as a print
+reader can. Its provenance goes beside the directory, never in it,
 because the directory is what the seat mounts: `DIR.manifest.json`
 records the book state, whether it had uncommitted edits, the Part each
 chapter file sits in, and a digest of every file.
-`quirework publish plan selfdriven DIR PLAN --mount PATH`
-compiles the walk: the seat opens each chapter with its own tools, opens
-the figures that chapter references, and writes a reaction file before
-opening the next one. One session's prefix only grows, so most of its
-input is served from cache.
+`quirework publish plan selfdriven DIR PLAN --mount PATH` compiles the
+walk: the seat opens each chapter with its own tools, opens the figures
+that chapter references, and writes a reaction file before opening the
+next one. One session's prefix only grows, so most of its input is
+served from cache.
 
 The two are not interchangeable, and the differences belong in the
 charter. The self-driven material is mounted rather than frozen, so the
@@ -715,31 +718,31 @@ reports `referenced_images_opened` and red-flags a shortfall. Any turn
 may declare it; a turn whose material is mounted rather than attached is
 where it earns its place.
 
-The text can fail silently too, and so can the mount. A turn may
-declare `referenced_files`, the files the seat is to read in full, in
-reading order, and the receipt reports `referenced_files_read` and
+The text can fail silently too, and so can the mount. A turn may declare
+`referenced_files`, the files the seat is to read in full, in reading
+order, and the receipt reports `referenced_files_read` and
 `referenced_files_in_order` from the tool calls in the native session,
 counting line ranges so that a chapter printed in pieces still adds up.
 A read the parser cannot recognize is reported as not proven, never as
-done. Reading in order is not reading blind, since a seat can open
-every file in sequence and still open three before reacting to the
-first. So where each referenced file has a declared output of its own,
-paired by file name (`chapters/02-later.md` with `drafts/02-later.md`),
-the receipt also reports `reactions_before_next`: whether each file was
+done. Reading in order is not reading blind, since a seat can open every
+file in sequence and still open three before reacting to the first. So
+where each referenced file has a declared output of its own, paired by
+file name (`chapters/02-later.md` with `drafts/02-later.md`), the
+receipt also reports `reactions_before_next`: whether each file was
 first opened only after the previous file's reaction was written. It
-reads writes from Claude's `Write` and `Edit`, Codex's `apply_patch`
-and shell redirection; a reaction whose write it cannot find is not
-proven, and both that and a file opened early raise a red flag. A
-policy may declare `read_root_digests`, one digest per mounted
-root: launch refuses to submit if the bytes have changed since the plan
-pinned them, and the receipt flags a change during the turn. That is how
-a mounted read's record names the bytes it read without freezing them.
+reads writes from Claude's `Write` and `Edit`, Codex's `apply_patch` and
+shell redirection; a reaction whose write it cannot find is not proven,
+and both that and a file opened early raise a red flag. A policy may
+declare `read_root_digests`, one digest per mounted root: launch refuses
+to submit if the bytes have changed since the plan pinned them, and the
+receipt flags a change during the turn. That is how a mounted read's
+record names the bytes it read without freezing them.
 
-A self-driven read needs its own instrument, not the printed-book one.
-A reader instrument opens by telling the seat what it has been handed,
-and a sentence promising attached pages is a lie told in the first line
-to a seat that fetches its own files. The tool composes the questions it
-is given and rewrites nothing: declare a reader preset whose questions
+A self-driven read needs its own instrument, not the printed-book one. A
+reader instrument opens by telling the seat what it has been handed, and
+a sentence promising attached pages is a lie told in the first line to a
+seat that fetches its own files. The tool composes the questions it is
+given and rewrites nothing: declare a reader preset whose questions
 describe a seat that opens its own material, and declare that preset's
 `delivery` so the wrong one is refused rather than composed.
 
@@ -766,12 +769,12 @@ expresses one commitment. `spec units --check`, `spec quotes`,
 declared invariants. A companion should run the checks named by the SOP
 before presenting a change as complete.
 
-`text tells` sits between the layers. It finds habits a model leaves
-in drafted prose mechanically, but whether a given contrast is the
-argument or a cadence is judgment. `text tells --since REV` gives a
-review pass a countable population: the hits the range adds. Give that
-pass a reader's perspective rather than the author's, and let the
-operator rule on each hit against the spec.
+`text tells` sits between the layers. It finds habits a model leaves in
+drafted prose mechanically, but whether a given contrast is the argument
+or a cadence is judgment. `text tells --since REV` gives a review pass a
+countable population: the hits the range adds. Give that pass a reader's
+perspective rather than the author's, and let the operator rule on each
+hit against the spec.
 
 The judgment layer asks whether a coherent edit is actually coherent
 with the rest of the work. `quirework sop review` gives an independent
@@ -780,31 +783,31 @@ Git delta. By default, the reviewer sees the repository read-only,
 history included. A linked worktree keeps its git directory in the main
 checkout, so the jail binds that directory too. Before a model is
 launched, the same jail must read every commit of the range, or nothing
-launches: a reviewer that cannot run `git log` does not stop, it
-reviews the final text and says so in a line that is easy to miss. Its
-private home does not carry the operator's saved conclusions. An
-unjailed fallback is disclosed in the run record.
+launches: a reviewer that cannot run `git log` does not stop, it reviews
+the final text and says so in a line that is easy to miss. Its private
+home does not carry the operator's saved conclusions. An unjailed
+fallback is disclosed in the run record.
 
 Inside the jail, a Codex reviewer runs without Codex's own command
 sandbox. The jail already confines it, and that sandbox cannot start in
-a read-only checkout: under Codex 0.160.1 every command and every
-write failed there, the report included, while the turn still
-completed. Each jailed Codex turn proves from Codex's own session
-record that it ran this way. Its shell commands reach the same network
-a Claude reviewer's do, the one the jail leaves open for the provider.
-An unjailed Codex reviewer keeps Codex's sandbox, with the report
-directory added as the one place outside the checkout it may write.
+a read-only checkout: under Codex 0.160.1 every command and every write
+failed there, the report included, while the turn still completed. Each
+jailed Codex turn proves from Codex's own session record that it ran
+this way. Its shell commands reach the same network a Claude reviewer's
+do, the one the jail leaves open for the provider. An unjailed Codex
+reviewer keeps Codex's sandbox, with the report directory added as the
+one place outside the checkout it may write.
 
 The checkout can hold the same kind of priors: scratch notes with
 rulings in them, or an earlier review of the same range, often in
-git-ignored directories. `sops.review_policy.hidden` lists such paths
-as globs relative to the checkout, and the jail masks each one. A
-directory becomes empty and a file reads as nothing. The review records
-directory is always masked when it lies inside the checkout, since no
-reviewer needs another run's verdicts. The preflight proves the masks
-from inside the jail before launch, and `launch.json` records them. A
-mask covers the checkout's copy only. A tracked path's history is still
-readable through git, and the launch says so.
+git-ignored directories. `sops.review_policy.hidden` lists such paths as
+globs relative to the checkout, and the jail masks each one. A directory
+becomes empty and a file reads as nothing. The review records directory
+is always masked when it lies inside the checkout, since no reviewer
+needs another run's verdicts. The preflight proves the masks from inside
+the jail before launch, and `launch.json` records them. A mask covers
+the checkout's copy only. A tracked path's history is still readable
+through git, and the launch says so.
 
 A range `A..B` covers the commits after `A`, not `A` itself. To review
 the last three commits, pass `HEAD~3..HEAD`, not `HEAD~2..HEAD`. Before
@@ -812,17 +815,17 @@ the reviewer starts, `review run` prints the commits the range covers
 and names the base it leaves out. Read that list before waiting on the
 review. Beside it, every turn prints one line naming the reviewer as it
 will launch: harness, model, effort, context window, whether compaction
-is prevented or only detected, and whether it is jailed. `review
-prompt` prints the same line, so the check before paying for a turn is
-one line rather than an argv behind a hundred lines of jail mounts.
-While a turn runs, `review status RUN --short` answers what a poll
-asks: which turns ended and how, how far the running one has got, and
-which can be continued. For a turn still running, status also reads the
-harness's own streams. It lists any compaction events, found by event
-type because the word itself turns up in whatever the reviewer read. It
-gives the last request's size against the window, and says why when the
-harness does not report one. So a compaction halfway through shows at
-the next poll rather than when the turn is collected.
+is prevented or only detected, and whether it is jailed. `review prompt`
+prints the same line, so the check before paying for a turn is one line
+rather than an argv behind a hundred lines of jail mounts. While a turn
+runs, `review status RUN --short` answers what a poll asks: which turns
+ended and how, how far the running one has got, and which can be
+continued. For a turn still running, status also reads the harness's own
+streams. It lists any compaction events, found by event type because the
+word itself turns up in whatever the reviewer read. It gives the last
+request's size against the window, and says why when the harness does
+not report one. So a compaction halfway through shows at the next poll
+rather than when the turn is collected.
 
 The reviewer must not be the model that made the edit. That requirement
 makes a cross-harness check straightforward: a Codex edit can go to
@@ -837,28 +840,27 @@ id.
 Each turn ends by printing where its report was banked, the receipt
 checks it already passed and the next step. The checks are the served
 model and effort, no compaction and find-only. A check the harness did
-not supply is reported as missing. For a completed turn the next step
-is to verify the findings, and it gives the `Reviewed-by:` trailer a
-commit using one carries. A turn can complete without finishing: the
-harness completing means the process ended with an answer, not that the
-answer covers the delta. When the reviewer's own report ends at a
-`STATUS:` other than `complete`, the checks say the review is not
-finished and the next step says so before anything else. A reviewer
-that never wrote its report file is flagged the same way, and what is
-banked is its final message. A reviewer whose tools all failed ends
-like this, having read nothing either, while every other check passes.
-For a quota stop the next step is the `continue` command, and for a
-failure it is the evidence to read before anything is launched again.
-The operator does not have to reconstruct any of this from the record.
+not supply is reported as missing. For a completed turn the next step is
+to verify the findings, and it gives the `Reviewed-by:` trailer a commit
+using one carries. A turn can complete without finishing: the harness
+completing means the process ended with an answer, not that the answer
+covers the delta. When the reviewer's own report ends at a `STATUS:`
+other than `complete`, the checks say the review is not finished and the
+next step says so before anything else. A reviewer that never wrote its
+report file is flagged the same way, and what is banked is its final
+message. A reviewer whose tools all failed ends like this, having read
+nothing either, while every other check passes. For a quota stop the
+next step is the `continue` command, and for a failure it is the
+evidence to read before anything is launched again. The operator does
+not have to reconstruct any of this from the record.
 
 The reviewer is asked to put anything it notices outside the delta in
 its own section, as a lead rather than a finding. A defect older than
-the range is not the range's fault, and it is still worth the
-operator's look. After a repair,
-`quirework sop review resume` returns to the same reviewer and lets it
-inspect the new delta. Do not brief it with the argument that its first
-finding was wrong, because agreement after coaching is not independent
-evidence.
+the range is not the range's fault, and it is still worth the operator's
+look. After a repair, `quirework sop review resume` returns to the same
+reviewer and lets it inspect the new delta. Do not brief it with the
+argument that its first finding was wrong, because agreement after
+coaching is not independent evidence.
 
 These layers catch different failures. The mechanical check can prove
 that a binding points to a real spec section. The contextual reviewer
@@ -881,33 +883,33 @@ Earlier answers and rejected attempts remain immutable.
 
 A turn that stops is never discarded. A provider quota limit the runner
 recognises is recovered by `start` itself: rewound and resubmitted when
-the provider declined before the model ran, continued in its own
-session when the limit arrived partway. Any other stop, such as a
-dropped connection, an API error or a limit worded in a way no
-classifier knows, leaves the turn pending with its session intact, and
-the `stopped:` line says so. Whether to keep that session is the
-operator's decision, made after reading the record: `sop runs continue
-RECORD SEAT TURN --reason TEXT` records it, and the next `start`
-resumes the same session with a short notice that an error cut the turn
-off, without re-sending the turn's material. The receipt keeps the
-reason and a red flag that the answer spans two submissions. A record
-frozen before this command existed answers it with an unknown-choice
-error; its remaining recovery is a distinct new run.
+the provider declined before the model ran, continued in its own session
+when the limit arrived partway. Any other stop, such as a dropped
+connection, an API error or a limit worded in a way no classifier knows,
+leaves the turn pending with its session intact, and the `stopped:` line
+says so. Whether to keep that session is the operator's decision, made
+after reading the record:
+`sop runs continue RECORD SEAT TURN --reason TEXT` records it, and the
+next `start` resumes the same session with a short notice that an error
+cut the turn off, without re-sending the turn's material. The receipt
+keeps the reason and a red flag that the answer spans two submissions. A
+record frozen before this command existed answers it with an
+unknown-choice error; its remaining recovery is a distinct new run.
 
 A resume continues a session the harness keeps in the seat's private
 runner home, so a home can still be needed long after its last turn.
 Homes live in the cache, which the configuration guide describes, so a
 home can also be gone. `sop blind prune` removes homes it judges
 finished, the cache rule collects one untouched for 30 days, and one
-removed by hand goes the same way. Every procedure that resumes or
-forks a session (the run engine, rooms, roundtables, workshops, reviews
-and chapter comparisons) first checks that the home still holds it.
-When it does not, the command refuses before writing anything. It says
-whether the home was pruned and when, whether the cache was cleared, or
-whether the home is simply gone or no longer holds that session. A
-fork's parent is checked the same way, because a pruned parent would
-otherwise hash as one that changed after the branch. The records stay
-intact, but no new session can carry on the old conversation.
+removed by hand goes the same way. Every procedure that resumes or forks
+a session (the run engine, rooms, roundtables, workshops, reviews and
+chapter comparisons) first checks that the home still holds it. When it
+does not, the command refuses before writing anything. It says whether
+the home was pruned and when, whether the cache was cleared, or whether
+the home is simply gone or no longer holds that session. A fork's parent
+is checked the same way, because a pruned parent would otherwise hash as
+one that changed after the branch. The records stay intact, but no new
+session can carry on the old conversation.
 
 `export` mirrors the record, one directory per seat and turn, with a
 receipt for all of them. `export --flat` writes a one-seat record
@@ -923,57 +925,55 @@ Antigravity currently provides audited rather than enforced filesystem
 assurance; it cannot satisfy a requirement for enforced isolation.
 
 A confined seat sees only what is bound into its jail. The system trees
-a runner needs (`/usr`, `/etc`, and `/opt`, `/var/lib`, `/sys`, `/nix` or
-`/snap` where present) are bound read-only. Nothing else of the machine
-exists inside, so the operator's home, network shares and removable
-media are simply absent. The home, `/tmp` and `/var/tmp` are empty, and
-the seat's own run directory, runner state and credentials are bound
-back. Where a runner unpacks something into its state for one launch,
-as agy does with a 17 MB browser recorder before every session, that
-directory gets a fresh tmpfs each launch instead, so the copy never
-reaches the disk. A reviewer that must see the repository is given it back
-read-only. The seat has its own process and IPC namespaces and a
+a runner needs (`/usr`, `/etc`, and `/opt`, `/var/lib`, `/sys`, `/nix`
+or `/snap` where present) are bound read-only. Nothing else of the
+machine exists inside, so the operator's home, network shares and
+removable media are simply absent. The home, `/tmp` and `/var/tmp` are
+empty, and the seat's own run directory, runner state and credentials
+are bound back. Where a runner unpacks something into its state for one
+launch, as agy does with a 17 MB browser recorder before every session,
+that directory gets a fresh tmpfs each launch instead, so the copy never
+reaches the disk. A reviewer that must see the repository is given it
+back read-only. The seat has its own process and IPC namespaces and a
 minimal `/dev`. `sop blind check` prints the root, and a confinement
 receipt lists it.
 
 The jail confines what a seat's hands reach; its flags decide what it
-holds, and a runner release can change that without rejecting a flag.
-So a seat is proven first: the launch runs a canary under the seat's
-own command whenever its runner's exact version, or that command's
-flags, has not been proven on this machine, and refuses the launch on a
-breach. The jail cannot be built for a runner without the record that
-canary returns, and the record goes into the seat's receipt. The
-configuration guide's providers section describes what it keys on and
-where it is kept.
+holds, and a runner release can change that without rejecting a flag. So
+a seat is proven first: the launch runs a canary under the seat's own
+command whenever its runner's exact version, or that command's flags,
+has not been proven on this machine, and refuses the launch on a breach.
+The jail cannot be built for a runner without the record that canary
+returns, and the record goes into the seat's receipt. The configuration
+guide's providers section describes what it keys on and where it is
+kept.
 
-A seat's connected services come from the provider account, not from
-any file, so neither the blanked home nor an ignored configuration
-removes them. Every Claude launch carries an empty strict MCP
-configuration. Every Codex launch turns off Codex's `apps` feature,
-which otherwise hands the seat the account's connected apps: mail,
-calendar, documents and code hosting, with tools that send, delete and
-commit. A read-only reviewer holding them could change a repository
-the jail never bound. The canary checks both from the runner's own
-account of what it loaded, never from the model's word. For Claude
-that is its start-up event. For Codex it is the MCP inventory Codex's
-app server reports under the seat's settings, read before the
-exchange, so a seat holding any server is refused without a model
-call.
+A seat's connected services come from the provider account, not from any
+file, so neither the blanked home nor an ignored configuration removes
+them. Every Claude launch carries an empty strict MCP configuration.
+Every Codex launch turns off Codex's `apps` feature, which otherwise
+hands the seat the account's connected apps: mail, calendar, documents
+and code hosting, with tools that send, delete and commit. A read-only
+reviewer holding them could change a repository the jail never bound.
+The canary checks both from the runner's own account of what it loaded,
+never from the model's word. For Claude that is its start-up event. For
+Codex it is the MCP inventory Codex's app server reports under the
+seat's settings, read before the exchange, so a seat holding any server
+is refused without a model call.
 
 Codex's model catalogue puts most models on its second multi-agent
-version, which ignores `features.multi_agent=false`. Every Codex seat,
-a tool-free one included, is therefore offered a tool that spawns a
+version, which ignores `features.multi_agent=false`. Every Codex seat, a
+tool-free one included, is therefore offered a tool that spawns a
 sub-agent, with overrides naming other models. No setting removes the
 tool, so every Codex launch limits its session to one thread, the seat
 itself, and a spawn fails. Without the limit, a seat could hand part of
-its work to a model its receipt never names. Image generation is off
-on every Codex seat too, since no seat is asked for an image. So are
-the account's plugins (`plugins` and `remote_plugin`), which are its
+its work to a model its receipt never names. Image generation is off on
+every Codex seat too, since no seat is asked for an image. So are the
+account's plugins (`plugins` and `remote_plugin`), which are its
 connected apps packaged as plugins. Left on, Codex installs each one
-into a seat's fresh private home on every launch, tens of megabytes
-per seat, and caches the plugin catalogue beside them. Browser
-and computer use, also on by default, give a Codex seat no tool under
-Codex 0.160.1.
+into a seat's fresh private home on every launch, tens of megabytes per
+seat, and caches the plugin catalogue beside them. Browser and computer
+use, also on by default, give a Codex seat no tool under Codex 0.160.1.
 
 Codex ignores a feature name it does not know, so a switch renamed in a
 new release would turn nothing off while every launch stays green.
@@ -981,28 +981,28 @@ new release would turn nothing off while every launch stays green.
 turns off must read false in Codex's own feature list under that
 setting, and the thread limit must still be refused at zero. It cannot
 see a tool a new release turns on by default, and neither can the
-canary, which reads MCP servers. Only the request a seat sends shows
-its tools: point `openai_base_url` at a local listener that saves the
+canary, which reads MCP servers. Only the request a seat sends shows its
+tools: point `openai_base_url` at a local listener that saves the
 request and answers with an error, and no model is reached.
 
 The jail never contains the runtime directory `/run/user/<uid>`. Its
 session bus would let a seat ask `systemd --user` to start a process
 outside the jail. Antigravity keeps its login in the desktop keyring,
-which it reaches over that bus. An Antigravity seat therefore gets a
-bus socket from `xdg-dbus-proxy` that answers only for the secrets
-service. The receipt marks that as a red flag, because the secrets
-service can read every secret in the keyring. Without `xdg-dbus-proxy`
-an Antigravity seat is refused rather than run with less confinement.
+which it reaches over that bus. An Antigravity seat therefore gets a bus
+socket from `xdg-dbus-proxy` that answers only for the secrets service.
+The receipt marks that as a red flag, because the secrets service can
+read every secret in the keyring. Without `xdg-dbus-proxy` an
+Antigravity seat is refused rather than run with less confinement.
 
 A seat with no tools cannot ask the bus for anything, so its plan may
 accept that one flag in advance with `accept_red_flags: [session-bus]`.
 Preparation refuses the declaration on a seat with any tools, and
 refuses any other code: compaction and the rest are never acceptable.
 The receipt still records the flag. `inspect` lists it under
-`accepted_red_flags` rather than `red_flags`, and it no longer turns
-the seat's status into `completed-with-red-flags` or `start`'s exit
-into a failure. A record prepared before the field existed declares
-nothing, so every flag it holds stays open.
+`accepted_red_flags` rather than `red_flags`, and it no longer turns the
+seat's status into `completed-with-red-flags` or `start`'s exit into a
+failure. A record prepared before the field existed declares nothing, so
+every flag it holds stays open.
 
 The jail does not cut off the network, because a seat needs it to reach
 its provider. Anything listening on the machine, such as a container
@@ -1017,5 +1017,6 @@ Workshop and contextual-review commands retain their specialized state
 and manual-session features. They share provider adapters and account
 leases with the generic engine.
 
-Project redaction policies are separate data. Changing a marker list changes
-the analysis recipe. Primary transcripts are never rewritten by redaction.
+Project redaction policies are separate data. Changing a marker list
+changes the analysis recipe. Primary transcripts are never rewritten by
+redaction.

@@ -28,14 +28,14 @@ project's extension unless that project explicitly selects it. A format
 (`manuscript.formats.Format`), a backend (`publish.backends.Backend`)
 and a backup driver (`provenance.backup.Driver`) are objects registered
 by name, and a project or a store may select its own as an extension;
-everything above them asks the selected one rather than testing which
-it is. A backup driver that copies file by file subclasses `Transfer`,
+everything above them asks the selected one rather than testing which it
+is. A backup driver that copies file by file subclasses `Transfer`,
 whose `run` alone decides the order of copies and deletions at the
-destination, so a new driver cannot get that order wrong. Which files are the work is answered once, by
-`manuscript.footprint`. The execution and provider
-layers import neither `manuscript` nor `publish`. Executor snapshots
-include their runtime dependencies without copying publishing code or
-book content.
+destination, so a new driver cannot get that order wrong. Which files
+are the work is answered once, by `manuscript.footprint`. The execution
+and provider layers import neither `manuscript` nor `publish`. Executor
+snapshots include their runtime dependencies without copying publishing
+code or book content.
 
 ## The jail
 
@@ -43,19 +43,19 @@ book content.
 allow-list all the way down. The home is blanked and a list of paths is
 bound back. The root is the same: a fixed set of system trees bound
 read-only at their own paths, and nothing else. Do not reintroduce a
-whole-root bind or a deny-list of filesystem types. Every earlier
-repair to the root followed from that shape: a stale network share
-failed the bind, the mount table changed under the jail, and a
-read-write root left writable paths behind the blanked set. A runner
-that needs a tree outside the list fails at launch; add the tree to
-`OPTIONAL_TREES`, do not bind `/`.
+whole-root bind or a deny-list of filesystem types. Every earlier repair
+to the root followed from that shape: a stale network share failed the
+bind, the mount table changed under the jail, and a read-write root left
+writable paths behind the blanked set. A runner that needs a tree
+outside the list fails at launch; add the tree to `OPTIONAL_TREES`, do
+not bind `/`.
 
 `/run/user/<uid>` is never bound, because the session bus there lets
-`systemd --user` start a process outside any sandbox. A runner that
-must reach a bus name declares it in `Runner.bus_names`. The caller
-then opens `blind.session_bus` around the launch, passes it to the
-jail, and starts the process with `blind.popen`, which hands bwrap the
-proxy's pipe. The proxy lives exactly as long as the jail.
+`systemd --user` start a process outside any sandbox. A runner that must
+reach a bus name declares it in `Runner.bus_names`. The caller then
+opens `blind.session_bus` around the launch, passes it to the jail, and
+starts the process with `blind.popen`, which hands bwrap the proxy's
+pipe. The proxy lives exactly as long as the jail.
 
 ## Configuration lifetime
 
@@ -122,14 +122,14 @@ files go as soon as it passes, and a passing session removes its whole
 directory when it ends. A failing session keeps only the failed tests'
 directories, beside the session's state and cache, for inspection. The
 next session sweeps any directory left more than three days. Passing
-`--basetemp` opts out of all of it, since that directory is the
-caller's to keep.
+`--basetemp` opts out of all of it, since that directory is the caller's
+to keep.
 
 Unit tests use fictional text and diagrams. They check project
 isolation, custom catalogs, formatting, artifact transforms, independent
 seats, interrupted receipts, forks, quota recovery, and immutable
-snapshots. A consuming book keeps its own integration tests for its questions
-and project-specific visual rules.
+snapshots. A consuming book keeps its own integration tests for its
+questions and project-specific visual rules.
 
 Run a minimal unrelated book through rendering as an installation check.
 Run the consumer's gates and relevant publication formats before

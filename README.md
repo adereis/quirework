@@ -65,8 +65,8 @@ receipt records what the provider actually served.
 
 The [workflow guide](docs/workflows.md) develops this loop through five
 especially useful patterns: writers rooms, roundtables of models working
-together as themselves, independent prose workshops, blind-reader panels,
-and contextual consistency reviews.
+together as themselves, independent prose workshops, blind-reader
+panels, and contextual consistency reviews.
 
 ## What it does
 
@@ -77,8 +77,8 @@ its own configuration, theme and deploy, and `publish build` builds it
 into the project's build tree, where it cannot overwrite the directory
 the site deploys from. A project that publishes more than one thing,
 such as a book and the site that serves its editions, names each as a
-target, and a target can take another's output into its own. A book
-gets the rest of this section.
+target, and a target can take another's output into its own. A book gets
+the rest of this section.
 
 `publish build` renders a Quarto manuscript to every format its
 `_quarto.yml` lists: HTML, PDF through Typst, EPUB and DOCX for a book
@@ -98,12 +98,12 @@ comes out in the wrong face.
 
 ### Keeps the claims from drifting apart
 
-A work that argues something has commitments, and after a year they
-live in one chapter's phrasing and contradict another's. Quirework gives
-them a file. Each commitment is a section with a slug, each chapter
-names the sections it expresses, and `spec notes bind --slug S` answers
-the question that matters when you change one: which other chapters have
-to change with it.
+A work that argues something has commitments, and after a year they live
+in one chapter's phrasing and contradict another's. Quirework gives them
+a file. Each commitment is a section with a slug, each chapter names the
+sections it expresses, and `spec notes bind --slug S` answers the
+question that matters when you change one: which other chapters have to
+change with it.
 
 A site argues one thing per post, so each post can keep a spec of its
 own: its reader, its thesis, its boundaries. A shared spec holds what
@@ -124,12 +124,12 @@ retired from the prose.
 ### Keeps track of what the work stands on
 
 Research gets a register too. Each source has a slug, in one file of
-sections or one file per source, and a mark cites it as
-`@source(slug)`. `spec sources --slug S` then lists every chapter or
-post that leans on a source, and the gate refuses a citation of a source
-the register does not hold. A source can keep a plain-text capture of
-itself, and a quotation from it is checked against that capture, so a
-misremembered line is caught the way a misquoted chapter is.
+sections or one file per source, and a mark cites it as `@source(slug)`.
+`spec sources --slug S` then lists every chapter or post that leans on a
+source, and the gate refuses a citation of a source the register does
+not hold. A source can keep a plain-text capture of itself, and a
+quotation from it is checked against that capture, so a misremembered
+line is caught the way a misquoted chapter is.
 
 ### Formats and inspects the prose
 
@@ -144,8 +144,8 @@ goes on the same list and fails the check if it ever comes back.
 contrast move, which says what a thing is by saying what it is not, and
 phrases the project lists. `--since REV` prints only what the working
 tree adds over a revision, which is the warning a commit hook or a
-review pass wants; like `text check`, it never gates. Quirework ships
-no default phrase list, since a stale one would read as clean prose;
+review pass wants; like `text check`, it never gates. Quirework ships no
+default phrase list, since a stale one would read as clean prose;
 `config template tells` prints a dated seed and the recipe for keeping
 it current.
 
@@ -154,12 +154,12 @@ it current.
 `provenance` captures your Claude Code, Codex and Antigravity sessions
 from their local stores, and web conversations too. The captures go to a
 store outside your repository and wait there until you read and accept
-them. The repository keeps only the decisions: which sessions count, each
-with a hash that proves its bytes. So the transcripts never bloat the
-work's history, and a grep across the repository never wades through
-them. `provenance store backup` copies the store to the destinations
-it names, through rclone, a mounted directory, git or a script of your
-own. It never deletes a session at a destination before the copy that
+them. The repository keeps only the decisions: which sessions count,
+each with a hash that proves its bytes. So the transcripts never bloat
+the work's history, and a grep across the repository never wades through
+them. `provenance store backup` copies the store to the destinations it
+names, through rclone, a mounted directory, git or a script of your own.
+It never deletes a session at a destination before the copy that
 replaced it has arrived. `provenance search` then reads the human's own
 turns, by keyword or by meaning; the semantic index is built and stored
 locally, so corpus text never leaves the machine.
@@ -224,9 +224,9 @@ all extras. Copy `.envrc.example` to `.envrc` to use direnv.
 The core and command discovery use the Python standard library. Model
 runs use separately installed Codex, Claude Code, or Antigravity CLIs.
 Enforced filesystem isolation uses bubblewrap on Linux, and an
-Antigravity seat also needs `xdg-dbus-proxy`. PDF and SVG
-operations use Poppler and librsvg when the selected operation needs
-those formats. Missing required dependencies produce an error.
+Antigravity seat also needs `xdg-dbus-proxy`. PDF and SVG operations use
+Poppler and librsvg when the selected operation needs those formats.
+Missing required dependencies produce an error.
 
 ## Let the companion choose the tools
 
@@ -266,13 +266,12 @@ quirework sop runs start /path/to/private/run --timeout 60 --wait-quota 0
 Starting from nothing? The [authoring guide](docs/authoring.md) is the
 path from an empty directory to a manuscript with a spec, marked
 chapters, figures and its own procedures, and its last part does the
-same for a site.
-[examples/demo-book](examples/demo-book) is a small finished book that
-walked it: a spec, marks, a figure, procedures, a derived edition and
-the session it was written in, in about forty files.
-[examples/demo-site](examples/demo-site) is the site version: posts
-with a spec each, a shared spec, marks kept outside the rendered tree,
-and a voice policy the checks enforce.
+same for a site. [examples/demo-book](examples/demo-book) is a small
+finished book that walked it: a spec, marks, a figure, procedures, a
+derived edition and the session it was written in, in about forty files.
+[examples/demo-site](examples/demo-site) is the site version: posts with
+a spec each, a shared spec, marks kept outside the rendered tree, and a
+voice policy the checks enforce.
 
 The [configuration guide](docs/configuration.md) explains how to connect
 a project. The [workflow guide](docs/workflows.md) covers procedures,

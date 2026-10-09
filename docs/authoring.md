@@ -162,8 +162,8 @@ Point at it and it becomes the binding namespace:
 spec = "manuscript/sections/_spec.md"
 ```
 
-The file name is the project's own. Commands that use bindings require this
-setting instead of guessing a name or location.
+The file name is the project's own. Commands that use bindings require
+this setting instead of guessing a name or location.
 
 The slugs are the whole mechanism. A chapter does not restate a
 commitment; it names the section it expresses, so changing a commitment
@@ -227,8 +227,7 @@ transcript, or in the web conversation, with or without Quirework. A
 source that logs no time names the turn by its number instead: a
 pre-rendered Gemini review, and a red-pen round where
 `provenance.redpen` declares the archive, since each mark on your
-rendered copy is one of your turns
-(`--session redpen-v1 --turn 3`). The
+rendered copy is one of your turns (`--session redpen-v1 --turn 3`). The
 kind says what the turn did to the section: `seed`, `sharpen`, `correct`
 (refused a wording the agent proposed), `reverse` (moved off an earlier
 position), `accept` (took a wording the agent drafted) or `probe` (tried
@@ -242,12 +241,12 @@ trail. Leave `spec_trail` unset and the feature is off.
 Reading is one command per depth. `spec notes --primer` counts each
 section's breadcrumbs, and every listing of bindings marks a binding
 whose section has any, as `[trail ×2]`, so an agent following one from
-the prose learns there is a history to read. A section with none
-carries no marker. `spec trail --unit opening` lists, one line
-each, the trails of the sections a chapter binds.
-`spec trail cooling-asymmetry` reads one section's trail oldest first,
-and prints the `provenance show … --turn N` that opens each turn with
-the reply it drew.
+the prose learns there is a history to read. A section with none carries
+no marker. `spec trail --unit opening` lists, one line each, the trails
+of the sections a chapter binds. `spec trail cooling-asymmetry` reads
+one section's trail oldest first, and prints the
+`provenance show … --turn N` that opens each turn with the reply it
+drew.
 
 Writing happens while the spec is edited. When your words in the current
 conversation change what a section holds, the agent adds a breadcrumb:
@@ -286,12 +285,11 @@ it was wrong about which section the turn shaped.
 `spec notes --check` fails a trail heading that names a section the spec
 no longer has, so a renamed section takes its trail along in the same
 edit; `spec rename` does that for you. `spec trail --check` follows
-every breadcrumb to your turn. It fails a pointer that leads to no
-turn, one into a session that curation removed, and one that names its
-session by a prefix. It only warns about
-a session not captured yet, or captured before the turn was made, which
-is what pointing at a live conversation costs until that session is
-captured.
+every breadcrumb to your turn. It fails a pointer that leads to no turn,
+one into a session that curation removed, and one that names its session
+by a prefix. It only warns about a session not captured yet, or captured
+before the turn was made, which is what pointing at a live conversation
+costs until that session is captured.
 
 ### Backfilling a trail
 
@@ -300,10 +298,9 @@ corpus of hundreds of sessions is too much for a strong model to read
 whole. `spec trail backfill` splits the work by what it costs. A cheap
 model reads each session once and flags every turn of yours that might
 have shaped any section. A strong model then takes one section at a
-time, reads everything flagged for it oldest first, and decides.
-Reading a session costs the same whether it is read for one section or
-for all of them, which is why each session is read once, against the
-whole list.
+time, reads everything flagged for it oldest first, and decides. Reading
+a session costs the same whether it is read for one section or for all
+of them, which is why each session is read once, against the whole list.
 
 ```toml
 [manuscript]
@@ -313,43 +310,42 @@ spec_trail_leads = "private/spec-trail-leads"
 
 `backfill plan` writes each session as a packet: your turns, numbered
 and stamped as `provenance show` gives them, each with the end of the
-reply it answered, so a bare "yes" can be read as the acceptance it
-was. It then writes a run plan that hands the packets to readers with
-no tools, one seat per batch, so no reader's context grows from one
-batch to the next. A batch is bounded by estimated tokens (`--budget`)
-and by your turns (`--turns`, 80 by default), because a reader's answer,
+reply it answered, so a bare "yes" can be read as the acceptance it was.
+It then writes a run plan that hands the packets to readers with no
+tools, one seat per batch, so no reader's context grows from one batch
+to the next. A batch is bounded by estimated tokens (`--budget`) and by
+your turns (`--turns`, 80 by default), because a reader's answer,
 thinking included, grows with the turns it answers for and stops at its
 model's output limit. Short turns, such as red-pen marks, fill a token
 budget with more turns than a reader can answer. A session longer than
-`--turns` is read in parts of nearly equal length, one part to a seat.
-A part's packet says which turns it holds, and its turns keep their
+`--turns` is read in parts of nearly equal length, one part to a seat. A
+part's packet says which turns it holds, and its turns keep their
 numbers. The plan names every session it hands out in parts. The run
-engine runs the plan, and resumes it after a quota
-stop. Without `--out`, the plan takes a new directory in the project's
-private state, named for the day and the model, with a suffix for a
-second pass the same day. It prints the sessions by harness, the whole
-cost including each seat's menu, any session with neither a start
-time nor a recorded date (sorted first), and the prepare, start and
-import commands with their real paths. A Gemini review and a red-pen
-round log no times but record their date, and take their place by it.
-A red-pen round's packet opens by saying what its parts are, since only
-some of each mark is your words. A review-notes entry compares your copy
-of a block with the block rebuilt from source when the round was
-archived. A copy built by an older renderer held more than that rebuild,
-such as headings and notes agents had written, so the packet warns that
-those can show up among your "+ now" lines. A round records the book
-revision it was matched against, and the packet leaves out any "+ now"
-line the book's source already held at that revision, since such a line
-was not written in the round. It says how many it left out, or that git
-could not read the revision. A comment's file and line are where the
-archive matched its anchor, and a one-word anchor can match the wrong
-place, which the packet also says.
+engine runs the plan, and resumes it after a quota stop. Without
+`--out`, the plan takes a new directory in the project's private state,
+named for the day and the model, with a suffix for a second pass the
+same day. It prints the sessions by harness, the whole cost including
+each seat's menu, any session with neither a start time nor a recorded
+date (sorted first), and the prepare, start and import commands with
+their real paths. A Gemini review and a red-pen round log no times but
+record their date, and take their place by it. A red-pen round's packet
+opens by saying what its parts are, since only some of each mark is your
+words. A review-notes entry compares your copy of a block with the block
+rebuilt from source when the round was archived. A copy built by an
+older renderer held more than that rebuild, such as headings and notes
+agents had written, so the packet warns that those can show up among
+your "+ now" lines. A round records the book revision it was matched
+against, and the packet leaves out any "+ now" line the book's source
+already held at that revision, since such a line was not written in the
+round. It says how many it left out, or that git could not read the
+revision. A comment's file and line are where the archive matched its
+anchor, and a one-word anchor can match the wrong place, which the
+packet also says.
 
-`backfill import RECORD` checks each flag against the corpus and
-keeps it in the ledger: a turn that is not yours, or a slug the spec
-does not have, is dropped and reported with its reason. A session whose
-reader did not say it finished is left for the next plan to hand out
-again.
+`backfill import RECORD` checks each flag against the corpus and keeps
+it in the ledger: a turn that is not yours, or a slug the spec does not
+have, is dropped and reported with its reason. A session whose reader
+did not say it finished is left for the next plan to hand out again.
 
 Import says when a reader was cut off: an answer that stops partway
 through a line, with sessions left unfinished, is reported with the
@@ -366,43 +362,43 @@ in part.
 
 Import holds any seat whose receipt carries a red flag its plan did not
 accept, records nothing it read, and exits nonzero, so an unexpected
-flag reaches you rather than the ledger. An Antigravity plan accepts
-the keyring flag every Antigravity seat carries, because its readers
-have no tools; a record planned before that was possible takes
+flag reaches you rather than the ledger. An Antigravity plan accepts the
+keyring flag every Antigravity seat carries, because its readers have no
+tools; a record planned before that was possible takes
 `--accept session-bus`. Import then prints each seat's share of flagged
-turns and warns about a seat with many turns and almost no flags. A
-flag count cannot tell a reader that skipped from one whose sessions
-held nothing, so a reader closes each session with an `about` sentence
-on what it was, written from turns it had to read. A warned seat lists
-each session's title, which the reader never saw, beside that sentence,
-and a mismatch or a missing one is the mark of a skipped packet. It ends
-with the pass as a whole: sessions read, models, flags by confidence,
-and sessions with no flag. A session with no flag is not suspect by
-itself; a turn can matter only beside another session, such as the
-unrelated thread in which a question is asked as a control.
+turns and warns about a seat with many turns and almost no flags. A flag
+count cannot tell a reader that skipped from one whose sessions held
+nothing, so a reader closes each session with an `about` sentence on
+what it was, written from turns it had to read. A warned seat lists each
+session's title, which the reader never saw, beside that sentence, and a
+mismatch or a missing one is the mark of a skipped packet. It ends with
+the pass as a whole: sessions read, models, flags by confidence, and
+sessions with no flag. A session with no flag is not suspect by itself;
+a turn can matter only beside another session, such as the unrelated
+thread in which a question is asked as a control.
 
 `backfill SLUG` lists a section's candidates oldest first: what each
 reader flagged, and the turns before the commits that changed the
 section. A reader names the section it thinks fits, so a turn that fits
-two can reach only one of them; `--also OTHER` adds what readers
-flagged for a neighbouring section, marked with its slug. The list notes
-two kinds of copy before you rule on either: a turn you sent twice,
-saying which copy drew the reply, and a turn captured twice, when a
-resumed session repeats the history it inherited under a new id.
-`--read` prints each candidate whole, after the end of the reply it
-answered, cut as a packet cuts it. A bare "yes, go" means only what
-that reply proposed, so ruling on one needs the reply, and a section
-with sixty candidates would otherwise take sixty `show` commands.
+two can reach only one of them; `--also OTHER` adds what readers flagged
+for a neighbouring section, marked with its slug. The list notes two
+kinds of copy before you rule on either: a turn you sent twice, saying
+which copy drew the reply, and a turn captured twice, when a resumed
+session repeats the history it inherited under a new id. `--read` prints
+each candidate whole, after the end of the reply it answered, cut as a
+packet cuts it. A bare "yes, go" means only what that reply proposed, so
+ruling on one needs the reply, and a section with sixty candidates would
+otherwise take sixty `show` commands.
 
 A commit leads to the session that made it only where that session's
 model wrote the commit's subject, in the command, the message file or
 the reply reporting it; a session that saw the subject in a `git log`
 listing read about the commit and did not make it. A commit's quote is
-matched whatever quotation marks either side used. A quote of fewer
-than four words is looked for only in the session that made its commit,
-since "agreed" is in half the corpus. `trail suggest SLUG --diff` adds
-what each commit changed in the section, which tells you which
-paragraph a session's turns went into.
+matched whatever quotation marks either side used. A quote of fewer than
+four words is looked for only in the session that made its commit, since
+"agreed" is in half the corpus. `trail suggest SLUG --diff` adds what
+each commit changed in the section, which tells you which paragraph a
+session's turns went into.
 
 A candidate the strong model keeps becomes a breadcrumb through
 `trail add`; one it drops is recorded with
@@ -420,8 +416,8 @@ the section as it was rather than half ruled. Only this step drops a
 candidate. A flag is a lead, never a breadcrumb, and the ledger is as
 private as the trail: its reasons paraphrase your turns.
 `backfill status` says how many sessions are read and which sections
-have candidates left; its counts are the readers' flags, and a
-section's list adds the turns its commits lead to.
+have candidates left; its counts are the readers' flags, and a section's
+list adds the turns its commits lead to.
 
 ## 3. Marks
 
@@ -457,9 +453,9 @@ conventional ones:
 - `@bind(slug)`: this chapter expresses that spec section. It carries no
   body: it is a relationship, not a note. Several chapters may bind one
   section, and `spec notes bind --slug S` is the reverse lookup that
-  answers "what else does this commitment touch?". `spec notes
-  relations` is the same filter, for a shell or harness guard that
-  refuses any command containing the word "bind".
+  answers "what else does this commitment touch?".
+  `spec notes relations` is the same filter, for a shell or harness
+  guard that refuses any command containing the word "bind".
 - `@guidance`: how the chapter should read, its length, what it is for.
 - `@genesis`: where the material came from.
 - `@todo`: open work.
@@ -493,12 +489,12 @@ that merely moved down because of an edit above it is not new.
 `quirework spec quotes` checks that wording a mark quotes is still in
 the book, and it is narrow on purpose. It checks only a long quotation
 introduced as one (`reads "…"`, `the sentence "…"`), because most quoted
-spans in marks are guards, coinages or outside sources that are meant
-to be absent. After a rewrite or a retired term that is the wrong
-trade, since the quotations left stale are short or uncued: a note
-that says a sentence is `now "…"` names no cue. `--all` adds every
-other quoted span in a group of its own. `--grep PATTERN` keeps the
-spans a regular expression matches, so retiring a word is one command:
+spans in marks are guards, coinages or outside sources that are meant to
+be absent. After a rewrite or a retired term that is the wrong trade,
+since the quotations left stale are short or uncued: a note that says a
+sentence is `now "…"` names no cue. `--all` adds every other quoted span
+in a group of its own. `--grep PATTERN` keeps the spans a regular
+expression matches, so retiring a word is one command:
 
 ```bash
 quirework spec quotes --grep '\bbreaker\b'
@@ -527,13 +523,13 @@ materializes the set into the build tree, and `--check` validates it.
 The sources stay tracked; the rasters and the derived galleries are
 build output.
 
-Figures often share a definition: a glyph placed with `<use
-href="#steam">`, an arrowhead marker, a gradient. A style guide that
-lists which figures place the glyph goes stale as soon as a figure is
-added or cut. `quirework publish figures inventory` counts every such
-reference instead, per definition. `--uses steam` gives one
-definition's figures and counts, so the guide can say "run this" in
-place of the list.
+Figures often share a definition: a glyph placed with
+`<use href="#steam">`, an arrowhead marker, a gradient. A style guide
+that lists which figures place the glyph goes stale as soon as a figure
+is added or cut. `quirework publish figures inventory` counts every such
+reference instead, per definition. `--uses steam` gives one definition's
+figures and counts, so the guide can say "run this" in place of the
+list.
 
 Two hooks make the figure pipeline a project's own without touching
 Quirework. `publish.grayscale_transform` names a function taking SVG
@@ -653,9 +649,9 @@ generated routes name the project's own guide, which
 A long procedure is often read for one of the things it covers.
 `sop show NAME --outline` lists its headings, and `--section TITLE`
 prints one section with its subsections, verbatim. The option repeats,
-and a title used twice is named by its path, `'One page > Checks'`.
-When the procedure already knows what a kind of request needs, it says
-so in a marker, one per mode:
+and a title used twice is named by its path, `'One page > Checks'`. When
+the procedure already knows what a kind of request needs, it says so in
+a marker, one per mode:
 
 ```markdown
 <!-- @mode one-page: Choosing a pass; One page -->
@@ -706,16 +702,15 @@ An instrument under `sops.instruments` is one JSON file of questions:
 ```
 
 Every ask is an object with `text`, not a bare string, so an ask can
-also carry `scopes` and `headings` later without changing shape. A
-scope says how much of the work the seat is given: `work` for a
-progressive read of all of it, `artifact` for one unit or file,
-`passage` for part of one, and `changes` for a diff.
-`sequence` names which ask opens, which repeats, and which closes; it is
-what makes a set of questions an order rather than a collection.
-`{{persona}}` is where the selected profile's prompt lands. `revision`
-is a string and is bumped whenever the questions change, because a
-prepared run freezes the rendered prompt and an old record has to keep
-the questions it actually asked.
+also carry `scopes` and `headings` later without changing shape. A scope
+says how much of the work the seat is given: `work` for a progressive
+read of all of it, `artifact` for one unit or file, `passage` for part
+of one, and `changes` for a diff. `sequence` names which ask opens,
+which repeats, and which closes; it is what makes a set of questions an
+order rather than a collection. `{{persona}}` is where the selected
+profile's prompt lands. `revision` is a string and is bumped whenever
+the questions change, because a prepared run freezes the rendered prompt
+and an old record has to keep the questions it actually asked.
 
 ## 6. Checks of your own
 
@@ -756,9 +751,9 @@ modes = [["content/**/*.md", "sentence"], ["**/*.md", "column"]]
 terminology = "quirework/terms.toml"
 ```
 
-A post in a page bundle, `content/posts/why-the-lamp-turns/index.md`,
-is the unit `why-the-lamp-turns`. Its frontmatter, TOML or YAML, gives
-its title, its date, which orders the posts, and whether it is a draft.
+A post in a page bundle, `content/posts/why-the-lamp-turns/index.md`, is
+the unit `why-the-lamp-turns`. Its frontmatter, TOML or YAML, gives its
+title, its date, which orders the posts, and whether it is a draft.
 `quirework spec units` lists them, then each post specified but not yet
 drafted, then each idea in `manuscript.ideas` no post has taken up. An
 About page can be a unit too, once the site names its collections.
@@ -772,11 +767,10 @@ and in its own sidecar `@bind(thesis)` means its own thesis. The shared
 spec holds what several posts lean on, and a post binds one of those
 with `@bind` in its sidecar, under the heading that carries it. Another
 post shares a post's claim by naming it in full. When a shared claim
-changes, `spec notes bind --slug S` names every post that has to be
-read again.
-A spec may come before its post: a post is often specified long before
-it is drafted, and `spec notes --check` lists such specs as an advisory
-so a mistyped slug does not hide among them.
+changes, `spec notes bind --slug S` names every post that has to be read
+again. A spec may come before its post: a post is often specified long
+before it is drafted, and `spec notes --check` lists such specs as an
+advisory so a mistyped slug does not hide among them.
 
 `spec notes --primer -c why-the-lamp-turns` is how a session starts on
 one post. It prints that post's spec, the shared sections it binds, and
@@ -788,10 +782,10 @@ whose spec was revised after the post was last dated, until its
 `lastmod` records the revision.
 
 The trail works as it does for a book, over one register: breadcrumbs
-are kept by a section's full name, whichever file holds it. A post often begins
-in a conversation held in another project. Point at that project with a
-`@genesis` mark rather than copying its sessions into this corpus, which
-captures the sessions run here.
+are kept by a section's full name, whichever file holds it. A post often
+begins in a conversation held in another project. Point at that project
+with a `@genesis` mark rather than copying its sessions into this
+corpus, which captures the sessions run here.
 
 Voice rules the site holds to go in the terminology policy. A rule
 already made, such as "no em-dash", is `retired` and fails the check. A
@@ -816,8 +810,8 @@ this part.
 - [examples/demo-site](../examples/demo-site): a small site that
   followed its last part.
 - [configuration.md](configuration.md): every setting, the layering
-  rules, and the annotated templates
-  (`quirework config template book` or `site`).
+  rules, and the annotated templates (`quirework config template book`
+  or `site`).
 - [workflows.md](workflows.md): procedures, personas, panels, model
   runs, recovery and evidence.
 - [development.md](development.md): the architecture and the tests, for

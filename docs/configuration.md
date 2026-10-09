@@ -66,9 +66,8 @@ register, `manuscript.spec` or `manuscript.unit_spec`, and the file need
 not exist yet: the first `spec trail add` creates it, readable by its
 owner only. Put it in the provenance ledger with the other private
 material, since it points into the private corpus by session id and
-keeps working wherever the store lives. Leaving it unset turns the
-trail off: no command reads or writes one, and the primer shows no
-counts. The
+keeps working wherever the store lives. Leaving it unset turns the trail
+off: no command reads or writes one, and the primer shows no counts. The
 [authoring guide](authoring.md#the-specs-trail) says what a breadcrumb
 holds and when one is added.
 
@@ -83,10 +82,11 @@ records.
 `project.scratchpad` and `project.private` document the two
 non-publishing spaces. Session capture also skips any session whose
 recorded working directory is inside `project.scratchpad`, so workshop
-seats and experiments run there are never swept into the corpus. `manuscript.noncanonical_roots` tells checks
-which working paths have no authority. `manuscript.companion_dirs` names
-reader-facing documents outside the canon. `publish.variants` names the
-root for derived editions.
+seats and experiments run there are never swept into the corpus.
+`manuscript.noncanonical_roots` tells checks which working paths have no
+authority. `manuscript.companion_dirs` names reader-facing documents
+outside the canon. `publish.variants` names the root for derived
+editions.
 
 `sops.root` names the procedure directory, so a project can call it
 `procedures` or anything else; discovery and reading both follow the
@@ -125,8 +125,8 @@ from its file stem. A file starting with `_`, such as a section's
 `_index.md` list page, is never a unit. Each page opens with TOML
 frontmatter between `+++` lines or YAML between `---` lines. Its `date`
 orders it, its `title` names it, and its `draft` flag is shown by
-`spec units`. YAML is read for top-level scalars only, which is all
-the fields Quirework reads need.
+`spec units`. YAML is read for top-level scalars only, which is all the
+fields Quirework reads need.
 
 A site whose units are not all posts names collections instead of one
 glob. An About page is then a unit beside the posts, with a spec and
@@ -180,21 +180,21 @@ when the glob names a fixed file. It counts as taken up once a unit or a
 planned spec carries its name, or a mark or a spec names where it lives,
 which is what a post's `@genesis` does when it points at the brief it
 grew from. An idea named by its directory lives there, so
-`ideas/the-tide-clock` names it as well as the brief's own path does;
-an idea that is one file among others is named only by that file.
+`ideas/the-tide-clock` names it as well as the brief's own path does; an
+idea that is one file among others is named only by that file.
 
 A published page owes its readers more than a draft does, so
 `spec units --check` adds two advisories for published pages. An open
-`@todo` on one is waiting on something a reader cannot see. A page
-whose own spec was revised after the page was last dated says something
-it no longer holds, until it is revised and its revision field records
-it. The field is `lastmod` unless `manuscript.revision_field` names
-another, such as `last_modified_at`. The second advisory reads the
-history, so it needs git, and it says so when there is none. Writing a
-spec for a post already published is not revising it: only a change
-after the spec exists counts, and a spec not yet tracked is never
-named. A book's chapters have no publication state of their own, so
-neither advisory applies to them.
+`@todo` on one is waiting on something a reader cannot see. A page whose
+own spec was revised after the page was last dated says something it no
+longer holds, until it is revised and its revision field records it. The
+field is `lastmod` unless `manuscript.revision_field` names another,
+such as `last_modified_at`. The second advisory reads the history, so it
+needs git, and it says so when there is none. Writing a spec for a post
+already published is not revising it: only a change after the spec
+exists counts, and a spec not yet tracked is never named. A book's
+chapters have no publication state of their own, so neither advisory
+applies to them.
 
 ### A spec per unit
 
@@ -211,9 +211,9 @@ unit_spec = "specs/{slug}/spec.md"
 root. `spec` becomes the shared file, holding what several units lean
 on, and either setting may stand alone. Together they are one register.
 The shared file is read first, then each unit's own in reading order,
-then the specs of units not written yet, since a post is often
-specified before it is drafted. `spec notes --check` reports those as an
-advisory, because a mistyped slug looks the same.
+then the specs of units not written yet, since a post is often specified
+before it is drafted. `spec notes --check` reports those as an advisory,
+because a mistyped slug looks the same.
 
 A section of the shared spec is named by its anchor, and a section of a
 unit's own spec by the unit and its anchor. Two posts can each write
@@ -224,8 +224,8 @@ spec, and no anchor contains `/`.
 
 A unit binds every section of its own spec without saying so. It is the
 post those commitments describe. A `@bind` in its sidecar still says
-which heading carries a commitment, and there the bare anchor is
-enough: `@bind(thesis)` in a post's own marks means that post's thesis.
+which heading carries a commitment, and there the bare anchor is enough:
+`@bind(thesis)` in a post's own marks means that post's thesis.
 Everywhere else a unit's section is named in full, which is how another
 post comes to share the claim: `@bind(why-the-lamp-turns/thesis)`. A
 post's anchor may not repeat a shared one, since a bare name in its
@@ -235,8 +235,8 @@ binds.
 
 One trail serves the whole register, because breadcrumbs are kept by a
 section's full name. `spec trail why-the-lamp-turns/thesis` reads one,
-and `spec trail suggest` follows the history of whichever file holds
-the section.
+and `spec trail suggest` follows the history of whichever file holds the
+section.
 
 ### Sources
 
@@ -252,17 +252,17 @@ source_copies = "research/copies/{slug}.txt"
 
 Or it is a glob with one file per source, such as `"research/*.md"`,
 each named by its file stem, or by its directory when the glob names a
-fixed file (`"research/*/notes.md"`). A file's title is its
-frontmatter `title` or its first heading. A `README.md` and a
-`_`-prefixed file are not sources.
+fixed file (`"research/*/notes.md"`). A file's title is its frontmatter
+`title` or its first heading. A `README.md` and a `_`-prefixed file are
+not sources.
 
 A mark cites a source as `<!-- @source(slug) what it supports -->`.
 `spec notes --check` refuses a slug the register does not hold, and two
 sources with one slug. A `@source` with no slug stays free prose, since
 a passing reference need not be registered. `spec sources` lists each
-source with the units that cite it; `--slug S` and `-c UNIT` narrow
-the list, and `--check` adds two advisories: a source no unit cites,
-and a quotation that is not in the source.
+source with the units that cite it; `--slug S` and `-c UNIT` narrow the
+list, and `--check` adds two advisories: a source no unit cites, and a
+quotation that is not in the source.
 
 `source_copies` is a path pattern with `{slug}` naming a plain-text
 capture of each source as it was read. A quoted span of five words or
@@ -275,8 +275,8 @@ is not checked, and `--check` says how many quotations that left.
 `publish.backend` names what renders the manuscript. `quarto`, the
 default, stages a book and renders the formats its Quarto file lists,
 any of HTML, a Typst PDF, EPUB and DOCX, and every other `publish`
-command is built on that staging: figures, fonts, red-pen copies,
-reader packets, derived editions and chapter comparisons.
+command is built on that staging: figures, fonts, red-pen copies, reader
+packets, derived editions and chapter comparisons.
 
 `hugo` builds a site with its own Hugo configuration:
 
@@ -327,11 +327,11 @@ copy = [
 ]
 ```
 
-A target reads its own table laid over `[publish]`, so a key it
-declares replaces the shared one, and a relative path in it resolves
-from the file that declares it. `publish.backend` is then not set: each
-target names its own. A project without `targets` has one, named for
-its backend's product: `book` for Quarto, `site` for Hugo.
+A target reads its own table laid over `[publish]`, so a key it declares
+replaces the shared one, and a relative path in it resolves from the
+file that declares it. `publish.backend` is then not set: each target
+names its own. A project without `targets` has one, named for its
+backend's product: `book` for Quarto, `site` for Hugo.
 
 `needs` names the targets built first. `copy` takes their output into
 this target's once it has built, one `["TARGET:GLOB", "DESTINATION"]`
@@ -405,15 +405,14 @@ A corpus has two halves. The *store* holds the captured sessions. They
 are large and never change once settled, so they live outside the
 repository: the work's history does not carry them, and a search or a
 cleanup across the repository never reads them. The *ledger* is the
-directory `provenance.root` names, committed with the work. It holds
-the decisions about the sessions: which were accepted, which were
-removed and why, which are about the apparatus, and the catalog built
-from them.
+directory `provenance.root` names, committed with the work. It holds the
+decisions about the sessions: which were accepted, which were removed
+and why, which are about the apparatus, and the catalog built from them.
 
-`provenance.store` names the store, and Quirework looks for it under
-the *provenance home*. The home is `$QUIREWORK_PROVENANCE_HOME` when
-that variable is set. Otherwise it is `provenance.home` in your
-per-user configuration, and without that it is
+`provenance.store` names the store, and Quirework looks for it under the
+*provenance home*. The home is `$QUIREWORK_PROVENANCE_HOME` when that
+variable is set. Otherwise it is `provenance.home` in your per-user
+configuration, and without that it is
 `$XDG_DATA_HOME/quirework/provenance`, which is normally
 `~/.local/share/quirework/provenance`. The name is committed with the
 project, so every worktree and every clone find the same store. Nothing
@@ -435,38 +434,38 @@ harness, not by your shell, and it sees an exported variable only when
 the harness itself was started from a shell that had already exported
 it. A harness opened from a desktop launcher, or started before the
 variable reached your profile, runs its hooks without it, and they look
-for the store in the default home instead. A file reaches every
-process, however it was started. The variable stays useful for an
-override, such as a scratch home for one command.
+for the store in the default home instead. A file reaches every process,
+however it was started. The variable stays useful for an override, such
+as a scratch home for one command.
 
 Nothing copies the store off the machine until you describe a backup,
 and Claude Code deletes its own transcripts after 30 days by default.
-After that the store is the only copy. [Backing up the
-store](#backing-up-the-store) shows how to keep another. `quirework
-config check` and `quirework provenance store status` name where the
-store is, which setting chose its home, whether a repository holds it,
-and how it is backed up.
+After that the store is the only copy.
+[Backing up the store](#backing-up-the-store) shows how to keep another.
+`quirework config check` and `quirework provenance store status` name
+where the store is, which setting chose its home, whether a repository
+holds it, and how it is backed up.
 
 `quirework provenance store init` creates the store and records its
 identity in the ledger's `accepted.txt`. A ledger that already names an
-identity keeps it. On a second machine or in a fresh clone, init
-creates an empty store under that identity, and `store verify` lists
-the accepted files it lacks until you copy them in. A store another
-project created under the same name is refused, so two projects never
-read each other's sessions.
+identity keeps it. On a second machine or in a fresh clone, init creates
+an empty store under that identity, and `store verify` lists the
+accepted files it lacks until you copy them in. A store another project
+created under the same name is refused, so two projects never read each
+other's sessions.
 
 That same identity is why init is the wrong answer when a store goes
-missing on the machine that made it. If the ledger lists accepted
-files and no store is found, the store usually still exists, and
-Quirework was looking under a different home, often from a hook that
-never saw the variable your shell exports. Init there would create a
-second, empty store under the same identity, and captures from that
-process would land in it unnoticed. So the error names the home it
-looked in and the setting that chose it, and it tells you to point the
-home at the store rather than to run init. It suggests init only when
-the ledger lists nothing yet. Init itself, when it creates a store for
-a ledger that already lists files, names the home too and says what to
-do if that store belongs elsewhere.
+missing on the machine that made it. If the ledger lists accepted files
+and no store is found, the store usually still exists, and Quirework was
+looking under a different home, often from a hook that never saw the
+variable your shell exports. Init there would create a second, empty
+store under the same identity, and captures from that process would land
+in it unnoticed. So the error names the home it looked in and the
+setting that chose it, and it tells you to point the home at the store
+rather than to run init. It suggests init only when the ledger lists
+nothing yet. Init itself, when it creates a store for a ledger that
+already lists files, names the home too and says what to do if that
+store belongs elsewhere.
 
 ### Accepting sessions
 
@@ -484,27 +483,26 @@ quirework provenance reject 77aa01b2 --reason "a stub: one /model command"
 Accepting copies the capture into the store as a version that is never
 rewritten. It adds one line per file to `accepted.txt`: the file's
 SHA-256 and its path in the store. Commit that file with the catalog. A
-session modified in the last two hours may still be running, so
-`accept` refuses it unless `--live` says to take what was captured so
-far. `accept --all` skips such sessions and names them.
+session modified in the last two hours may still be running, so `accept`
+refuses it unless `--live` says to take what was captured so far.
+`accept --all` skips such sessions and names them.
 
-`store status` also lists the Claude Code sessions that no capture
-holds as they stand: one never captured, or one that grew after its
-last capture. It finds them by running the capture's own selection
-without writing anything. A session there that is still being written
-is marked as possibly running, and its hook captures it when it ends.
-One that has stopped changing was missed, usually by a capture hook
-that failed as its session closed, where nobody saw the error.
-`quirework provenance ingest claude` captures it. Do that within 30
-days of its last change, because Claude Code deletes the transcript
-then by default. Codex and Antigravity are captured by hand, and their
-sweeps report what they captured, so status does not list theirs.
+`store status` also lists the Claude Code sessions that no capture holds
+as they stand: one never captured, or one that grew after its last
+capture. It finds them by running the capture's own selection without
+writing anything. A session there that is still being written is marked
+as possibly running, and its hook captures it when it ends. One that has
+stopped changing was missed, usually by a capture hook that failed as
+its session closed, where nobody saw the error.
+`quirework provenance ingest claude` captures it. Do that within 30 days
+of its last change, because Claude Code deletes the transcript then by
+default. Codex and Antigravity are captured by hand, and their sweeps
+report what they captured, so status does not list theirs.
 
-A session that grows after it was accepted is captured again as
-pending. Accepting it then adds a new version beside the old one. A
-branch whose ledger still lists the old version keeps reading exactly
-the bytes it accepted, so accepting on one branch never breaks the
-checks of another.
+A session that grows after it was accepted is captured again as pending.
+Accepting it then adds a new version beside the old one. A branch whose
+ledger still lists the old version keeps reading exactly the bytes it
+accepted, so accepting on one branch never breaks the checks of another.
 
 A session also counts as grown when it gained sub-agents its capture
 does not hold, which is how every session captured before sub-agents
@@ -515,10 +513,10 @@ the dialogue sees has changed, so a review can keep the verdict it
 already gave and accept it without reading it again.
 
 The catalog, search, metrics and the cold-read read accepted sessions
-only. `show` and the spec trail also read pending captures, so a
-session can be read before it is accepted; `show` says so in its source
-line. `coldread triage` sorts the pending captures by whether they
-edited the work.
+only. `show` and the spec trail also read pending captures, so a session
+can be read before it is accepted; `show` says so in its source line.
+`coldread triage` sorts the pending captures by whether they edited the
+work.
 
 `reject` deletes a pending capture, or drops an accepted session from
 this ledger, and lists the session in the ledger's
@@ -528,17 +526,16 @@ about the apparatus rather than the work. Both lists hold one session
 per line, as `<kind> <session id>  # reason`, where the kind is `cc`,
 `codex`, `agy` or `web`.
 
-`quirework provenance store verify` hashes every accepted file and
-names any that is missing or no longer matches `accepted.txt`. A
-command that needs a missing file refuses to run rather than read a
-smaller corpus.
+`quirework provenance store verify` hashes every accepted file and names
+any that is missing or no longer matches `accepted.txt`. A command that
+needs a missing file refuses to run rather than read a smaller corpus.
 
 ### Backing up the store
 
-Claude Code deletes a transcript 30 days after it last changed, and
-from then on the store holds the only copy of the session. A store
-therefore describes its own backup, in a `backup.toml` beside its
-`store.toml`, and `quirework provenance store backup` carries it out:
+Claude Code deletes a transcript 30 days after it last changed, and from
+then on the store holds the only copy of the session. A store therefore
+describes its own backup, in a `backup.toml` beside its `store.toml`,
+and `quirework provenance store backup` carries it out:
 
 ```toml
 # ~/.local/share/quirework/provenance/my-book/backup.toml
@@ -547,13 +544,14 @@ driver = "rclone"
 destination = "gdrive:quirework-provenance/my-book"
 ```
 
-The file lives in the store rather than in `quirework.toml` because
-what it names belongs to you and to this machine, such as an rclone
-remote or a mounted disk. The project file is committed and shared, and
-a clone elsewhere would name a remote that machine does not have.
-Keeping the file in the store also lets one command back up every store
-under the provenance home without opening a project. `quirework config
-template backup` prints an annotated file to start from.
+The file lives in the store rather than in `quirework.toml` because what
+it names belongs to you and to this machine, such as an rclone remote or
+a mounted disk. The project file is committed and shared, and a clone
+elsewhere would name a remote that machine does not have. Keeping the
+file in the store also lets one command back up every store under the
+provenance home without opening a project.
+`quirework config template backup` prints an annotated file to start
+from.
 
 Each `[targets.<name>]` table is one destination, and a store may name
 several, such as a cloud folder and a NAS. The name is yours. It labels
@@ -580,22 +578,21 @@ destination, so both keep the same rules:
 
 - An accepted file is never overwritten or deleted there. A version
   never changes in the store, so a copy that differs means one side is
-  damaged. The run stops and names the file rather than choosing a
-  side. rclone compares checksums, and the directory driver compares
-  sizes.
-- A pending file is deleted there only once the version that replaced
-  it has arrived.
+  damaged. The run stops and names the file rather than choosing a side.
+  rclone compares checksums, and the directory driver compares sizes.
+- A pending file is deleted there only once the version that replaced it
+  has arrived.
 - The first run writes the store's `store.toml` at the destination. A
   later run refuses a destination holding another store's identity, or
   holding files and no identity at all. A path copied from one store's
   file into another's therefore fails rather than mixing two corpora.
-- The directory driver never creates its destination's top directory.
-  A share that failed to mount leaves an empty mount point behind, and
+- The directory driver never creates its destination's top directory. A
+  share that failed to mount leaves an empty mount point behind, and
   filling it would put the backup on the local disk. Create the
   directory once by hand.
 - Names starting with a dot are never copied. They are the half-built
-  directory of an accept in progress, a capture still being written,
-  and a git backup's `.git`.
+  directory of an accept in progress, a capture still being written, and
+  a git backup's `.git`.
 
 The order of a run is what keeps the second rule true while you work. A
 run copies `pending/`, then `accepted/`, and then takes the lock that
@@ -605,37 +602,37 @@ destination's pending files that the store no longer has.
 
 Say you accept a session while a run is uploading. The run had already
 copied the session's pending capture, and it missed the new version
-because it listed `accepted/` before the version existed. Under the
-lock it sees the version and uploads it, and only then removes the
-pending copy. The session is at the destination throughout. A run that
-fails partway has deleted nothing.
+because it listed `accepted/` before the version existed. Under the lock
+it sees the version and uploads it, and only then removes the pending
+copy. The session is at the destination throughout. A run that fails
+partway has deleted nothing.
 
 Pending files are deleted at all because `reject` deletes a capture on
-purpose, and a backup should not keep a session you curated out. The
-one loss this does not prevent is a pending file deleted by hand, which
-the next run deletes at the destination too. Its original stays where
-Claude Code keeps it until Claude Code prunes it, and the `git` driver
-keeps such a file in its history.
+purpose, and a backup should not keep a session you curated out. The one
+loss this does not prevent is a pending file deleted by hand, which the
+next run deletes at the destination too. Its original stays where Claude
+Code keeps it until Claude Code prunes it, and the `git` driver keeps
+such a file in its history.
 
 #### Git and command targets
 
-The `git` driver commits the store as it stands, under the store's
-lock. It pushes `branch`, which is `main` unless set, to `remote` when
-one is named. Cloning that repository restores the store. It costs
-disk: the repository's objects roughly double the store's size, and a
-pending capture that grows is committed whole again on every run. A
-store that already sits inside another repository, as a `store_dir`
-inside a project can, is refused, since that repository versions it
-already. Commits carry your git identity, so a machine with none
-configured fails the run with git's own message.
+The `git` driver commits the store as it stands, under the store's lock.
+It pushes `branch`, which is `main` unless set, to `remote` when one is
+named. Cloning that repository restores the store. It costs disk: the
+repository's objects roughly double the store's size, and a pending
+capture that grows is committed whole again on every run. A store that
+already sits inside another repository, as a `store_dir` inside a
+project can, is refused, since that repository versions it already.
+Commits carry your git identity, so a machine with none configured fails
+the run with git's own message.
 
 A `command` target runs its script from the store's directory with
 `QUIREWORK_STORE`, `QUIREWORK_STORE_ID` and `QUIREWORK_BACKUP_TARGET`
 set. Its exit status is the run's outcome. Quirework cannot see what a
 script copies, so the rules above are the script's to keep, and it runs
-without the store's lock. Because it runs unattended, the script must
-be a regular file that you own, that is executable, and that nobody
-else can write.
+without the store's lock. Because it runs unattended, the script must be
+a regular file that you own, that is executable, and that nobody else
+can write.
 
 #### Running and checking a backup
 
@@ -649,17 +646,17 @@ quirework provenance store backup --all     # every store under the provenance h
 Each run leaves a record and a log under
 `$XDG_STATE_HOME/quirework/backup/<store id>/`. They are per machine,
 because a backup is something one machine did. They are keyed by the
-store's identity, so two stores never share one. `quirework provenance
-store status` reads them. It shows each target's last success, any
-failure since, and how many accepted versions and pending sessions
-changed after that success. `quirework config check` reads
-`backup.toml` and validates every target without reaching any. A store
-with no `backup.toml` is reported as having no backup, unless a
+store's identity, so two stores never share one.
+`quirework provenance store status` reads them. It shows each target's
+last success, any failure since, and how many accepted versions and
+pending sessions changed after that success. `quirework config check`
+reads `backup.toml` and validates every target without reaching any. A
+store with no `backup.toml` is reported as having no backup, unless a
 repository around it already versions it.
 
 The first run to a cloud remote can be slow, because the remote creates
-files one request at a time. Google Drive takes a few files a second,
-so a store of five hundred sessions takes about half an hour the first
+files one request at a time. Google Drive takes a few files a second, so
+a store of five hundred sessions takes about half an hour the first
 time. Later runs copy only what changed, and rclone lists the whole
 destination in a few batched requests, so a run with nothing new takes
 seconds.
@@ -696,11 +693,11 @@ systemctl --user daemon-reload
 systemctl --user enable --now quirework-backup.timer
 ```
 
-Give `ExecStart` the absolute path of the `quirework` your projects
-run, since a user service does not see your shell's `PATH`. The service
-finds the provenance home in the per-user configuration file, which it
-reads like any other process. `Persistent=true` runs a backup the
-machine slept through as soon as it wakes. A failed run shows in
+Give `ExecStart` the absolute path of the `quirework` your projects run,
+since a user service does not see your shell's `PATH`. The service finds
+the provenance home in the per-user configuration file, which it reads
+like any other process. `Persistent=true` runs a backup the machine
+slept through as soon as it wakes. A failed run shows in
 `journalctl --user -u quirework-backup` and in `store status`.
 
 Restoring is a copy in the other direction. On a new machine,
@@ -708,8 +705,8 @@ Restoring is a copy in the other direction. On a new machine,
 identity the ledger names. Copy the backup into it, for example with
 `rclone copy gdrive:quirework-provenance/my-book <store directory>`,
 then run `quirework provenance store verify`, which proves that every
-accepted file came back intact. A `git` backup is restored by cloning
-it to where the store belongs, with no init.
+accepted file came back intact. A `git` backup is restored by cloning it
+to where the store belongs, with no init.
 
 ### What capture selects
 
@@ -717,8 +714,8 @@ Capture selects sessions by their recorded relationship to the project
 and its worktrees. Codex capture also excludes runtime subagents and
 delegated evaluation seats whose recorded tool calls name a raw capture
 in the store. It reports those exclusions. The ingest's main session
-remains eligible, as does a delegated task that only discusses a
-capture in prose. A store directory's bare name, such as
+remains eligible, as does a delegated task that only discusses a capture
+in prose. A store directory's bare name, such as
 `cc-sessions/<id>.jsonl`, counts only where it starts a path, so a
 matching directory name inside another project's absolute path does not
 establish an evaluation of this project's corpus.
@@ -735,11 +732,11 @@ the session gave it.
 
 Capture reads each harness's transcripts where the harness keeps them:
 Claude Code's under `~/.claude/projects`, Codex's under
-`$CODEX_HOME/sessions` (normally `~/.codex/sessions`), and
-Antigravity's under `~/.gemini/antigravity-cli/brain`. A harness set up
-with another home needs capture pointed at it; otherwise the sweep stops
-and names the directory it looked in. `providers.claude.sessions` names
-Claude Code's directory, which `spec trail add --find` also reads, and
+`$CODEX_HOME/sessions` (normally `~/.codex/sessions`), and Antigravity's
+under `~/.gemini/antigravity-cli/brain`. A harness set up with another
+home needs capture pointed at it; otherwise the sweep stops and names
+the directory it looked in. `providers.claude.sessions` names Claude
+Code's directory, which `spec trail add --find` also reads, and
 `providers.agy.sessions` names Antigravity's. Codex follows its own
 `CODEX_HOME`.
 
@@ -761,13 +758,13 @@ which model authored a historical turn.
 
 A harness logs its own text in the human's slot too, and none of it
 counts as a turn of the author's: slash-command and system-reminder
-wrappers, the report a background subagent sends back, and the summary
-a compacted session resumes from. Search, show, the trail and the effort
+wrappers, the report a background subagent sends back, and the summary a
+compacted session resumes from. Search, show, the trail and the effort
 metrics apply the same rule, and `show --raw` labels that text
 `harness`. The same rule covers the notice Claude Code writes in the
-model's slot when a request fails ("API Error: …"): it is the
-harness's, not the model's, so a turn it follows reads as unanswered,
-and a blind cold-read never sees it as something the model said.
+model's slot when a request fails ("API Error: …"): it is the harness's,
+not the model's, so a turn it follows reads as unanswered, and a blind
+cold-read never sees it as something the model said.
 
 A sub-agent's records are not the session's dialogue either. Search, the
 trail and the blind cold-read leave them out, and `show` shows them only
@@ -814,14 +811,14 @@ The working copies are rebuilt on demand and default to the project's
 cache. `provenance.rendered` holds the filtered sessions staged for the
 analysts, one directory per scope. `provenance.reports` holds each
 report as it arrives and before it is recorded, including any
-quarantined because its analyst did not declare itself blind. Set
-them only to keep these somewhere other than the cache.
+quarantined because its analyst did not declare itself blind. Set them
+only to keep these somewhere other than the cache.
 
 An analyst's copy is filtered so that it cannot learn whose project it
 is reading. `provenance.redaction_policy` names a TOML or JSON file
 whose `markers` list the project's distinctive framing: its title, its
-author's name, a phrase that would hand the analyst the conclusion it
-is meant to reach. `provenance.redaction_markers` lists them inline
+author's name, a phrase that would hand the analyst the conclusion it is
+meant to reach. `provenance.redaction_markers` lists them inline
 instead, and wins when both are set. Each occurrence, in any case,
 becomes a visible placeholder, so the analyst still sees that context
 was stated. A long human turn that still carries a marker once the
@@ -836,8 +833,8 @@ see.
 ### Caches and run storage
 
 Derived caches default to a project-specific directory under the XDG
-cache directory, and `project.cache` moves it. Run storage defaults to
-a project-specific directory under the XDG state directory. Configure
+cache directory, and `project.cache` moves it. Run storage defaults to a
+project-specific directory under the XDG state directory. Configure
 `runs.store` to retain an existing private store and `runs.reviews` for
 reviewed output.
 
@@ -869,10 +866,10 @@ distribution package installs the same file as
 `~/.config` overrides.
 
 Every confined seat gets a private runner home, bound over the real one
-so the seat cannot reach the operator's credentials or memory. A home
-is the harness's own installation and scratch state. It is large and
-worth nothing once its run is over: one measured room held 92 MB of
-them against 1.6 MB of records. So homes live in the cache, under
+so the seat cannot reach the operator's credentials or memory. A home is
+the harness's own installation and scratch state. It is large and worth
+nothing once its run is over: one measured room held 92 MB of them
+against 1.6 MB of records. So homes live in the cache, under
 `$XDG_CACHE_HOME/quirework/homes/`, and a run reaches each of its homes
 through a link beside its run directory, named for that directory with
 `.blind-state` added. The homes directory carries a `CACHEDIR.TAG`, so
@@ -889,12 +886,12 @@ sessions with it: its next resume refuses, says the cache was cleared,
 and leaves the records as they were.
 
 `quirework sop blind prune` removes finished homes sooner, and it is the
-only thing that removes a home made before the move. Pruning keeps
-every record, receipt and transcript, because a home's native
-transcripts have already been read into the receipts beside it and
-`launch.json` records the home's path whether or not it still exists.
-Where the link was, it leaves a tombstone naming when, so a later
-resume says the home was pruned.
+only thing that removes a home made before the move. Pruning keeps every
+record, receipt and transcript, because a home's native transcripts have
+already been read into the receipts beside it and `launch.json` records
+the home's path whether or not it still exists. Where the link was, it
+leaves a tombstone naming when, so a later resume says the home was
+pruned.
 
 A seat paused between turns looks idle, so prune does not judge a home
 by its age alone. Each procedure that runs seats holds their homes from
@@ -913,8 +910,8 @@ Two homes stay held. A chapter comparison keeps its parent, because
 `inspect` checks every arm against it. A review is never finished,
 because any turn can be continued, resumed or forked later. Prune keeps
 a held home and names what holds it. `--force` removes it anyway, and
-the tombstone records the hold, so the resume that then fails says so.
-A home nothing holds was made before holds existed or by a command that
+the tombstone records the hold, so the resume that then fails says so. A
+home nothing holds was made before holds existed or by a command that
 runs one seat and is done. It is kept only while it was touched in the
 last hour. A home whose seat still has a live process is never removed.
 
@@ -969,12 +966,12 @@ which also separates them from everything else that user runs.
 Three kinds of invocation are outside the count, and a report read
 without knowing that will understate them. `--help` is not use of a
 command. The `config` and `usage` groups inspect the tool rather than do
-its work. And a procedure read straight off disk never reaches
-Quirework at all. A generated skill therefore routes the companion
-through `quirework sop show NAME`, which prints the procedure verbatim
-and counts the read; a companion that opens the file anyway, or a
-person reading it in an editor, is not counted, so procedure counts
-remain a floor rather than a total.
+its work. And a procedure read straight off disk never reaches Quirework
+at all. A generated skill therefore routes the companion through
+`quirework sop show NAME`, which prints the procedure verbatim and
+counts the read; a companion that opens the file anyway, or a person
+reading it in an editor, is not counted, so procedure counts remain a
+floor rather than a total.
 
 Recording never costs a command its result. A store that cannot be
 written is reported once on stderr and then left alone for the rest of
@@ -1050,10 +1047,10 @@ unless `manuscript.companion_anchors` names another label:
 ```
 
 A unit is named by `@unit(slug)`, by its bare slug, or by its file as
-the format writes it (`opening.qmd`, `posts/why-the-lamp-turns/index.md`).
-Each `@bind(slug)` after it must be a section that unit binds.
-`spec notes --coverage` then maps which commitments the entries work
-through.
+the format writes it (`opening.qmd`,
+`posts/why-the-lamp-turns/index.md`). Each `@bind(slug)` after it must
+be a section that unit binds. `spec notes --coverage` then maps which
+commitments the entries work through.
 
 ### Where the work lives
 
@@ -1064,8 +1061,8 @@ tooling, `sop review audit` when it lists commits a reviewer must see,
 `text check` when no `scope_glob` names its scope. They share one
 answer, built from what the project already declares:
 
-- the units and their marks, as the format lays them out: a book's
-  whole source, or a site's pages, their bundles and `manuscript.marks`;
+- the units and their marks, as the format lays them out: a book's whole
+  source, or a site's pages, their bundles and `manuscript.marks`;
 - the register: `manuscript.spec`, each `manuscript.unit_spec`, and the
   references and review notes;
 - `manuscript.companion_dirs`;
@@ -1107,14 +1104,13 @@ returns transformed SVG text. `publish.figure_checks` is a list of
 functions returning diagnostic strings. Extensions belong to the
 consumer's package and must be installed explicitly.
 
-`providers.codex.catalog` pins the Codex model catalog to a file,
-which is then used as given instead of asking `codex debug models`.
-Leave it unset unless a run must resolve against a frozen list. Claude
-Code keeps no local catalog, so `quirework sop models list claude`
-prints the list `providers.claude.models` declares. It is a reference
-for the project's own choices and constrains nothing: a Claude seat
-passes its family or version to the CLI, and the receipt records which
-model answered.
+`providers.codex.catalog` pins the Codex model catalog to a file, which
+is then used as given instead of asking `codex debug models`. Leave it
+unset unless a run must resolve against a frozen list. Claude Code keeps
+no local catalog, so `quirework sop models list claude` prints the list
+`providers.claude.models` declares. It is a reference for the project's
+own choices and constrains nothing: a Claude seat passes its family or
+version to the CLI, and the receipt records which model answered.
 
 Every launch proves its seat blind before the seat starts. A runner
 release can change what a flag does without rejecting it, and only a
@@ -1122,19 +1118,19 @@ live seat can say what it holds, so the launch canary spends one short
 exchange asking it what it can read, which tools it has and what
 instructions it was given. It runs the seat's own command, rebuilt by
 the launcher that will start the seat, with the canary's prompt, model
-and session in its place. A passing canary is recorded under the
-runner, its exact installed version, a fingerprint of that command, and
-what the seat may hold on purpose: nothing of the project for a blind
-seat, the repository and its guidance for a review, the web for a
-research seat. A later launch with the same key starts at once. A new
-release of any size, or a change to the seat's flags, runs the canary
-again first. A seat that holds more than its contract allows, or a
-canary whose answer proves nothing, refuses the launch, and the output
-is kept under `~/tmp` for inspection. A Codex canary first asks Codex's
-app server which MCP servers the seat would hold. Any server refuses
-the launch without spending the exchange. An inventory that cannot be
-read proves nothing, so it refuses the launch too. The record keeps
-the inventory as `mcp_servers`.
+and session in its place. A passing canary is recorded under the runner,
+its exact installed version, a fingerprint of that command, and what the
+seat may hold on purpose: nothing of the project for a blind seat, the
+repository and its guidance for a review, the web for a research seat. A
+later launch with the same key starts at once. A new release of any
+size, or a change to the seat's flags, runs the canary again first. A
+seat that holds more than its contract allows, or a canary whose answer
+proves nothing, refuses the launch, and the output is kept under `~/tmp`
+for inspection. A Codex canary first asks Codex's app server which MCP
+servers the seat would hold. Any server refuses the launch without
+spending the exchange. An inventory that cannot be read proves nothing,
+so it refuses the launch too. The record keeps the inventory as
+`mcp_servers`.
 
 The records are per machine, in `providers/canaries.json` under the
 project's cache, because blindness is a property of the runner installed
@@ -1144,19 +1140,19 @@ The cold-read and the variant drafts keep no launch receipt; they print
 the canary instead. `quirework sop blind canary` runs the canary on
 demand under the shared blind flag set, the set a command written by
 hand for `sop blind run` is proven under, and `sop blind check` reports
-which releases have been canaried without failing on one that has not.
-A command written by hand has to carry that set itself. A Codex command
+which releases have been canaried without failing on one that has not. A
+command written by hand has to carry that set itself. A Codex command
 without `-c features.apps=false`, for example, holds the account's
-connected apps however its canary passed.
-`providers.validation_record`, which kept a record in the repository and
-failed `check` on a minor version change, is retired, and a project
-that still sets it is refused with that explanation.
+connected apps however its canary passed. `providers.validation_record`,
+which kept a record in the repository and failed `check` on a minor
+version change, is retired, and a project that still sets it is refused
+with that explanation.
 
-`QUIREWORK_CANARY=0` forbids live canaries in one process, so any
-launch there that has no record is refused. A test suite sets it: a test
-that drives a launch without stubbing the gate would otherwise reach a
-real runner and spend a real model's tokens. Quirework's own suite sets
-it in its `conftest.py`, and a consumer's suite should do the same.
+`QUIREWORK_CANARY=0` forbids live canaries in one process, so any launch
+there that has no record is refused. A test suite sets it: a test that
+drives a launch without stubbing the gate would otherwise reach a real
+runner and spend a real model's tokens. Quirework's own suite sets it in
+its `conftest.py`, and a consumer's suite should do the same.
 
 The canary runs on the cheapest model each runner offers.
 `providers.canary_models` names that model per runner, as in
@@ -1180,14 +1176,13 @@ build output stays inside the configured build tree.
 
 ## Annotated templates
 
-`quirework config template book` prints a commented configuration for
-a Quarto book, and `template site` one for a site of Markdown pages
-built by Hugo. Use `template run` for a tiny model plan,
-`template terminology` for an advisory word policy, `template tells`
-for a machine-habit policy, or `template tmpfiles` for the
-cache-cleanup rule above. Add `--out PATH` to create a new file; an
-existing file is never overwritten. Every template is bundled in the
-wheel.
+`quirework config template book` prints a commented configuration for a
+Quarto book, and `template site` one for a site of Markdown pages built
+by Hugo. Use `template run` for a tiny model plan,
+`template terminology` for an advisory word policy, `template tells` for
+a machine-habit policy, or `template tmpfiles` for the cache-cleanup
+rule above. Add `--out PATH` to create a new file; an existing file is
+never overwritten. Every template is bundled in the wheel.
 
 Run plans accept TOML or JSON. Preparation still freezes canonical JSON
 records, so saved runs and their integrity checks retain their format.
@@ -1243,11 +1238,10 @@ never to fail a verdict, and one list cannot do both.
 
 ## From schema 1
 
-Schema 1 kept everything about the written work in one `[book]`
-section. Schema 2 splits it by job, and a schema-1 file is refused with
-a pointer here rather than read with guesses. Set `schema = 2`, then
-move each key to the section this table names. The key names do not
-change.
+Schema 1 kept everything about the written work in one `[book]` section.
+Schema 2 splits it by job, and a schema-1 file is refused with a pointer
+here rather than read with guesses. Set `schema = 2`, then move each key
+to the section this table names. The key names do not change.
 
 | Schema 1 | Schema 2 |
 |---|---|

@@ -16,13 +16,13 @@ cross.
 Keep one distribution and one Python namespace. Domain modules expose
 services independently of command parsing. Provider adapters and the run
 engine import neither the manuscript nor a publisher, and the manuscript
-never imports a publisher, since a project may render with none of
-them. A format is a `manuscript.formats.Format` and a backend a
+never imports a publisher, since a project may render with none of them.
+A format is a `manuscript.formats.Format` and a backend a
 `publish.backends.Backend`, each registered by name, so one is added as
-a module and never by teaching a caller a file extension.
-Resolve project settings
-at the operation boundary, never from the installed package location.
-Preserve isolation across projects, worktrees, threads, and processes.
+a module and never by teaching a caller a file extension. Resolve
+project settings at the operation boundary, never from the installed
+package location. Preserve isolation across projects, worktrees,
+threads, and processes.
 
 Configuration describes project choices. Tested code implements provider
 protocols, recovery, capability validation, and evidence integrity.
@@ -47,11 +47,10 @@ this repository.
 
 Keep the public API and command interface understandable to an author
 using a different project, a book or a site, and verify independent
-installation and
-project isolation. Preserve execution evidence through refactors. An
-uncertain provider request must be reconciled before any resubmission. A
-completed answer with a failed run condition remains available with its
-limitations.
+installation and project isolation. Preserve execution evidence through
+refactors. An uncertain provider request must be reconciled before any
+resubmission. A completed answer with a failed run condition remains
+available with its limitations.
 
 ## The examples
 
@@ -64,12 +63,11 @@ wrap modes and a voice policy. Each is documentation and a fixture at
 once, and `tests/test_example_book.py` and `tests/test_example_site.py`
 run an author's gates against them on every test run.
 
-Treat them as consumers. Each one's vocabulary, characters and
-editorial rules stay inside its directory and never enter `src/`, and
-its content is fiction written for the purpose. When a change to
-Quirework breaks one, the example is usually right: the examples are
-the only projects here that were not designed around the
-implementation.
+Treat them as consumers. Each one's vocabulary, characters and editorial
+rules stay inside its directory and never enter `src/`, and its content
+is fiction written for the purpose. When a change to Quirework breaks
+one, the example is usually right: the examples are the only projects
+here that were not designed around the implementation.
 
 ## Git
 
