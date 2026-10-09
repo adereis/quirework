@@ -106,6 +106,57 @@ def test_disk_is_counted_once_per_inode(tmp_path):
     assert blind._bytes(home) == pytest.approx(once, rel=0.01)
 
 
+SESSION = "0199c0de-0000-7000-8000-00000000abcd"
+
+
+@pytest.mark.parametrize(
+    "runner, relative",
+    [
+        ("codex", f"sessions/2026/10/06/rollout-2026-10-06T20-08-06-{SESSION}.jsonl"),
+        ("claude", f"projects/-seat/{SESSION}.jsonl"),
+        (
+            "agy",
+            f"antigravity-cli/brain/{SESSION}/.system_generated/logs/"
+            "transcript_full.jsonl",
+        ),
+    ],
+)
+def test_a_resume_finds_its_session_where_the_runner_keeps_it(
+    tmp_path, runner, relative
+):
+    work = tmp_path / "seat"
+    work.mkdir()
+    path = blind.state_root(work) / runner / relative
+    path.parent.mkdir(parents=True)
+    path.write_text("{}\n")
+    assert blind.require_session(work, runner, SESSION) == path
+
+
+def test_a_resume_is_refused_once_the_home_is_gone(tmp_path):
+    with pytest.raises(blind.SessionGone, match="private home .* is gone"):
+        blind.require_session(tmp_path / "seat", "codex", SESSION)
+
+
+def test_a_resume_is_refused_when_the_home_lost_the_session(tmp_path):
+    work, _ = seat(tmp_path, "mara")
+    with pytest.raises(blind.SessionGone, match="no longer holds it"):
+        blind.require_session(work, "codex", SESSION)
+
+
+def test_a_session_id_is_matched_literally(tmp_path):
+    """An id is spliced into a glob, so a stray `*` must not match another."""
+    work = tmp_path / "seat"
+    other = blind.state_root(work) / "claude" / "projects" / "-seat" / "x.jsonl"
+    other.parent.mkdir(parents=True)
+    other.write_text("{}\n")
+    with pytest.raises(blind.SessionGone):
+        blind.require_session(work, "claude", "*")
+
+
+def test_every_runner_says_where_its_sessions_live():
+    assert all("{id}" in runner.session for runner in blind.RUNNERS.values())
+
+
 def test_the_root_is_an_allow_list_of_host_trees(tmp_path):
     fake = tmp_path / "root"
     for name in ("usr/bin", "etc", "opt", "var/lib", "var/mnt", "home/me", "nas"):

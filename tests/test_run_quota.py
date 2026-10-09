@@ -11,10 +11,13 @@ and a seat stalled this way never withholds the seats that finished.
 
 from quirework.runs import commands as run_commands
 import json
+import shutil
 
 import pytest
+from conftest import native_session
 
 from quirework.runs import engine
+from quirework.providers import blind
 from quirework.providers import harness
 from quirework.providers import quota
 from quirework.runs.storage import hashes
@@ -466,6 +469,9 @@ def stopped_without_a_cause(run, rows):
     record = run.record("stalled", "one")
     record.mkdir(parents=True, exist_ok=True)
     (record / "events.jsonl").write_text("".join(json.dumps(r) + "\n" for r in rows))
+    # The stopped turn's harness had already opened the session it names.
+    harness_name = run.seats["stalled"]["config"]["harness"]
+    native_session(run.workspace("stalled"), harness_name, "sid")
     state = run.state("stalled")
     state["pending"] = dict(
         turn="one",
@@ -535,6 +541,21 @@ def test_the_next_submission_resumes_the_session_with_the_error_prompt(
             material=[],
         )
     ]
+
+
+def test_a_resume_is_refused_before_anything_is_staged_once_its_home_is_gone(
+    two_seats, monkeypatch, canaries_pass
+):
+    """A resume into an empty home fails for a reason the harness never names."""
+    run = two_seats
+    stopped_without_a_cause(run, claude_events_cut_by_a_fault())
+    engine.continue_turn(run, "stalled", "one", "stream dropped")
+    shutil.rmtree(blind.state_root(run.workspace("stalled")))
+    before = run.state("stalled")
+    monkeypatch.setattr(harness, "command", lambda *a: pytest.fail("launched"))
+    with pytest.raises(blind.SessionGone, match="session sid: its private home"):
+        run.turn("stalled", 0, 1)
+    assert run.state("stalled") == before
 
 
 def test_continue_refuses_what_it_cannot_honestly_continue(two_seats):

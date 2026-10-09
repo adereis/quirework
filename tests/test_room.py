@@ -6,7 +6,9 @@ from contextlib import nullcontext
 from pathlib import Path
 
 import pytest
+from conftest import native_session
 
+from quirework.providers import blind
 from quirework.providers import models as drivers
 from quirework.providers import quota
 from quirework.runs.storage import lock, read, shown, write
@@ -1296,6 +1298,57 @@ def test_an_interrupted_turn_is_continued_in_its_own_session(prepared):
     stop = quota.classify("codex", record)
     assert stop["phase"] == "interrupted"
     assert quota.resumable_session(stop) == "t-9"
+
+
+AGY_CUT = [
+    {"event": "init", "conversation_id": "cv-2"},
+    {
+        "event": "step_update",
+        "conversation_id": "cv-2",
+        "step_update": {"step_type": "tool"},
+    },
+    {
+        "event": "result",
+        "conversation_id": "cv-2",
+        "result": {
+            "status": "ERROR",
+            "error": "429 rate limit reached",
+            "usage": {"output_tokens": 40},
+        },
+    },
+]
+
+
+def test_a_round_is_refused_before_it_opens_once_a_seats_session_is_gone(prepared):
+    """Every seat resumes its session each round. A home pruned between
+    rounds would fail mid-round, after the board went out to the others."""
+    post(prepared, "ana-pell", "A position.")
+    post(prepared, "bo-larke", "Another position.")
+    room.promote(prepared, 1)
+    for seat in ("ana-pell", "bo-larke"):
+        state = read(room.state_path(prepared, seat))
+        state["session_id"] = f"s-{seat}"
+        write(room.state_path(prepared, seat), state)
+    native_session(prepared / "seats" / "ana-pell", "agy", "s-ana-pell")
+    trail = (prepared / "room.log").read_text()
+    with pytest.raises(blind.SessionGone, match="s-bo-larke.*private home"):
+        room.run_round(prepared, 2)
+    assert (prepared / "room.log").read_text() == trail
+    assert not (prepared / "records" / "ana-pell" / "r002").exists()
+
+
+def test_continue_files_nothing_away_once_the_session_is_gone(prepared):
+    """The stopped attempt stays where it was, so the round reads the same."""
+    record = prepared / "records" / "ana-pell" / "r001"
+    _stream(record, AGY_CUT)
+    state = read(room.state_path(prepared, "ana-pell"))
+    state["rounds"] = {"1": {"status": "quota", "quota_stop": "interrupted"}}
+    write(room.state_path(prepared, "ana-pell"), state)
+    with pytest.raises(blind.SessionGone, match="cv-2"):
+        room.continue_seat(prepared, 1, "ana-pell")
+    assert (record / "events.jsonl").exists()
+    assert not (record / "attempts").exists()
+    assert read(room.state_path(prepared, "ana-pell"))["rounds"] == state["rounds"]
 
 
 def test_the_cli_can_still_read_a_room_after_every_branch(prepared, capsys):

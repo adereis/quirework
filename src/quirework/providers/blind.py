@@ -41,6 +41,7 @@ dir is not a wall") owns the rule.
 
 from __future__ import annotations
 
+import glob
 import json
 import os
 import shutil
@@ -589,6 +590,10 @@ class Runner:
     # Session-bus names the runner must reach to run at all. The jail never
     # binds the raw bus; it proxies exactly these in (see `Bus`).
     bus_names: tuple[str, ...] = ()
+    # Where a session lives in the private home, as a glob with `{id}` for the
+    # session id. A resume continues that file, so its absence is the whole
+    # question `require_session` answers.
+    session: str = ""
 
 
 def _reads_false(feature: str) -> Callable[[str], str | None]:
@@ -687,6 +692,7 @@ RUNNERS = {
             ),
         ),
         notes="global CLAUDE.md and ~/.claude/projects replaced by the private home",
+        session="projects/**/{id}.jsonl",
     ),
     "agy": Runner(
         "agy",
@@ -720,6 +726,7 @@ RUNNERS = {
         # The proxy lets this one name through, which still exposes every
         # secret the keyring holds, so the receipt flags it.
         bus_names=("org.freedesktop.secrets",),
+        session="antigravity-cli/brain/{id}/.system_generated/logs/transcript_full.jsonl",
     ),
     "codex": Runner(
         "codex",
@@ -749,6 +756,7 @@ RUNNERS = {
             *_codex_seat_probes(),
         ),
         notes="sessions, logs and the memory store replaced by the private home",
+        session="sessions/**/*{id}.jsonl",
     ),
 }
 
@@ -835,6 +843,47 @@ def state_root(run_dir: Path) -> Path:
     an ordinary directory in the seat's workspace.
     """
     return run_dir.parent / f"{run_dir.name}{STATE_SUFFIX}"
+
+
+class SessionGone(RuntimeError):
+    """A resume or a fork whose session the private home no longer holds."""
+
+
+def session_paths(home: Path, runner: str, session_id: str) -> list[Path]:
+    """The native file(s) holding one session in a runner's private home.
+
+    The id is matched literally, so an id that happens to contain a glob
+    character can never match another session. A resumed codex session
+    opens a second rollout under the same id, so there may be several.
+    """
+    pattern = RUNNERS[runner].session.format(id=glob.escape(session_id))
+    return sorted(Path(home).glob(pattern))
+
+
+def require_session(run_dir: Path, runner: str, session_id: str) -> Path:
+    """The file holding ``session_id`` in this run's private home.
+
+    A resume or a fork continues a conversation the harness keeps in the
+    seat's private home, so it can run only while that home holds the
+    session. `prune` removes homes it judges finished, and a home removed
+    by hand goes the same way. Launched anyway, the harness fails for a
+    reason it does not name, often after the verb has already filed the
+    turn it meant to continue. Every verb that resumes or forks calls this
+    first and changes nothing on disk when it raises.
+    """
+    home = state_root(Path(run_dir)) / runner
+    if not home.is_dir():
+        why = f"its private home {home} is gone"
+    else:
+        found = session_paths(home, runner, session_id)
+        if found:
+            return found[0]
+        why = f"its private home {home} no longer holds it"
+    raise SessionGone(
+        f"cannot continue {runner} session {session_id}: {why}, and a new "
+        "session cannot carry on its conversation. Nothing was changed, and "
+        "the run's records are intact"
+    )
 
 
 def private_homes(root: Path) -> list[Path]:

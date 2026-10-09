@@ -48,6 +48,7 @@ from collections import Counter
 from pathlib import Path
 
 from quirework.project import current_project
+from quirework.providers import blind
 from quirework.providers import models as drivers
 from quirework.providers import quota
 from quirework.runs.storage import (
@@ -1381,6 +1382,15 @@ def run_turn(root, *, timeout=None):
         n, t = where["round"], where["turn"]
         if where["kind"] == "deliver":
             return {**where, "outcome": deliver(root, plan, seat, n, t)}
+        value = state(root, seat["id"])
+        if not is_human(seat) and value.get("session_id"):
+            # Before the round opens and the turn is staged, so a seat whose
+            # private home has gone leaves the table exactly as it was.
+            blind.require_session(
+                root / "seats" / seat["id"],
+                seat["config"]["harness"],
+                value["session_id"],
+            )
         open_round(root, plan, n)
         stage_turn(root, plan, seat)
         value = state(root, seat["id"])
@@ -1724,6 +1734,12 @@ def continue_turn(root, *, timeout=None):
                 "diagnose it rather than taking the turn again"
             )
         resume = quota.resumable_session(stop)
+        if resume:
+            # Before the stopped attempt is filed away, so a refusal leaves
+            # the turn exactly as it was.
+            blind.require_session(
+                root / "seats" / name, seat["config"]["harness"], resume
+            )
         prompt = quota.continuation() if resume else (record / "prompt.md").read_text()
         number = len(list((record / "attempts").glob("[0-9][0-9]"))) + 1
         folder = record / "attempts" / f"{number:02d}"

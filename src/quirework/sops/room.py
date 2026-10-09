@@ -1034,6 +1034,8 @@ def run_seat(root, plan, seat, n, *, timeout=None):
     # everyone else before it arrived; `status` reports the round it joined so
     # no later reading mistakes a late arrival for an independent opening.
     cold = n > 1 and not resume
+    if resume:
+        blind.require_session(work, config["harness"], resume)
     record.mkdir(parents=True)
     return launch_turn(
         root,
@@ -1245,6 +1247,10 @@ def continue_seat(root, n, name, *, timeout=None):
             "diagnose the failure rather than taking the turn again"
         )
     resume = quota.resumable_session(stop)
+    if resume:
+        # Before the stopped attempt is filed away, so a refusal leaves the
+        # round exactly as it was.
+        blind.require_session(root / "seats" / name, config["harness"], resume)
     prompt = quota.continuation() if resume else (record / "prompt.md").read_text()
     number = len(list((record / "attempts").glob("[0-9][0-9]"))) + 1
     folder = record / "attempts" / f"{number:02d}"
@@ -1298,6 +1304,18 @@ def run_round(root, n, *, jobs=1, timeout=None):
         allowed = budget(root, plan)
         if n < 1 or n > allowed:
             raise ValueError(f"round must be 1..{allowed}; extend the room first")
+        # Every seat resumes its session each round. One whose private home
+        # has gone would fail after the round opened and the board went out
+        # to the others, so the round is refused before either happens.
+        for seat in plan["seats"]:
+            state = read(state_path(root, seat["id"]))
+            if seat["id"] in acting(plan, n) and str(n) not in state["rounds"]:
+                if state.get("session_id"):
+                    blind.require_session(
+                        root / "seats" / seat["id"],
+                        seat_config(plan, seat)["harness"],
+                        state["session_id"],
+                    )
         event(root, round=n, event="round-opened", jobs=jobs)
         open_round(root, n)
         results = {}

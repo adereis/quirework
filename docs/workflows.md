@@ -888,6 +888,19 @@ reason and a red flag that the answer spans two submissions. A record
 frozen before this command existed answers it with an unknown-choice
 error; its remaining recovery is a distinct new run.
 
+A resume continues a session the harness keeps in the seat's private
+runner home, so a home can still be needed long after its last turn.
+It can also be gone: `sop blind prune` removes homes it judges
+finished, and one removed by hand goes the same way. Every procedure
+that resumes or forks a session (the run engine, rooms, roundtables,
+workshops, reviews and chapter comparisons) first checks that the home
+still holds it. When it does not, the command refuses before writing
+anything and says whether the home is gone or no longer holds that
+session. A fork's parent is checked the same way, because a pruned
+parent would otherwise hash as one that changed after the branch. The
+records stay intact, but no new session can carry on the old
+conversation.
+
 `export` mirrors the record, one directory per seat and turn, with a
 receipt for all of them. `export --flat` writes a one-seat record
 straight into the destination instead: each declared output under its

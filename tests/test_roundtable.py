@@ -1,12 +1,15 @@
 """The roundtable's mechanics: names, order, turns, limits and the supervisor."""
 
 import json
+import shutil
 import subprocess
 import sys
 from contextlib import nullcontext
 
 import pytest
+from conftest import native_session
 
+from quirework.providers import blind
 from quirework.providers import models as drivers
 from quirework.runs.storage import read, write
 from quirework.sops import room, roundtable
@@ -67,6 +70,9 @@ class Seats:
         status = self.statuses.get((name, n), "answered")
         value = read(room.state_path(root, name))
         value["session_id"] = value.get("session_id") or f"s-{name}"
+        native_session(
+            root / "seats" / name, seat["config"]["harness"], value["session_id"]
+        )
         value["rounds"][str(n)] = {"status": status, "error": None}
         write(room.state_path(root, name), value)
         spent = self.context.get((name, n))
@@ -210,6 +216,86 @@ def test_a_post_read_from_dev_stdin_is_the_text_not_the_path(table):
     got = tool(work, "post", "/dev/stdin", stdin="Barnacle, for the tides.")
     assert got.returncode == 0
     assert (work / "outbox" / "post.md").read_text() == "Barnacle, for the tides.\n"
+
+
+# A turn cut partway by a limit, as each harness reports it, and the session
+# the cut left to continue.
+INTERRUPTED = {
+    "claude": (
+        [
+            {"type": "system", "subtype": "init", "session_id": "sid-1"},
+            {"type": "assistant", "session_id": "sid-1", "message": {"content": []}},
+            {
+                "type": "result",
+                "is_error": True,
+                "session_id": "sid-1",
+                "result": "You've hit your session limit",
+                "modelUsage": {"m": {"outputTokens": 9100}},
+            },
+        ],
+        "sid-1",
+    ),
+    "codex": (
+        [
+            {"type": "thread.started", "thread_id": "th-9"},
+            {"type": "item.completed", "item": {"type": "agent_message"}},
+            {
+                "type": "turn.failed",
+                "error": {"code": "rate_limit_exceeded", "message": "limit"},
+            },
+        ],
+        "th-9",
+    ),
+    "agy": (
+        [
+            {"event": "init", "conversation_id": "cv-2"},
+            {"event": "step_update", "step_update": {"step_type": "tool"}},
+            {
+                "event": "result",
+                "result": {
+                    "status": "ERROR",
+                    "error": "429 rate limit reached",
+                    "usage": {"output_tokens": 40},
+                },
+            },
+        ],
+        "cv-2",
+    ),
+}
+
+
+def test_a_turn_is_refused_before_its_round_opens_once_its_session_is_gone(
+    table, monkeypatch
+):
+    """Every seat resumes its session each turn; one whose home was pruned
+    would fail after the round opened and its mail was staged."""
+    Seats(monkeypatch)
+    roundtable.run(table, to=1)
+    first = order(table, 2)[0]
+    shutil.rmtree(blind.state_root(table / "seats" / first))
+    trail = (table / "room.log").read_text()
+    with pytest.raises(blind.SessionGone, match=f"s-{first}.*is gone"):
+        roundtable.run_turn(table)
+    assert (table / "room.log").read_text() == trail
+    assert not roundtable.record_dir(table, first, 2).exists()
+
+
+def test_continue_files_nothing_away_once_the_session_is_gone(table, monkeypatch):
+    """The held attempt stays where it was, so the turn reads the same."""
+    seats = Seats(monkeypatch)
+    first = order(table, 1)[0]
+    seats.statuses[(first, 1)] = "quota"
+    assert roundtable.run_turn(table)["kind"] == "held"
+    _, plan = roundtable.load(table)
+    rows, session = INTERRUPTED[roundtable.seat_by(plan, first)["config"]["harness"]]
+    record = roundtable.record_dir(table, first, 1)
+    (record / "events.jsonl").write_text("".join(json.dumps(r) + "\n" for r in rows))
+    before = read(room.state_path(table, first))
+    with pytest.raises(blind.SessionGone, match=f"{session}.*no longer holds it"):
+        roundtable.continue_turn(table)
+    assert (record / "events.jsonl").exists()
+    assert not (record / "attempts").exists()
+    assert read(room.state_path(table, first)) == before
 
 
 def test_a_turn_is_handed_what_happened_since_it_last_spoke(table, monkeypatch):

@@ -521,6 +521,17 @@ class Experiment:
             raise RuntimeError(
                 f"unresolved submitted turn {pending['key']}; cannot skip it"
             )
+        sid = self.state["sessions"].get(seat)
+        if mode == "fork":
+            sid = self.state["sessions"]["parent"]
+        elif mode == "start":
+            sid = str(uuid.uuid4())
+        if mode in ("resume", "fork") and not pending:
+            # A fork continues the parent's session inside the arm's own home,
+            # cloned from the checkpoint. Checked before the pages are staged,
+            # so a home that is gone leaves the seat as it was. A pending
+            # submission is reconciled, never launched again, so it is not.
+            blind.require_session(self.workspace(seat), self.runner, sid)
         work = self.workspace(seat)
         work.mkdir(parents=True, exist_ok=True)
         staged = work / "pages"
@@ -536,11 +547,6 @@ class Experiment:
             shutil.copyfile(source, staged / f"page-{index:03d}.png")
         physical_images = sorted(staged.glob("*.png"))
         virtual_images = [VIRTUAL / "pages" / p.name for p in physical_images]
-        sid = self.state["sessions"].get(seat)
-        if mode == "fork":
-            sid = self.state["sessions"]["parent"]
-        elif mode == "start":
-            sid = str(uuid.uuid4())
         raw = self.record / "raw" / f"events-{key}.jsonl"
         err = self.record / "raw" / f"stderr-{key}.log"
         raw.parent.mkdir(exist_ok=True)
@@ -726,6 +732,7 @@ class Experiment:
             raise RuntimeError("cannot checkpoint a pending turn")
         checkpoint = self.root / "checkpoint"
         if "checkpoint" not in self.state:
+            self.require_parent()
             # Provider writers must be quiescent, including delayed writes.
             previous = tree_hashes(self.home("parent"))
             for _ in range(30):
@@ -741,10 +748,21 @@ class Experiment:
             self.save()
         self.check_parent()
 
+    def require_parent(self):
+        """Refuse once the parent's home is gone, rather than misname it.
+
+        A pruned home hashes as one that changed, which would read as a
+        parent that moved after the arms branched from it.
+        """
+        blind.require_session(
+            self.workspace("parent"), self.runner, self.state["sessions"]["parent"]
+        )
+
     def check_parent(self):
         expected = self.state["checkpoint"]
         if tree_hashes(self.root / "checkpoint") != expected:
             raise RuntimeError("frozen checkpoint changed")
+        self.require_parent()
         if tree_hashes(self.home("parent")) != expected:
             raise RuntimeError("parent changed after checkpoint")
 

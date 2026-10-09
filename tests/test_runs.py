@@ -2,12 +2,15 @@
 
 from quirework.runs import commands as run_commands
 import json
+import shutil
 from pathlib import Path
 
 import pytest
+from conftest import native_session
 
 from quirework.delivery import artifacts
 from quirework.runs import engine
+from quirework.providers import blind
 from quirework.providers import harness
 from quirework.runs.storage import digest
 from quirework.runs.storage import hashes
@@ -483,8 +486,8 @@ def branched(setup):
     run = prepared(setup)
     run.workspace("reader").mkdir(parents=True)
     (run.workspace("reader") / "material.txt").write_text("frozen parent")
-    run.private("reader").mkdir(parents=True)
-    (run.private("reader") / "session.json").write_text("parent history")
+    harness = run.seats["reader"]["config"]["harness"]
+    native_session(run.workspace("reader"), harness, "parent").write_text("history")
     run.save("reader", dict(done={}, session_id="parent", pending=None, complete=True))
     return run
 
@@ -507,6 +510,15 @@ def test_checkpoint_failure_does_not_publish_partial_state(setup, monkeypatch):
     run.checkpoint("child")
     assert hashes(run.private("child")) == hashes(run.private("reader"))
     assert hashes(run.workspace("child")) == hashes(run.workspace("reader"))
+
+
+def test_a_child_names_a_parent_home_that_is_gone(setup):
+    """A pruned parent hashed as one that changed after branching."""
+    run = branched(setup)
+    shutil.rmtree(blind.state_root(run.workspace("reader")))
+    with pytest.raises(blind.SessionGone, match="session parent: its private home"):
+        run.run_seat("child")
+    assert not run.workspace("child").parent.exists()
 
 
 def test_existing_partial_child_is_rejected(setup):

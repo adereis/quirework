@@ -707,20 +707,11 @@ def bus_flags(record):
 def session_paths(name, private, sid):
     """The native session file(s) a resume would continue from.
 
-    Locating these is already each adapter's job for receipts; this exposes
-    the same lookup so a refused turn can be rewound off the session before
-    it is resubmitted. Returns [] when the session was never created.
+    The lookup is the runner table's, the one a resume's guard uses, so a
+    refused turn is rewound off the same files a resume would continue.
+    Returns [] when the session was never created.
     """
-    private = Path(private)
-    if name == "claude":
-        return sorted((private / "projects").rglob(f"{sid}.jsonl"))
-    if name == "codex":
-        return sorted((private / "sessions").rglob(f"*{sid}.jsonl"))
-    return sorted(
-        private.glob(
-            f"antigravity-cli/brain/{sid}/.system_generated/logs/transcript_full.jsonl"
-        )
-    )
+    return blind.session_paths(Path(private), name, sid)
 
 
 def quota_stop(name, record):

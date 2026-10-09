@@ -601,6 +601,20 @@ class Run:
             / self.seats[seat]["config"]["harness"]
         )
 
+    def require_parent(self, seat):
+        """Refuse once a child's parent home is gone, rather than misname it.
+
+        The child is cloned from, and checked against, the parent's live
+        home. A pruned one hashes as a home that changed, which would read
+        as a parent that moved after the child branched from it.
+        """
+        name = self.seats[seat]["parent"]["seat"]
+        blind.require_session(
+            self.workspace(name),
+            self.seats[name]["config"]["harness"],
+            self.state(name)["session_id"],
+        )
+
     def check_parent(self, seat):
         parent = self.seats[seat].get("parent")
         if not parent:
@@ -610,6 +624,7 @@ class Run:
         state = self.state(name)
         if state.get("pending") or not state.get("complete"):
             raise RuntimeError("parent is not completed and idle")
+        self.require_parent(seat)
         expected = read(snap / "hashes.json")
         if hashes(self.workspace(name)) != read(
             snap / "workspace-hashes.json"
@@ -1092,6 +1107,15 @@ class Run:
             if state["pending"]["turn"] != turn["id"]:
                 raise RuntimeError("an unresolved turn blocks further reveals")
             return self.collect_turn(seat, index)
+        # A resume, and a fork's first turn, continue a session in the seat's
+        # private home. Checked before staging writes the turn's drafts, so
+        # a home that is gone leaves the seat exactly as it was.
+        if state["session_id"] or spec.get("parent"):
+            blind.require_session(
+                self.workspace(seat),
+                spec["config"]["harness"],
+                state["session_id"] or self.state(spec["parent"]["seat"])["session_id"],
+            )
         # A turn the quota cut in half is continued, never re-delivered. The
         # material is already in the session and re-attaching it would both
         # show the reader the same pages twice and break the image-history
@@ -1277,6 +1301,7 @@ class Run:
                 raise RuntimeError("installed harness changed since preparation")
             if spec.get("parent"):
                 self.check_parent_ready(name)
+                self.require_parent(name)
                 self.checkpoint(name)
             for index, turn in enumerate(spec["turns"]):
                 self.turn(name, index, timeout, wait_quota=wait_quota)

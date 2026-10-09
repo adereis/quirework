@@ -142,6 +142,26 @@ def make_experiment(tmp_path, monkeypatch):
     return exp.Experiment(record)
 
 
+def test_a_fork_is_refused_before_its_pages_are_staged_once_its_home_is_gone(
+    tmp_path, monkeypatch
+):
+    experiment = make_experiment(tmp_path, monkeypatch)
+    experiment.state["sessions"]["parent"] = "p-1"
+    with pytest.raises(exp.blind.SessionGone, match="p-1: its private home"):
+        experiment.turn("a", "arm-a-00-one", "A fictional input", [], "fork")
+    assert not experiment.workspace("a").exists()
+
+
+def test_a_pruned_parent_is_named_rather_than_called_changed(tmp_path, monkeypatch):
+    """A missing home hashes as one that changed after the arms branched."""
+    experiment = make_experiment(tmp_path, monkeypatch)
+    (experiment.root / "checkpoint").mkdir(parents=True)
+    experiment.state["checkpoint"] = exp.tree_hashes(experiment.root / "checkpoint")
+    experiment.state["sessions"]["parent"] = "p-1"
+    with pytest.raises(exp.blind.SessionGone, match="p-1: its private home .* gone"):
+        experiment.check_parent()
+
+
 def test_assignment_cannot_change_on_resume(tmp_path, monkeypatch):
     experiment = make_experiment(tmp_path, monkeypatch)
     plan = exp.read_json(experiment.record / "plan.json")

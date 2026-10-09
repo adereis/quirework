@@ -1193,6 +1193,11 @@ def _turn(
     )
     if mode in ("resume", "fork", "continue") and served and served != config["model"]:
         config = {**config, "model_pinned": served}
+    # A jailed reviewer's session lives in the run's private home; an
+    # unconfined one's in the operator's own. Checked before a turn number is
+    # allocated, so a home that is gone leaves the run exactly as it was.
+    if jailed and not dry_run and mode in ("resume", "fork", "continue"):
+        blind.require_session(record, harness, session_id)
 
     turn = _next_turn(record)
     turn_dir = record / "turns" / turn

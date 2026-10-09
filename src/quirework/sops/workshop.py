@@ -932,6 +932,10 @@ def resume(root, writer, *, timeout=None):
         # simply goes again, in a new session, which is a relaunch and not a
         # restart of work that happened.
         resumed = session if stop["phase"] == "interrupted" else None
+        if resumed:
+            # Before the stopped attempt is archived, so a refusal leaves the
+            # writer exactly as it was.
+            blind.require_session(work, harness, resumed)
         _archive_attempt(record, state, f"quota {stop['phase']}: {stop['scope']}")
         state.update(
             status="prepared",
