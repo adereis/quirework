@@ -79,3 +79,62 @@ def test_a_declared_policy_needs_no_book_source(tmp_path):
     project = _project(root, chapter_policy="chapters.toml")
     with project_scope(project):
         assert units.layers() == ("notes.md",)
+
+
+# --------------------------------------------------------------------------- #
+# spelled-out chapter counts
+# --------------------------------------------------------------------------- #
+def _counted_book(tmp_path, marks=""):
+    """Two numbered chapters about a notebook that has eleven of its own."""
+    root = tmp_path / "counted"
+    sections = root / "manuscript" / "sections"
+    (sections / "_marks").mkdir(parents=True)
+    (root / "manuscript" / "_quarto.yml").write_text(
+        "project:\n  type: book\nbook:\n  chapters:\n"
+        "    - sections/opening.qmd\n    - sections/closing.qmd\n"
+    )
+    (sections / "opening.qmd").write_text(
+        "# The opening {#sec-opening}\n\n"
+        "The old notebook has eleven chapters.\n"
+        "This one will have twelve chapters, eventually.\n"
+    )
+    (sections / "closing.qmd").write_text(
+        "# The closing {#sec-closing}\n\nThe notebook still has eleven chapters.\n"
+    )
+    (sections / "_marks" / "opening.md").write_text(
+        f"# The opening {{#sec-opening}}\n\n{marks}"
+    )
+    return _project(
+        root,
+        source="manuscript",
+        quarto="manuscript/_quarto.yml",
+        chapters="manuscript/sections",
+    )
+
+
+def test_a_count_out_of_step_with_the_book_is_reported(tmp_path):
+    with project_scope(_counted_book(tmp_path)):
+        found = units.count_advisory()
+    assert len(found) == 3
+    assert all("the book has 2 numbered chapters" in line for line in found)
+
+
+def test_a_count_marked_as_another_books_is_not_compared(tmp_path):
+    """The mark excuses its phrase in its own unit, and nowhere else."""
+    marks = "<!-- @count(eleven chapters)  the old notebook's, not this one's -->\n"
+    with project_scope(_counted_book(tmp_path, marks)):
+        found = units.count_advisory()
+        assert units.stale_count_marks() == []
+    assert [line.split(":")[0].strip() for line in found] == [
+        "manuscript/sections/opening.qmd",
+        "manuscript/sections/closing.qmd",
+    ]
+    assert "twelve chapters" in found[0] and "eleven chapters" in found[1]
+
+
+def test_a_count_mark_its_unit_no_longer_says_is_reported(tmp_path):
+    marks = "<!-- @count(nineteen chapters)  a count that was cut -->\n"
+    with project_scope(_counted_book(tmp_path, marks)):
+        stale = units.stale_count_marks()
+    assert len(stale) == 1
+    assert "@count(nineteen chapters) is not in opening" in stale[0]

@@ -454,6 +454,14 @@ conventional ones:
 - `@todo`: open work.
 - `@figure(name)`: a note about a plate.
 - `@see(slug)`: a pointer into book-wide review notes.
+- `@count(phrase)`: a spelled-out chapter count in this chapter that
+  counts something else. `spec units --check` warns when a phrase such
+  as "twelve chapters" differs from the book's own count, since an
+  inserted chapter leaves it stale; a memoir about an unfinished
+  eleven-chapter book names that count with
+  `<!-- @count(eleven chapters) the other book's -->`, and the check
+  leaves it alone. A mark whose phrase the chapter no longer says is
+  reported, so it cannot excuse the next count written in those words.
 
 `quirework spec notes --check` is the gate. It refuses a mark left in
 the prose, a sidecar with no chapter, a sidecar heading that no longer

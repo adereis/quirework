@@ -203,7 +203,13 @@ def count_advisory(docs: Path | None = None) -> list[str]:
     grep does not catch counts, and an insert or a cut re-counts every site.
     Advisory, because de-numbering the sentence is an equally good fix and that
     is an author call. Only numbered units are counted, so a format without
-    printed numbers has nothing to compare."""
+    printed numbers has nothing to compare.
+
+    A count of something else, such as the chapters of another book the work
+    is about, is named in its unit's sidecar as `@count(eleven chapters)` and
+    is not compared. Without that, a memoir of an unfinished book is told on
+    every check that its own subject is out of step, and an advisory read as
+    noise every time is not read the time it is right."""
     words = {
         1: "one",
         2: "two",
@@ -239,10 +245,14 @@ def count_advisory(docs: Path | None = None) -> list[str]:
         r"\b(" + "|".join(sorted(big)) + r")\s+chapters\b", re.IGNORECASE
     )
     base = formats.base(_source(docs))
+    elsewhere = count_marks(docs)
     for u in reg:
         p = base / u.rel
+        excused = elsewhere.get(u.slug, {})
         for n, line in enumerate(p.read_text(encoding="utf-8").splitlines(), 1):
             for m in pattern.finditer(line):
+                if _phrase(m.group(0)) in excused:
+                    continue
                 said = m.group(1).lower()
                 # A chapter counting the ones *before* it says total - 1.
                 if said not in (words.get(total), words.get(total - 1)):
@@ -250,6 +260,41 @@ def count_advisory(docs: Path | None = None) -> list[str]:
                         f"  {u.rel}:{n}: says '{m.group(0)}'; the book "
                         f"has {total} numbered chapters"
                     )
+    return out
+
+
+def _phrase(text: str) -> str:
+    return " ".join(text.split()).lower()
+
+
+def count_marks(docs: Path | None = None) -> dict[str, dict[str, str]]:
+    """unit slug -> {counted phrase: where its `@count` mark is}."""
+    from quirework.manuscript import notes
+
+    out: dict[str, dict[str, str]] = {}
+    roots = harvest(docs) if docs is not None else None
+    for a in notes.scan(roots):
+        if a.kind == "count" and a.args:
+            where = f"{a.source}:{a.line}"
+            out.setdefault(slug_of(a.file), {})[_phrase(a.args[0])] = where
+    return out
+
+
+def stale_count_marks(docs: Path | None = None) -> list[str]:
+    """`@count` marks naming a phrase their unit no longer says.
+
+    An exemption that outlives its sentence would excuse the next count
+    written with the same words, which may well be about this book.
+    """
+    out: list[str] = []
+    base = formats.base(_source(docs))
+    texts = {u.slug: base / u.rel for u in registry(docs)}
+    for slug, phrases in sorted(count_marks(docs).items()):
+        path = texts.get(slug)
+        said = _phrase(path.read_text(encoding="utf-8")) if path else ""
+        for phrase, where in sorted(phrases.items()):
+            if phrase not in said:
+                out.append(f"  {where}: @count({phrase}) is not in {slug}")
     return out
 
 
@@ -317,6 +362,15 @@ def main(argv=None) -> int:
             file=sys.stderr,
         )
         for line in counts:
+            print(line, file=sys.stderr)
+    stale = stale_count_marks()
+    if stale:
+        print(
+            f"\nadvisory: {len(stale)} @count mark(s) name a count their "
+            f"{noun()} no longer says:",
+            file=sys.stderr,
+        )
+        for line in stale:
             print(line, file=sys.stderr)
 
     from quirework.manuscript import lifecycle
