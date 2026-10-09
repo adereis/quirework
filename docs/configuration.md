@@ -1093,10 +1093,14 @@ whatever the table says. Both modes copy either frontmatter convention
 verbatim and pass a Hugo shortcode line through untouched.
 
 A project can select installed Python extensions. `checks.command` names
-its check-suite function as `module:function`. `text.classifier` selects
-a function returning `sentence`, `column`, `trailing`, or `skip` for a
-source path, for a rule `text.modes` cannot state; a project uses one or
-the other. The function receives an absolute path, and
+its check-suite function as `module:function`. Without one,
+`quirework dev check` runs the default suite, which checks the project's
+Python and asks whether `text wrap` would change any of its Markdown. A
+directory below the project holding its own `quirework.toml` is left to
+its own suite. `text.classifier` selects a function returning
+`sentence`, `column`, `trailing`, or `skip` for a source path, for a
+rule `text.modes` cannot state; a project uses one or the other. The
+function receives an absolute path, and
 `quirework.text.mdwrap.project_relative` turns that into the path as the
 project names it, which is what a rule about location needs.
 `publish.grayscale_transform` accepts SVG text and its asset name and

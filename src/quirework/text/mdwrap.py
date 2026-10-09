@@ -776,11 +776,11 @@ def classify(path: str) -> str:
     return "skip"
 
 
-def process(path: str, check: bool, width: int = DEFAULT_WIDTH) -> bool:
-    """Return True if the file already matches its convention."""
+def _wrapped(path: str, width: int) -> tuple[str, str] | None:
+    """The file's text and what its convention makes of it; None if skipped."""
     mode = classify(path)
     if mode == "skip":
-        return True
+        return None
 
     with open(path, encoding="utf-8") as fh:
         original = fh.read()
@@ -802,7 +802,21 @@ def process(path: str, check: bool, width: int = DEFAULT_WIDTH) -> bool:
             f"ABORT: {path}: content would change (not just whitespace). "
             "This is a bug in the wrapper; nothing written."
         )
+    return original, result
 
+
+def at_fixed_point(path: str, width: int = DEFAULT_WIDTH) -> bool:
+    """Whether wrapping the file would leave it exactly as it is."""
+    texts = _wrapped(path, width)
+    return texts is None or texts[0] == texts[1]
+
+
+def process(path: str, check: bool, width: int = DEFAULT_WIDTH) -> bool:
+    """Return True if the file already matches its convention."""
+    texts = _wrapped(path, width)
+    if texts is None:
+        return True
+    original, result = texts
     if result == original:
         return True
     if check:

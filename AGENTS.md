@@ -36,14 +36,16 @@ Python environments must use
 formatter's fixed point, so running `ruff format` on a file you are
 already editing changes nothing. If it does change something, that is a
 neighbour's code and it does not belong in your commit: a formatting
-change travels alone. `quirework dev check` verifies this and is silent
-where no formatter is installed. A contributor's own scratch files go
-under `~/tmp`, never `/tmp`; what the tool itself writes at run time
-follows the configuration guide's placement rules. Keep dependency-heavy
-imports out of help paths. Run relevant tests and update documentation
-with implementation changes. Use only fictitious test inputs. Never copy
-book content, private transcripts, credentials, or runtime homes into
-this repository.
+change travels alone. The Markdown sits at the fixed point of
+`quirework text wrap` the same way, and for the same reason.
+`quirework dev check` verifies both, and skips only the formatter where
+none is installed. A contributor's own scratch files go under `~/tmp`,
+never `/tmp`; what the tool itself writes at run time follows the
+configuration guide's placement rules. Keep dependency-heavy imports out
+of help paths. Run relevant tests and update documentation with
+implementation changes. Use only fictitious test inputs. Never copy book
+content, private transcripts, credentials, or runtime homes into this
+repository.
 
 Keep the public API and command interface understandable to an author
 using a different project, a book or a site, and verify independent

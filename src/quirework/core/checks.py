@@ -7,12 +7,18 @@ import shutil
 import subprocess
 from pathlib import Path
 from quirework.project import current_project, extension
+from quirework.text import mdwrap
 
 
 SUITE = (
     ("Python source checks", "every selected .py file parses"),
     ("Formatting", "`ruff format` would leave the tree unchanged"),
+    ("Markdown wrapping", "`quirework text wrap` would leave the tree unchanged"),
 )
+
+# What `text wrap` reads. Selecting by suffix before asking the project's
+# rules keeps a binary file away from a classifier written for prose.
+MARKDOWN = (".md", ".qmd")
 
 
 def default_checks(argv=None):
@@ -57,9 +63,11 @@ def default_checks(argv=None):
         ]
     )
     result = subprocess.run(command, capture_output=True, text=True, check=True)
-    failed, sources = [], []
+    failed, sources, markdown = [], [], []
     for rel in result.stdout.splitlines():
         path = root / rel
+        if path.suffix in MARKDOWN and path.is_file() and _own(root, rel):
+            markdown.append(rel)
         if path.suffix == ".py" and path.is_file():
             sources.append(rel)
             try:
@@ -69,7 +77,26 @@ def default_checks(argv=None):
     for message in failed:
         print(message)
     print(f"Python source checks: {'failed' if failed else 'passed'}")
-    return int(bool(failed)) | formatting_check(root, sources)
+    return (
+        int(bool(failed))
+        | formatting_check(root, sources)
+        | wrapping_check(root, markdown)
+    )
+
+
+def _own(root, rel):
+    """Whether a file belongs to this project rather than to one inside it.
+
+    A directory holding its own `quirework.toml` is a project of its own, as
+    an example book inside this repository is, and its configuration chooses
+    how its Markdown wraps. Judged by the outer project's rules, a book that
+    keeps its chapters one sentence per line would be told to hard-wrap
+    them. It answers to its own check instead.
+    """
+    return not any(
+        (root / folder / "quirework.toml").is_file()
+        for folder in Path(rel).parents[:-1]
+    )
 
 
 def formatting_check(root, paths):
@@ -129,6 +156,41 @@ def formatting_check(root, paths):
             print(f"{item['code']}: {rel}: {item['message']}")
     print("Formatting: failed; run `ruff format` and commit that on its own")
     return 1
+
+
+def wrapping_check(root, paths):
+    """Whether `text wrap` would still change any of these Markdown files.
+
+    The same fixed point as `formatting_check`, held for prose. A guide off
+    it is reflowed whole the first time somebody wraps it to fit a
+    one-paragraph edit, so a change made with the project's own tool
+    carries hundreds of lines that are not the change. The project's
+    `text.modes` or `text.classifier` chooses each file's convention, and
+    a file inside a saved run record is never asked to move.
+
+    That exemption reaches only the records a project declares. A room's
+    prompts and replies, saved where the project never said, are named here
+    like any guide, and wrapping them would rewrite what a model was sent
+    and what it said. So the failure says where such a file belongs before
+    it says how to wrap one.
+
+    Unlike the formatter, the wrapper ships with Quirework, so there is no
+    missing tool to tolerate and no reason to say "skipped".
+    """
+    if not paths:
+        return 0
+    drifted = [rel for rel in paths if not mdwrap.at_fixed_point(str(root / rel))]
+    for rel in drifted:
+        print(f"needs wrapping: {rel}")
+    if drifted:
+        print(
+            "Markdown wrapping: failed; a saved run record belongs under "
+            "`runs.evidence_roots`, and anything else wants `quirework text "
+            "wrap`, committed on its own"
+        )
+        return 1
+    print("Markdown wrapping: passed")
+    return 0
 
 
 def main(argv=None):

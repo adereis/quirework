@@ -81,8 +81,9 @@ git config core.hooksPath hooks
 
 `hooks/pre-commit` runs `quirework dev check --staged`, which parses
 every staged Python file and asserts that `ruff format` would leave it
-alone. `ruff` must be on `PATH`; it is a contributor tool rather than a
-package dependency, so a standard install does not supply it.
+alone, and that `quirework text wrap` would leave every staged Markdown
+file alone. `ruff` must be on `PATH`; it is a contributor tool rather
+than a package dependency, so a standard install does not supply it.
 
 The hook refuses the commit when it cannot run those checks, whether
 Quirework is not installed or the formatter is missing. A gate that
@@ -100,6 +101,13 @@ formatting drift arrived inside ordinary feature commits and was swept
 up later by commits that did nothing else, twice in the first
 seventy-seven. A sweep is not a fix, since the drift is invisible in
 review and the sweep hides the next one.
+
+The guides sit at the wrapper's fixed point for the same reason. A guide
+off it is reflowed whole the first time somebody wraps it to fit a
+one-paragraph edit, so the edit arrives inside hundreds of lines that
+are not the edit. Each example under `examples/` is a project of its
+own, with its own `quirework.toml` and its own wrap modes, so the check
+leaves its files to it rather than judging them by this tree's rules.
 
 `--no-verify` skips the hook for a commit that genuinely should not be
 gated. `quirework dev check --list` describes the suite without running

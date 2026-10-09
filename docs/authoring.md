@@ -717,10 +717,16 @@ and an old record has to keep the questions it actually asked.
 `checks.command` names a function in the project's package, and
 `quirework dev check` runs it. That is where a book's own rules live:
 prose guards, vocabulary rules, anything Quirework has no business
-knowing. `text.modes` maps paths to formatting modes, so a project can
-wrap its guides at 72 columns and keep its chapters one sentence per
-line; `text.classifier` selects a function instead, for a rule a glob
-cannot say.
+knowing. A project without one gets the default suite. It checks that
+every Python file parses and that `ruff format` would change nothing. It
+also checks that `quirework text wrap` would change no Markdown file, so
+wrapping a chapter to fit one edit never reflows the rest of it. The
+wrapper leaves a saved run record alone only when `runs.evidence_roots`
+names its directory, so declare where a room or a review keeps its
+records before you wrap anything the check names. `text.modes` maps
+paths to formatting modes, so a project can wrap its guides at 72
+columns and keep its chapters one sentence per line; `text.classifier`
+selects a function instead, for a rule a glob cannot say.
 
 ## 7. A site instead of a book
 

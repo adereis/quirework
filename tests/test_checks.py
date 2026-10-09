@@ -103,6 +103,7 @@ def test_the_default_suite_can_describe_itself(capsys):
     printed = capsys.readouterr().out
     assert "Formatting" in printed
     assert "Python source checks" in printed
+    assert "Markdown wrapping" in printed
 
 
 def test_listing_a_suite_runs_nothing(monkeypatch, capsys):
@@ -136,3 +137,90 @@ def test_staged_files_are_named_from_the_project_not_the_repository(tmp_path, ca
     printed = capsys.readouterr().out
     assert "broken.py" in printed
     assert "outside.py" not in printed
+
+
+WRAPPED = "A guide wrapped the way the wrapper wraps it.\n"
+HAND_WRAPPED = "A guide\nwrapped by hand.\n"
+SENTENCES = "One sentence on its line.\nAnother on the next.\n"
+
+
+def git_project(root, settings=None):
+    """A project at the top of a repository with nothing committed yet."""
+    root.mkdir(parents=True, exist_ok=True)
+    subprocess.run(["git", "init", "-q", str(root)], check=True)
+    return Project.from_settings(root, settings or {})
+
+
+def test_a_guide_off_the_wrapper_s_fixed_point_fails_and_is_named(tmp_path, capsys):
+    """A guide off it is reflowed whole the first time somebody wraps it."""
+    project = git_project(tmp_path / "repo")
+    (project.root / "docs").mkdir()
+    (project.root / "docs" / "wrapped.md").write_text(WRAPPED)
+    (project.root / "docs" / "drifted.md").write_text(HAND_WRAPPED)
+    with project_scope(project):
+        assert checks.default_checks([]) == 1
+    printed = capsys.readouterr().out
+    assert "needs wrapping: docs/drifted.md\n" in printed
+    assert "docs/wrapped.md" not in printed
+    assert "committed on its own" in printed
+    assert (project.root / "docs" / "drifted.md").read_text() == HAND_WRAPPED
+
+
+def test_the_failure_says_where_a_saved_record_belongs(tmp_path, capsys):
+    """Wrapping an undeclared record would rewrite what a model was sent."""
+    project = git_project(tmp_path / "repo")
+    (project.root / "room" / "records").mkdir(parents=True)
+    (project.root / "room" / "records" / "prompt.md").write_text(HAND_WRAPPED)
+    with project_scope(project):
+        assert checks.wrapping_check(project.root, ["room/records/prompt.md"]) == 1
+    printed = capsys.readouterr().out
+    assert "saved run record belongs under `runs.evidence_roots`" in printed
+
+
+def test_a_tree_at_the_wrapper_s_fixed_point_passes(tmp_path, capsys):
+    project = git_project(tmp_path / "repo")
+    (project.root / "README.md").write_text(WRAPPED)
+    with project_scope(project):
+        assert checks.wrapping_check(project.root, ["README.md"]) == 0
+    assert "Markdown wrapping: passed" in capsys.readouterr().out
+
+
+def test_the_project_s_own_modes_choose_the_convention(tmp_path):
+    """One sentence per line is drift for a guide and the fixed point for a post."""
+    modes = {"text": {"modes": [["content/**/*.md", "sentence"]]}}
+    project = git_project(tmp_path / "repo", modes)
+    (project.root / "content").mkdir()
+    (project.root / "content" / "post.md").write_text(SENTENCES)
+    with project_scope(project):
+        assert checks.wrapping_check(project.root, ["content/post.md"]) == 0
+    with project_scope(Project.from_settings(project.root, {})):
+        assert checks.wrapping_check(project.root, ["content/post.md"]) == 1
+
+
+def test_a_saved_run_record_is_never_asked_to_move(tmp_path):
+    """A record is evidence and stays exactly as the run wrote it."""
+    project = git_project(tmp_path / "repo", {"runs": {"evidence_roots": ["runs"]}})
+    (project.root / "runs" / "r001").mkdir(parents=True)
+    (project.root / "runs" / "r001" / "answer.md").write_text(HAND_WRAPPED)
+    with project_scope(project):
+        assert checks.wrapping_check(project.root, ["runs/r001/answer.md"]) == 0
+
+
+def test_a_project_inside_the_project_answers_to_its_own_rules(tmp_path, capsys):
+    """An example book keeps its own wrap modes, and the outer rules never judge them.
+
+    Its chapters are one sentence per line, which the outer project's
+    default would call drift. Only the outer project's own file is named.
+    """
+    project = git_project(tmp_path / "repo")
+    book = project.root / "examples" / "book"
+    book.mkdir(parents=True)
+    (book / "quirework.toml").write_text("schema = 2\n")
+    (book / "chapters").mkdir()
+    (book / "chapters" / "one.md").write_text(SENTENCES)
+    (project.root / "examples" / "README.md").write_text(HAND_WRAPPED)
+    with project_scope(project):
+        assert checks.default_checks([]) == 1
+    printed = capsys.readouterr().out
+    assert "needs wrapping: examples/README.md\n" in printed
+    assert "one.md" not in printed
