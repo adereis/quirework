@@ -75,6 +75,30 @@
       "note": "",
       "tags": []
     },
+    "cc-sessions/26d889c8-715e-473d-8304-c602df3c9f08.jsonl": {
+      "id": "26d889c8-715e-473d-8304-c602df3c9f08",
+      "era": "c-refinement",
+      "title": "(untitled)",
+      "date": "2026-10-09",
+      "date_end": "2026-10-09",
+      "model": "opus-5-5",
+      "human_turns": 3,
+      "assistant_turns": 37,
+      "tokens": 3630,
+      "doc_edits": 10,
+      "meta_edits": 0,
+      "top_edited": [
+        "the-name.qmd×3",
+        "nine-hundred-lines.qmd×3",
+        "_spec.md×2"
+      ],
+      "sha256": "e6060584a40541a1602d2da519cf1900b317ff82ee8524af24c6af6947e55754",
+      "coldread": false,
+      "scope": "work",
+      "highlight": false,
+      "note": "",
+      "tags": []
+    },
     "cc-sessions/1b7ad009-e68c-4219-a024-edbf242566b6.jsonl": {
       "id": "1b7ad009-e68c-4219-a024-edbf242566b6",
       "era": "c-refinement",
