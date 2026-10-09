@@ -31,6 +31,12 @@ skill_prefix = "sq-"
 # rule against em dashes.
 command = "sq_checks.prose:main"
 
+[providers]
+# The cheap model each runner's blindness canary runs on. Without an entry
+# a Claude or Codex seat refuses to launch rather than canary on the
+# account's default.
+canary_models = {claude = "haiku", codex = "luna"}
+
 [provenance]
 enabled = true
 # The ledger is committed with the book; the sessions themselves live in
