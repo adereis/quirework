@@ -50,6 +50,27 @@ def test_local_override_paths_are_relative_to_their_file(tmp_path, monkeypatch):
     assert configured.origins["runs.store"].endswith("quirework.local.toml")
 
 
+def test_a_replaced_setting_is_a_new_view_that_resolves_from_the_root(tmp_path):
+    project = book(tmp_path / "novel", "arrival")
+    (project.root / "conf").mkdir()
+    (project.root / "conf" / "quirework.local.toml").write_text("")
+    (project.root / "quirework.local.toml").write_text(
+        '[publish]\nbuild = "conf/out"\n'
+    )
+    configured = Project.load(project.root)
+
+    view = configured.replaced(
+        {"publish.build": "elsewhere", "manuscript.quarto": "/abs/_quarto.yml"}
+    )
+
+    # The replaced path no longer resolves against the file that declared
+    # the old one, and the original project is untouched.
+    assert view.path("publish.build") == project.root / "elsewhere"
+    assert view.path("manuscript.quarto").as_posix() == "/abs/_quarto.yml"
+    assert configured.path("publish.build") == project.root / "conf/out"
+    assert view.path("manuscript.source") == configured.path("manuscript.source")
+
+
 def test_project_selection_is_restored_after_errors(tmp_path):
     a, b = book(tmp_path / "a", "arrival"), book(tmp_path / "b", "departure")
     with project_scope(a):

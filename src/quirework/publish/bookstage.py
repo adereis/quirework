@@ -18,7 +18,7 @@ import zipfile
 from pathlib import Path
 from typing import NamedTuple
 
-from quirework.manuscript.quarto import BOOK_CONFIG, read_items
+from quirework.manuscript.quarto import BOOK_CONFIG, is_book, read_items
 from quirework.publish import figures as _figures
 
 # --------------------------------------------------------------------------- #
@@ -107,7 +107,11 @@ def flatten_book_parts(stage: Path) -> tuple[list[str], list[str]]:
     files, materialized dividers); the caller says so out loud.
 
     Raises ValueError if the staged config is not the shape this understands, so a
-    future `_quarto.yml` cannot be silently mangled into a partial book."""
+    future `_quarto.yml` cannot be silently mangled into a partial book.
+    A plain Quarto project, such as an edition that is one memo, has no
+    parts to lose and is left as it is."""
+    if not is_book(stage):
+        return [], []
     lines, ci, end, item_ind, items = read_items(stage)
     pad = " " * item_ind
 
@@ -778,8 +782,12 @@ def blank_chapters(stage: Path, rels: set[str]) -> list[str]:
     the configured Typst template matches to render nothing at all, so no page is
     emitted. The marker only ever exists in a staged copy.
 
-    Returns the chapters actually emptied.
+    Returns the chapters actually emptied. A plain Quarto project renders
+    each document on its own, with no front matter to drop, so nothing in
+    one is emptied.
     """
+    if not is_book(stage):
+        return []
     lines, ci, end, _item_ind, items = read_items(stage)
     known = {it.value for it in items if it.kind == "chapter"}
     for it in items:

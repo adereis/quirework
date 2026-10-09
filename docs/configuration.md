@@ -86,7 +86,8 @@ seats and experiments run there are never swept into the corpus.
 `manuscript.noncanonical_roots` tells checks which working paths have no
 authority. `manuscript.companion_dirs` names reader-facing documents
 outside the canon. `publish.variants` names the root for derived
-editions.
+editions, and `publish build` renders each one composed there into
+`<publish.build>/variants/KIND/book/_site`.
 
 `sops.root` names the procedure directory, so a project can call it
 `procedures` or anything else; discovery and reading both follow the

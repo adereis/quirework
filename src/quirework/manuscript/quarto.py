@@ -172,6 +172,90 @@ def book_chapters(stage: Path) -> list[str]:
     return out
 
 
+def is_book(stage: Path) -> bool:
+    """Whether a Quarto project is a book: it says `type: book`, or has `book:`.
+
+    A derived edition need not be one. A memo renders as a plain project of
+    one document, and the code that rewrites a book's reading order has
+    nothing to rewrite there. Either sign makes a book, so a book whose
+    `book:` block is missing still fails as a book rather than passing as a
+    plain project.
+    """
+    lines = (stage / BOOK_CONFIG).read_text(encoding="utf-8").splitlines()
+    if any(line.rstrip() == "book:" for line in lines):
+        return True
+    try:
+        top = next(i for i, line in enumerate(lines) if line.rstrip() == "project:")
+    except StopIteration:
+        return False
+    for line in lines[top + 1 :]:
+        s = line.strip()
+        if not s or s.startswith("#"):
+            continue
+        if _indent(line) == 0:
+            break
+        if re.fullmatch(r"type:\s*[\"']?book[\"']?(\s+#.*)?", s):
+            return True
+    return False
+
+
+def _render_list(lines: list[str]) -> list[str] | None:
+    """The items of `project:` → `render:`, or None when there is no such list."""
+    try:
+        top = next(i for i, line in enumerate(lines) if line.rstrip() == "project:")
+    except StopIteration:
+        return None
+    for i in range(top + 1, len(lines)):
+        s = lines[i].strip()
+        if not s or s.startswith("#"):
+            continue
+        if _indent(lines[i]) == 0:
+            return None
+        if s == "render:":
+            key = _indent(lines[i])
+            items = []
+            for line in lines[i + 1 :]:
+                if not line.strip() or line.strip().startswith("#"):
+                    continue
+                if _indent(line) <= key:
+                    break
+                m = _YAML_ITEM.match(line)
+                if not m:
+                    raise ValueError(
+                        f"{BOOK_CONFIG}: unexpected line in project.render: {line!r}"
+                    )
+                items.append(_unquote(m.group(2)))
+            return items
+    return None
+
+
+def documents(stage: Path) -> list[str]:
+    """The files a Quarto project renders, in order.
+
+    A book's are its chapters. A plain project renders what its
+    `project.render` list names or, with no list, every input file whose path
+    has no part starting with `_` or `.`, which is the set Quarto itself
+    picks. Either way this is what a check over the rendered artifacts must
+    count, since a figure in a file that never renders is in no artifact.
+    """
+    if is_book(stage):
+        return book_chapters(stage)
+    lines = (stage / BOOK_CONFIG).read_text(encoding="utf-8").splitlines()
+    listed = _render_list(lines)
+    if listed is not None:
+        return listed
+    return sorted(
+        str(path.relative_to(stage))
+        for path in stage.rglob("*")
+        if path.suffix in _CHAPTER_SUFFIXES
+        and path.is_file()
+        and path.name.lower() not in ("readme.md", "readme.qmd")
+        and not any(
+            part.startswith(("_", ".")) for part in path.relative_to(stage).parts
+        )
+    )
+
+
 def part_dividers(docs: Path) -> set[str]:
     """The file-based `part:` entries. Quarto renders these as part dividers
     rather than chapters, so they carry no printed number even though their H1

@@ -25,6 +25,10 @@ All stages also generate the Contents page, which only Typst can build for
 itself (`bookstage.render_contents`).
 
 Final outputs from all stages are consolidated into `build/book/_site/`.
+
+Every composed edition then renders through the same three stages, under the
+edition's own view of the project (`editions.project`), into
+`build/variants/KIND/book/_site/`.
 """
 
 from __future__ import annotations
@@ -35,8 +39,9 @@ import subprocess
 import sys
 from pathlib import Path
 
-from quirework.project import current_project
+from quirework.project import current_project, project_scope
 from quirework.publish import bookstage as _bookstage
+from quirework.publish import editions as _editions
 from quirework.publish import fignumbers as _fignumbers
 from quirework.publish import figures as _figures
 
@@ -110,8 +115,10 @@ def mirror_sources(src: Path, stage: Path) -> None:
     per-chapter metadata sidecars (`_marks/`) are skipped as well: they are pure
     working metadata, never rendered, and keeping them out of the stage means the
     published book cannot leak a mark into its HTML source (the marks are gone
-    from the prose `.qmd` and the sidecars never arrive). `ignore_patterns`
-    matches by basename at every depth, so one entry covers every metadata sidecar.
+    from the prose `.qmd` and the sidecars never arrive). An edition's blind
+    drafts (`editions.RAW`) are evidence, not sources, and stay behind too.
+    `ignore_patterns` matches by basename at every depth, so one entry covers
+    every metadata sidecar.
     """
     stage.mkdir(parents=True, exist_ok=True)
     for child in stage.iterdir():
@@ -137,6 +144,7 @@ def mirror_sources(src: Path, stage: Path) -> None:
             "GEMINI.md",
             ".gitignore",
             "_marks",
+            _editions.RAW,
         ),
     )
 
@@ -376,7 +384,8 @@ def partition_formats(
 
 
 HELP = """\
-usage: quirework publish build [--to FMT[,FMT...]] [--any-font] [quarto render args...]
+usage: quirework publish build [--to FMT[,FMT...]] [--edition KIND | --no-editions]
+                              [--any-font] [quarto render args...]
 
 Render the book into build/ (the render workdir), never into configured
 sources. Renders from three staged trees: HTML with the book's parts intact,
@@ -385,10 +394,18 @@ flattened so Quarto cannot drop them. Chapter numbers stay identical across
 all formats.
 Every final output lands in build/book/_site/.
 
+Then every composed edition, each directory under publish.variants with a
+_quarto.yml of its own, renders the same way into
+build/variants/KIND/book/_site/, in the formats its _quarto.yml declares.
+
 options:
   -h, --help        show this help message and exit
   --to FMT[,FMT..]  render only these declared formats (repeatable);
-                    default is everything declared in manuscript.quarto
+                    default is everything declared in manuscript.quarto.
+                    An edition renders the ones it declares, if any
+  --edition KIND    render only this edition, not the book (repeatable,
+                    or comma-separated)
+  --no-editions     render only the book
   --any-font        render even if a required typeface is missing. Off by
                     default because a missing font does not fail: the
                     renderer substitutes and the book comes out whole and
@@ -399,12 +416,53 @@ Anything else passes straight through to `quarto render`
 """
 
 
+def select(argv: list[str]) -> tuple[bool, list[str], list[str]]:
+    """(whether to render the book, the editions to render, the other args).
+
+    By default a build renders the book and then every composed edition.
+    `--edition KIND` renders only the editions it names, and `--no-editions`
+    only the book. Raises ValueError on a kind with nothing to render.
+    """
+    named: list[str] = []
+    rest: list[str] = []
+    none = False
+    i = 0
+    while i < len(argv):
+        a = argv[i]
+        if a == "--edition":
+            if i + 1 >= len(argv):
+                raise ValueError("--edition needs a kind")
+            named += [k.strip() for k in argv[i + 1].split(",") if k.strip()]
+            i += 2
+        elif a.startswith("--edition="):
+            named += [k.strip() for k in a[len("--edition=") :].split(",") if k.strip()]
+            i += 1
+        elif a == "--no-editions":
+            none = True
+            i += 1
+        else:
+            rest.append(a)
+            i += 1
+    if named and none:
+        raise ValueError("--edition and --no-editions contradict each other")
+    known = _editions.composed()
+    unknown = [k for k in named if k not in known]
+    if unknown:
+        raise ValueError(
+            f"no composed edition {', '.join(unknown)}: an edition renders once "
+            f"its directory has a _quarto.yml (composed: {', '.join(known) or 'none'})"
+        )
+    if named:
+        return False, list(dict.fromkeys(named)), rest
+    return True, [] if none else known, rest
+
+
 def main(argv: list[str] | None = None) -> int:
-    """The `quirework publish build` orchestration: stage, trim, render, consolidate.
+    """The `quirework publish build` orchestration: the book, then its editions.
 
     Hand-parsed rather than argparse because unknown flags are the contract
-    here — they pass through to `quarto render` — so only `-h/--help` and
-    `--to` are interpreted.
+    here — they pass through to `quarto render` — so only `-h/--help`,
+    `--to`, `--any-font` and the edition selection are interpreted.
     """
     argv = list(argv if argv is not None else sys.argv[1:])
     if any(a in ("-h", "--help") for a in argv):
@@ -423,9 +481,48 @@ def main(argv: list[str] | None = None) -> int:
     any_font = "--any-font" in argv
     if any_font:
         argv.remove("--any-font")  # consumed here; never reaches quarto
+    try:
+        book, kinds, argv = select(argv)
+    except ValueError as exc:
+        print(f"render: {exc}", file=sys.stderr)
+        return 2
 
+    if book:
+        rc = render(quarto, argv, any_font)
+        if rc:
+            return rc
+    for kind in kinds:
+        print(f"render: the {kind} edition", flush=True)
+        with project_scope(_editions.project(kind)):
+            rc = render(quarto, argv, any_font, edition=kind)
+            site = _options().BUILD_BOOK / SITE
+        if rc:
+            return rc
+        if site.is_dir():
+            print(f"render: the {kind} edition is in {site}")
+    return 0
+
+
+def render(
+    quarto: str, argv: list[str], any_font: bool, edition: str | None = None
+) -> int:
+    """Stage, trim, render and consolidate the current project's book.
+
+    Under an edition's view of the project, ``edition`` names it, and a
+    format the edition does not declare is left out rather than refused:
+    `--to epub` asks for every EPUB there is, and an edition without one
+    has nothing to add.
+    """
     requested, passthru = split_to(argv)
     declared = book_formats()
+    if requested and edition is not None:
+        requested = [f for f in requested if f in declared]
+        if not requested:
+            print(
+                f"render: the {edition} edition declares none of the formats "
+                "asked for; nothing to render"
+            )
+            return 0
     if requested:
         unknown = [f for f in requested if f not in declared]
         if unknown:

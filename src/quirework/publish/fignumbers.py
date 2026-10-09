@@ -131,7 +131,7 @@ def expected_count(stage: Path) -> tuple[int, set[str]]:
     """
     numbered = 0
     unnumbered: set[str] = set()
-    for rel in _quarto.book_chapters(stage):
+    for rel in _quarto.documents(stage):
         src = stage / rel
         if not src.exists():
             continue

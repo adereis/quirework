@@ -712,7 +712,51 @@ profile's prompt lands. `revision` is a string and is bumped whenever
 the questions change, because a prepared run freezes the rendered prompt
 and an old record has to keep the questions it actually asked.
 
-## 6. Checks of your own
+## 6. Derived editions
+
+A derived edition retells the book for another reader or in another
+form: a memo for a manager, a version for young readers, the book as
+poems. The canon stays the master. An edition is made from it and never
+feeds back into it.
+
+Each kind of edition is a procedure, `variant-KIND.md`, beside a shared
+`variant-common.md` that says what every edition keeps. Both carry a
+`## Blind-draft brief` section, which is the text the drafters are
+handed: the shared one holds the voice rules, the kind's own describes
+its reader. `quirework publish variant` lists the kinds and
+`publish variant KIND` prints one's procedure.
+
+`quirework publish variant build KIND` fetches blind drafts into
+`variants/KIND/_raw/`, one per chapter. Each drafter reads the whole
+book with every mark stripped and no project files around it, so it
+retells the book as an outside reader would. The drafts are what a model
+wrote, and the edition is composed from them by the procedure: each
+draft read against the spec, then the documents written beside them with
+a `_quarto.yml` of the edition's own. A book-shaped edition lists its
+chapters as the book does. An edition that is one document is a plain
+Quarto project:
+
+```yaml
+project:
+  type: default
+  render:
+    - memo.qmd
+format:
+  html: default
+  typst: default
+```
+
+Once an edition has its `_quarto.yml`, `publish build` renders it after
+the book, through the same three stages, into
+`build/variants/KIND/book/_site/`, in the formats it declares. Quarto
+never runs in the edition's directory, so nothing collects there to be
+ignored. `--edition KIND` renders that edition alone and `--no-editions`
+the book alone. An edition keeps its documents at its top level, beside
+its `_quarto.yml`, and embeds a figure as a chapter does, as
+`illustrations/NAME.svg`. The figure comes from the book's own gallery,
+so the same source draws it in every edition that shows it.
+
+## 7. Checks of your own
 
 `checks.command` names a function in the project's package, and
 `quirework dev check` runs it. That is where a book's own rules live:
@@ -728,7 +772,7 @@ paths to formatting modes, so a project can wrap its guides at 72
 columns and keep its chapters one sentence per line; `text.classifier`
 selects a function instead, for a rule a glob cannot say.
 
-## 7. A site instead of a book
+## 8. A site instead of a book
 
 A site of long-lived posts, such as a blog built by Hugo, adopts the
 same layers with three differences. Its units are pages rather than

@@ -439,6 +439,28 @@ class Project:
                     origins[f"{prefix}.{rest}"] = self.origins[origin_key]
         return Project(self.root, _freeze(values), _freeze(origins), self.config_file)
 
+    def replaced(self, values):
+        """This project with each dotted key in ``values`` set to its value.
+
+        A view of the same project with a few settings moved, such as a
+        derived edition rendered through the book's own pipeline as if it
+        were the book. A replaced path resolves against the project root
+        unless it is absolute. The result is a project like any other;
+        nothing is mutated.
+        """
+        settings = copy.deepcopy(_plain(self.settings))
+        origins = dict(self.origins)
+        for key, value in values.items():
+            *parents, leaf = key.split(".")
+            table = settings
+            for part in parents:
+                table = table.setdefault(part, {})
+            table[leaf] = copy.deepcopy(value)
+            for origin_key in list(origins):
+                if origin_key == key or origin_key.startswith(key + "."):
+                    del origins[origin_key]
+        return Project(self.root, _freeze(settings), _freeze(origins), self.config_file)
+
     def describe(self):
         return {
             "root": str(self.root),

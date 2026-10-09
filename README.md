@@ -88,6 +88,10 @@ carry, and it checks afterwards that a figure has the same number in
 every edition rather than assuming so. The source tree is never written
 into.
 
+Every derived edition renders the same way: a memo for a manager, a
+version for young readers, the book as poems, each composed beside the
+book with a `_quarto.yml` of its own.
+
 It also does the things that go wrong silently. It generates a grayscale
 figure set from the color one, because e-ink desaturates color into mud.
 It validates the EPUB with the W3C reference checker, pinned by version
