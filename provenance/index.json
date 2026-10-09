@@ -123,6 +123,30 @@
       "note": "",
       "tags": []
     },
+    "cc-sessions/6dee9b38-9c93-42f0-9187-8b1958724ce8.jsonl": {
+      "id": "6dee9b38-9c93-42f0-9187-8b1958724ce8",
+      "era": "c-refinement",
+      "title": "(untitled)",
+      "date": "2026-10-09",
+      "date_end": "2026-10-09",
+      "model": "opus-5-5",
+      "human_turns": 5,
+      "assistant_turns": 116,
+      "tokens": 8285,
+      "doc_edits": 4,
+      "meta_edits": 11,
+      "top_edited": [
+        "README.md×3",
+        "_quarto.yml×2",
+        "AGENTS.md×2"
+      ],
+      "sha256": "a7442319a83f6975d1324dffb972d5c49524ae1c70f40595020588604e508279",
+      "coldread": false,
+      "scope": "work",
+      "highlight": false,
+      "note": "",
+      "tags": []
+    },
     "cc-sessions/291d7474-fbd5-46cd-b269-7a65abc48734.jsonl": {
       "id": "291d7474-fbd5-46cd-b269-7a65abc48734",
       "era": "c-refinement",
