@@ -1,0 +1,5 @@
+# The book's ink is black. The PDF template colors its title page,
+# headings and contents in the brand's primary color, blue by default,
+# and the HTML theme its links; its tints of black are grays.
+color:
+  primary: "#000000"

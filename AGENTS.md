@@ -60,6 +60,9 @@ it in conversation, write it here in the same session.
   which writes a PNG. Then Cy converts that PNG to
   `manuscript/cover.jpg` at their own terminal, since an assistant here
   cannot, and the build is run again.
+- `manuscript/_brand.yml` makes the brand's primary color black, which
+  is what keeps the PDF template's title page, headings and contents in
+  black and grays rather than its default blue.
 - `scratchpad/` and `private/` are ignored by git. Nothing in
   `scratchpad/` has authority.
 
