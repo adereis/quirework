@@ -977,3 +977,46 @@ def test_a_resumed_claude_turn_names_the_version_it_began_on():
     exact = {**config, "model": "claude-opus-5-20260601"}
     assert engine.pinned_config(exact, "claude-opus-5-20260601") is exact
     assert engine.pinned_config(config, None) is config
+
+
+def test_a_seat_whose_canary_has_no_model_is_refused_before_freezing(
+    setup, monkeypatch
+):
+    """A record keeps the configuration it was prepared with, so a canary
+    model named after preparing could never reach it, and the seat would
+    stop at its first launch however often it was resumed."""
+    root, path, _ = setup
+    asked = []
+
+    def cheapest(runner):
+        asked.append(runner)
+        return None
+
+    monkeypatch.setattr(
+        engine.workshop_drivers,
+        "resolve",
+        lambda harness, model, effort: dict(
+            harness=harness, model=model, effort=effort
+        ),
+    )
+    monkeypatch.setattr(engine.blind, "cheapest_model", cheapest)
+    with pytest.raises(ValueError, match="providers.canary_models before preparing"):
+        engine.prepare(path, root / "record")
+    assert not (root / "record").exists()
+    assert not list(root.glob(".prepare-*"))
+
+    # One answer per runner serves every seat of the plan.
+    known = {}
+    monkeypatch.setattr(
+        engine.blind, "cheapest_model", lambda r: asked.append(r) or "mini"
+    )
+    engine.canary_model("codex", "first", known)
+    engine.canary_model("codex", "second", known)
+    assert asked == ["codex", "codex"]
+
+    def unresolvable(runner):
+        raise ValueError("no such family")
+
+    monkeypatch.setattr(engine.blind, "cheapest_model", unresolvable)
+    with pytest.raises(ValueError, match="does not resolve: no such family"):
+        engine.canary_model("claude", "reader", {})

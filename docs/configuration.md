@@ -1170,7 +1170,10 @@ here, and an exact slug to itself. A name the runner's catalog cannot
 resolve refuses the canary and names this setting. Without an entry,
 Antigravity's is picked from `agy models`, and any other runner's canary
 refuses to run rather than fall back to the account's default, which may
-be its most expensive tier.
+be its most expensive tier. Preparing a run checks this for every seat
+and refuses one whose runner has no canary model, because a record keeps
+the configuration it was prepared with: an entry added afterwards would
+never reach it, and the seat would stop at its first launch.
 
 Provider account leases have a separate scope from project data. Use the
 same `providers.agy.account` identity for projects sharing an account.

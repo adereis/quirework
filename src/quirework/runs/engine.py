@@ -244,6 +244,32 @@ def flag_code(text):
     return None
 
 
+def canary_model(runner, seat, known):
+    """Refuse a seat whose isolation canary has no model to run on.
+
+    Every seat is proven blind by a short exchange on its runner's cheapest
+    model before it launches, and the canary refuses when no such model is
+    known. A record keeps the project configuration it was prepared with, so
+    a model named after preparing never reaches it: the seat would stop at
+    its first launch and no resume could start it. ``known`` caches each
+    runner's answer across a plan's seats.
+    """
+    if runner not in known:
+        try:
+            known[runner] = blind.cheapest_model(runner)
+        except ValueError as exc:
+            raise ValueError(
+                f"seat {seat}: providers.canary_models names a {runner} model "
+                f"that does not resolve: {exc}"
+            ) from exc
+    if known[runner] is None:
+        raise ValueError(
+            f"seat {seat}: no cheap {runner} model is known for its isolation "
+            "canary. Name one in providers.canary_models before preparing: a "
+            "record keeps the configuration it was prepared with"
+        )
+
+
 def prepare(plan_path, destination, *, resolve=True):
     plan_path = Path(plan_path).resolve()
     destination = Path(destination).expanduser().resolve()
@@ -267,6 +293,7 @@ def prepare(plan_path, destination, *, resolve=True):
         seats = []
         names = set()
         material_cache = {}
+        canaries = {}
         for supplied in raw["seats"]:
             if set(supplied) - {
                 "id",
@@ -302,6 +329,7 @@ def prepare(plan_path, destination, *, resolve=True):
                 config = workshop_drivers.resolve(
                     config["harness"], config["model"], config["effort"]
                 )
+                canary_model(config["harness"], name, canaries)
             p = resolve_window(policy(supplied.get("policy", {})), config)
             instrument = (
                 instruments.load(supplied["instrument"])
