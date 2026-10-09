@@ -26,6 +26,12 @@
   The thesis: Full Stop failed not at the sentences but in where its
   claims lived.
 
+- 2026-10-09T20:49:12Z · sharpen · claude-code
+  291d7474-fbd5-46cd-b269-7a65abc48734
+
+  Two Shops ends where the problem stops being the shops, without saying
+  so; Index Cards says it out loud.
+
 ## Two shops, one habit {#two-shops}
 
 - 2026-10-09T20:18:07Z · seed · claude-code
@@ -33,6 +39,20 @@
 
   The inciting contradiction; the shops stay unnamed and the rounds
   uncounted.
+
+- 2026-10-09T20:49:12Z · sharpen · claude-code
+  291d7474-fbd5-46cd-b269-7a65abc48734
+
+  Adds the footnotes citing footnotes, the happy week when both shops
+  did it, and the word 'fashionable' in chapter four's title that ends
+  it.
+
+- 2026-10-09T20:52:52Z · accept · claude-code
+  291d7474-fbd5-46cd-b269-7a65abc48734
+
+  Cy accepts the invented details as true: the title 'A Fashionable
+  Interruption', and chapter seven agreeing with the wrong shop without
+  being asked.
 
 ## The notes escalate {#notes-escalate}
 
@@ -151,3 +171,10 @@
   1b7ad009-e68c-4219-a024-edbf242566b6
 
   The preface admits it, and says the names-changed line once, flatly.
+
+- 2026-10-09T20:50:29Z · sharpen · claude-code
+  291d7474-fbd5-46cd-b269-7a65abc48734
+
+  The names line gets its other half back: every name changed and
+  everything that deserved it exaggerated, in one flat sentence; and the
+  book keeps 'I fixed most of them', not claiming full consistency.

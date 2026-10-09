@@ -6,7 +6,9 @@
 # Preface {.unnumbered #sec-preface}
 
 <!-- @guidance shorter than a chapter; admits the book is written with
-     the tool, and says the names are changed once, flatly -->
+     the tool, and says once, in one flat sentence, that the names are
+     changed and everything that deserved it is exaggerated -->
+<!-- @guidance "I fixed most of them" stays: Cy stands behind the book
+     not claiming to be fully consistent -->
 <!-- @bind(written-with-the-tool) -->
 <!-- @bind(side-quest) -->
-<!-- @todo no prose yet -->

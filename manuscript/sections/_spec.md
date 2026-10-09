@@ -16,15 +16,25 @@ Cy built Quirework. That detour, not Full Stop, is what this book tells.
 
 Full Stop did not fail at the sentences. It failed because its claims
 lived only in sentences, scattered across eleven chapters, with nothing
-holding them together.
+holding them together. Two Shops ends where the contradiction stops
+being about two shops, without saying so; Index Cards is the first
+chapter to say it out loud.
 
 ## Two shops, one habit {#two-shops}
 
 Chapter four of Full Stop, on the dash, says one printer's shop made the
 dash fashionable. Chapter nine, on the semicolon, credits a rival shop
 with the same habit. Fixing four breaks nine, and fixing nine breaks
-four. The shops are never named. The number of rounds is never given: Cy
-did it more times than they will admit in print.
+four. Each fix needs a footnote in the other chapter, until the
+footnotes cite footnotes. For one week Cy decides both shops did it,
+independently, at the same time, and it is the happiest week of the
+book; it ends because chapter four's title, "A Fashionable
+Interruption", has the word "fashionable" in it, and fashion does not
+happen twice. The disagreement does not stay between two chapters:
+chapter two credits "the printers of the period", and chapter seven
+agrees with the wrong shop without being asked. The shops are never
+named. The number of rounds is never given: Cy did it more times than
+they will admit in print.
 
 ## The notes escalate {#notes-escalate}
 
@@ -104,5 +114,8 @@ does not. Nothing before that last chapter says how the book ends.
 
 This book is written with Quirework, and the preface admits it. The
 irony is known to the author and used on purpose: the book counts on it
-rather than apologizing for it. The preface also says, once and flatly,
-that the names are changed.
+rather than apologizing for it. The preface also says, once, in one flat
+sentence, that every name is changed and everything that deserved it is
+exaggerated: that is where the book admits it is unreliable. It does not
+claim to be fully consistent either; the tool caught most of its
+disagreements, not all.
