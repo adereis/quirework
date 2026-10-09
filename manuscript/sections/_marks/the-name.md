@@ -13,3 +13,5 @@
      one user. The README starts a page long; its growth is Nine Hundred
      Lines' -->
 <!-- @bind(notes-escalate) -->
+<!-- @guidance Cy's day job is said once in the book, in Index Cards,
+     and not again here -->

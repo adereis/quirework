@@ -11,8 +11,7 @@ This was the first of them that needed a name.
 
 It needed one because it was about to become a repository.
 Every change I made to the script I made at night, and some of them I could not undo in the morning.
-I write about software for a living, and I have told a great many people to keep their work in version control.
-I had been meaning to take my own advice for about a month.
+I had been meaning to put it under version control for about a month.
 
 You can name a directory anything.
 You can't call a repository "the thing for chapter four".
