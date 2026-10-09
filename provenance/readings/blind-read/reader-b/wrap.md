@@ -1,0 +1,3 @@
+Side Quest follows a writer whose history of punctuation, Full Stop, stalls when its chapters make conflicting claims about which printer’s shop made the dash popular.
+His attempts to track and reconcile those claims grow from index cards and spreadsheets into Quirework, a software tool that checks a manuscript against its stated promises, giving him satisfying work while also helping him avoid finishing the original book.
+With an editor’s encouragement and a manager’s persistent interest, he turns that detour into the book we are reading: a funny, self-questioning account of unreliable assistance, attachment to good sentences, and finishing something other than what he set out to write.
