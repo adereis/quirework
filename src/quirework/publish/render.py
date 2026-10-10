@@ -629,8 +629,18 @@ def render(
         # consolidate EPUB/DOCX into build/book/_site/ so every final output
         # lands in one place.
         nsite = _settings().BUILD_BOOK_NOPARTS / SITE
+        # Word fills a DOCX's contents from its heading styles, so an unlisted
+        # chapter's title has to leave them; `bookstage` owns why. The rows come
+        # from the sources, where the parts are still parts: this stage was
+        # flattened, and `book_rows` misreads a flattened one.
+        chapters = _bookstage.book_rows(current_project().path("manuscript.source"))
         for docx_path in nsite.glob("*.docx"):
             _bookstage.cap_docx_image_widths(docx_path)
+            try:
+                _bookstage.unlist_docx_headings(docx_path, chapters)
+            except ValueError as exc:
+                print(f"render: {exc}", file=sys.stderr)
+                return 1
         # Two conformance defects the writers emit that no reader reveals: an
         # `alt` copied onto a wrapping div, and a font `src` url that resolves
         # nowhere. Applied here, before the consolidating copy, so the checked

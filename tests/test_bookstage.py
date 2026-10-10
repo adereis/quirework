@@ -481,3 +481,77 @@ def test_blank_chapters_ignores_a_name_the_book_does_not_have(tmp_path):
         (tmp_path / rel).write_text("# H\n")
     assert bookstage.blank_chapters(tmp_path, {"nope.qmd"}) == []
     assert (tmp_path / "_quarto.yml").read_text() == _QUARTO_DROP
+
+
+W = 'xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main"'
+
+
+def _docx(path, *paragraphs):
+    """A DOCX as Pandoc writes one: each paragraph a style and a text run."""
+    body = "".join(
+        f'<w:p><w:pPr><w:pStyle w:val="{style}" /></w:pPr>'
+        f'<w:r><w:t xml:space="preserve">{text}</w:t></w:r></w:p>'
+        for style, text in paragraphs
+    )
+    with zipfile.ZipFile(path, "w") as z:
+        z.writestr(
+            "word/document.xml", f"<w:document {W}><w:body>{body}</w:body></w:document>"
+        )
+        z.writestr(
+            "word/styles.xml",
+            f'<w:styles {W}><w:style w:styleId="Heading1" w:type="paragraph">'
+            '<w:name w:val="heading 1" /></w:style></w:styles>',
+        )
+
+
+ROWS = [
+    bookstage.Row("chapter", "preface.qmd", "Preface", None, True, None),
+    bookstage.Row("chapter", "opening.qmd", "The Kettle's Opening", 1, True, None),
+    bookstage.Row("chapter", "back.qmd", "Back Cover", None, False, None),
+]
+
+
+def test_an_unlisted_chapter_stays_out_of_words_contents(tmp_path):
+    """Word fills a DOCX's contents from heading styles when the reader
+    updates the field, so an unlisted chapter titled in Heading 1 joined it.
+    Its title moves to a style that looks the same and is not a heading."""
+    docx = tmp_path / "book.docx"
+    _docx(
+        docx,
+        ("Title", "A Notebook"),
+        ("Heading1", "Preface"),
+        ("Heading1", "1. The Kettle’s Opening"),
+        ("Heading2", "A Section"),
+        ("Heading1", "Back Cover"),
+    )
+    assert bookstage.unlist_docx_headings(docx, ROWS) == ["Back Cover"]
+    with zipfile.ZipFile(docx) as z:
+        doc = z.read("word/document.xml").decode()
+        styles = z.read("word/styles.xml").decode()
+    assert doc.count('"Heading1"') == 2
+    assert (
+        '<w:pStyle w:val="UnlistedHeading1" /></w:pPr><w:r><w:t xml:space="preserve">Back Cover'
+        in doc
+    )
+    unlisted = re.search(
+        r'<w:style [^>]*w:styleId="UnlistedHeading1".*?</w:style>', styles
+    )
+    assert '<w:basedOn w:val="Heading1" />' in unlisted.group(0)
+    assert '<w:outlineLvl w:val="9" />' in unlisted.group(0)
+
+
+def test_word_headings_that_do_not_line_up_with_the_chapters_are_refused(tmp_path):
+    docx = tmp_path / "book.docx"
+    _docx(
+        docx,
+        ("Heading1", "Preface"),
+        ("Heading1", "1. Closing"),
+        ("Heading1", "Back Cover"),
+    )
+    with pytest.raises(
+        ValueError, match="heading 2 reads 'Closing'.*The Kettle's Opening"
+    ):
+        bookstage.unlist_docx_headings(docx, ROWS)
+    _docx(docx, ("Heading1", "Preface"), ("Heading1", "Back Cover"))
+    with pytest.raises(ValueError, match="2 chapter headings where the book has 3"):
+        bookstage.unlist_docx_headings(docx, ROWS)

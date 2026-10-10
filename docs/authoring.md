@@ -149,6 +149,15 @@ A chapter's file name is its identifier. Retitling a chapter does not
 rename it, and inserting one does not renumber anything, because numbers
 are derived at render time and nothing else refers to them.
 
+A page that belongs in the book but not in its contents, such as a
+copyright page or a back cover, carries `.unlisted` on its heading, with
+`.unnumbered` if it would otherwise take a number:
+`# Back Cover {.unnumbered .unlisted}`. Every format keeps it out of the
+contents. In a DOCX that takes one more step, because Word builds the
+contents from heading styles whenever a reader updates them, so the
+build gives the page's title a style that looks like a heading and is
+not one.
+
 ## 2. The spec
 
 The spec is one Markdown file stating what the book commits to. Each

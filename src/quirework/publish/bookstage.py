@@ -11,6 +11,7 @@ EPUB writers emit. These are book-structure concepts shared by several commands.
 from __future__ import annotations
 
 from quirework.project import current_project
+import html
 import posixpath
 import re
 import shutil
@@ -542,6 +543,100 @@ def cap_docx_image_widths(
         for n in names:
             zout.writestr(infos[n], blobs[n])
     tmp.replace(docx_path)
+
+
+# The style an unlisted chapter's title takes in a DOCX: Heading 1's look, and
+# the outline level of body text, so the contents field passes over it.
+UNLISTED_DOCX_STYLE = "UnlistedHeading1"
+_UNLISTED_DOCX_STYLE_XML = (
+    f'<w:style w:type="paragraph" w:customStyle="1" '
+    f'w:styleId="{UNLISTED_DOCX_STYLE}"><w:name w:val="Unlisted Heading 1" />'
+    '<w:basedOn w:val="Heading1" /><w:next w:val="BodyText" />'
+    '<w:pPr><w:outlineLvl w:val="9" /></w:pPr></w:style>'
+)
+_DOCX_HEADING1 = re.compile(r'<w:pStyle w:val="Heading1"\s*/>')
+
+
+def _heading_key(title: str) -> str:
+    """What two forms of one title share: its letters and digits.
+
+    The book's form is Markdown, with a span's brackets and attributes or a
+    link's target; Word's is the rendered text, with typographic quotes. A
+    key this coarse still tells any two chapters apart, which is all the
+    match in `unlist_docx_headings` asks of it."""
+    title = re.sub(r"\{[^}]*\}|\]\([^)]*\)", "", title)
+    return re.sub(r"[\W_]+", "", title).lower()
+
+
+def unlist_docx_headings(docx_path: Path, rows: list[Row]) -> list[str]:
+    """Keep a DOCX's `.unlisted` chapters out of its contents.
+
+    Pandoc writes a DOCX's contents as a field, `TOC \\o "1-3" \\h \\z \\u`,
+    which Word fills from heading styles and outline levels when the reader
+    updates it, so `.unlisted` reaches no DOCX: a chapter titled in Heading 1
+    joins the contents the first time the field is updated. Each unlisted
+    chapter's title moves to `UNLISTED_DOCX_STYLE`, based on Heading 1 so it
+    looks the same, whose outline level is body text, and the field passes
+    over it. Word's navigation pane passes over it too, as the EPUB's does.
+
+    `rows` is `book_rows` of the book before its parts were flattened, since
+    flattening makes each Part one Heading 1 in its place. The rows are
+    matched to the Heading 1 paragraphs by position, and every
+    pair's titles must agree, or ValueError: a heading that cannot be placed
+    is not quietly left in the contents or taken out. Returns the titles
+    moved."""
+    if all(r.listed for r in rows):
+        return []
+    doc, styles = "word/document.xml", "word/styles.xml"
+    with zipfile.ZipFile(docx_path) as zin:
+        names = zin.namelist()
+        infos = {i.filename: i for i in zin.infolist()}
+        blobs = {n: zin.read(n) for n in names}
+    text = blobs[doc].decode("utf-8")
+    headings = [
+        m
+        for m in re.finditer(r"<w:p\b.*?</w:p>", text, flags=re.S)
+        if _DOCX_HEADING1.search(m.group(0))
+    ]
+    if len(headings) != len(rows):
+        raise ValueError(
+            f"docx: {docx_path.name} has {len(headings)} chapter headings where "
+            f"the book has {len(rows)} chapters, so its unlisted ones cannot be "
+            "told apart"
+        )
+    moved: list[str] = []
+    out, last = [], 0
+    for n, (m, row) in enumerate(zip(headings, rows), start=1):
+        runs = re.findall(r"<w:t(?:\s[^>]*)?>([^<]*)</w:t>", m.group(0))
+        found = html.unescape("".join(runs)).strip()
+        if row.number is not None:  # printed before the title it numbers
+            found = re.sub(rf"^{row.number}\.?\s+", "", found)
+        if _heading_key(found) != _heading_key(row.title):
+            raise ValueError(
+                f"docx: {docx_path.name}'s heading {n} reads {found!r} where the "
+                f"book has {row.title!r}"
+            )
+        if row.listed:
+            continue
+        out += [
+            text[last : m.start()],
+            _DOCX_HEADING1.sub(
+                f'<w:pStyle w:val="{UNLISTED_DOCX_STYLE}" />', m.group(0), count=1
+            ),
+        ]
+        last = m.end()
+        moved.append(row.title)
+    blobs[doc] = ("".join(out) + text[last:]).encode("utf-8")
+    sheet = blobs[styles].decode("utf-8")
+    if f'w:styleId="{UNLISTED_DOCX_STYLE}"' not in sheet:
+        sheet = sheet.replace("</w:styles>", _UNLISTED_DOCX_STYLE_XML + "</w:styles>")
+        blobs[styles] = sheet.encode("utf-8")
+    tmp = docx_path.with_suffix(".tmp.docx")
+    with zipfile.ZipFile(tmp, "w", zipfile.ZIP_DEFLATED) as zout:
+        for name in names:
+            zout.writestr(infos[name], blobs[name])
+    tmp.replace(docx_path)
+    return moved
 
 
 # --------------------------------------------------------------------------- #
