@@ -1,0 +1,69 @@
+# The Name {#sec-the-name}
+
+For about a month, the little program I had written to check my notes was called check.py.
+That was what it did, and I was the only one who ever had to say it.
+
+Then it was notes-check, which was more accurate and no better.
+
+Then it was a folder with four files in it.
+The notes had been a shoebox, then a spreadsheet, then a program, and each had grown too big for the one before.
+This was the first of them that needed a name.
+
+It needed one because it was about to become a repository: a place that keeps every version of a program, so you can always go back to an earlier one.
+I made every change to the program at night, and some of them I could not undo in the morning.
+I had been meaning to give it that kind of home for about a month.
+
+You can name a folder anything.
+You can't call a repository "the thing for chapter four".
+
+So I set aside an evening for names.
+I wrote them in pencil, and by midnight the list filled a whole page.
+
+Most of them were puns, names that played on two meanings at once.
+Punctuation makes puns easy, and it shouldn't.
+One had the word *colon* in it, and I had not thought it through.
+
+None of them was a name.
+They were jokes I would have to explain every time I typed one.
+
+I kept going, which is how two in the morning happens.
+The last word on the page, at ten to two, was *quire*: the folded gathering of pages a book is sewn from.
+
+At two I gave up on the page and opened a chat with Otto, meaning to ask something else entirely.
+I typed "quire".
+
+Otto finished it as "quirework".
+
+For a year I told people Otto named it.
+Then I found the page.
+
+I looked at the word for a while.
+It was not a pun.
+It sounded like something that should already exist, and as far as I could find, it didn't.
+I checked.
+
+I liked it better than anything on the page.
+
+I don't remember what I meant to ask.
+
+I made the repository that night, before I could think better of it.
+Every time you save a change to a repository, you write a short note saying what you did.
+My first note said *Name it*.
+
+I have written better notes since.
+Not many.
+
+In the morning I gave it a README, the page that tells a stranger what a tool is for and how to use it, because a repository without one looks abandoned.
+I gave it a version number too, because a tool without one looks like a little program somebody wrote on a Sunday.
+The version number was zero point one, which promises nothing.
+The README was a page long.
+It was the shortest it would ever be.
+
+Chapter four had not changed in weeks.
+It had never been so consistent.
+
+That week the program stopped being a little program.
+It had a name, a repository, a README and a version number.
+It was a tool.
+
+I was the only person who had ever used it.

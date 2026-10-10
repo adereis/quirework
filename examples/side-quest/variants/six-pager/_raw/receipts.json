@@ -1,0 +1,19 @@
+{
+  "drafts": {
+    "document": {
+      "source": "manuscript/_quarto.yml",
+      "harness": "claude",
+      "requested_model": "opus",
+      "model": "claude-opus-5-5",
+      "effort": "high",
+      "cost_usd": 0.3517,
+      "billing": "subscription (OAuth); cost_usd is a list-price equivalent",
+      "session_id": "c0c77229-05da-45f2-aad5-6056ce02e559",
+      "accepted_flags": [],
+      "run": "ded0d6fa-ec00-4264-9da2-b9068c446b40",
+      "record": "variant-six-pager-2026-10-09-opus",
+      "seat": "draft-document",
+      "sha256": "fd9694ccebefa7b10cf4ae94ae83707a367b96d1dfe577da47d848fea4ac270c"
+    }
+  }
+}

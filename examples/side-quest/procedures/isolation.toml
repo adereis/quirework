@@ -1,0 +1,3 @@
+# Path words that would tell a blind reader whose book it is. A
+# self-driven read refuses a mount whose path holds one.
+mount_markers = ["side-quest", "quirework", "dequest"]

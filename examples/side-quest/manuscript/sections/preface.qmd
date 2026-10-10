@@ -1,0 +1,18 @@
+# Preface {.unnumbered #sec-preface}
+
+This book was written with Quirework, which is the software it is about.
+
+I am aware of how that looks.
+A book about a tool, made with the tool, is either a demonstration or a confession, and I have not decided which.
+
+Quirework has no opinion about sentences.
+It keeps a list of what a book has promised, reads the chapters against the list, and says so when one of them disagrees.
+It said so several times while I was writing this one.
+I fixed most of them.
+
+If you find a place where this book disagrees with itself, you have found something the software missed.
+I would like to hear about it, though not as much as you might think.
+
+Every name in this book has been changed, and everything that deserved it has been exaggerated.
+
+The rest is about a different book, and what I did instead of finishing it.

@@ -1,0 +1,121 @@
+# Index Cards {#sec-index-cards}
+
+The wall had shown me the chapters.
+What I needed, I decided, was a way to see the claims.
+
+So I bought index cards, the plain white kind, and a shoebox to keep them in.
+One claim per card.
+On the front, the claim, in as few words as it would go: *the shop in chapter four made the dash fashionable.* On the back, the chapter, the page, and the sentence that made the claim, copied out by hand.
+
+It took most of a month.
+Eleven chapters hold more claims than you would think, and most of them are small: a date, a street, which apprentice married whose daughter.
+I wrote them all.
+The shoebox filled, and I bought a second shoebox and labeled both, and for the first time in a year I felt like someone running a project rather than someone being run by one.
+
+The cards worked the way the wall had worked, which is to say at first.
+When I changed a sentence, I found its card and changed that too.
+When I couldn't find its card, I wrote a new one, and later I found the old one, and then there were two cards for one claim, disagreeing in my own handwriting.
+Every round of chapter four against chapter nine went through the shoebox now.
+Each round took twice as long, and I could prove it.
+
+One card fell behind the radiator.
+I didn't notice.
+A shoebox does not tell you what it is missing.
+
+I found it in March, when the heating went off and I could get my arm down behind the pipes.
+It was the card for the shop in chapter nine.
+It said what chapter nine said, which by then nothing else did.
+
+I put it back in the box.
+I am not sure where.
+
+A spreadsheet cannot fall behind a radiator, which was most of its appeal.
+I typed every card into one, a row per claim, with columns for the chapter, the page, the claim, and the sentence.
+When I finished it had three hundred and twelve rows.
+I added a column for status, and the status was a color.
+Green, for a note that still matched its sentence.
+Yellow, for check.
+Red, for contradicts.
+
+That lasted about a week.
+Then I needed orange, for contradicts but I like it.
+
+Orange was mostly chapter four.
+
+Four colors are more than anyone can hold in their head at eleven at night, so I added a tab called Legend, with one cell of each color and what it meant.
+Then I put a note at the top of Legend explaining the orange.
+
+I kept the spreadsheet for most of a year, and I got very good at it.
+I could sort by color, filter by chapter, and tell you on any evening how many rows were yellow.
+What I could not tell you was whether the green rows were still green.
+The spreadsheet knew what I had typed into it.
+It did not know what the chapters said.
+Every time I changed a sentence I had to go and find its row, and every time I forgot, the row stayed green about a sentence that no longer existed.
+
+I write about software for a living.
+I mention it here because it took me this long to mention it to myself.
+
+The script was forty lines, written on a Sunday.
+It read each note, found the sentence the note was about, and complained when the sentence had moved or changed.
+That was all it did.
+It had no opinion about the dash.
+It did not know there was a dash.
+
+I ran it that evening.
+The first thing it printed was this:
+
+```
+ch. 8, line 77: changed. The note says 1684; the sentence says 1694.
+```
+
+It found fourteen contradictions.
+
+I assumed it was broken.
+The book had one contradiction, and I knew it by heart.
+I went through the fourteen one at a time, looking for the bug.
+
+It wasn't broken.
+
+Some of the fourteen were the two shops, in other clothes.
+Some had nothing to do with them: a date in chapter three that chapter eight had quietly moved by a decade, a schoolmaster who was Scottish in chapter five and not in chapter ten.
+Three were things I had fixed in the spreadsheet and never in the book.
+
+Hedda's one-on-one was that Thursday.
+For the first time, I spent the twenty-six minutes not rehearsing.
+
+"How's the book?" she asked.
+
+"I'm building something for chapter four," I said.
+
+She looked at me a moment longer than the four minutes usually allowed.
+Then she said, "Good," and wrote it down.
+
+Two weeks later her document was open on her monitor when I came in, and the line under Other had changed for the first time since I had known it.
+
+*Book: ch.
+4 (tool)*
+
+Three years, and the line had moved seven characters.
+
+The script grew.
+Scripts do.
+It needed to know which chapters to read, and in what order, and which notes to leave alone because I had not decided about them yet, so it grew a configuration file.
+The configuration file filled with options I added at night and could not account for in the morning, so it grew a second configuration file, to explain the first.
+
+I spent the evenings with the script that I used to spend with chapter four.
+They were better evenings.
+The script told me when I was wrong, which chapter four had stopped doing years before, and it told me in under a second.
+
+One night it reported the two shops again, as it did every night, along with everything else, and I looked up from it at the wall, still pinned with chapters, and at the shoeboxes underneath, and I saw what I had been looking at for three years.
+
+The book had never failed at the sentences.
+Its claims lived only in sentences, scattered across eleven chapters, with nothing holding them together.
+
+I took the chapters down that weekend.
+The pins left holes in the plaster, in pairs.
+
+Two weeks later Hedda asked how the book was.
+
+"I'm building something for chapter four," I said.
+
+It was still true.

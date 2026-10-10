@@ -1,0 +1,49 @@
+# The Name {#sec-the-name}
+
+| For a month, give or take, it was called check.py:
+| It was what the thing did, and the one who said it was I.
+
+| Then came notes-check: more accurate, no better a name.
+| Then a folder with four files inside. And the same
+| Had befallen my notes: shoebox, spreadsheet, script, each outgrown;
+| But this was the first one to need a name of its own.
+
+| It needed one, since it was about to be a repo: at night
+| I made changes I couldn't undo in the morning light.
+| You can call a directory anything. Not anymore:
+| You can't call a repository "the thing for chapter four".
+
+| So an evening for names: with a pencil I penned,
+| Till by midnight a page of them ran to its end.
+| Most were puns. Punctuation rewards them, and shouldn't. One drew
+| On the word *colon*; that one I hadn't thought through.
+
+| None of them was a name: they were jokes, which I'd have to explain
+| Every time that I typed one. I kept going, again and again,
+| Which is how it gets late. And the last line had come
+| At ten to two: *quire*, the folded gathering of pages a book is sewn from.
+
+| At two, meaning something else, I went off to a chat,
+| And I typed "quire". Otto finished it, "quirework", like that.
+
+| For a year I told people Otto named it.
+| Then I found the page.
+
+| For a while I just looked at the word. Not a pun.
+| It sounded already made: an old word, not a new one.
+| But as far as I could find, it didn't exist. I checked the name.
+| I liked it better than anything on the page.
+
+| What I'd meant to ask Otto, I don't recall, though.
+| That night, before I could think better and say no,
+| I made the repository. The first commit message was *Name it*.
+| I've written better commit messages since. Not many, I'll admit.
+
+| In the morning, a README: without one, repos look forsaken;
+| And a version: without one, a tool looks a script. Zero point one was taken,
+| Which promises nothing. The README ran a page, and no more:
+| The shortest it ever would be. And chapter four
+| Hadn't changed in weeks. It had never been that consistent before.
+
+| That week it was no longer a script: name, repo, README, version. That was it:
+| A tool. I was the only person who had ever used it.

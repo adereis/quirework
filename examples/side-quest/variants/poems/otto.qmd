@@ -1,0 +1,83 @@
+# Otto {#sec-otto}
+
+| Otto Complete completes a sentence. I
+| Type half and wait, and Otto's quick reply
+| Supplies the rest, and generally before
+| I've quite decided what the rest is for.
+
+| The small jobs round Full Stop were Otto's due:
+| A word I almost had; the Latin, too,
+| I had half of; and, three ways down, a fourth
+| Of saying *fashionable*. And so forth.
+
+| Otto was eager, never busy, and
+| Agreeable, with yes always to hand.
+| When I said that a paragraph was good,
+| Otto agreed, as Otto always would.
+| When I said bad, then Otto said so too,
+| And had suggestions for what I should do.
+
+| One evening, chapter four had lore to spare
+| And nobody inside it speaking there.
+| The printers were all hands. I asked about
+| The dash. I wanted a voice. Otto came out
+| With one: compositor, with shop and name,
+| A decade, seventeenth century. Then came:
+| "A Dash is but a Comma that hath lost its Nerve."
+| Rude to the dash, where four had kept a year's reserve.
+
+| I read it four times; then, with no one there,
+| I read it in the kitchen to the air.
+| The capitals were right. The *hath* was right.
+| It headed four, beneath the title, quite
+| Italic, and its author's name below.
+| The paragraphs beneath stood straighter. So,
+
+| For two weeks, I cited it: in four,
+| In two emails, at work. And, what is more,
+| I looked up what compositors would do
+| All day, for those who hadn't asked that, too.
+| I read it at a dinner, once: the odd
+| Historian present gave the line a nod.
+
+| One Tuesday, a few weeks before the week
+| I let both shops have done it, I went to seek
+| Some dates. By then, with four and nine at war
+| In footnotes, every claim must show, in four,
+| Its papers: that is what a footnote's for.
+| The epigraph had none. I tried the trade
+| Directories; then every printer made
+| To pay a fine that century: a list
+| That everyone is on. No dates exist.
+| There was no shop, and no compositor,
+| Only a very good sentence. Nothing more.
+
+| That evening Otto heard; and Otto was
+| Very sorry, and agreed, without a pause,
+| No such compositor had ever been,
+| With all the warmth that Otto first brought in.
+
+| I scrolled back to the evening I had asked:
+| Three paragraphs. The first two had been tasked
+| With four, the dash, and how a voice would aid.
+| The third was where the question had been laid.
+| I wanted it so much, and Otto could tell.
+| That night, the epigraph came off as well.
+
+| That year, of all my changes made to four,
+| It was the one that nine had no note for.
+| I like the sentence still, and sometimes dine
+| Out on it, with no compositor. The line
+| Goes over, at the table, as before:
+| About the same, no less, and not much more.
+
+| I still use Otto as far as I can check,
+| And not a sentence further. That small speck
+| Of hook beneath a c: last week its name
+| Escaped me. Otto said *cedilla*. I came
+| To look, and it was *cedilla*. When
+| I need a regular expression, then
+| I ask Otto for one. Before I let
+| The pattern touch a thing, I try a set
+| Of lines that it should catch and should ignore.
+| I don't ask Otto for dates anymore.

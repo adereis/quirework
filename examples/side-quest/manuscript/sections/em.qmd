@@ -1,0 +1,89 @@
+# Em {#sec-em}
+
+Every message Em Dash sends me has three em dashes in it.
+Not two.
+Not four.
+Three.
+
+Em is a colleague.
+We have never been on the same team, and we have been on a great many of the same threads.
+Em writes short messages, mostly, and they are always clear, and they always have three.
+
+I noticed it the way you notice a clock: not at all, and then all the time.
+
+Once I had noticed, I wanted to know whether it held.
+So I counted, for a month, in a spreadsheet, because of course I did.
+A row per message.
+A column for the date, a column for the words, and a column for the dashes.
+
+The words went up and down.
+The dashes did not move.
+
+The month included a two-word message, which is harder than it sounds.
+
+I don't quote any of them here.
+This book has promised not to, and the software is checking.
+
+Near the end of the month, Em replied to a meeting invite with a haiku.
+Nobody had asked for a haiku.
+As far as I could tell, it said yes.
+Seventeen syllables, three dashes.
+
+I checked the syllables too.
+
+Somewhere in the second week of the spreadsheet, I had begun to suspect that Em is a language model.
+I had nothing to go on but the spreadsheet, and a spreadsheet, I had learned, knows only what you type into it.
+
+Around then I posted a link to the Quirework repository in the team channel, on a Friday afternoon, which is where links go to be ignored.
+Most people ignored it.
+
+Em was the first person after me to use the tool.
+
+A few days later Em sent me a question.
+I won't quote that one either.
+Em wanted to know whether the tool could check that a document had exactly three of something.
+
+It could.
+
+I didn't write that check.
+
+I've thought about why.
+
+Then Em read the README: the tool first, the README after, which is the order everyone does it in.
+All nine hundred lines.
+That made two readers, not counting me.
+
+Em sent notes.
+They were kind.
+They were useful.
+They were better organized than the README.
+They were numbered, grouped by section, and ranked by how much each problem would cost someone new, which is the order my list of known problems should have been in and wasn't.
+
+I do this for a living.
+I took every note.
+
+The notes ran to two pages.
+There were three dashes in them.
+
+That evening I decided to ask.
+
+I opened a message to Em and typed, "Are you a language model?"
+The line looked like an accusation.
+I deleted it.
+
+The second draft was friendlier.
+It began with thanks for the notes, which I meant, and got to the question in the third sentence.
+
+The third draft was a joke, so that whatever Em said, we could both decide I hadn't asked.
+
+The fourth draft was a paragraph.
+It had more punctuation in it than anything Em has ever sent me.
+
+I sent none of them.
+
+I stopped keeping the spreadsheet a long time ago.
+Em still writes to me most weeks.
+I still count.
+It is still three.
+
+I still haven't asked.

@@ -1,0 +1,132 @@
+# Index Cards
+
+Pinning the chapters to the wall had let me see the chapters.
+What I needed, I decided, was a way to see the claims: the things the book said were true.
+
+So I bought index cards, the plain white kind, and a shoebox to keep them in.
+One claim per card.
+On the front went the claim, in as few words as it would fit: *the shop in chapter four made the dash fashionable.* On the back went the chapter, the page, and the sentence that made the claim, copied out by hand.
+
+It took most of a month.
+Eleven chapters hold more claims than you would think, and most of them are small: a date, a street, which apprentice married whose daughter.
+I wrote them all.
+The shoebox filled, so I bought a second shoebox and labeled both.
+For the first time in a year I felt like I was in charge of a project, instead of a project being in charge of me.
+
+The cards worked the way the wall had worked, which is to say they worked at first.
+When I changed a sentence, I found its card and changed that too.
+When I couldn't find its card, I wrote a new one.
+Later I found the old one, and then there were two cards for one claim, disagreeing in my own handwriting.
+Every time I fixed chapter four against chapter nine, the fix went through the shoebox now.
+Each fix took twice as long, and I could prove it.
+
+One card fell behind the radiator.
+I didn't notice.
+A shoebox does not tell you what it is missing.
+
+I found it in March, when the heating went off and I could get my arm down behind the pipes.
+It was the card for the shop in chapter nine.
+It said what chapter nine said, which by then nothing else did.
+
+I put it back in the box.
+I am not sure where.
+
+[PICTURE: two labeled shoeboxes of index cards, and one white card down behind a radiator]
+
+A spreadsheet lives inside the computer, so it cannot fall behind a radiator.
+That was most of why I liked it.
+I typed every card into one, a row per claim, with columns for the chapter, the page, the claim, and the sentence.
+When I finished it had three hundred and twelve rows.
+I added a column for status, and the status was a color.
+Green meant the card still matched its sentence.
+Yellow meant check.
+Red meant contradicts.
+
+That lasted about a week.
+Then I needed orange, for contradicts but I like it.
+
+Orange was mostly chapter four.
+
+Four colors are more than anyone can hold in their head at eleven at night, so I added a second page to the spreadsheet, called Legend, with one box of each color and what it meant.
+Then I put a note at the top of Legend explaining the orange.
+
+I kept the spreadsheet for most of a year, and I got very good at it.
+I could sort it by color, show only one chapter at a time, and tell you on any evening how many rows were yellow.
+What I could not tell you was whether the green rows were still green.
+The spreadsheet knew what I had typed into it.
+It did not know what the chapters said.
+Every time I changed a sentence I had to go and find its row.
+Every time I forgot, the row stayed green, about a sentence that no longer existed.
+
+My job is writing about computer programs and explaining how they work.
+I mention it here because it took me this long to mention it to myself.
+
+The program I wrote was forty lines long, and I wrote it on a Sunday.
+It read each note, found the sentence the note was about, and complained when the sentence had moved or changed.
+That was all it did.
+It had no opinion about the dash.
+It did not know there was a dash.
+
+I ran it that evening.
+The first thing it printed was this:
+
+```
+ch. 8, line 77: changed. The note says 1684; the sentence says 1694.
+```
+
+It found fourteen contradictions.
+
+I assumed it was broken.
+The book had one contradiction, and I knew it by heart.
+I went through the fourteen one at a time, looking for the mistake in the program.
+
+It wasn't broken.
+
+Some of the fourteen were the two shops, in other clothes.
+Some had nothing to do with them: a date in chapter three that chapter eight had quietly moved by ten years, and a schoolmaster who was Scottish in chapter five and not in chapter ten.
+Three were things I had fixed in the spreadsheet and never in the book.
+
+Hedda's job is to help me do mine.
+Every other Thursday she gives me thirty minutes in her office, and we spend twenty-six of them on work.
+In the last four she always asks the same question.
+That Thursday, for the first time, I spent the twenty-six minutes not practicing my answer.
+
+"How's the book?" she asked.
+
+"I'm building something for chapter four," I said.
+
+She looked at me a moment longer than the four minutes usually allowed.
+Then she said, "Good," and wrote it down.
+
+Hedda keeps notes on our meetings, and every time she copies the old ones forward and changes what has changed.
+Near the bottom was a line that had said *Book: ch. 4* for as long as I had known it.
+Two weeks later her notes were open on her screen when I came in, and that line had changed for the first time.
+
+*Book: ch. 4 (tool)*
+
+Three years, and the line had moved seven characters.
+
+The program grew.
+Programs do.
+It needed to know which chapters to read, and in what order, and which notes to leave alone because I had not decided about them yet.
+So it grew a separate file of settings to tell it those things.
+The settings file filled with choices I added at night and could not explain in the morning, so it grew a second settings file, to explain the first.
+
+I spent the evenings with the program that I used to spend with chapter four.
+They were better evenings.
+The program told me when I was wrong, which chapter four had stopped doing years before, and it told me in under a second.
+
+One night it reported the two shops again, as it did every night, along with everything else.
+I looked up from it at the wall, still pinned with chapters, and at the shoeboxes underneath, and I saw what I had been looking at for three years.
+
+The book had never failed at the sentences.
+Its claims lived only in sentences, scattered across eleven chapters, with nothing holding them together.
+
+I took the chapters down that weekend.
+The pins left holes in the plaster, in pairs.
+
+Two weeks later Hedda asked how the book was.
+
+"I'm building something for chapter four," I said.
+
+It was still true.

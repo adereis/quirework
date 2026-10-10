@@ -1,0 +1,4 @@
+# Every directory this project's sessions were launched in, one absolute
+# path per line. Capture adds each live checkout's copy of the project and
+# never removes one; add a checkout that was removed before then by hand.
+/home/ademar/projects/side-quest/book

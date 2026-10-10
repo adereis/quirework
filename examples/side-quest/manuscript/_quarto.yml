@@ -1,0 +1,47 @@
+lang: en-US
+project:
+  type: book
+book:
+  title: "Side Quest"
+  author: "Cy Dequest"
+  chapters:
+    - index.qmd
+    - sections/preface.qmd
+    - part: "The Book That Disagreed"
+      chapters:
+        - sections/hows-the-book.qmd
+        - sections/two-shops.qmd
+        - sections/index-cards.qmd
+    - part: "The Side Quest"
+      chapters:
+        - sections/otto.qmd
+        - sections/the-name.qmd
+        - sections/nine-hundred-lines.qmd
+    - part: "The Book That Got Finished"
+      chapters:
+        - sections/em.qmd
+        - sections/the-demo.qmd
+        - sections/full-stop.qmd
+    # The back cover: unnumbered, and out of the contents in every format.
+    - sections/back-cover.qmd
+# The book's one code block is the script's printout, in Index Cards. No
+# highlighting, so it prints in black like the rest of the page.
+highlight-style: none
+format:
+  html:
+    theme: cosmo
+    # Quarto lists every book file in the sidebar, .unlisted or not; this
+    # keeps the back cover out of the HTML contents too.
+    include-in-header:
+      - text: |
+          <style>.sidebar-item:has(a[href$="back-cover.html"]) { display: none; }</style>
+  typst:
+    # The cover is the PDF's first page, at the painting's own proportions,
+    # ahead of the template's own title page.
+    include-in-header:
+      - text: |
+          #page(width: 6in, height: 9.6in, margin: 0pt, header: none, footer: none, numbering: none)[#image("cover.jpg", width: 100%, height: 100%)]
+  epub:
+    toc: true
+    cover-image: cover.jpg
+  docx: default

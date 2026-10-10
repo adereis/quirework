@@ -1,0 +1,56 @@
+# Nine Hundred Lines {#sec-nine-hundred-lines}
+
+Red's emails kept saying "Checking in."
+I kept answering them.
+
+By the month the tool got its name, my answers had run out of ways to describe a chapter that was not changing.
+
+So this time, I decided, I would send Red something.
+Not an answer: an outline for chapter twelve.
+An outline would show him the book was still moving, and show me where to.
+
+I opened a new document and typed "Chapter twelve" at the top.
+Then I sat with it.
+
+The README was open in the next window.
+It was usually open in the next window.
+
+It had started a page long, the morning after the name.
+Every evening since, the tool had learned to do something, and every new thing it did needed a paragraph.
+Some of the paragraphs needed an example.
+The examples needed a section to explain them.
+There was a section on the configuration file, and a longer one on the second configuration file, which had been written to explain the first and no longer did.
+There was a table of contents.
+There was a list of known problems, in order of how much they embarrassed me.
+
+It was the longest thing I had written that year.
+It had headings, and headings look like progress.
+
+The outline for chapter twelve was two words long, and one of them was a number.
+
+I sent Red the README.
+Above it I wrote three lines saying this was what I had been working on, for the book.
+I did not say it was instead of the book.
+I did not have to.
+It was nine hundred lines.
+
+I still think it was the best thing I wrote in those three years.
+It was clear.
+It was in order.
+It said what the tool did, and the tool did it.
+Nothing in it disagreed with anything else in it.
+I could not say that about anything else I had ever sent Red.
+
+It was documentation, which is my job, which is the problem.
+
+Red read all of it.
+I know because months later, in an email about something else, he quoted line six hundred and twelve back to me.
+
+That day he wrote back one line.
+
+"Is there a chapter in here?"
+
+I read the README again, top to bottom, the way he would have, looking for one.
+
+There wasn't.
+There was a section called Getting Started.

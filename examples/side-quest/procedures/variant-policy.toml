@@ -1,0 +1,19 @@
+# Who drafts each derived edition, and how. Read by `quirework publish
+# variant build`; named by publish.variant_policy.
+
+default_model = "opus"
+default_effort = "high"
+
+# This book's sidecars carry @guidance and @count as well as the built-in
+# marks. A leak of either would hand a blind drafter the book's notes
+# about itself.
+blind_tells = ["@guidance", "@count"]
+
+# A memo is one piece, drafted whole.
+[kinds.six-pager]
+shape = "document"
+
+# Drafted on Codex, so the editions are not all one model's voice.
+[kinds.poems]
+harness = "codex"
+model = "sol"

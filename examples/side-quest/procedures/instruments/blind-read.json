@@ -1,0 +1,13 @@
+{
+  "id": "blind-read",
+  "revision": "1",
+  "default_scope": "work",
+  "prompts": {
+    "reaction": {
+      "text": "## Keep reading?\n\nA number from 1 to 10 for how much you want to keep reading, then one line on why.\n\n## What I expect next\n\n## What lost me, or what I didn't believe\n\nQuote the line where there is one. Write \"nothing\" if nothing did.\n\n## More or less?\n\nWhether you wanted more of this chapter, less of it, or what it gave, and more or less of what."
+    },
+    "wrap": {
+      "text": "What was this book about? Answer in three sentences."
+    }
+  }
+}

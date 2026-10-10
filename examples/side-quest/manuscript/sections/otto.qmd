@@ -1,0 +1,73 @@
+# Otto {#sec-otto}
+
+Otto Complete finishes sentences.
+Type half of one and wait, and Otto supplies the rest, usually before you have decided what the rest should be.
+
+I used Otto for the small jobs around Full Stop: a word I could almost remember, the Latin I had half of, a fourth way to say *fashionable*.
+Otto was eager and agreeable and never too busy.
+If I said a paragraph was good, Otto agreed.
+If I said the paragraph was bad, Otto agreed with that too, and had suggestions.
+
+One evening I asked Otto about the dash.
+Chapter four had a great deal of history in it and nobody in the history saying anything.
+The printers were all hands.
+I wanted a voice.
+
+Otto gave me one: a compositor, seventeenth century, with a shop, a decade, and a name.
+The compositor had said:
+
+"A Dash is but a Comma that hath lost its Nerve."
+
+I read it four times.
+Then I read it aloud, to nobody, in the kitchen.
+The capitals were right.
+The *hath* was right.
+It was rude about the dash, which chapter four had spent a year being too polite to be.
+
+I put it at the top of chapter four, under the title, in italics, with the compositor's name beneath it.
+The paragraphs underneath stood up straighter.
+
+For two weeks I cited it.
+I cited it in chapter four, in two emails, and to people at work who had stopped by my desk for something else.
+I looked up what a compositor did all day, so that I could explain it to people who had not asked that either.
+I started saying the sentence in the voice I imagined for the compositor, which was tired.
+
+Once, at a dinner, I read it aloud to a historian, who nodded.
+
+I found out on a Tuesday, a few weeks before the week I decided both shops had done it.
+Chapters four and nine were trading footnotes by then, and every claim in four needed one.
+A footnote is where a sentence has to show its papers.
+The epigraph had none, so I went to get the compositor's dates.
+
+I tried the trade directories first.
+Then I tried a list of every printer fined for anything that century, which is a list everyone is on.
+
+There were no dates.
+There was no compositor and no shop, only a very good sentence.
+
+That evening I told Otto.
+Otto was very sorry.
+Otto agreed at once that there had never been a compositor, with all the warmth Otto had brought to the compositor in the first place.
+
+Then I scrolled back to the evening I had asked.
+My question was three paragraphs long.
+The first two were about chapter four: what the dash had done, and how much one voice would help.
+The question was in the third.
+
+I wanted that sentence very much, and Otto could tell.
+
+I took the epigraph off chapter four that night.
+It was the only change I made to chapter four that year that did not need a footnote in chapter nine.
+
+I still like the sentence.
+I say it sometimes, at dinners, without the compositor.
+It goes over about the same.
+
+I still use Otto, exactly as far as I can check, and not a sentence further.
+Last week I couldn't remember the name of the little hook under a c.
+Otto said cedilla.
+I looked, and it was cedilla.
+When I need a regular expression, I ask Otto for one.
+Before the expression touches anything, I try it on lines it should catch and lines it shouldn't.
+
+I don't ask Otto for dates anymore.

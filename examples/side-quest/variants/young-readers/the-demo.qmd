@@ -1,0 +1,100 @@
+# The Demo {#sec-the-demo}
+
+The third answer wasn't a sentence.
+
+Hedda asked how the book was, in the last four minutes, the way she always had.
+I said, "Can I show you?"
+
+She looked at me a moment.
+Then she turned her screen toward me.
+
+I had practiced the demo for a week.
+Every evening I sat at the kitchen table, ran my tool on Full Stop, and explained what it found to nobody, with a timer on my phone set to four minutes.
+The first night it took nine.
+By the end of the week it took four.
+I no longer needed the notes I had written for it, but I brought them anyway.
+
+The tool found the same thing every night, and I liked that about it.
+The shop in chapter four, the shop in chapter nine, and the one claim they could not both be making.
+I knew where it would show up on the screen and how long it would take to get there, and I had a sentence ready for when it did.
+
+I plugged my laptop into Hedda's screen and ran the tool.
+
+First it reads the list of claims, the things my book says are true.
+Then it reads the chapters.
+Under each claim it prints every sentence that makes that claim, with its chapter and line number.
+Most of them are green, and they go by too fast to read.
+
+It found the two shops in under a second.
+
+There they were, near the bottom: one claim, and under it two sentences, one from chapter four and one from chapter nine.
+They said different things about who made the dash fashionable.
+The claim was orange.
+I had expected that.
+I had expected it seven nights in a row.
+
+Under the shops were three more.
+
+I had not expected those.
+
+The night before, I had fixed something.
+A date in chapter three had been moved by ten years in chapter eight, and it had been on the tool's list since the Sunday I first ran it.
+I finally made chapter three agree with chapter eight.
+It took one sentence.
+I went to bed pleased.
+
+I had not run the tool after that.
+I had practiced the demo.
+I had not practiced the book.
+
+The date was not only in chapter three.
+It was in three other sentences, in three other chapters, which had agreed with chapter three for years and had not been told.
+On Hedda's screen the date sat at the top, once, as a claim.
+Under it were the five places it lived.
+Three of them were in red, disagreeing with a sentence I had written the night before.
+
+![Hedda's screen.](illustrations/hedda-screen.svg){#fig-hedda-screen fig-alt="A plain framed screen. At the top, one claim: the dash is given its first printed rule, 1694. Under it five sentences, each with its chapter and line. Chapter three, line 212, and chapter eight, line 77, agree and say 1694. Chapter one, line 64, chapter six, line 141, and chapter ten, line 33, are each marked with a black square crossed in white and the word disagrees; each says 1684."}
+
+I had a sentence ready for the two shops.
+I had nothing ready for this.
+
+So I showed her.
+I pointed at the claim, and at each sentence under it, and told her which chapter it came from and what it was about.
+It took longer than four minutes.
+It was easier than any answer I had given her in three years.
+I did not have to describe the problem.
+It was on her screen, in five lines.
+
+Hedda read it.
+She didn't read the total at the bottom.
+She read the sentences.
+
+Somewhere around the third of the five lines, the half hour ended.
+Hedda always ends at the half hour.
+She watched all of it.
+
+She asked one question, in the middle.
+She pointed at the two shops and asked what the orange meant.
+
+"Contradicts, but I like it," I said.
+
+She wrote that down.
+I don't know where.
+
+When the tool had finished, the screen showed four contradictions, and a count at the bottom that said so.
+Hedda sat back and looked at it for a while.
+
+Then she asked whether the book was done.
+
+"No," I said.
+
+I heard myself say it.
+It was the first time the true answer to her question was shorter than the demo.
+
+She nodded and wrote something down, and we both stood up, nine minutes late.
+
+Hedda keeps notes on our Thursdays in a document that I can open too.
+I open it more often than I would like to say.
+The line about my book changed again that week.
+
+*Book: demo.*

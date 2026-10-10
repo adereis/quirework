@@ -1,0 +1,59 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 560 406" width="560" height="406" font-family="DejaVu Sans Mono, monospace" font-size="13">
+  <title>One claim on Hedda's monitor, and the five sentences that make it</title>
+  <defs>
+    <g id="disagrees">
+      <rect x="0" y="0" width="14" height="14" fill="#000000"/>
+      <path d="M3.5 3.5 L10.5 10.5 M10.5 3.5 L3.5 10.5" stroke="#ffffff" stroke-width="2" stroke-linecap="square"/>
+    </g>
+    <g id="agrees">
+      <rect x="1" y="1" width="12" height="12" fill="#ffffff" stroke="#000000" stroke-width="1.5"/>
+      <path d="M4 5.5 H10 M4 8.5 H10" stroke="#000000" stroke-width="1.5"/>
+    </g>
+  </defs>
+
+  <rect x="0.75" y="0.75" width="558.5" height="404.5" fill="#ffffff" stroke="#000000" stroke-width="1.5"/>
+
+  <text x="24" y="28" fill="#666666" font-size="11">claim</text>
+  <text x="24" y="50" fill="#000000" font-weight="bold">The dash is given its first printed rule.</text>
+  <text x="536" y="50" fill="#000000" font-weight="bold" font-size="17" text-anchor="end">1694</text>
+  <line x1="0.75" y1="66" x2="559.25" y2="66" stroke="#000000" stroke-width="1"/>
+
+  <g transform="translate(0 84)">
+    <use href="#disagrees" x="24" y="0"/>
+    <text x="52" y="11" fill="#666666">ch. 1, line 64</text>
+    <text x="536" y="11" fill="#000000" text-anchor="end">disagrees</text>
+    <text x="52" y="31" fill="#000000">In 1684 a printer's manual gave the dash its first rule.</text>
+  </g>
+  <line x1="24" y1="134" x2="536" y2="134" stroke="#999999" stroke-width="0.75"/>
+
+  <g transform="translate(0 150)">
+    <use href="#agrees" x="24" y="0"/>
+    <text x="52" y="11" fill="#666666">ch. 3, line 212</text>
+    <text x="536" y="11" fill="#666666" text-anchor="end">agrees</text>
+    <text x="52" y="31" fill="#000000">The dash got its first printed rule in 1694.</text>
+  </g>
+  <line x1="24" y1="200" x2="536" y2="200" stroke="#999999" stroke-width="0.75"/>
+
+  <g transform="translate(0 216)">
+    <use href="#disagrees" x="24" y="0"/>
+    <text x="52" y="11" fill="#666666">ch. 6, line 141</text>
+    <text x="536" y="11" fill="#000000" text-anchor="end">disagrees</text>
+    <text x="52" y="31" fill="#000000">By 1684 the dash had a rule, and the colon still did not.</text>
+  </g>
+  <line x1="24" y1="266" x2="536" y2="266" stroke="#999999" stroke-width="0.75"/>
+
+  <g transform="translate(0 282)">
+    <use href="#agrees" x="24" y="0"/>
+    <text x="52" y="11" fill="#666666">ch. 8, line 77</text>
+    <text x="536" y="11" fill="#666666" text-anchor="end">agrees</text>
+    <text x="52" y="31" fill="#000000">Not until 1694 did a manual say what a dash was for.</text>
+  </g>
+  <line x1="24" y1="332" x2="536" y2="332" stroke="#999999" stroke-width="0.75"/>
+
+  <g transform="translate(0 348)">
+    <use href="#disagrees" x="24" y="0"/>
+    <text x="52" y="11" fill="#666666">ch. 10, line 33</text>
+    <text x="536" y="11" fill="#000000" text-anchor="end">disagrees</text>
+    <text x="52" y="31" fill="#000000">The dash had had a rule since 1684, and ignored it.</text>
+  </g>
+</svg>
