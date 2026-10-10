@@ -85,6 +85,26 @@ def test_the_roster_persona_still_reaches_a_plans_own_writers(project, tmp_path)
     assert [w["persona"]["profile"]["id"] for w in frozen["writers"]] == ["house"]
 
 
+def test_a_writer_whose_canary_has_no_model_is_refused_at_prepare(
+    project, tmp_path, monkeypatch
+):
+    """A writer is proven blind on its runner's cheapest model when it
+    launches. A workshop learned at that launch that no model was named,
+    after every writer's workspace had been staged."""
+    from quirework.providers import blind, models
+
+    monkeypatch.setattr(
+        models, "resolve", lambda harness, model, effort, *_: dict(model=model)
+    )
+    monkeypatch.setattr(blind, "cheapest_model", lambda runner: None)
+    persona = {"inline": profile("plain")}
+    plan = plan_at(tmp_path, writers=[dict(WRITER, id="first", persona=persona)])
+    with project_scope(Project.from_settings(project, {})):
+        with pytest.raises(RuntimeError, match="^writer first: .*canary_models"):
+            workshop.prepare(plan, tmp_path / "run")
+    assert not (tmp_path / "run").exists()
+
+
 def test_the_roster_command_names_the_missing_setting(project):
     with project_scope(Project.from_settings(project, {})):
         with pytest.raises(ConfigurationError, match="sops.roster"):

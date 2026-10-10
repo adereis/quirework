@@ -254,20 +254,17 @@ def canary_model(runner, seat, known):
     its first launch and no resume could start it. ``known`` caches each
     runner's answer across a plan's seats.
     """
-    if runner not in known:
-        try:
-            known[runner] = blind.cheapest_model(runner)
-        except ValueError as exc:
-            raise ValueError(
-                f"seat {seat}: providers.canary_models names a {runner} model "
-                f"that does not resolve: {exc}"
-            ) from exc
-    if known[runner] is None:
+    from quirework.providers import canary as canaries
+
+    if runner in known:
+        return
+    try:
+        known[runner] = canaries.model_for(runner, f"seat {seat}")
+    except canaries.CanaryError as exc:
         raise ValueError(
-            f"seat {seat}: no cheap {runner} model is known for its isolation "
-            "canary. Name one in providers.canary_models before preparing: a "
-            "record keeps the configuration it was prepared with"
-        )
+            f"{exc}. A record keeps the configuration it was prepared with, "
+            "so the model must be named before preparing"
+        ) from exc
 
 
 def prepare(plan_path, destination, *, resolve=True):

@@ -58,7 +58,7 @@ import uuid
 from contextlib import contextmanager
 from dataclasses import asdict, dataclass, field
 from pathlib import Path
-from typing import Callable
+from typing import Callable, Iterable
 
 from quirework.project import current_project
 from quirework.providers import blind
@@ -228,6 +228,43 @@ def last_model(runner: str) -> str | None:
     return entries[-1].get("model") if entries else None
 
 
+def model_for(runner: str, label: str) -> str:
+    """The model ``runner``'s canary runs on, or a refusal naming the setting.
+
+    Never the account default: that is whatever the operator selected last,
+    and was a Pro tier the first time an unnamed model ran.
+    """
+    try:
+        model = blind.cheapest_model(runner)
+    except ValueError as exc:
+        raise CanaryError(
+            f"{label}: providers.canary_models names a {runner} model that "
+            f"does not resolve: {exc}"
+        ) from exc
+    if model is None:
+        raise CanaryError(
+            f"{label}: could not resolve the cheapest {runner} model for its "
+            f"canary; name one in providers.canary_models"
+        )
+    return model
+
+
+def require_models(seats: Iterable[tuple[str, str]]) -> None:
+    """Refuse a plan while it is prepared if a seat's canary has no model.
+
+    A seat is proven blind when it first launches, which can be a round or a
+    day after its plan was prepared and every workspace staged. A procedure
+    asks here first, so a plan that could never launch is refused before
+    anything is written. ``seats`` yields a label and a runner per seat; each
+    runner is asked once, and the first seat on it names the refusal.
+    """
+    asked = set()
+    for label, runner in seats:
+        if runner not in asked:
+            asked.add(runner)
+            model_for(runner, label)
+
+
 def require(
     label: str,
     runner: str,
@@ -255,20 +292,7 @@ def require(
             f"{label}: cannot read `{runner} --version`, so nothing can say "
             f"which release this seat would run"
         )
-    try:
-        model = model or blind.cheapest_model(runner)
-    except ValueError as exc:
-        raise CanaryError(
-            f"{label}: providers.canary_models names a {runner} model that "
-            f"does not resolve: {exc}"
-        ) from exc
-    if model is None:
-        # Never the account default: that is whatever the operator selected
-        # last, and was a Pro tier the first time an unnamed model ran.
-        raise CanaryError(
-            f"{label}: could not resolve the cheapest {runner} model for its "
-            f"canary; name one in providers.canary_models"
-        )
+    model = model or model_for(runner, label)
     placeholder = build(
         _PLACEHOLDER["prompt"], model, _PLACEHOLDER["workdir"], _PLACEHOLDER["session"]
     )

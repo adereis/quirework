@@ -161,6 +161,26 @@ def test_an_exact_model_id_is_still_named_as_people_name_it():
     assert roundtable.seat_name("gemini-3.8-flash-medium") == "Gemini-Flash"
 
 
+def test_a_seat_whose_canary_has_no_model_is_refused_at_prepare(
+    plan, tmp_path, monkeypatch
+):
+    """A seat is proven blind on its runner's cheapest model at its first
+    turn, which is after the table was staged and the other seats spoke."""
+    monkeypatch.setattr(
+        drivers,
+        "resolve",
+        lambda harness, model, effort: dict(
+            harness=harness, model=model, effort=effort, requested_model=model
+        ),
+    )
+    monkeypatch.setattr(
+        blind, "cheapest_model", lambda runner: None if runner == "codex" else "cheap"
+    )
+    with pytest.raises(RuntimeError, match="^seat Luna: .*cheapest codex model"):
+        roundtable.prepare(plan, tmp_path / "table")
+    assert not (tmp_path / "table").exists()
+
+
 def test_a_model_is_seated_once(plan, tmp_path):
     spec = read(plan)
     spec["seats"].append({"model": "haiku", "harness": "claude", "name": "Other"})

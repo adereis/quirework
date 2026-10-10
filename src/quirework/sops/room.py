@@ -445,6 +445,12 @@ def prepare(plan_path, destination, *, resolve_models=True):
         )
     if len({s["id"] for s in seats}) != len(seats):
         raise ValueError("duplicate seat id")
+    if resolve_models:
+        from quirework.providers import canary as canaries
+
+        canaries.require_models(
+            (f"seat {s['id']}", s["config"]["harness"]) for s in seats
+        )
 
     def staged(entry):
         if "local_source" in entry:

@@ -164,6 +164,23 @@ def test_a_canary_model_that_does_not_resolve_is_refused(project, runs, monkeypa
     assert runs == []
 
 
+def test_preparing_asks_each_runner_for_its_canary_model_once(monkeypatch):
+    """A procedure asks while it prepares, so a plan that could never launch
+    is refused before anything is staged. The first seat on a runner names
+    the refusal."""
+    asked = []
+
+    def cheapest(name):
+        asked.append(name)
+        return None if name == "agy" else "cheap"
+
+    monkeypatch.setattr(blind, "cheapest_model", cheapest)
+    canary.require_models([("seat a", "codex"), ("seat b", "codex")])
+    assert asked == ["codex"]
+    with pytest.raises(canary.CanaryError, match="^seat c: .*cheapest agy model"):
+        canary.require_models([("seat c", "agy"), ("seat d", "agy")])
+
+
 def test_an_unknown_runner_is_refused(project, runs):
     with pytest.raises(canary.CanaryError, match="no canary knows"):
         canary.require("seat", "kettle-cli", seat())

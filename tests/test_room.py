@@ -95,6 +95,20 @@ def post(root, seat, text):
     (root / "seats" / seat / "outbox" / "post.md").write_text(text)
 
 
+def test_a_seat_whose_canary_has_no_model_is_refused_at_prepare(
+    plan, tmp_path, monkeypatch
+):
+    """A seat is proven blind on its runner's cheapest model when it first
+    launches, which is a round after the room was staged."""
+    monkeypatch.setattr(
+        drivers, "resolve", lambda harness, model, effort: dict(harness=harness)
+    )
+    monkeypatch.setattr(blind, "cheapest_model", lambda runner: None)
+    with pytest.raises(RuntimeError, match="^seat ana-pell: .*canary_models"):
+        room.prepare(plan, tmp_path / "room")
+    assert not (tmp_path / "room").exists()
+
+
 def test_prepare_ignores_the_seats_runner_homes(prepared):
     """A room may be prepared into a checkout, and a runner home holds keys."""
     declared = [

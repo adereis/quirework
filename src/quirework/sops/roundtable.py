@@ -463,6 +463,14 @@ def prepare(plan_path, destination, *, resolve_models=True):
         )
     if all(is_human(s) for s in seats):
         raise ValueError("a roundtable seats at least one model")
+    if resolve_models:
+        from quirework.providers import canary as canaries
+
+        canaries.require_models(
+            (f"seat {s['name']}", s["config"]["harness"])
+            for s in seats
+            if not is_human(s)
+        )
     for item, seat in zip(declared, seats, strict=True):
         if item.get("position") is not None:
             seat["position"] = item["position"]

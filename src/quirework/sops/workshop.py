@@ -236,6 +236,10 @@ def prepare(plan_path, destination, *, resolve_models=True):
             attempt += 1
         item["id"] = name
         reserved.add(name)
+    if resolve_models:
+        from quirework.providers import canary as canaries
+
+        canaries.require_models((f"writer {w['id']}", w["harness"]) for w in writers)
     # Validate before creating the destination. Failed setup never masquerades
     # as a launchable partial experiment.
     files = {

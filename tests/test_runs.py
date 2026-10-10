@@ -1000,7 +1000,7 @@ def test_a_seat_whose_canary_has_no_model_is_refused_before_freezing(
         ),
     )
     monkeypatch.setattr(engine.blind, "cheapest_model", cheapest)
-    with pytest.raises(ValueError, match="providers.canary_models before preparing"):
+    with pytest.raises(ValueError, match="canary_models.*named before preparing"):
         engine.prepare(path, root / "record")
     assert not (root / "record").exists()
     assert not list(root.glob(".prepare-*"))
