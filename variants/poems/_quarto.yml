@@ -1,0 +1,40 @@
+lang: en-US
+project:
+  type: book
+book:
+  title: "Side Quest"
+  subtitle: "The book as poems"
+  author: "Cy Dequest"
+  # The book's parts and chapters, one poem each, under the same file
+  # names. No back cover: a back cover belongs to a book you can pick up.
+  chapters:
+    - index.qmd
+    - preface.qmd
+    - part: "The Book That Disagreed"
+      chapters:
+        - hows-the-book.qmd
+        - two-shops.qmd
+        - index-cards.qmd
+    - part: "The Side Quest"
+      chapters:
+        - otto.qmd
+        - the-name.qmd
+        - nine-hundred-lines.qmd
+    - part: "The Book That Got Finished"
+      chapters:
+        - em.qmd
+        - the-demo.qmd
+        - full-stop.qmd
+format:
+  html:
+    theme: cosmo
+  # A stanza is a paragraph to Typst: no first-line indent, and a gap
+  # between stanzas, so a stanza break shows on the page. It goes in the
+  # body, since the template sets its own paragraph rules after the header.
+  typst:
+    include-before-body:
+      text: |
+        #set par(first-line-indent: 0em, spacing: 1.2em)
+  epub:
+    toc: true
+  docx: default

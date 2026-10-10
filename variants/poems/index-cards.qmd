@@ -1,0 +1,108 @@
+# Index Cards {#sec-index-cards}
+
+| The wall had shown me chapters. What I lacked,
+| I thought, was something that would show the claims.
+| I bought plain index cards, the white kind, stacked
+| In a shoebox. One per card: in front, the claim's
+| Fewest words; and, on the back, exact,
+| The chapter, page, and sentence that proclaims.
+| All copied out, each one, by my own hand.
+| It took most of a month: more claims than I had planned.
+
+| Most claims were small: a date, a street; and, too,
+| Which apprentice married whose daughter. All
+| Went down. The shoebox filled. I bought a new
+| One, labeled both, and kept them by the wall.
+| And, for the first time in a year, I felt like one who
+| Was running a project, not someone in its thrall.
+| The cards worked as the wall had worked: at first.
+| Change a sentence, change its card. And then, reversed:
+
+| When I couldn't find a card, I'd write
+| A new one; later, find the old. And so,
+| Two cards for one claim, disagreeing, quite
+| In my own hand. The rounds of four and nine would go
+| Through the shoebox now, each twice as long. I'd cite
+| The proof. One card fell behind the radiator, low.
+| I didn't notice. A shoebox doesn't say
+| What it is missing. I found it in March, the day
+
+| The heating went off, and my arm reached where it slid:
+| The card for chapter nine's shop. And it said
+| What chapter nine said, which by then nothing else did.
+| I put it back. I'm not sure where. Instead,
+| A spreadsheet: one can't fall where that card hid,
+| Which was most of its appeal. Each card I fed
+| Into it: a row per claim, with columns, four
+| In all. Three hundred and twelve rows. Then, one more:
+
+| A column for status; the status was a hue:
+| Green for a note that matched its sentence still;
+| Yellow for check; red for contradicts. That would do
+| About a week. Then orange, to fulfill
+| Contradicts but I like it. Orange was mostly four, it's true.
+| Four colors, at eleven at night, are more than any head will
+| Hold, so I added a tab called Legend, with a cell
+| For each color, and, at its top, a note explaining the orange as well.
+
+| I kept it most of a year, and got good. I could sort
+| By color, filter by chapter, and, on any night,
+| Tell you how many rows were yellow. What fell short:
+| Whether the green rows were still green. It knew, all right,
+| What I had typed. The chapters? It held no report.
+| Each change meant finding its row; forget, and it stayed bright
+| Green, about a sentence that no longer existed.
+| The sentence went; the row, in green, persisted.
+
+| I write about software for a living. I bring
+| It up because it took me this long to tell
+| Myself. The script was forty lines, a Sunday thing.
+| It read each note, found its sentence, and would yell
+| When that had moved or changed. And that was everything.
+| It had no opinion on the dash, and, truth to tell,
+| Didn't know there was a dash. That evening I ran it, and it led
+| With this, the first thing that it printed, the first thing it said:
+
+| `ch. 8, line 77: changed. The note says 1684; the sentence says 1694.`
+
+| It found fourteen contradictions. Broken, I thought.
+| The book had one contradiction, which I knew
+| By heart. I went through all fourteen, and sought
+| The bug. It wasn't broken. Some were, in new
+| Clothes, the two shops. Some weren't: a date that eight had brought
+| A decade off from three's; in five, a Scot who,
+| In ten, was not. And three I'd fixed, but where?
+| Not in the book: only in the spreadsheet there.
+
+| That Thursday's one-on-one with Hedda was the first
+| Where I spent twenty-six minutes not rehearsing, before
+| She asked, "How's the book?" I answered, unrehearsed,
+| "I'm building something for chapter four."
+| She looked a moment longer than the four minutes disbursed,
+| Then said, "Good," and wrote it down. Two weeks more,
+| Her document was open, and, under Other, the line was new:
+| *Book: ch. 4 (tool)*. In three years, seven characters it grew.
+
+| The script grew. Scripts do. It needed to know
+| Which chapters, in what order, and which notes to leave alone,
+| Undecided; so a configuration file would grow.
+| It filled with options, added nights, by morning unknown
+| To me; so a second came, to explain the first. And so
+| I spent the evenings with the script that used to be four's own.
+| Better evenings. It told me I was wrong, which four had quit
+| Doing years before, and took under a second over it.
+
+| One night it showed the two shops, as it did each night,
+| With all the rest. I looked up at the wall,
+| Still pinned with chapters, the shoeboxes in sight
+| Beneath it, and I saw, in the three years' sprawl,
+| What I'd been looking at, in black and white:
+| The book had never failed at the sentences at all.
+| Its claims lived only in sentences, scattered, without a tether,
+| Across eleven chapters, with nothing holding them together.
+
+| That weekend I took the chapters down. The pins
+| Left holes in the plaster, in pairs, like twins.
+| Two weeks on, Hedda asked how the book was, as before.
+| "I'm building something for chapter four,"
+| I said. It was still true.

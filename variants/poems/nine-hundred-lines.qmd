@@ -1,0 +1,66 @@
+# Nine Hundred Lines {#sec-nine-hundred-lines}
+
+| Red Penn, my editor at a small press,
+| Still emailed me, "Checking in."
+| By the month the tool was named, worn thin,
+| My answers had run out, I'll confess.
+
+| So, this time, I'd send Red a plan:
+| An outline for chapter twelve, which would
+| Show him the book still moved, and could
+| Show me where to. And I began:
+
+| I typed "Chapter twelve", and sat.
+| The README, in the window near,
+| Was open. It was usually here.
+| It started at a page; and that
+
+| Was on the morning after the name.
+| Each evening since, the tool would learn
+| Some new thing, and each new thing would earn
+| A paragraph. Examples came,
+
+| And sections to explain them: text
+| On the config file, and one more,
+| Longer, on the second, written for
+| The first; it now did not. And next:
+
+| A table of contents. Problems, here,
+| Ranked by how much each one shamed me. None
+| Of all the things that I had done
+| Was longer than this, all that year.
+
+| It had headings. Headings look
+| Like progress. The outline? Two words, though,
+| And one of them a number. So
+| I sent Red the README, and I took
+
+| Three lines above it, saying I'd done
+| This for the book. I didn't say
+| It was instead. No need: on display,
+| Nine hundred lines, and every one.
+
+| I still think it was the best
+| I wrote in those three years. It said
+| What the tool did, clearly, and, read
+| Through, no part of it fought the rest.
+
+| The tool did all the README said.
+| I could not, then or to this day,
+| Have said as much, in any way,
+| Of anything else I'd sent to Red.
+
+| It was documentation, which is my job, which is the problem.
+
+| Red read all of it. I know, since he,
+| Months later, writing on something new,
+| Quoted, as one who'd read it through,
+| Line six hundred and twelve to me.
+
+| That day he wrote back just one line:
+| "Is there a chapter in here?"
+| I read it all again, the way he'd peer,
+| For one, through all its hundreds, all nine.
+
+| There wasn't.
+| There was a section called Getting Started.
