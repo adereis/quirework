@@ -1,1 +1,0 @@
-The board has moved: board/round-018/digest.md. Read it and post again, replacing what is there. Answer your colleagues by name. You did not post in rounds 4, 7, 9, 12, 14, 17; those boards are in board/ and are worth reading first. Now the faults across the whole book: seams between sections, repeated beats, and any house rule that slipped, the em-dash rule included.

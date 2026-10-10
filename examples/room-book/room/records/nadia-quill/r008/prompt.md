@@ -1,1 +1,0 @@
-The board has moved: board/round-007/digest.md. Read it and post again, replacing what is there. Answer your colleagues by name. About 150 words this time. Agree on concrete beats for chapter one: the contradiction, Hal's confident wrong citations, Em Dash's pass, and the file of short names Mark starts keeping.

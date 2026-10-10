@@ -1,9 +1,0 @@
-# Preface {.unnumbered #sec-preface}
-
-Quirework is real. Everything else in this book is fiction, built to explain what it does.
-
-I did not write this book, I assembled it from logs, the way you assemble a skeleton from a drawer of bones and hope nobody asks about the femur that came from a different animal. Mark Downe does not exist. Neither does Em Dash, Hal Lucinate, Sid Karr, or Vic Tor, though I have my suspicions about Vic. Quirework exists. It lives two directories up from this page, and this book was built with it, which is the one fact here you are allowed to check.
-
-The story is about a manuscript that argues with itself, and notes that drift out from under the sentences they were pinned to. I have an opinion about who deserves credit for the one good line in chapter four. So does the log. We disagree, mildly.
-
-Four minutes gets you the shape of the problem. Fifteen more gets you whether it's worth adopting.

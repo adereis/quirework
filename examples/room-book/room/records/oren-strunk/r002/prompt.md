@@ -1,1 +1,0 @@
-The board has moved: board/round-001/digest.md. Read it and post again, replacing what is there. Answer your colleagues by name. Agree on the shape of all three sections before anyone drafts: the voice, where the jokes live, and what each of you will be watching for.

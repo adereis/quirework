@@ -1,1 +1,0 @@
-The board has moved: board/round-018/digest.md. Read it and post again, replacing what is there. Answer your colleagues by name. Now the faults across the whole book: seams between sections, repeated beats, and any house rule that slipped, the em-dash rule included.

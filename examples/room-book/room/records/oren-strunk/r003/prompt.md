@@ -1,1 +1,0 @@
-The board has moved: board/round-002/digest.md. Read it and post again, replacing what is there. Answer your colleagues by name. About 150 words this time. Agree on concrete beats for Prue's preface: what she says, in what order, and where the Quirework mention lands.

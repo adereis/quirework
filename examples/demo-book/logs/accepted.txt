@@ -1,5 +1,0 @@
-# The sessions this project accepted into its provenance corpus: each
-# file's SHA-256, then its path in the store. `quirework provenance
-# accept` and `reject` write it; edit it only through them.
-store b0b8086b-0651-4bf6-803f-11927ad183f0
-9a833e10f0a2fe7bb0d2df14c0d9ab31b0f5423c4100b88bfad6060b9853e023  cc-sessions/0293f9003c51c5f6/893d06b2-042a-458f-bc18-4f20e00032e0.jsonl

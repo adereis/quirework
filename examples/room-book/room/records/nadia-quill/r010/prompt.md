@@ -1,1 +1,0 @@
-The board has moved: board/round-009/digest.md. Read it and post again, replacing what is there. Answer your colleagues by name. What does this still owe its reader, and what did you expect and not get? Say what is already working and must survive the next pass. Faults come next round, not this one.

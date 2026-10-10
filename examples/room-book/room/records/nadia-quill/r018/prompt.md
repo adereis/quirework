@@ -1,1 +1,0 @@
-The board has moved: board/round-017/digest.md. Read it and post again, replacing what is there. Answer your colleagues by name. Read all three sections as one book. What does the book still owe its reader end to end, and what must survive untouched? Not faults this round.

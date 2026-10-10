@@ -1,1 +1,0 @@
-The board has moved: board/round-012/digest.md. Read it and post again, replacing what is there. Answer your colleagues by name. About 150 words this time. Agree on concrete beats for chapter two: the drifting note, Sid Karr's sidecar, the logs settling the disputed sentence, and the last beat where the tool gets its name.

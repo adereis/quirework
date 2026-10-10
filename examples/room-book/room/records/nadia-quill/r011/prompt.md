@@ -1,1 +1,0 @@
-The board has moved: board/round-010/digest.md. Read it and post again, replacing what is there. Answer your colleagues by name. Now the faults. Answer your colleagues by name and say where you disagree with them. Editor: quote sentences. Continuity: cite specifics. Reader: say where you laughed.
