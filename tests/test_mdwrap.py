@@ -598,6 +598,51 @@ def test_io_ends_a_sentence_but_initials_do_not():
     )
 
 
+def test_a_sentence_may_end_on_the_pronoun_i():
+    """A capital and a period read as an initial, so "so have I. Here" was
+    kept on one line. After a lowercase word "I" is the pronoun, unless
+    another initial follows it."""
+    assert mdwrap.rewrap("The others gave up, and so have I. Here is why.") == (
+        "The others gave up, and so have I.\nHere is why."
+    )
+    assert mdwrap.rewrap("It was drawn by I. M. Pei. He liked it.") == (
+        "It was drawn by I. M. Pei.\nHe liked it."
+    )
+    assert mdwrap.rewrap("I. M. Pei drew it. J. Smith built it.") == (
+        "I. M. Pei drew it.\nJ. Smith built it."
+    )
+    # the same judgement at a line end the author left
+    assert mdwrap.rewrap("So have I.\nHere is why.") == "So have I.\nHere is why."
+
+
+def test_a_reference_abbreviation_holds_its_number():
+    """`*Notes: ch. 4 (tool)*` was broken after "ch.", so the emphasis crossed
+    a source line. Like the numero sign, a reference abbreviation is read as
+    one only before a number."""
+    for src in (
+        "*Notes: ch. 4 (tool)*",
+        "See pp. 12 to 14, and p. 7 for the table.",
+        "It was filed as no. 3 in vol. 2 of the set.",
+    ):
+        assert mdwrap.rewrap(src) == src
+    # a break the wrapper made before is undone, so there is one fixed point
+    assert mdwrap.rewrap("It says *Notes: ch.\n4 (tool)* in red.") == (
+        "It says *Notes: ch. 4 (tool)* in red."
+    )
+
+
+def test_a_quoted_question_keeps_its_dialogue_tag():
+    """`"Which one?" I said.` is one sentence. A capitalized word followed by
+    a verb of speech, after a quoted question or exclamation, is its tag."""
+    for src in ('"Which one?" I said.', '"Stop!" Mara shouted, and we did.'):
+        assert mdwrap.rewrap(src) == src
+    assert mdwrap.rewrap('"Which one?" Mara asked. Nobody knew.') == (
+        '"Which one?" Mara asked.\nNobody knew.'
+    )
+    assert mdwrap.rewrap('"Which one?" Nobody knew.') == '"Which one?"\nNobody knew.'
+    assert mdwrap.rewrap('"Which one?"\nI said.') == '"Which one?" I said.'
+
+
 def test_an_inline_note_is_left_where_the_author_put_it():
     """Pandoc's `^[...]` closes on a bracket; whether a sentence ends after the
     note is the author's call, so the text around it is left as written."""

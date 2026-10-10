@@ -86,24 +86,53 @@ _ABBREV_RE = re.compile(
     + ")"
 )
 
-# "No." is the numero sign only before a number: "No. 5", "No. #5". Listed
-# with the others it also swallowed the answer "No.", so "Did the fuse
-# hold? No. The lights went out." was joined onto one line, and the joined
-# form was then what --check demanded.
-_NUMERO_RE = re.compile(r"(?<![A-Za-z0-9.])No\.(?=\s*[0-9#])")
+# Abbreviations read as such only before a number: "No. 5", "ch. 4",
+# "pp. 12". "No." is the numero sign only there. Listed with the others it
+# also swallowed the answer "No.", so "Did the fuse hold? No. The lights went
+# out." was joined onto one line, and the joined form was then what --check
+# demanded. The rest are never words, but a break after "ch." carried an
+# emphasized span across a source line.
+_NUMBERED = ("no", "ch", "chap", "p", "pp", "vol", "pt", "sec", "fig", "eq")
+_NUMBERED_RE = re.compile(
+    r"(?<![A-Za-z0-9.])(?i:" + "|".join(_NUMBERED) + r")\.(?=\s*[0-9#])"
+)
+
+# Single-capital-letter initials: "W. V. O. Quine", "U.S. Army". A capital
+# after a slash or a hyphen is the end of a term, not an initial: "I/O."
+# closes a sentence as surely as "disk." does.
+_INITIAL_RE = re.compile(r"(?<![\w/-])([A-Z])\.(?=\s)")
+_NEXT_INITIAL_RE = re.compile(r"\s+[A-Z]\.")
 
 _SENT = "\x00"  # sentinel standing in for a protected "."
 
 
+def _initial(m: re.Match) -> str:
+    """Protect an initial's period, but not the pronoun's.
+
+    "so have I. Here" ends a sentence on "I". After a lowercase word, "I" is
+    read as the pronoun, unless another initial follows it ("the architect I.
+    M. Pei"). A single initial I after a lowercase word, as in "by I. Kant",
+    is broken after in consequence; a soft break renders as a space.
+    """
+    text, start = m.string, m.start()
+    if m.group(1) == "I" and not _NEXT_INITIAL_RE.match(text, m.end()):
+        k = start
+        while k > 0 and text[k - 1].isspace():
+            k -= 1
+        if 0 < k < start and text[k - 1].islower():
+            return m.group(0)
+    return m.group(1) + _SENT
+
+
 def _protect(text: str) -> str:
-    """Replace dots that are not sentence ends with a sentinel."""
+    """Replace dots that are not sentence ends with a sentinel.
+
+    The result is as long as the text, character for character, so a caller
+    may protect a longer text than it needs and slice the part it asks about.
+    """
     text = _ABBREV_RE.sub(lambda m: m.group(0).replace(".", _SENT), text)
-    text = _NUMERO_RE.sub("No" + _SENT, text)
-    # Single-capital-letter initials: "W. V. O. Quine", "U.S. Army". A capital
-    # after a slash or a hyphen is the end of a term, not an initial: "I/O."
-    # closes a sentence as surely as "disk." does.
-    text = re.sub(r"(?<![\w/-])([A-Z])\.(?=\s)", r"\1" + _SENT, text)
-    return text
+    text = _NUMBERED_RE.sub(lambda m: m.group(0).replace(".", _SENT), text)
+    return _INITIAL_RE.sub(_initial, text)
 
 
 def _restore(text: str) -> str:
@@ -121,7 +150,8 @@ def _restore(text: str) -> str:
 # leaves no space+quote boundary to trip. Not fixed in the splitter on purpose:
 # `?"`/`!"` before a capital is genuinely ambiguous (title mid-sentence vs. a
 # quoted question ending a sentence), and any heuristic trades this cosmetic
-# miss for an equally cosmetic one.
+# miss for an equally cosmetic one. The one shape read otherwise is a dialogue
+# tag, `"Which one?" I said.`, below.
 #
 # What may trail the terminal punctuation and still belong to the sentence it
 # ends: a closing quote or parenthesis, and footnote references, which
@@ -134,6 +164,19 @@ _STARTER = re.compile(r'[A-Z0-9"“(\[*]')
 _SEMI = re.compile(r"(?<=;)\s+")
 
 
+# A quoted question or exclamation and its tag are one sentence: `"Which
+# one?" I said.` A tag opens on a capital only when its speaker is "I" or a
+# name, so one capitalized word followed by a verb of speech is read as a tag.
+_QUOTED_END = re.compile(r"""[?!]["”’']+\Z""")
+_TAG = re.compile(
+    r"[A-Z][\w’'-]*\s+(?:"
+    r"say|says|said|ask|asks|asked|reply|replies|replied|answer|answers|"
+    r"answered|whispered|shouted|cried|called|yelled|muttered|wondered|"
+    r"added|repeated|write|writes|wrote|type|types|typed"
+    r")\b"
+)
+
+
 def _ends_sentence(protected: str) -> bool:
     """Whether protected text ends with terminal punctuation, trailers aside.
 
@@ -144,14 +187,23 @@ def _ends_sentence(protected: str) -> bool:
     return core[-1:] in (".", "!", "?")
 
 
+def _breaks(before: str, protected: str, resume: int) -> bool:
+    """Whether a sentence ends after `before`, when the text goes on at
+    `protected[resume]`. A quoted question's dialogue tag goes on with it."""
+    if not _ends_sentence(before):
+        return False
+    return not (_QUOTED_END.search(before) and _TAG.match(protected, resume))
+
+
 def _sentences(protected: str) -> list[str]:
     """Split protected text at whitespace that ends a sentence and precedes
     something that can start one."""
     out, start = [], 0
     for gap in re.finditer(r"\s+", protected):
         after = protected[gap.end() : gap.end() + 1]
-        if _STARTER.match(after) and _ends_sentence(protected[start : gap.start()]):
-            out.append(protected[start : gap.start()])
+        before = protected[start : gap.start()]
+        if _STARTER.match(after) and _breaks(before, protected, gap.end()):
+            out.append(before)
             start = gap.end()
     out.append(protected[start:])
     return out
@@ -327,10 +379,16 @@ def rewrap(text: str) -> str:
         # when the next one opens in lowercase or code ("virtio-blk is a block
         # device.", "`cache=none` is ..."), which no capital-letter rule can
         # recognize as a new sentence. Only the lines between are joined.
+        # Whether a line ends a sentence is judged with the next line in view,
+        # as it is inside a line: "ch." before "4" ends nothing, and neither
+        # does a quoted question before its tag.
         group: list[str] = []
-        for line in para:
-            group.append(line.strip())
-            if _ends_sentence(_protect(line.rstrip() + " ").rstrip()):
+        for k, line in enumerate(para):
+            here = line.strip()
+            group.append(here)
+            after = para[k + 1].strip() if k + 1 < len(para) else ""
+            protected = _protect(here + " " + after)
+            if _breaks(protected[: len(here)], protected, len(here) + 1):
                 out.extend(_split_paragraph(" ".join(group)))
                 group = []
         if group:
