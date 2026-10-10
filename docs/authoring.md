@@ -753,6 +753,12 @@ seat, which reads the book and retells all of it as a single document
 with `##` sections, into `_raw/document.md`. Its brief then describes
 the whole document's reader and form, not a chapter's.
 
+An edition drafted by chapter may have no place for some of the book's
+pages, as a retelling for young readers has none for a back cover.
+`omit = ["back-cover"]` in its kind's table names them by file name, and
+a build then drafts none of them and says so. A name that matches no
+chapter is refused.
+
 `--harness`, `--model` and `--effort` override the policy for one build.
 The plan and its record stay in the project's private state, outside the
 checkout. Each draft comes in with an entry in `_raw/receipts.json`: the

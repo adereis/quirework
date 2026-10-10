@@ -318,6 +318,50 @@ def test_a_document_edition_is_one_seat_given_the_whole_book(
     assert "Rewrite the chapter titled" not in prompt
 
 
+def test_an_edition_drafts_no_unit_its_kind_omits(tmp_path, capsys, monkeypatch):
+    """A back cover belongs to a book you can pick up, so an edition never
+    carries one. Nothing could leave it out, and every by-chapter edition
+    paid for a draft of it that was thrown away."""
+    root = _book(tmp_path)
+    (root / "config").mkdir()
+    policy = root / "config" / "variant-policy.toml"
+    (root / "quirework.toml").write_text(
+        _CONFIG.replace(
+            'variants = "variants"',
+            'variants = "variants"\nvariant_policy = "config/variant-policy.toml"',
+        )
+    )
+    monkeypatch.setenv("XDG_STATE_HOME", str(tmp_path / "state"))
+    from quirework.cli import main
+
+    def build(*args):
+        return main(
+            ["--project", str(root), "publish", "variant", "build", "postcard", *args]
+        )
+
+    policy.write_text(
+        'default_model = "sonnet"\n[kinds.postcard]\nomit = ["closing"]\n'
+    )
+    assert build("--plan-only") == 0
+    out = capsys.readouterr().out
+    assert '"The closing": the postcard edition never carries it' in out
+    (plan,) = (tmp_path / "state").rglob("plan.json")
+    assert [s["id"] for s in json.loads(plan.read_text())["seats"]] == ["draft-opening"]
+
+    policy.write_text('default_model = "sonnet"\n[kinds.postcard]\nomit = ["clsing"]\n')
+    assert build("--dry-run") == 2
+    assert "kinds.postcard.omit names no unit of the book: clsing" in (
+        capsys.readouterr().err
+    )
+
+    policy.write_text(
+        'default_model = "sonnet"\n'
+        '[kinds.postcard]\nshape = "document"\nomit = ["closing"]\n'
+    )
+    assert build("--dry-run") == 2
+    assert "drafted as one document" in capsys.readouterr().err
+
+
 def test_each_chapter_is_one_blind_seat_with_no_tools(tmp_path):
     drafts = [
         {"unit": u, "title": u.title(), "source": f"s/{u}.qmd", "prompt": f"P {u}"}

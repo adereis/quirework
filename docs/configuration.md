@@ -1024,10 +1024,12 @@ and visual choices out of Quirework's implementation:
   `default_model`, `default_harness` and `default_effort` apply to every
   kind, and a `[kinds.KIND]` table overrides any of `model`, `harness`
   and `effort` for one kind. Its `shape` is `chapters`, one draft per
-  chapter, or `document`, one draft of the whole edition. `blind_tells`
-  names marks of the project's own that a drafter's bundle must never
-  contain, and `prompt_intro` and `document_intro` replace the opening
-  instructions of a chapter's drafter and a document's.
+  chapter, or `document`, one draft of the whole edition, and its `omit`
+  lists the chapters, by file name, that a by-chapter edition never
+  carries and so never drafts. `blind_tells` names marks of the
+  project's own that a drafter's bundle must never contain, and
+  `prompt_intro` and `document_intro` replace the opening instructions
+  of a chapter's drafter and a document's.
 - `provenance.metrics_policy` and `provenance.coldread_policy`:
   historical source classifications, explicitly selected analysis
   models, and `output_counts`, which names each collection the metrics

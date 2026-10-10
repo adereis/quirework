@@ -431,6 +431,22 @@ def shape(kind: str) -> str:
     return value
 
 
+def omitted(kind: str) -> list[str]:
+    """The units, by file name, that the ``kind`` edition never carries.
+
+    A back cover belongs to a book you can pick up, so an edition retold for
+    another reader may have no place for one. Drafting it anyway pays for a
+    draft the composing step throws away.
+    """
+    policy = current_project().data("publish.variant_policy", {})
+    value = ((policy.get("kinds") or {}).get(kind) or {}).get("omit", [])
+    if not isinstance(value, list) or any(not isinstance(u, str) for u in value):
+        raise ValueError(
+            f"kinds.{kind}.omit in the variant policy is a list of unit names"
+        )
+    return value
+
+
 def seat_id(unit: str) -> str:
     return f"draft-{unit}"
 
@@ -665,6 +681,7 @@ def cmd_build(argv: list[str]) -> int:
     kind_label = kind.replace("-", " ")
     try:
         form = shape(kind)
+        omit = omitted(kind)
     except ValueError as exc:
         print(f"variant: {exc}", file=sys.stderr)
         return 2
@@ -675,14 +692,31 @@ def cmd_build(argv: list[str]) -> int:
             file=sys.stderr,
         )
         return 2
+    if form == DOCUMENT and omit:
+        print(
+            f"variant: kinds.{kind}.omit leaves chapters out, and the {kind} "
+            "edition is drafted as one document; its brief says what it leaves out",
+            file=sys.stderr,
+        )
+        return 2
     voice, reader = read_brief(kind)
     all_chapters = chapter_order()
+    unknown = sorted(set(omit) - {c["slug"] for c in all_chapters})
+    if unknown:
+        print(
+            f"variant: kinds.{kind}.omit names no unit of the book: "
+            + ", ".join(unknown),
+            file=sys.stderr,
+        )
+        return 2
     chapters = all_chapters
     if only:
         chapters = [c for c in all_chapters if only in c["slug"]]
         if not chapters:
             print(f"--only {only!r} matched no chapter", file=sys.stderr)
             return 2
+    left_out = [c for c in chapters if c["slug"] in omit]
+    chapters = [c for c in chapters if c not in left_out]
     bundle = build_bundle(all_chapters)  # always the WHOLE book for grounding
     policy = current_project().data("publish.variant_policy", {})
     assert_blind(bundle, tuple(policy.get("blind_tells", ())))
@@ -708,6 +742,11 @@ def cmd_build(argv: list[str]) -> int:
     for c in titles_only:
         print(
             f'  skip         {c["slug"]:28}  "{c["title"]}": a title, nothing to retell'
+        )
+    for c in left_out:
+        print(
+            f'  omit         {c["slug"]:28}  "{c["title"]}": '
+            f"the {kind_label} edition never carries it"
         )
     if not chapters:
         print("no chapter has prose to retell", file=sys.stderr)
