@@ -306,20 +306,63 @@ def _result_text(block):
 # Its result is the author's pick, logged in the human's slot as tool output.
 ASK_TOOL = "AskUserQuestion"
 
+# How the harness frames the picks. Each pick is `"question"="label"`, the
+# preview of a picked option may follow it as ` selected preview:\n...`, and
+# the author's own words as ` notes: ...`. The opening and closing sentences
+# have been worded three ways across harness releases.
+_ASK_OPENING = re.compile(
+    r"^(?:Your questions have been answered|The user answered"
+    r"|User has answered your questions):\s*"
+)
+_ASK_CLOSING = re.compile(
+    r"\.\s+(?:You can now continue with (?:these|the user's) answers in mind\."
+    r"|Read the answers carefully\b.*)\s*$",
+    re.S,
+)
+# A preview the question call did not hold verbatim: cut from its marker to
+# the author's notes, the next pick, or the end.
+_ASK_PREVIEW = re.compile(r' selected preview:\n.*?(?= notes: |, "[^"\n]*"=|$)', re.S)
 
-def answer_text(block, raw=False):
+
+def _previews(ask):
+    """Every option preview an ``ASK_TOOL`` call offered, longest first."""
+    questions = (ask or {}).get("questions") if isinstance(ask, dict) else None
+    found = {
+        option["preview"]
+        for question in questions or ()
+        if isinstance(question, dict)
+        for option in question.get("options") or ()
+        if isinstance(option, dict) and isinstance(option.get("preview"), str)
+    }
+    return sorted(found, key=len, reverse=True)
+
+
+def answer_text(block, ask=None, raw=False):
     """What the author answered, from the tool_result of an ``ASK_TOOL`` call.
 
     The harness logs the pick as the tool's result, so it arrives looking like
-    tool output and is the author speaking all the same. An errored result
-    (the question dismissed, or the call refused) answered nothing. With
-    ``raw`` the text is kept exactly as logged. Every reader that asks what
-    the author said takes an answer from here, so they agree on it.
+    tool output and is the author speaking all the same. Only some of its text
+    is the author's, though. The question and the label are the model's words,
+    kept because a bare label means nothing out of context and naming one is
+    the choice. A picked option's preview is the model's sketch of it, which
+    the harness copies into the result, so it is cut, using the previews the
+    call offered (``ask``, the call's input) and a pattern where none matches.
+    The author's notes stay, and so does a free-text answer. The harness's
+    framing sentences go. An errored result (the question dismissed, or the
+    call refused) answered nothing. With ``raw`` the text is kept exactly as
+    logged. Every reader that asks what the author said takes an answer from
+    here, so they agree on it.
     """
     if block.get("is_error"):
         return ""
     text = _result_text(block)
-    return text.strip() if raw else strip_wrappers(text)
+    if raw:
+        return text.strip()
+    text = _ASK_OPENING.sub("", strip_wrappers(text), count=1)
+    text = _ASK_CLOSING.sub("", text, count=1)
+    for preview in _previews(ask):
+        text = text.replace(f" selected preview:\n{preview}", "")
+    return _ASK_PREVIEW.sub("", text).strip()
 
 
 def tool_marker(block):
@@ -801,7 +844,7 @@ def filter_session(path):
                                     )
                                 )
                         elif job[0] == "ask":
-                            answer = answer_text(b)
+                            answer = answer_text(b, job[1])
                             if answer:
                                 recovered.append(
                                     (
@@ -843,7 +886,7 @@ def filter_session(path):
                             edits += 1
                         # Mark the results worth recovering (see the user branch).
                         if name == ASK_TOOL:
-                            pending[b.get("id")] = ("ask", None)
+                            pending[b.get("id")] = ("ask", b.get("input"))
                         elif name == "Bash":
                             cmd = (b.get("input") or {}).get("command") or ""
                             if _REDPEN_CMD.search(cmd):

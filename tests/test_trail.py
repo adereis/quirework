@@ -670,7 +670,11 @@ def _write_records(book, sid, records):
 def test_a_breadcrumb_can_point_at_an_answer_the_author_picked(book, capsys):
     # A choice made by answering the model's question arrives as that tool's
     # result. It is the author's turn, so it can be found and followed.
-    answer = 'Your questions have been answered: "Lead with?"="The whistle"'
+    answer = (
+        'Your questions have been answered: "Lead with?"="The whistle" selected '
+        "preview:\nOpen on the kettle, then the room. You can now continue with "
+        "these answers in mind."
+    )
     _write_records(
         book,
         OTHER,
@@ -712,6 +716,9 @@ def test_a_breadcrumb_can_point_at_an_answer_the_author_picked(book, capsys):
     crumb, _ = trail.add("kettle-signal", "seed", find="The whistle")
     assert crumb.session == OTHER and crumb.stamp == "2031-04-02T12:03:27Z"
     assert trail.check() == 0
+    # The preview is the model's sketch, so it is not the author's to find.
+    with pytest.raises(LookupError, match="no author turn holds"):
+        trail.add("kettle-signal", "seed", find="Open on the kettle")
     capsys.readouterr()
 
 

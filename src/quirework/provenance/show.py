@@ -129,7 +129,7 @@ def _answers(content, asks, raw, ts):
             continue
         if b.get("tool_use_id") not in asks:
             continue
-        text = FLT.answer_text(b, raw=raw)
+        text = FLT.answer_text(b, asks[b.get("tool_use_id")], raw=raw)
         if text:
             out.append(("human", text, ts))
     return out
@@ -148,7 +148,8 @@ def cc_records(path, *, thinking=False, raw=False):
     messages; list content is a tool-result echo and is skipped, except the
     result of a question the model asked with ``AskUserQuestion``, which is
     the author's pick and so a human turn, as the capture and the Codex
-    reader already treat it. Records the
+    reader already treat it, with the option previews the model wrote cut
+    from it (``ccfilter.answer_text``). Records the
     harness flags as its own (a meta injection, the summary a compacted
     session resumes from, or the notice of a failed request written in the
     model's slot) and ``isSidechain`` (subagent side-threads) records are
@@ -158,7 +159,7 @@ def cc_records(path, *, thinking=False, raw=False):
     wrote back, its prose and the report it hands back, is ``subagent``.
     """
     out = []
-    asks = set()  # ids of the questions the model asked the author
+    asks = {}  # each question the model asked the author: id -> its input
     with open(path, encoding="utf-8", errors="replace") as fh:
         for line in fh:
             line = line.strip()
@@ -213,7 +214,7 @@ def cc_records(path, *, thinking=False, raw=False):
                     if t:
                         parts.append("[thinking]\n" + t)
                 elif bt == "tool_use" and b.get("name") == FLT.ASK_TOOL:
-                    asks.add(b.get("id"))
+                    asks[b.get("id")] = b.get("input")
                 elif (
                     bt == "tool_use"
                     and b.get("name") == _HANDBACK

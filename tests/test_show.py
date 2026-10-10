@@ -9,6 +9,8 @@ header), all on tmp_path fixtures with CC/CONV monkeypatched off the real corpus
 from conftest import keep_session
 import json
 
+import pytest
+
 from quirework.provenance import show
 
 
@@ -60,12 +62,25 @@ def test_cc_records_keeps_prose_drops_tools(tmp_path):
     ]
 
 
+SKETCH = "Seth, then Dehaene:\n  1. Being You\n  2. Consciousness and the Brain"
+
+
 def _ask(tool_id):
     return {
         "type": "tool_use",
         "id": tool_id,
         "name": "AskUserQuestion",
-        "input": {"questions": [{"question": "Which first?"}]},
+        "input": {
+            "questions": [
+                {
+                    "question": "Which first?",
+                    "options": [
+                        {"label": "Seth", "preview": SKETCH},
+                        {"label": "Dehaene", "preview": "Dehaene alone"},
+                    ],
+                }
+            ]
+        },
     }
 
 
@@ -75,7 +90,11 @@ def _result(tool_id, content, **extra):
     )
 
 
-ANSWER = 'Your questions have been answered: "Which first?"="Seth"'
+PICK = '"Which first?"="Seth"'
+ANSWER = (
+    f"Your questions have been answered: {PICK} selected preview:\n{SKETCH}. "
+    "You can now continue with these answers in mind."
+)
 
 
 def test_an_answer_to_a_question_is_the_authors_turn(tmp_path):
@@ -98,20 +117,55 @@ def test_an_answer_to_a_question_is_the_authors_turn(tmp_path):
     assert _roles(show.cc_records(p)) == [
         ("human", "plan the reading list"),
         ("assistant", "Two ways to start."),
-        ("human", ANSWER),
+        ("human", PICK),
         ("assistant", "Seth it is."),
     ]
     turns = [(n, text) for n, _, text in show.author_turns("cc", p)]
-    assert turns == [(1, "plan the reading list"), (2, ANSWER)]
+    assert turns == [(1, "plan the reading list"), (2, PICK)]
 
 
-def test_an_answer_is_cleaned_like_a_typed_turn_and_raw_keeps_it_whole(tmp_path):
+@pytest.mark.parametrize(
+    "logged, kept",
+    [
+        # The preview is the model's sketch of the option; the notes are
+        # the author's own words, and stay.
+        (
+            f"Your questions have been answered: {PICK} selected preview:\n"
+            f"{SKETCH} notes: but skim chapter two. You can now continue with "
+            "these answers in mind.",
+            f"{PICK} notes: but skim chapter two",
+        ),
+        # Another release's framing, and a pick with no option chosen.
+        (
+            f'The user answered: {PICK}, "Which edition?"=(no option selected) '
+            "notes: the library's. Read the answers carefully \u2014 they may "
+            "request clarification.",
+            f'{PICK}, "Which edition?"=(no option selected) notes: the library\'s',
+        ),
+        # A preview the call did not offer verbatim is still cut.
+        (
+            f"User has answered your questions: {PICK} selected preview:\n"
+            'a sketch the call never held, "Which edition?"="First". You '
+            "can now continue with the user's answers in mind.",
+            f'{PICK}, "Which edition?"="First"',
+        ),
+    ],
+)
+def test_an_answer_keeps_the_authors_words_and_not_the_models(tmp_path, logged, kept):
+    p = _jsonl(
+        tmp_path / "s.jsonl",
+        [_assistant(_ask("ask1")), _result("ask1", [_text(logged)])],
+    )
+    assert _roles(show.cc_records(p)) == [("human", kept)]
+
+
+def test_raw_keeps_an_answer_exactly_as_logged(tmp_path):
     logged = ANSWER + "\n<system-reminder>the harness speaking</system-reminder>"
     p = _jsonl(
         tmp_path / "s.jsonl",
         [_assistant(_ask("ask1")), _result("ask1", [_text(logged)])],
     )
-    assert _roles(show.cc_records(p)) == [("human", ANSWER)]
+    assert _roles(show.cc_records(p)) == [("human", PICK)]
     assert _roles(show.cc_records(p, raw=True)) == [("human", logged)]
 
 
