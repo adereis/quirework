@@ -137,10 +137,16 @@ it in conversation, write it here in the same session.
   on the same fact, and the fact stays exact. Shorter chapters and fewer
   scenes are fine if the story holds. A first draft that kept the adult
   words was the book with its sentences split, and was not an edition.
-- The poems are one poem per chapter, light verse in real metre and
-  rhyme, the facts exact even when the rhyme would rather they weren't.
-  Em's chapter holds exactly one limerick; if Em needs more room than a
-  limerick, the poem around it gives it.
+- The poems are one poem per chapter, light verse in real metre and full
+  rhyme, the facts exact even when the rhyme would rather they weren't:
+  a forced rhyme is better than a changed number. Each chapter has the
+  form that suits it, assigned in the poems' brief, since blind drafters
+  left to choose all reached for heroic couplets. Em's chapter holds
+  exactly one limerick; if Em needs more room than a limerick, the poem
+  around it gives it. Otto gets no pronoun in verse either, and the line
+  is rewritten until Otto fits. A line break is a line: the poems are
+  Pandoc line blocks, and `text.modes` keeps `text wrap` from reflowing
+  them.
 
 ## Cast
 
