@@ -382,6 +382,21 @@ def main(argv=None):
                     # Resolve it here, where somebody is asking, instead of
                     # letting a typo surface as a warning on every command.
                     project.path("usage.store")
+                from . import settings
+
+                problems = settings.unknown(project)
+                if problems:
+                    for line in problems:
+                        print(line, file=sys.stderr)
+                    print(
+                        "Nothing reads these keys, so each is usually a "
+                        "misspelling or a retired key. A key the project's own "
+                        "code reads belongs in an [extensions] list, as "
+                        "docs/configuration.md says. `quirework config keys` "
+                        "lists every key Quirework reads.",
+                        file=sys.stderr,
+                    )
+                    return 1
                 print("Configuration is valid.")
             else:
                 print(json.dumps(project.describe(), indent=2))

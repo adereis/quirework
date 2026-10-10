@@ -5,7 +5,9 @@ which is how an optional setting should behave and why a new one is easy to
 miss: a project that does not know the key exists never learns of it. So
 the keys are listed here, and `quirework config keys` sets them against
 what a project declares: each known key declared or not, and each declared
-key Quirework does not know, which is usually a misspelling.
+key Quirework does not know, which is usually a misspelling. A key the
+project's own code reads is listed by the project under `[extensions]`, and
+then counts as its own rather than unknown.
 
 A key is written dotted, as `quirework.toml` nests it. A `*` stands for one
 name the project chooses, such as an edition's kind or a reader preset's
@@ -18,6 +20,8 @@ that is not listed here (`recording`), so the list cannot fall behind.
 """
 
 from __future__ import annotations
+
+from pathlib import Path
 
 # The keys of [publish] a publish target's own table may also declare: a
 # target is read as its [publish], each key it names replacing the shared one.
@@ -40,6 +44,9 @@ _PUBLISH = (
 SETTINGS: tuple[str, ...] = (
     "schema",
     "checks.command",
+    # The keys a project's own code reads, which Quirework's never does.
+    "extensions.policy_keys.*",
+    "extensions.settings",
     *(
         f"manuscript.{key}"
         for key in (
@@ -306,24 +313,73 @@ def _declared(table, patterns, prefix=()):
             yield path
 
 
-def _compare(table, patterns):
-    keys = list(_declared(table, patterns))
-    declared = sorted(
-        p
-        for p in patterns
-        if any(_matches(_parts(p), k[: len(_parts(p))]) for k in keys)
-    )
+def _patterns(value, name):
+    from .project import ConfigurationError
+
+    if not isinstance(value, list) or not all(
+        isinstance(v, str) and v.strip() for v in value
+    ):
+        raise ConfigurationError(f"{name} must be a list of dotted keys")
+    return tuple(value)
+
+
+def own(project) -> tuple[tuple[str, ...], dict[str, tuple[str, ...]]]:
+    """The keys ``project``'s own code reads, which Quirework's does not.
+
+    An extension a project installs may read a setting of its own, or a key
+    of its own in a policy file it shares with Quirework, and nothing here
+    can know either. So the project lists them: `extensions.settings` for
+    `quirework.toml`, dotted as Quirework's are, and `extensions.policy_keys`,
+    one list per policy setting, written from the top of that file. Only a
+    policy file Quirework reads takes a list, since a file nothing here reads
+    is never set against Quirework's keys in the first place."""
+    from .project import ConfigurationError
+
+    settings = _patterns(project.get("extensions.settings", []), "extensions.settings")
+    table = project.get("extensions.policy_keys", {})
+    if not isinstance(table, dict):
+        raise ConfigurationError(
+            "extensions.policy_keys must be a table: one list per policy setting"
+        )
+    policies = {}
+    for setting, value in table.items():
+        if setting not in POLICIES:
+            raise ConfigurationError(
+                f"extensions.policy_keys names {setting}, which is not a policy "
+                "file Quirework reads, so no key of it needs listing"
+            )
+        policies[setting] = _patterns(value, f"extensions.policy_keys.{setting}")
+    return settings, policies
+
+
+def _compare(table, patterns, mine=()):
+    keys = list(_declared(table, (*patterns, *mine)))
+
+    def present(candidates):
+        return sorted(
+            p
+            for p in candidates
+            if any(_matches(_parts(p), k[: len(_parts(p))]) for k in keys)
+        )
+
+    declared = present(patterns)
     return {
         "declared": declared,
         "undeclared": sorted(set(patterns) - set(declared)),
-        "unknown": sorted(".".join(k) for k in keys if not known(k, patterns)),
+        "own": present(mine),
+        "unknown": sorted(
+            ".".join(k) for k in keys if not known(k, patterns) and not known(k, mine)
+        ),
     }
 
 
 def report(project) -> dict:
-    """Each known setting and policy key, declared by ``project`` or not, and
-    each it declares that Quirework does not know."""
-    found = {"settings": _compare(project.describe()["settings"], SETTINGS)}
+    """Each known setting and policy key, declared by ``project`` or not, the
+    project's own keys it declares, and each it declares that nobody knows."""
+    own_settings, own_policies = own(project)
+    found = {
+        "settings": _compare(project.describe()["settings"], SETTINGS, own_settings)
+    }
     policies = {}
     for setting, patterns in sorted(POLICIES.items()):
         if project.get(setting) is None:
@@ -331,16 +387,56 @@ def report(project) -> dict:
                 "file": None,
                 "declared": [],
                 "undeclared": sorted(patterns),
+                "own": [],
                 "unknown": [],
             }
             continue
         data = project.data(setting, {})
         policies[setting] = {
             "file": str(project.path(setting)),
-            **_compare(data if isinstance(data, dict) else {}, patterns),
+            **_compare(
+                data if isinstance(data, dict) else {},
+                patterns,
+                own_policies.get(setting, ()),
+            ),
         }
     found["policies"] = policies
     return found
+
+
+def _where(project, path) -> str:
+    """A file as the project would name it: relative to its root when inside."""
+    path = Path(path)
+    root = project.root.resolve()
+    resolved = path.resolve()
+    return (
+        str(resolved.relative_to(root)) if resolved.is_relative_to(root) else str(path)
+    )
+
+
+def unknown(project) -> list[str]:
+    """Each declared key nothing reads, as a line naming its file.
+
+    A misspelled key is read as absent, so it takes its default and says
+    nothing, and so does a key a release retired. `config check` refuses a
+    project that declares one, in `quirework.toml`, in the local overlay or
+    in a policy file the project names, so the misspelling surfaces where
+    somebody asked whether the configuration is right. A key the project's
+    own code reads is not one of them once `[extensions]` lists it (`own`),
+    and a key under `[extensions]` other than its two lists is."""
+    found = report(project)
+    described = project.describe()
+    origins, fallback = described["origins"], described["configuration"]
+    lines = [
+        f"{_where(project, origins.get(key) or fallback)}: unknown setting {key}"
+        for key in found["settings"]["unknown"]
+    ]
+    for setting, rows in found["policies"].items():
+        lines.extend(
+            f"{_where(project, rows['file'])}: unknown key {key} in {setting}"
+            for key in rows["unknown"]
+        )
+    return lines
 
 
 def show(project, *, undeclared_only=False) -> str:
@@ -354,6 +450,7 @@ def show(project, *, undeclared_only=False) -> str:
             if undeclared_only
             else (
                 "declared",
+                "own",
                 "undeclared",
                 "unknown",
             )
@@ -370,7 +467,8 @@ def show(project, *, undeclared_only=False) -> str:
         lines.append(f"{setting} ({where}):")
         section(rows, "  ")
     lines.append(
-        "An unknown key is one Quirework never reads, usually a misspelling. "
+        "An own key is one the project's own code reads, as [extensions] lists "
+        "it. An unknown key is one nothing reads, usually a misspelling. "
         "docs/configuration.md explains every known one."
     )
     return "\n".join(lines)

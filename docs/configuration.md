@@ -391,16 +391,37 @@ with project_scope(project):
 optional corpus is different from an enabled corpus whose directory is
 missing.
 
-A setting left out takes its default and says nothing, and so does a
-misspelled one, which is easy to miss in either direction.
+A setting left out takes its default and says nothing, and so would a
+misspelled one, read as absent. So `config check` fails on any declared
+key nothing reads, in `quirework.toml`, in `quirework.local.toml` or in
+a policy file the project names, and names each with its file. An
+extension may read keys Quirework does not, a setting of its own or a
+key of its own in a policy file it shares with Quirework. The project
+lists those under `[extensions]`, and the check counts them as its own:
+
+```toml
+[extensions]
+# Settings this project's own code reads, dotted, `*` for any name.
+settings = ["publish.cover_palette"]
+
+[extensions.policy_keys]
+# Keys of its own in a policy file Quirework also reads.
+"text.terminology" = ["house_terms.*"]
+```
+
+Only a policy file Quirework reads takes a list, since a file nothing
+here reads is never checked. Any other key under `[extensions]` fails
+like a misspelling.
+
 `quirework config keys` sets every key Quirework reads against the
-project: each one declared or undeclared, and each declared key that
-Quirework does not read, which is usually a misspelling. It reads into
-the policy files the project names as well, where a key never appears in
-`quirework.toml`. A `*` stands for a name the project chooses, as in
-`kinds.*.shape`. `--undeclared` lists only what is left out and what is
-unknown, and `--json` gives the same report to a script. Run it after
-moving to a new release to see what the release added.
+project: each one declared or undeclared, the project's own keys its
+`[extensions]` lists name, and each declared key nothing reads, which is
+usually a misspelling. It reads into the policy files the project names
+as well, where a key never appears in `quirework.toml`. A `*` stands for
+a name the project chooses, as in `kinds.*.shape`. `--undeclared` lists
+only what is left out and what is unknown, and `--json` gives the same
+report to a script. Run it after moving to a new release to see what the
+release added.
 
 ## Provenance
 
