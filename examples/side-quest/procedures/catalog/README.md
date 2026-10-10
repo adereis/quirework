@@ -16,6 +16,17 @@ What do I do when I sit down to write?
 |---|---|---|
 | [write-a-chapter](../workflows/write-a-chapter.md) | Write or revise a chapter of Side Quest, from the primer through the gates. | None |
 
+## Editions
+
+How do I make another shape of the finished book?
+
+| Procedure | Purpose | Required SOP reading |
+|---|---|---|
+| [variant-common](../protocols/variant-common.md) (protocol) | what every edition of Side Quest keeps | None |
+| [variant-poems](../workflows/variant-poems.md) | Make the poems edition of Side Quest, one poem of light verse per chapter, drafted blind on Codex and composed against the spec. | [variant-common](../protocols/variant-common.md) |
+| [variant-six-pager](../workflows/variant-six-pager.md) | Make the six-pager edition of Side Quest: the book as one narrative memo for Hedda, drafted blind and composed against the spec. | [variant-common](../protocols/variant-common.md) |
+| [variant-young-readers](../workflows/variant-young-readers.md) | Make the young readers' edition of Side Quest, for readers of about ten who read well and alone, drafted blind chapter by chapter and composed against the spec. | [variant-common](../protocols/variant-common.md) |
+
 ## Execution notes
 
 
