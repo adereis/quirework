@@ -2,6 +2,8 @@
 
 import argparse
 import ast
+import contextlib
+import io
 import json
 import shutil
 import subprocess
@@ -40,31 +42,30 @@ def default_checks(argv=None):
     # `ls-files` does that on its own; `diff` names them from the repository's
     # top unless told otherwise, which for a book kept inside a larger
     # repository pointed every path at a file that was not there.
-    command = (
-        [
-            "git",
-            "-C",
-            str(root),
-            "diff",
-            "--cached",
-            "--name-only",
-            "--diff-filter=ACMR",
-            "--relative",
-        ]
-        if args.staged
-        else [
-            "git",
-            "-C",
-            str(root),
-            "ls-files",
-            "--cached",
-            "--others",
-            "--exclude-standard",
-        ]
-    )
+    if args.staged:
+        staged = _git(
+            root, "diff", "--cached", "--name-only", "--diff-filter=ACMR", "--relative"
+        )
+        return _suite(root, staged)
+    # Tracked files, which include a new one the moment it is added, so
+    # nothing reaches a commit unjudged. A file nobody added is the author's
+    # scratch until then, and a red that only means "you keep notes here"
+    # teaches people to ignore red.
+    status = _suite(root, _git(root, "ls-files", "--cached"))
+    _advise(root, _git(root, "ls-files", "--others", "--exclude-standard"))
+    return status
+
+
+def _git(root, *args):
+    command = ["git", "-C", str(root), *args]
     result = subprocess.run(command, capture_output=True, text=True, check=True)
+    return result.stdout.splitlines()
+
+
+def _suite(root, files):
+    """Run every check over ``files``, relative to ``root``; 1 if any fails."""
     failed, sources, markdown = [], [], []
-    for rel in result.stdout.splitlines():
+    for rel in files:
         path = root / rel
         if path.suffix in MARKDOWN and path.is_file() and _own(root, rel):
             markdown.append(rel)
@@ -82,6 +83,30 @@ def default_checks(argv=None):
         | formatting_check(root, sources)
         | wrapping_check(root, markdown)
     )
+
+
+def _advise(root, files):
+    """Judge untracked files, and say what would fail, without failing.
+
+    The same checks as the suite, so a new chapter not yet added is warned
+    about early; only the files they name are shown, under a heading that
+    says they are not counted.
+    """
+    if not files:
+        return
+    report = io.StringIO()
+    try:
+        with contextlib.redirect_stdout(report):
+            status = _suite(root, files)
+    except SystemExit as exc:  # the wrapper refusing a file it cannot reflow
+        status = 1
+        report.write(f"{exc}\n")
+    if not status:
+        return
+    print("Untracked, so not counted until `git add` (or ignore them):")
+    for line in report.getvalue().splitlines():
+        if not any(line.startswith(f"{name}:") for name, _ in SUITE):
+            print(f"  {line}")
 
 
 def _own(root, rel):

@@ -153,12 +153,18 @@ def git_project(root, settings=None):
     return Project.from_settings(root, settings or {})
 
 
+def track(project):
+    """Add every file, as a contributor does before the suite judges it."""
+    subprocess.run(["git", "-C", str(project.root), "add", "-A"], check=True)
+
+
 def test_a_guide_off_the_wrapper_s_fixed_point_fails_and_is_named(tmp_path, capsys):
     """A guide off it is reflowed whole the first time somebody wraps it."""
     project = git_project(tmp_path / "repo")
     (project.root / "docs").mkdir()
     (project.root / "docs" / "wrapped.md").write_text(WRAPPED)
     (project.root / "docs" / "drifted.md").write_text(HAND_WRAPPED)
+    track(project)
     with project_scope(project):
         assert checks.default_checks([]) == 1
     printed = capsys.readouterr().out
@@ -166,6 +172,27 @@ def test_a_guide_off_the_wrapper_s_fixed_point_fails_and_is_named(tmp_path, caps
     assert "docs/wrapped.md" not in printed
     assert "committed on its own" in printed
     assert (project.root / "docs" / "drifted.md").read_text() == HAND_WRAPPED
+
+
+def test_an_untracked_note_is_advice_until_it_is_added(tmp_path, capsys):
+    """A red that only means the author keeps notes in the checkout teaches
+    people to ignore red. A file nobody added is judged and named, but
+    counts once it is added, which is before it can be committed."""
+    project = git_project(tmp_path / "repo")
+    (project.root / "README.md").write_text(WRAPPED)
+    (project.root / "NOTES.md").write_text(HAND_WRAPPED)
+    (project.root / "scratch.py").write_text("def broken(:\n")
+    subprocess.run(["git", "-C", str(project.root), "add", "README.md"], check=True)
+    with project_scope(project):
+        assert checks.default_checks([]) == 0
+        printed = capsys.readouterr().out
+        assert "Markdown wrapping: passed" in printed
+        assert "Untracked, so not counted" in printed
+        assert "needs wrapping: NOTES.md" in printed
+        assert "scratch.py" in printed
+        subprocess.run(["git", "-C", str(project.root), "add", "NOTES.md"], check=True)
+        assert checks.default_checks([]) == 1
+        assert "Markdown wrapping: failed" in capsys.readouterr().out
 
 
 def test_the_failure_says_where_a_saved_record_belongs(tmp_path, capsys):
@@ -221,6 +248,7 @@ def test_a_project_inside_the_project_answers_to_its_own_rules(tmp_path, capsys)
     (book / "chapters").mkdir()
     (book / "chapters" / "one.md").write_text(SENTENCES)
     (project.root / "examples" / "README.md").write_text(HAND_WRAPPED)
+    track(project)
     with project_scope(project):
         assert checks.default_checks([]) == 1
     printed = capsys.readouterr().out

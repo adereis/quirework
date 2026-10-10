@@ -1140,16 +1140,19 @@ its check-suite function as `module:function`. Without one,
 `quirework dev check` runs the default suite, which checks the project's
 Python and asks whether `text wrap` would change any of its Markdown. A
 directory below the project holding its own `quirework.toml` is left to
-its own suite. `text.classifier` selects a function returning
-`sentence`, `column`, `trailing`, or `skip` for a source path, for a
-rule `text.modes` cannot state; a project uses one or the other. The
-function receives an absolute path, and
-`quirework.text.mdwrap.project_relative` turns that into the path as the
-project names it, which is what a rule about location needs.
-`publish.grayscale_transform` accepts SVG text and its asset name and
-returns transformed SVG text. `publish.figure_checks` is a list of
-functions returning diagnostic strings. Extensions belong to the
-consumer's package and must be installed explicitly.
+its own suite. It judges the files git tracks, a new one from the moment
+it is added, so nothing is committed unjudged. A file nobody has added,
+such as notes kept in the checkout, is checked too but only reported
+under a heading saying it is not counted; it never makes the suite fail.
+`text.classifier` selects a function returning `sentence`, `column`,
+`trailing`, or `skip` for a source path, for a rule `text.modes` cannot
+state; a project uses one or the other. The function receives an
+absolute path, and `quirework.text.mdwrap.project_relative` turns that
+into the path as the project names it, which is what a rule about
+location needs. `publish.grayscale_transform` accepts SVG text and its
+asset name and returns transformed SVG text. `publish.figure_checks` is
+a list of functions returning diagnostic strings. Extensions belong to
+the consumer's package and must be installed explicitly.
 
 `providers.codex.catalog` pins the Codex model catalog to a file, which
 is then used as given instead of asking `codex debug models`. Leave it
