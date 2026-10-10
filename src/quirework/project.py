@@ -23,6 +23,8 @@ from types import MappingProxyType
 from threading import RLock
 from typing import Any, Iterator, Mapping
 
+from quirework import settings as _settings
+
 
 class ConfigurationError(ValueError):
     """A project configuration cannot be used as declared."""
@@ -214,12 +216,13 @@ class Project:
         return cls(root, _freeze(values), _freeze(origins))
 
     def get(self, key, default=None):
+        _settings.note("", key)
         value = self.settings
         for part in key.split("."):
             if not isinstance(value, Mapping) or part not in value:
-                return default
+                return _settings.watched(default, "", key)
             value = value[part]
-        return _plain(value)
+        return _settings.watched(_plain(value), "", key)
 
     def path(self, key, default=None):
         value = self.get(key, default)
@@ -321,7 +324,7 @@ class Project:
                         f"cannot read {key} from {path}: {exc}"
                     ) from exc
                 self._policy_cache[path] = _freeze(value)
-            return _plain(self._policy_cache[path])
+            return _settings.watched(_plain(self._policy_cache[path]), key, "")
 
     def require(self, component):
         if component == "provenance":

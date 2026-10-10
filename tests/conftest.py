@@ -181,6 +181,12 @@ def pytest_configure(config):
     # puts its sandbox beside basetemp, inside the run this removes. The tests
     # *about* usage records and canaries drop its switches in their own
     # fixtures, and the tests about the provenance home set their own.
+    # Every key the code reads must be one `quirework.settings` lists, or a
+    # project could not learn of it from `config keys`; the session's end
+    # fails on any that is not.
+    from quirework import settings
+
+    settings.recording()
 
 
 @pytest.fixture
@@ -206,7 +212,17 @@ def canaries_pass(monkeypatch):
 
 @pytest.hookimpl(trylast=True)
 def pytest_sessionfinish(session, exitstatus):
-    """Remove a passing session's run, and thin what a failing one keeps."""
+    """Fail a session that read an unlisted key; remove a passing session's
+    run, and thin what a failing one keeps."""
+    from quirework import settings
+
+    missing = settings.unregistered()
+    if missing:
+        print(
+            "\nRead but not listed in quirework/settings.py, so `config keys` "
+            "cannot tell a project of them:\n  " + "\n  ".join(missing)
+        )
+        session.exitstatus = exitstatus = pytest.ExitCode.TESTS_FAILED
     run = session.config.stash.get(RUN, None)
     if run is None:
         return  # the caller chose basetemp, so the caller keeps it

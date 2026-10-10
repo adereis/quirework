@@ -391,6 +391,17 @@ with project_scope(project):
 optional corpus is different from an enabled corpus whose directory is
 missing.
 
+A setting left out takes its default and says nothing, and so does a
+misspelled one, which is easy to miss in either direction.
+`quirework config keys` sets every key Quirework reads against the
+project: each one declared or undeclared, and each declared key that
+Quirework does not read, which is usually a misspelling. It reads into
+the policy files the project names as well, where a key never appears in
+`quirework.toml`. A `*` stands for a name the project chooses, as in
+`kinds.*.shape`. `--undeclared` lists only what is left out and what is
+unknown, and `--json` gives the same report to a script. Run it after
+moving to a new release to see what the release added.
+
 ## Provenance
 
 Enable a corpus explicitly, and name the store that keeps its sessions:

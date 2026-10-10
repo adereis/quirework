@@ -239,6 +239,7 @@ def _parser(group=None):
             rows = [
                 ("show", "Show effective settings and their origins"),
                 ("check", "Validate enabled project components"),
+                ("keys", "List every known setting, declared or not"),
                 ("template", "Print an annotated configuration template"),
             ]
         p = argparse.ArgumentParser(
@@ -337,8 +338,22 @@ def main(argv=None):
                 action="store_true",
                 help="emit machine-readable configuration",
             )
-            p.parse_args(selected.arguments)
+            if selected.command == "keys":
+                p.add_argument(
+                    "--undeclared",
+                    action="store_true",
+                    help="list only the keys left undeclared, and unknown ones",
+                )
+            options = p.parse_args(selected.arguments)
             project = Project.load(args.project)
+            if selected.command == "keys":
+                from . import settings
+
+                if options.json:
+                    print(json.dumps(settings.report(project), indent=2))
+                else:
+                    print(settings.show(project, undeclared_only=options.undeclared))
+                return 0
             if selected.command == "check":
                 if project.get("provenance.enabled", False):
                     project.require("provenance")

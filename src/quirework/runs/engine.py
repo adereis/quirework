@@ -203,6 +203,7 @@ def freeze_executor(destination):
     needed = {
         "__init__.py",
         "project.py",
+        "settings.py",  # imported by project.py
         "core/__init__.py",
         "core/usage.py",
         "sops/__init__.py",

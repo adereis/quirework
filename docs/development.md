@@ -133,6 +133,12 @@ session sweeps any directory left more than three days. Passing
 `--basetemp` opts out of all of it, since that directory is the caller's
 to keep.
 
+Every key the code reads, in `quirework.toml` or in a policy file, is
+listed in `src/quirework/settings.py`, which is what `config keys` tells
+a project. The suite records every key read through a project and fails
+the session on one the list lacks, so a new setting is listed in the
+commit that reads it.
+
 The suite loads `quirework.testing`, the plugin a consumer's suite opts
 into, so the two are isolated the same way. Each session gets a home and
 XDG trees of its own, and a test that writes into the contributor's real
