@@ -184,10 +184,13 @@ When I ask Otto for a regular expression, I try it on lines it should catch and 
 I don't ask Otto for dates anymore.
 
 The script was check.py for about a month, then notes-check, then a directory with four files that was about to become a repository, and a repository needs a name.
-I set aside an evening for names, and by midnight had a page of puns.
-Around two in the morning I opened a chat with Otto, meaning to ask something else entirely, and typed "quirk".
+I set aside an evening for names, in pencil, and by midnight had a page of puns.
+The last line on the page, at ten to two, was *quire*: the folded gathering of pages a book is sewn from.
+At two I opened a chat with Otto, meaning to ask something else entirely, and typed "quire".
 Otto finished it as "quirework".
-I liked it better than anything I would have chosen, and I had spent the evening choosing.
+For a year I told people Otto named it.
+Then I found the page.
+I liked it better than anything on the page.
 I don't remember what I meant to ask.
 
 I made the repository that night, and the first commit message was *Name it*.

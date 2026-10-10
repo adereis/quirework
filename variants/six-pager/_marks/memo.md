@@ -58,6 +58,10 @@
      out: the small jobs Otto did, reading the line aloud in the
      kitchen, the two emails and the people at Cy's desk, the colon pun,
      and "quirework" sounding like something that should already exist -->
+<!-- @guidance "quire" is the page's last line and the word Cy types,
+     and Otto only finishes it. "For a year I told people Otto named it.
+     Then I found the page." follows Otto's word, as in the book, and
+     nothing explains it -->
 <!-- @bind(worth-what-you-check) -->
 <!-- @bind(no-villains) -->
 <!-- @bind(the-name) -->
