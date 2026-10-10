@@ -14,11 +14,15 @@ reader report a packaging defect as a defect in the canon.
 The slice is taken from the PDF's **own outline**, not from a page-range table
 and not by fingerprinting page text: `bookstage.book_outline` builds the same
 labels Quarto writes as bookmarks, so the two are compared entry by entry and a
-mismatch is a hard error rather than a kit that is off by a chapter.
+mismatch is a hard error rather than a kit that is off by a chapter. A template
+that bookmarks no Part divider, as Quarto 1.9's Typst book template does, leaves
+the dividers' pages to the links on the book's Contents page, which must agree
+with every chapter's bookmark (`entry_pages`).
 
 Segments are the units a reader actually consumes, which need not be one per file:
 
-  - unlisted front matter is one block;
+  - unlisted front matter is one block, with any pages the template prints
+    before the book, such as a cover, a title page and its Contents;
   - a Part divider RIDES on the chapter it opens, as it is bound in the book --
     the reader turns the divider and the chapter starts;
   - back matter is one block;
@@ -108,10 +112,12 @@ def page_count(pdf: Path) -> int:
 def outline_pages(pdf: Path) -> list[tuple[str, int]]:
     """The rendered book's own top-level bookmarks: `(title, first page)`, in order.
 
-    Quarto writes one per listed heading -- the preface, every Part divider, every
-    chapter -- from the same reading order and the same H1s `bookstage.book_rows`
-    walks, which is why the two can be checked against each other. Nested entries
-    (a chapter's sections) are skipped: only the book's top level cuts a segment."""
+    Quarto writes one per listed heading, from the same reading order and the
+    same H1s `bookstage.book_rows` walks, which is why the two can be checked
+    against each other. Whether a Part divider gets one depends on the template:
+    the Typst book template of Quarto 1.9 bookmarks none (see `entry_pages`).
+    Nested entries (a chapter's sections) are skipped: only the book's top level
+    cuts a segment."""
     pypdf = _pypdf()
     reader = pypdf.PdfReader(str(pdf))
     rows: list[tuple[str, int]] = []
@@ -120,6 +126,112 @@ def outline_pages(pdf: Path) -> list[tuple[str, int]]:
             continue
         rows.append((str(item.title), reader.get_destination_page_number(item) + 1))
     return rows
+
+
+def contents_pages(pdf: Path, before: int) -> list[int]:
+    """The pages the book's Contents page links to, in the order it lists them.
+
+    Read from the internal links on the pages before `before`, the first
+    bookmarked entry's page, which is where a book's Contents page sits; the
+    body's own cross-references are never read. A title and its page number
+    are two links to one place and count once."""
+    pypdf = _pypdf()
+    reader = pypdf.PdfReader(str(pdf))
+    numbers = {
+        (p.indirect_reference.idnum, p.indirect_reference.generation): n + 1
+        for n, p in enumerate(reader.pages)
+    }
+    named = reader.named_destinations
+    found: list[tuple[object, int]] = []
+    for page in reader.pages[: before - 1]:
+        links = []
+        for annot in page.get("/Annots") or []:
+            annot = annot.get_object()
+            if annot.get("/Subtype") != "/Link":
+                continue
+            action = annot.get("/A")
+            dest = (
+                annot.get("/Dest") if action is None else action.get_object().get("/D")
+            )
+            if dest is None:  # a link to the web, not into the book
+                continue
+            if isinstance(dest, str):
+                if dest not in named:
+                    continue
+                key, target = dest, reader.get_destination_page_number(named[dest]) + 1
+            else:
+                ref = dest[0].indirect_reference or dest[0]
+                target = numbers.get((ref.idnum, ref.generation))
+                if target is None:
+                    continue
+                key = (target, *(str(v) for v in dest[1:]))
+            left, _, _, top = (float(v) for v in annot["/Rect"])
+            links.append((-top, left, key, target))
+        found.extend((key, target) for _, _, key, target in sorted(links))
+    pages: list[int] = []
+    last = None
+    for key, target in found:
+        if key != last:
+            pages.append(target)
+        last = key
+    return pages
+
+
+# A chapter's bookmark carries its printed number however the template writes
+# it: "4 Title" in one, "4. Title" in Quarto 1.9's Typst book template.
+_NUMBERED = re.compile(r"^(\d+)\.?\s+")
+
+
+def _label(text: str) -> str:
+    return _NUMBERED.sub(r"\1 ", text.strip())
+
+
+def entry_pages(
+    outline: list[tuple[str, str]],
+    bookmarks: list[tuple[str, int]],
+    contents: list[int],
+) -> list[int]:
+    """The first page of every listed entry, checked against the book's order.
+
+    `outline` is `bookstage.book_outline`'s `(kind, label)`; `bookmarks` the
+    rendered book's `outline_pages`; `contents` its `contents_pages`. A template
+    that bookmarks every Part answers alone. One that bookmarks only chapters,
+    as Quarto 1.9's Typst book template does, leaves the Parts to the Contents
+    page, which links every entry; its link for each chapter must then land on
+    that chapter's bookmarked page, or a Part's page is not to be trusted.
+    Raises ValueError, naming the first disagreement."""
+    want = [_label(label) for _, label in outline]
+    titles = [_label(title) for title, _ in bookmarks]
+    parts = {label for kind, label in outline if kind == "part"}
+    chapters = [label for (kind, _), label in zip(outline, want) if kind == "chapter"]
+    expected = want if not parts or parts & set(titles) else chapters
+    if titles != expected:
+        for n, (a, b) in enumerate(zip(expected, titles)):
+            if a != b:
+                raise ValueError(
+                    f"packet: the rendered outline diverges from the book's "
+                    f"reading order at entry {n + 1}: {a!r} vs {b!r}"
+                )
+        raise ValueError(
+            f"packet: the book lists {len(expected)} entries, its rendered "
+            f"outline {len(titles)}"
+        )
+    if expected is want:
+        return [page for _, page in bookmarks]
+    if len(contents) != len(want):
+        raise ValueError(
+            f"packet: the rendered book bookmarks no Part, and its Contents page "
+            f"links {len(contents)} entries where the book lists {len(want)}, so "
+            "the kit cannot place its Parts"
+        )
+    marks = iter(page for _, page in bookmarks)
+    for (kind, _), label, page in zip(outline, want, contents):
+        if kind == "chapter" and page != (mark := next(marks)):
+            raise ValueError(
+                f"packet: the Contents page sends {label!r} to page {page}, its "
+                f"bookmark to page {mark}"
+            )
+    return contents
 
 
 @dataclass
@@ -175,7 +287,9 @@ def plan_segments(
     body_parts = {r.part for r in rows if r.kind == "chapter" and r.number is not None}
     segs: list[Segment] = []
 
-    if head > 0:  # the unlisted pages before the first entry
+    # The pages before the first entry: the book's unlisted ones, and any the
+    # template prints itself, such as a cover, a title page and its Contents.
+    if head > 0 or page_of[head] > 1:
         segs.append(
             Segment(
                 "front-matter",
@@ -327,27 +441,12 @@ def build(out_dir: Path) -> int:
     # renderer wrote from it. Equal, or the slice is off by a chapter and nobody
     # finds out until a reader reports a book that skips one.
     rows = _bookstage.book_rows(stage)
-    want = [label for _, label, _ in _bookstage.book_outline(stage)]
+    outline = [(kind, label) for kind, label, _ in _bookstage.book_outline(stage)]
     got = outline_pages(book_pdf)
-    if want != [t for t, _ in got]:
-        for n, (a, b) in enumerate(zip(want, [t for t, _ in got])):
-            if a != b:
-                print(
-                    f"packet: the rendered outline diverges from the book's "
-                    f"reading order at entry {n + 1}: {a!r} vs {b!r}",
-                    file=sys.stderr,
-                )
-                return 1
-        print(
-            f"packet: the book lists {len(want)} entries, its rendered outline "
-            f"{len(got)}",
-            file=sys.stderr,
-        )
-        return 1
-
     total = page_count(book_pdf)
     try:
-        segs = plan_segments(rows, [p for _, p in got], total)
+        contents = contents_pages(book_pdf, got[0][1] if got else total + 1)
+        segs = plan_segments(rows, entry_pages(outline, got, contents), total)
     except ValueError as exc:
         print(exc, file=sys.stderr)
         return 1

@@ -89,6 +89,20 @@ def test_a_book_with_no_front_matter_starts_at_page_one():
     assert segs[0].title == "Preface" and segs[0].start == 1
 
 
+def test_pages_the_template_adds_before_the_book_are_front_matter():
+    """Quarto 1.9's Typst book template prints a cover, a title page and its
+    Contents before the first entry, none of them the book's own pages."""
+    rows = _book()[2:]
+    starts = [n + 4 for n in (1, 3, 4, 8, 12, 13, 18, 19, 28)]
+    front = panelkit.plan_segments(rows, starts, 34)[0]
+    assert (front.kind, front.start, front.end, front.contains) == (
+        "front-matter",
+        1,
+        4,
+        [],
+    )
+
+
 def test_an_outline_that_does_not_match_the_book_is_an_error():
     with pytest.raises(ValueError, match="PDF outline"):
         panelkit.plan_segments(_book(), STARTS[:-1], TOTAL)
@@ -101,6 +115,49 @@ def test_an_unlisted_page_outside_the_front_matter_is_an_error():
     )
     with pytest.raises(ValueError, match="no segment to sit in"):
         panelkit.plan_segments(rows, STARTS, TOTAL)
+
+
+# The book above as `bookstage.book_outline` lists it: every listed entry.
+OUTLINE = [
+    ("chapter", "Preface"),
+    ("part", "Part One"),
+    ("chapter", "1 One"),
+    ("chapter", "2 Two"),
+    ("part", "Part Two"),
+    ("chapter", "3 Three"),
+    ("part", "Back matter"),
+    ("chapter", "Sources"),
+    ("chapter", "Colophon"),
+]
+
+
+def test_a_renderer_that_bookmarks_every_part_gives_the_pages_alone():
+    marks = [(label, page) for (_, label), page in zip(OUTLINE, STARTS)]
+    assert panelkit.entry_pages(OUTLINE, marks, []) == STARTS
+
+
+def test_parts_without_bookmarks_take_their_pages_from_the_contents():
+    """Quarto's Typst book template writes `1. One` and no bookmark for a
+    Part, and the kit refused every numbered book. Its Contents page still
+    links every entry, Parts included."""
+    marks = [
+        (label.replace(" ", ". ", 1) if label[0].isdigit() else label, page)
+        for (kind, label), page in zip(OUTLINE, STARTS)
+        if kind == "chapter"
+    ]
+    assert panelkit.entry_pages(OUTLINE, marks, STARTS) == STARTS
+    with pytest.raises(ValueError, match="cannot place its Parts"):
+        panelkit.entry_pages(OUTLINE, marks, [])
+    moved = [*STARTS[:2], 7, *STARTS[3:]]  # One's link and bookmark disagree
+    with pytest.raises(ValueError, match="'1 One'.*page 7.*page 6"):
+        panelkit.entry_pages(OUTLINE, marks, moved)
+
+
+def test_a_bookmark_out_of_order_is_still_refused():
+    marks = [(label, page) for (_, label), page in zip(OUTLINE, STARTS)]
+    marks[2], marks[3] = marks[3], marks[2]
+    with pytest.raises(ValueError, match="at entry 3: '1 One' vs '2 Two'"):
+        panelkit.entry_pages(OUTLINE, marks, [])
 
 
 def test_manifest_row_carries_the_page_range_and_the_divider():
