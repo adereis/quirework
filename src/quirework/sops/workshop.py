@@ -24,6 +24,7 @@ from quirework.providers import blind
 from quirework.sops import personas
 from quirework.providers import quota
 from quirework.providers import models as drivers
+from quirework.providers.harness import bus_flags
 from quirework.project import ConfigurationError, current_project, submit
 
 SCHEMA = 1
@@ -589,6 +590,9 @@ def _collect(root, writer, *, external=None):
                 resumed=state.get("resumed_from"),
             )
             result["transport"] = "confined harness session"
+            # An Antigravity writer reaches the keyring through the bus its
+            # launch opened. The receipt says so, as every procedure's does.
+            result["red_flags"] = bus_flags(record)
         if missing := _missing_outputs(plan, work):
             raise RuntimeError(f"missing or undersized declared outputs: {missing}")
         transcripts = record / "transcripts"
@@ -1092,6 +1096,9 @@ def inspect(root, *, full=False):
                 {k: a.get(k) for k in ("attempt", "reason", "record")}
                 for a in s["attempts"]
             ]
+        # From the launch, so a writer still running or stopped shows it too.
+        if flags := bus_flags(p.parent):
+            item["red_flags"] = flags
         item["persona"] = personas.identity(s.get("config", {}).get("persona"))
         if not full and "config" in item:
             item["config"] = {

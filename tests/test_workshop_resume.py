@@ -132,6 +132,33 @@ def test_a_completed_writer_lets_its_home_go(stopped, monkeypatch):
     assert blind.held(blind.state_root(work)) is None
 
 
+def test_a_writer_that_reached_the_keyring_carries_the_red_flag(stopped, monkeypatch):
+    """The launch records the bus it opened, and the receipt says what that
+    means, as every other procedure's does. The workshop recorded the proxy
+    and raised nothing, so its receipt claimed a confinement it lacked."""
+    run, writer, record = stopped
+    work = run / "writers" / writer
+    bus = {"names": ["agy"], "proxy": "xdg-dbus-proxy", "filtered": True}
+    (record / "launch.json").write_text(json.dumps({"session_bus": bus}))
+    plan = json.loads((run / "plan.json").read_text())
+    for item in plan["outputs"]:
+        (work / item["path"]).parent.mkdir(parents=True, exist_ok=True)
+        (work / item["path"]).write_text("A new paragraph. " * item["min_bytes"])
+    monkeypatch.setattr(
+        workshop.drivers,
+        "receipt",
+        lambda *a, **kw: {
+            "session_id": "sid-1",
+            "model": "m",
+            "native_transcripts": [],
+        },
+    )
+    workshop.collect(run, writer)
+    flags = json.loads((record / "receipt.json").read_text())["red_flags"]
+    assert flags == [blind.Bus.flag(bus)]
+    assert workshop.inspect(run)["writers"][writer]["red_flags"] == flags
+
+
 def test_a_failed_writer_keeps_its_home_until_it_is_retried(stopped):
     """Its quota stop may still be resumed; a retry starts a session of its own."""
     run, writer, _ = stopped
