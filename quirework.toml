@@ -58,6 +58,12 @@ isolation_policy = "procedures/isolation.toml"
 # reflowed, never read as authority, and never held to the house rules.
 evidence_roots = ["provenance/workshops", "provenance/rooms", "provenance/roundtables", "provenance/readings"]
 
+[text]
+# A poem's line breaks are its lines, so the poems are never reflowed:
+# trailing whitespace is stripped and nothing else. Everything else keeps
+# the built-in rule.
+modes = [["variants/poems/*.qmd", "trailing"]]
+
 [provenance]
 enabled = true
 # The ledger is committed with the book; the sessions themselves live in
