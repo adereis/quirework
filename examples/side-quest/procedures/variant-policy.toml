@@ -13,7 +13,13 @@ blind_tells = ["@guidance", "@count"]
 [kinds.six-pager]
 shape = "document"
 
+# A back cover belongs to a book you can pick up, and no edition has one,
+# so the by-chapter editions never draft it.
+[kinds.young-readers]
+omit = ["back-cover"]
+
 # Drafted on Codex, so the editions are not all one model's voice.
 [kinds.poems]
 harness = "codex"
 model = "sol"
+omit = ["back-cover"]
