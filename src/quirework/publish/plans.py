@@ -221,10 +221,17 @@ def selfdriven(
     wrap_ask = wrap_ask or preset.get("wrap_ask") or sequence.get("wrap")
     chosen = persona or questions.get("default_persona_reference")
     scope = questions.get("default_scope", "work")
+    # The persona is the seat's, and preparing the run composes it into the
+    # first turn, once: into the ask's `{{persona}}` slot if it has one, ahead
+    # of the whole prompt if not. Composed here as well, the reader met it
+    # twice, the second time among the headings its reaction files must hold.
+    # It is still resolved here, so an unknown one is refused while planning.
+    if chosen:
+        _personas.resolve(chosen)
     per_chapter, _ = _instruments.prompt(
         {"ask": ask},
         questions,
-        persona=_personas.resolve(chosen) if chosen else None,
+        persona=_instruments.DEFERRED if chosen else None,
         first=True,
         scope=scope,
     )

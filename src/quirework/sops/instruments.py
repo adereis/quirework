@@ -5,6 +5,9 @@ from quirework.sops import personas
 from quirework.runs.storage import identifier
 
 UNSET = object()
+# The persona is composed later, by whatever runs the prompt: leave the text,
+# and any `{{persona}}` slot in it, as the instrument wrote it.
+DEFERRED = object()
 
 
 SCOPES = ("work", "artifact", "passage", "changes")
@@ -146,6 +149,8 @@ def prompt(turn, instrument, *, persona=UNSET, first=True, scope=None):
         headings = [*headings, *more]
     if instrument and instrument.get("scope_notice") and first:
         text = f"Declared scope: {scope}.\n" + text
+    if persona is DEFERRED:
+        return text, headings
     if persona is UNSET:
         persona = (
             personas.resolve(instrument["default_persona"])

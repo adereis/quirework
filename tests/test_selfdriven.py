@@ -295,6 +295,47 @@ def test_without_provenance_the_bytes_are_still_pinned_and_it_says_so(
     assert "cannot say which book state" in capsys.readouterr().err
 
 
+PROFILE = {
+    "schema_version": 1,
+    "id": "slow-reader",
+    "revision": 1,
+    "label": "A slow reader",
+    "description": "A fictional reader, invented for these tests.",
+    "tags": [],
+    "prompt": "You read slowly and say what you notice.",
+}
+
+
+@pytest.mark.parametrize("slot", [False, True])
+def test_the_reader_meets_its_persona_once(book, tmp_path, slot):
+    """The persona is the seat's, and preparing a run composes it into the
+    first turn. The planner composed it into the reaction headings as well,
+    so a reader met it twice: at the top and again mid-protocol."""
+    from quirework.runs import engine
+
+    if slot:
+        first = INSTRUMENT["prompts"]["first"]
+        instrument = dict(
+            INSTRUMENT, prompts=dict(INSTRUMENT["prompts"], first=dict(first))
+        )
+        instrument["prompts"]["first"]["text"] = "{{persona}} " + first["text"]
+        questions = book.parents[1] / "project" / "questions"
+        (questions / "reader-selfdriven.json").write_text(json.dumps(instrument))
+    with_manifest(book)
+    plan = tmp_path / "plan.json"
+    persona = {"inline": PROFILE}
+    selfdriven(book, plan, harness="codex", model="fixture-model", persona=persona)
+    assert json.loads(plan.read_text())["seats"][0]["persona"] == persona
+    engine.prepare(plan, tmp_path / "record", resolve=False)
+    frozen = json.loads((tmp_path / "record" / "plan.json").read_text())
+    prompt = frozen["seats"][0]["turns"][0]["prompt"]
+    assert prompt.count(PROFILE["prompt"]) == 1
+    if slot:  # where the instrument put it
+        assert PROFILE["prompt"] + " Open the chapter yourself" in prompt
+    else:  # ahead of everything the reader is told
+        assert prompt.startswith("=== PERSPECTIVE ===\n" + PROFILE["prompt"])
+
+
 def test_the_engine_accepts_what_the_planner_declares(book, tmp_path):
     """The pinned digest and the reading list are only worth declaring if the
     run engine takes them as they are written."""
