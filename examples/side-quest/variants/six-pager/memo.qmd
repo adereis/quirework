@@ -44,8 +44,7 @@ I had written them, and then I had gone back, because chapter four, on the dash,
 You would nod, say "Good," and write something down.
 Two weeks later you would ask again.
 
-Your running document for our one-on-ones has a line near the bottom, under Other, that says *Book: ch.
-4*.
+Your running document for our one-on-ones has a line near the bottom, under Other, that says *Book: ch. 4*.
 I watched it get copied forward through a reorganization, a new quarter, a new fiscal year, and a change to the document's default font, without an edit.
 Nothing in Full Stop was that stable.
 
@@ -141,8 +140,7 @@ Three were things I had fixed in the spreadsheet and never in the book.
 That Thursday, for the first time, I spent the twenty-six minutes not rehearsing.
 When you asked, I said, "I'm building something for chapter four."
 You looked at me a moment longer than the four minutes usually allowed, said "Good," and wrote it down.
-Two weeks later the line in your document read *Book: ch.
-4 (tool)*.
+Two weeks later the line in your document read *Book: ch. 4 (tool)*.
 Three years, and the line had moved seven characters.
 
 The script grew a configuration file, and then a second configuration file to explain the first.
@@ -329,7 +327,6 @@ I'm still not sure where.
 
 Last week, in the last four minutes, you turned your chair away from your monitor and asked how the book was.
 
-"Which one?"
-I said.
+"Which one?" I said.
 
 You wrote that down.
