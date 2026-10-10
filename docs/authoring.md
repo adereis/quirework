@@ -119,6 +119,18 @@ under `book:` is accepted by the parser, ignored by the renderer, and
 leaves the locale in the EPUB's `dc:language` exactly as if the line
 were absent.
 
+The PDF's default Typst template draws its title page, headings and
+contents in one color, and shades each Part's divider page with a tint
+of it. That color is the brand's primary color, and blue when the book
+has no brand, so a book printed in black meets blue on its first PDF. A
+color set in `_quarto.yml` does not reach it. Set it in a `_brand.yml`
+beside `_quarto.yml`, which the HTML theme reads for its links as well:
+
+```yaml
+color:
+  primary: "#000000"
+```
+
 Each chapter is a `.qmd` opening on a level-1 heading with an anchor:
 
 ```markdown
