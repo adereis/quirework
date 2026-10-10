@@ -221,6 +221,23 @@ def _link_fonts(real_home: Path, real_data: Path, home: Path, data: Path) -> Non
             link.symlink_to(source, target_is_directory=True)
 
 
+def native_session(run_dir, runner: str, session_id: str) -> Path:
+    """Leave a session in a seat's private home, as its harness would.
+
+    Every resume first checks that the seat's home still holds the session
+    it continues, so a fake harness that hands a seat a session id leaves
+    the session behind too. Where is the runner's own business, read from
+    `blind.session_path`, so a test never encodes a harness's layout.
+    """
+    from quirework.providers import blind
+
+    home = blind.make_state_root(Path(run_dir)) / runner
+    path = blind.session_path(home, runner, session_id)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.touch()
+    return path
+
+
 @pytest.hookimpl(trylast=True)
 def pytest_configure(config):
     """Redirect every per-user location before the first test is collected.

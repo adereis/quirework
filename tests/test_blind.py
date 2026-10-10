@@ -305,6 +305,21 @@ def test_a_resume_finds_its_session_where_the_runner_keeps_it(
     assert blind.require_session(work, runner, SESSION) == path
 
 
+@pytest.mark.parametrize("runner", [n for n, r in blind.RUNNERS.items() if r.session])
+def test_a_session_placed_by_the_runners_own_layout_is_found(tmp_path, runner):
+    """A fake harness has to leave its session where a resume looks. Read
+    from the runner's one statement of that place, a placed session is
+    found, so neither a test nor a consumer's fixture repeats the layout."""
+    from quirework.testing import native_session
+
+    work = tmp_path / "seat"
+    placed = native_session(work, runner, SESSION)
+    assert placed == blind.session_path(
+        blind.state_root(work) / runner, runner, SESSION
+    )
+    assert blind.require_session(work, runner, SESSION) == placed
+
+
 def test_a_resume_is_refused_once_the_home_is_gone(tmp_path):
     with pytest.raises(blind.SessionGone, match="private home .* is gone"):
         blind.require_session(tmp_path / "seat", "codex", SESSION)

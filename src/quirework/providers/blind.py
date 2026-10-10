@@ -1070,6 +1070,23 @@ def session_paths(home: Path, runner: str, session_id: str) -> list[Path]:
     return sorted(Path(home).glob(pattern))
 
 
+def session_path(home: Path, runner: str, session_id: str) -> Path:
+    """A place in a runner's private home where ``session_paths`` finds a session.
+
+    The runner's ``session`` glob, read the other way: every wildcard taken
+    at its narrowest, so ``projects/**/{id}.jsonl`` gives
+    ``projects/{id}.jsonl``. A fake harness puts its session here and a
+    resume finds it, and neither the fake nor a test repeats a runner's
+    layout, which is stated only in `RUNNERS`.
+    """
+    pattern = RUNNERS[runner].session
+    if not pattern:
+        raise ValueError(f"{runner} keeps no session a resume could continue")
+    return Path(home) / pattern.replace("**/", "").replace("*", "").format(
+        id=session_id
+    )
+
+
 def require_session(run_dir: Path, runner: str, session_id: str) -> Path:
     """The file holding ``session_id`` in this run's private home.
 

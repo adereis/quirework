@@ -941,6 +941,12 @@ test, so a test that commits names its author, as
 ships with Quirework, so one a later release adds is covered with no
 edit here, and Quirework's own suite loads the same plugin.
 
+A suite that fakes a harness must leave the session a resume continues,
+because every resume first checks the seat's home still holds it.
+`quirework.testing.native_session(run_dir, runner, session_id)` puts it
+where that runner keeps one, as Quirework itself states it, so the suite
+never writes a harness's layout down.
+
 ## Usage records
 
 Quirework records which of its commands ran, so the tool can be shaped

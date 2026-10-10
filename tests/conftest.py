@@ -84,28 +84,9 @@ def patch_project_path(monkeypatch, module, key, value):
     monkeypatch.setattr(module, "current_project", lambda: selected)
 
 
-# Where each harness writes a session in its home, by the names the real ones
-# use, so a test's session is found the way a resume would find it.
-NATIVE_SESSION = {
-    "codex": "sessions/2026/01/02/rollout-2026-01-02T03-04-05-{id}.jsonl",
-    "claude": "projects/-seat/{id}.jsonl",
-    "agy": "antigravity-cli/brain/{id}/.system_generated/logs/transcript_full.jsonl",
-}
-
-
-def native_session(run_dir, harness, session_id):
-    """Leave a session in a seat's private home, as its harness would.
-
-    A resume is refused unless the home holds the session it continues, so
-    a fake launcher that hands a seat a session id leaves one behind too.
-    """
-    from quirework.providers import blind
-
-    path = blind.make_state_root(Path(run_dir)) / harness
-    path = path / NATIVE_SESSION[harness].format(id=session_id)
-    path.parent.mkdir(parents=True, exist_ok=True)
-    path.touch()
-    return path
+# The helper a consumer's fake harness uses too, so a resume finds a test's
+# session by the runner's own layout and no table here repeats it.
+from quirework.testing import native_session  # noqa: E402,F401
 
 
 @pytest.fixture(autouse=True)
