@@ -291,6 +291,30 @@
       "note": "",
       "tags": []
     },
+    "cc-sessions/037be0e4-61e6-4375-8fe9-c5d9bb0e6dfe.jsonl": {
+      "id": "037be0e4-61e6-4375-8fe9-c5d9bb0e6dfe",
+      "era": "c-refinement",
+      "title": "(untitled)",
+      "date": "2026-10-09",
+      "date_end": "2026-10-10",
+      "model": "opus-5-5",
+      "human_turns": 3,
+      "assistant_turns": 158,
+      "tokens": 6382,
+      "doc_edits": 0,
+      "meta_edits": 42,
+      "top_edited": [
+        "variant-poems.md×6",
+        "hows-the-book.qmd×4",
+        "otto.qmd×4"
+      ],
+      "sha256": "0e13795cac3e856fe66ff9c0b3ca342ae9783b221dbec27336372139a983d74e",
+      "coldread": false,
+      "scope": "work",
+      "highlight": false,
+      "note": "",
+      "tags": []
+    },
     "codex-sessions/01a1229d-ed65-78b2-8e1e-5cfb8e8851f1.jsonl": {
       "id": "01a1229d-ed65-78b2-8e1e-5cfb8e8851f1",
       "era": "d-codex",
