@@ -68,8 +68,10 @@ modes = [["variants/poems/*.qmd", "trailing"]]
 
 [provenance]
 enabled = true
-# The ledger is committed with the book; the sessions themselves live in
-# the store named here, under the provenance home that
-# ~/.config/quirework/config.toml sets.
+# Committed, ledger and sessions both. The configuration guide keeps a
+# project's store outside its repository; this example keeps its store
+# inside, in provenance/store, because an example of a provenance corpus
+# that holds no sessions teaches nothing. While the book was written the
+# store lived in the author's provenance home.
 root = "provenance"
-store = "side-quest"
+store_dir = "provenance/store"
