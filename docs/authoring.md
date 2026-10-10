@@ -278,15 +278,16 @@ quirework spec trail add cooling-asymmetry --kind correct \
   --find "a route, not a speed" --note "Refuses speed as the difference."
 ```
 
-`--find` takes words you typed. It looks for them in the corpus and then
-in this project's live Claude Code and Codex transcripts, so a turn from
-the conversation still going on can be pointed at before it is captured.
-A session captured partway through, say by a sweep run in the middle of
-it, is read from its transcript while that holds turns the capture does
-not. `--session ID --turn N` takes the number `provenance search`
-printed. An `--excerpt` is optional: it highlights words in a long turn
-where they would otherwise be buried, and it must be words the turn
-holds.
+`--find` takes words you typed, and an answer you picked when the agent
+asked you a question with options is yours too. It looks for them in the
+corpus and then in this project's live Claude Code and Codex
+transcripts, so a turn from the conversation still going on can be
+pointed at before it is captured. A session captured partway through,
+say by a sweep run in the middle of it, is read from its transcript
+while that holds turns the capture does not. `--session ID --turn N`
+takes the number `provenance search` printed. An `--excerpt` is
+optional: it highlights words in a long turn where they would otherwise
+be buried, and it must be words the turn holds.
 
 `--harness H --session ID --at TIME` writes a pointer by hand, for a
 conversation Quirework may not be able to read. A breadcrumb leads only

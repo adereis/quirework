@@ -117,6 +117,24 @@ def _human_slot(text, raw):
     return None
 
 
+def _answers(content, asks, raw, ts):
+    """``("human", text, ts)`` for each answer in a tool-result echo.
+
+    Only the result of a question the model asked, an id in ``asks``, is the
+    author's; every other tool result stays dropped as tool output.
+    """
+    out = []
+    for b in content if isinstance(content, list) else ():
+        if not isinstance(b, dict) or b.get("type") != "tool_result":
+            continue
+        if b.get("tool_use_id") not in asks:
+            continue
+        text = FLT.answer_text(b, raw=raw)
+        if text:
+            out.append(("human", text, ts))
+    return out
+
+
 # --------------------------------------------------------------------------- #
 # turn extraction -> a flat list of (role, text), in conversation order
 # --------------------------------------------------------------------------- #
@@ -127,7 +145,10 @@ def cc_records(path, *, thinking=False, raw=False):
     Assistant messages collapse their content blocks into one turn: ``text``
     blocks as prose, ``thinking`` blocks (only with ``thinking``) prefixed and
     set off, ``tool_use`` blocks dropped. Human turns are the string-content
-    messages; list content is a tool-result echo and is skipped. Records the
+    messages; list content is a tool-result echo and is skipped, except the
+    result of a question the model asked with ``AskUserQuestion``, which is
+    the author's pick and so a human turn, as the capture and the Codex
+    reader already treat it. Records the
     harness flags as its own (a meta injection, the summary a compacted
     session resumes from, or the notice of a failed request written in the
     model's slot) and ``isSidechain`` (subagent side-threads) records are
@@ -137,6 +158,7 @@ def cc_records(path, *, thinking=False, raw=False):
     wrote back, its prose and the report it hands back, is ``subagent``.
     """
     out = []
+    asks = set()  # ids of the questions the model asked the author
     with open(path, encoding="utf-8", errors="replace") as fh:
         for line in fh:
             line = line.strip()
@@ -155,6 +177,8 @@ def cc_records(path, *, thinking=False, raw=False):
             content = (o.get("message") or {}).get("content")
             if typ == "user":
                 if not isinstance(content, str):  # list content = tool_result echo
+                    if not (o.get("isSidechain") or FLT.harness_flagged(o)):
+                        out.extend(_answers(content, asks, raw, ts))
                     continue
                 if o.get("isSidechain") or FLT.harness_flagged(o):
                     # Reached only with raw; neither was typed by the author.
@@ -188,6 +212,8 @@ def cc_records(path, *, thinking=False, raw=False):
                     t = (b.get("thinking") or b.get("text") or "").strip()
                     if t:
                         parts.append("[thinking]\n" + t)
+                elif bt == "tool_use" and b.get("name") == FLT.ASK_TOOL:
+                    asks.add(b.get("id"))
                 elif (
                     bt == "tool_use"
                     and b.get("name") == _HANDBACK

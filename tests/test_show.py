@@ -60,6 +60,75 @@ def test_cc_records_keeps_prose_drops_tools(tmp_path):
     ]
 
 
+def _ask(tool_id):
+    return {
+        "type": "tool_use",
+        "id": tool_id,
+        "name": "AskUserQuestion",
+        "input": {"questions": [{"question": "Which first?"}]},
+    }
+
+
+def _result(tool_id, content, **extra):
+    return _user(
+        [{"type": "tool_result", "tool_use_id": tool_id, "content": content, **extra}]
+    )
+
+
+ANSWER = 'Your questions have been answered: "Which first?"="Seth"'
+
+
+def test_an_answer_to_a_question_is_the_authors_turn(tmp_path):
+    # The harness logs the author's pick as the question tool's result, so it
+    # arrives as list content like any echo. Only that result is the author's:
+    # another tool's output, and a question dismissed, stay out.
+    p = _jsonl(
+        tmp_path / "s.jsonl",
+        [
+            _user("plan the reading list"),
+            _assistant(_text("Two ways to start."), _ask("ask1")),
+            _result("ask1", ANSWER),
+            _assistant({"type": "tool_use", "id": "ls1", "name": "Bash", "input": {}}),
+            _result("ls1", "file listing"),
+            _assistant(_ask("ask2")),
+            _result("ask2", "The user dismissed the question", is_error=True),
+            _assistant(_text("Seth it is.")),
+        ],
+    )
+    assert _roles(show.cc_records(p)) == [
+        ("human", "plan the reading list"),
+        ("assistant", "Two ways to start."),
+        ("human", ANSWER),
+        ("assistant", "Seth it is."),
+    ]
+    turns = [(n, text) for n, _, text in show.author_turns("cc", p)]
+    assert turns == [(1, "plan the reading list"), (2, ANSWER)]
+
+
+def test_an_answer_is_cleaned_like_a_typed_turn_and_raw_keeps_it_whole(tmp_path):
+    logged = ANSWER + "\n<system-reminder>the harness speaking</system-reminder>"
+    p = _jsonl(
+        tmp_path / "s.jsonl",
+        [_assistant(_ask("ask1")), _result("ask1", [_text(logged)])],
+    )
+    assert _roles(show.cc_records(p)) == [("human", ANSWER)]
+    assert _roles(show.cc_records(p, raw=True)) == [("human", logged)]
+
+
+def test_a_side_threads_answer_is_not_the_authors(tmp_path):
+    p = _jsonl(
+        tmp_path / "s.jsonl",
+        [
+            _assistant(_ask("ask1"), isSidechain=True),
+            _user(
+                [{"type": "tool_result", "tool_use_id": "ask1", "content": ANSWER}],
+                isSidechain=True,
+            ),
+        ],
+    )
+    assert show.cc_records(p, raw=True) == []
+
+
 def test_cc_records_thinking_gated(tmp_path):
     p = _jsonl(
         tmp_path / "s.jsonl",

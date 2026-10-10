@@ -302,6 +302,26 @@ def _result_text(block):
     return ""
 
 
+# The tool through which the model asks the author a question with options.
+# Its result is the author's pick, logged in the human's slot as tool output.
+ASK_TOOL = "AskUserQuestion"
+
+
+def answer_text(block, raw=False):
+    """What the author answered, from the tool_result of an ``ASK_TOOL`` call.
+
+    The harness logs the pick as the tool's result, so it arrives looking like
+    tool output and is the author speaking all the same. An errored result
+    (the question dismissed, or the call refused) answered nothing. With
+    ``raw`` the text is kept exactly as logged. Every reader that asks what
+    the author said takes an answer from here, so they agree on it.
+    """
+    if block.get("is_error"):
+        return ""
+    text = _result_text(block)
+    return text.strip() if raw else strip_wrappers(text)
+
+
 def tool_marker(block):
     """Render a tool_use block as a compact one-line action marker."""
     name = block.get("name", "?")
@@ -781,7 +801,7 @@ def filter_session(path):
                                     )
                                 )
                         elif job[0] == "ask":
-                            answer = strip_wrappers(_result_text(b))
+                            answer = answer_text(b)
                             if answer:
                                 recovered.append(
                                     (
@@ -822,7 +842,7 @@ def filter_session(path):
                         if name in ("Edit", "Write"):
                             edits += 1
                         # Mark the results worth recovering (see the user branch).
-                        if name == "AskUserQuestion":
+                        if name == ASK_TOOL:
                             pending[b.get("id")] = ("ask", None)
                         elif name == "Bash":
                             cmd = (b.get("input") or {}).get("command") or ""

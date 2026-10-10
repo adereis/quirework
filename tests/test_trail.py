@@ -667,6 +667,54 @@ def _write_records(book, sid, records):
     keep_session(book, f"cc-sessions/{sid}.jsonl", text)
 
 
+def test_a_breadcrumb_can_point_at_an_answer_the_author_picked(book, capsys):
+    # A choice made by answering the model's question arrives as that tool's
+    # result. It is the author's turn, so it can be found and followed.
+    answer = 'Your questions have been answered: "Lead with?"="The whistle"'
+    _write_records(
+        book,
+        OTHER,
+        [
+            {
+                "type": "user",
+                "timestamp": "2031-04-02T12:00:00Z",
+                "message": {"content": "Shape the opening."},
+            },
+            {
+                "type": "assistant",
+                "timestamp": "2031-04-02T12:00:10Z",
+                "message": {
+                    "content": [
+                        {
+                            "type": "tool_use",
+                            "id": "toolu_ask",
+                            "name": "AskUserQuestion",
+                            "input": {"questions": [{"question": "Lead with?"}]},
+                        }
+                    ]
+                },
+            },
+            {
+                "type": "user",
+                "timestamp": "2031-04-02T12:03:27.439Z",
+                "message": {
+                    "content": [
+                        {
+                            "type": "tool_result",
+                            "tool_use_id": "toolu_ask",
+                            "content": answer,
+                        }
+                    ]
+                },
+            },
+        ],
+    )
+    crumb, _ = trail.add("kettle-signal", "seed", find="The whistle")
+    assert crumb.session == OTHER and crumb.stamp == "2031-04-02T12:03:27Z"
+    assert trail.check() == 0
+    capsys.readouterr()
+
+
 def test_a_session_that_only_read_about_a_commit_did_not_make_it(book):
     _history(book, "Say cooling is a route of its own", MORNING)
     # Another session saw the subject only in a tool's output, a git log.
