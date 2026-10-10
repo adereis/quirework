@@ -33,8 +33,10 @@ it in conversation, write it here in the same session.
 - Start every writing session with `quirework spec notes --primer`.
 - `quirework publish build` renders HTML, PDF (Typst), EPUB and Word
   into `build/`, never into the source.
-- Provenance is on, with sessions kept in the `side-quest` store.
-  Sessions are captured by hand, by Cy, when each one ends, with
+- Provenance is on. While the book was written its sessions lived in a
+  store under Cy's provenance home; in the Quirework repository they are
+  committed with the book, in `provenance/store`. Sessions are captured
+  by hand, by Cy, when each one ends, with
   `quirework provenance ingest claude`; there is no capture hook, by
   Cy's choice, so do not add one. Claude Code deletes a transcript 30
   days after its last change, so a session not captured by then is lost.
@@ -67,8 +69,8 @@ it in conversation, write it here in the same session.
   `scratchpad/` has authority.
 - A blind read uses the `blind-read` reader preset, and its readers
   mount the book from a `quirework publish packet --prose-dir` copy.
-  That copy goes under `~`, Cy's home (`$HOME`, not `/home/ademar`), at
-  a path that names neither the book nor the tool. It cannot go in
+  That copy goes under `~`, Cy's home (`$HOME`, never another user's),
+  at a path that names neither the book nor the tool. It cannot go in
   `scratchpad/`: `publish plan selfdriven` refuses a mount inside the
   project, since a reader with a shell reads its own paths. Its run
   records go in Quirework's state directory, never in the book; what the
