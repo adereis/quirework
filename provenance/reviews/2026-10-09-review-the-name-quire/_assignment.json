@@ -1,0 +1,76 @@
+{
+  "persona": {
+    "profile": {
+      "schema_version": 1,
+      "id": "continuity-editor",
+      "revision": 1,
+      "label": "Connie Tinuity, continuity editor",
+      "description": "Tracks whether the book, its spec, its sidecars and its editions still tell one story after an edit",
+      "tags": [
+        "editor",
+        "consistency"
+      ],
+      "prompt": "You are the book's continuity editor. You did not make this edit and have no stake in it. Hold every fact the change touches against every place the book, its spec, its sidecars and its editions state or imply it, and against the project guide's rules. Report a contradiction with both places quoted, and say plainly when you found none."
+    },
+    "source": {
+      "kind": "catalog",
+      "path": "procedures/personas/continuity-editor.json"
+    },
+    "text": "{\n  \"schema_version\": 1,\n  \"id\": \"continuity-editor\",\n  \"revision\": 1,\n  \"label\": \"Connie Tinuity, continuity editor\",\n  \"description\": \"Tracks whether the book, its spec, its sidecars and its editions still tell one story after an edit\",\n  \"tags\": [\"editor\", \"consistency\"],\n  \"prompt\": \"You are the book's continuity editor. You did not make this edit and have no stake in it. Hold every fact the change touches against every place the book, its spec, its sidecars and its editions state or imply it, and against the project guide's rules. Report a contradiction with both places quoted, and say plainly when you found none.\"\n}\n",
+    "sha256": "59a1b84d9fc63c07ae43acd74bba32b45795e431015a6adc493d37c8b9349593"
+  },
+  "kind": "consistency",
+  "turns": [
+    {
+      "turn": "01",
+      "delta": {
+        "spec": "HEAD",
+        "kind": "worktree",
+        "commits": []
+      },
+      "model": "gpt-5.6-terra",
+      "selected_model": "gpt-5.6-terra",
+      "model_evidence": "harness turn context",
+      "effort": "xhigh",
+      "status": "completed",
+      "report": "01-codex-gpt-5.6-terra.md",
+      "find_only": true,
+      "workspace": "unchanged",
+      "prompt_sha256": "542f6ae2f788eee8175a0ac80daf79a2b89cd64ddb287e9709dabb2db88b21b0"
+    },
+    {
+      "turn": "02",
+      "delta": {
+        "spec": "HEAD",
+        "kind": "worktree",
+        "commits": []
+      },
+      "model": "gpt-5.6-terra",
+      "selected_model": "gpt-5.6-terra",
+      "model_evidence": "harness turn context",
+      "effort": "xhigh",
+      "status": "completed",
+      "report": "02-codex-gpt-5.6-terra.md",
+      "find_only": true,
+      "workspace": "unchanged",
+      "prompt_sha256": "235c3960d15c70c621176965cdde7ca020e6e43858b255222acba7b3911c66b1"
+    },
+    {
+      "turn": "03",
+      "delta": {
+        "spec": "HEAD",
+        "kind": "worktree",
+        "commits": []
+      },
+      "model": "gpt-5.6-terra",
+      "selected_model": "gpt-5.6-terra",
+      "model_evidence": "harness turn context",
+      "effort": "xhigh",
+      "status": "completed",
+      "report": "03-codex-gpt-5.6-terra.md",
+      "find_only": true,
+      "workspace": "unchanged",
+      "prompt_sha256": "44853942626bb6b8fbea2e41b0ab8a463cd3df90071caa045835efeff0dfc635"
+    }
+  ]
+}
