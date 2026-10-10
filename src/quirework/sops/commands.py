@@ -169,6 +169,7 @@ def _operator_guide() -> str:
 def _skill_md(
     stem: str, description: str, portable: bool = False, allow_implicit: bool = False
 ) -> str:
+    from quirework.manuscript import units
     from quirework.text.mdwrap import reflow_columns
 
     from . import sections
@@ -218,7 +219,7 @@ def _skill_md(
         f"it as the operator{_operator_guide()}drive the `quirework` tools, supervise\n"
         f"their output, analyze it, then deliver the artifact -- the supervise ->\n"
         f"analyze -> deliver loop. The human's request names the target (which\n"
-        f"chapter, artifact, run, or model); assume and state it when it is clear,\n"
+        f"{units.noun()}, artifact, run, or model); assume and state it when it is clear,\n"
         f"ask once only when it is not.\n"
         f"{partial}"
         f"\n"

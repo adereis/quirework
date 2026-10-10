@@ -159,6 +159,25 @@ def test_the_route_names_the_modes_only_when_there_are_some(notebook):
     assert "--mode" not in commands._skill_md("tidy", "Tidy it.")
 
 
+def _route_words():
+    return " ".join(commands._skill_md("tidy", "Tidy it.").split())
+
+
+def test_the_route_names_the_target_by_the_projects_own_unit(notebook):
+    # A book's unit is a chapter; a project that calls its unit something
+    # else is asked for that, not for a chapter it does not have.
+    assert "(which chapter, artifact, run, or model)" in _route_words()
+    site = Project.from_settings(
+        notebook.root,
+        {
+            "sops": {"root": "procedures", "catalog": "procedures/index.json"},
+            "manuscript": {"format": "pages", "unit_name": "post"},
+        },
+    )
+    with project_scope(site):
+        assert "(which post, artifact, run, or model)" in _route_words()
+
+
 def test_a_generated_skill_is_at_the_wrapper_s_fixed_point(notebook):
     """A skill the project's own check names is a file nobody can keep.
 
