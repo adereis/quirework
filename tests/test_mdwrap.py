@@ -407,6 +407,26 @@ def test_check_flags_trailing_whitespace(tmp_path):
     assert mdwrap.main(["--check", str(f)]) != 0
 
 
+def test_two_touching_marks_are_split_not_aborted(tmp_path):
+    """Giving each comment its own line puts a newline where there was none,
+    and the self-check read that as content and aborted the whole run."""
+    repo = _repo(tmp_path)
+    for name in ("chapter.qmd", "sidecar.md"):  # sentence mode, column mode
+        f = repo / name
+        f.write_text(
+            "<!-- @bind(a) --><!-- @bind(b) -->\n"
+            "<!-- @todo(x) a mark that runs\n"
+            "     onto a second line --><!-- @bind(c) -->\n"
+        )
+        assert mdwrap.process(str(f), check=False) is False
+        assert f.read_text() == (
+            "<!-- @bind(a) -->\n<!-- @bind(b) -->\n"
+            "<!-- @todo(x) a mark that runs onto a second line -->\n"
+            "<!-- @bind(c) -->\n"
+        )
+        assert mdwrap.main(["--check", str(f)]) == 0
+
+
 # --------------------------------------------------------------------------
 # classify: the per-chapter metadata sidecars wrap as 72-column source
 # --------------------------------------------------------------------------

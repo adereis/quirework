@@ -670,6 +670,12 @@ def _reflow_comment(lines: list[str], width: int) -> list[str]:
 # ---------------------------------------------------------------------------
 
 
+# Whitespace between one comment's close and the next one's open. Nothing
+# renders there, and `_split_comment_lines` puts a newline into `--><!--` on
+# purpose, so the self-check must not read that newline as content.
+_BETWEEN_COMMENTS = re.compile(r"-->\s*<!--")
+
+
 def _canonical(text: str) -> list[str]:
     """Paragraph blocks with all whitespace collapsed.
 
@@ -678,15 +684,20 @@ def _canonical(text: str) -> list[str]:
     """
     blocks: list[str] = []
     cur: list[str] = []
+
+    def close() -> None:
+        block = re.sub(r"\s+", " ", " ".join(cur)).strip()
+        blocks.append(_BETWEEN_COMMENTS.sub("--><!--", block))
+        cur.clear()
+
     for line in text.split("\n"):
         if _is_blank(line):
             if cur:
-                blocks.append(re.sub(r"\s+", " ", " ".join(cur)).strip())
-                cur = []
+                close()
         else:
             cur.append(line)
     if cur:
-        blocks.append(re.sub(r"\s+", " ", " ".join(cur)).strip())
+        close()
     return blocks
 
 
