@@ -916,6 +916,31 @@ home nothing holds was made before holds existed or by a command that
 runs one seat and is done. It is kept only while it was touched in the
 last hour. A home whose seat still has a live process is never removed.
 
+### A test suite of the project's own
+
+A book that tests its own extension, checks or fixtures drives Quirework
+from pytest, and Quirework writes into the running user's home: run and
+usage records, seat homes, the per-user configuration and a provenance
+home. A suite that redirects some of these writes into the rest, and
+nothing says so. A leaked home that a procedure holds even survives
+`prune`. One line in the suite's top-level `conftest.py` isolates all of
+them:
+
+```python
+pytest_plugins = ["quirework.testing"]
+```
+
+For the session, `HOME` and the four XDG trees point into a sandbox of
+its own, `QUIREWORK_PROVENANCE_HOME` and `CODEX_HOME` are dropped, and
+usage records and live canaries are switched off. A write that still
+reaches the person's own XDG trees, a harness's home or the provenance
+home fails the test that made it. Tools installed with `pip --user` and
+the user's fonts stay usable. Git's per-user settings do not reach a
+test, so a test that commits names its author, as
+`git -c user.name=... -c user.email=...` does. The list of locations
+ships with Quirework, so one a later release adds is covered with no
+edit here, and Quirework's own suite loads the same plugin.
+
 ## Usage records
 
 Quirework records which of its commands ran, so the tool can be shaped
@@ -1168,8 +1193,9 @@ that explanation.
 `QUIREWORK_CANARY=0` forbids live canaries in one process, so any launch
 there that has no record is refused. A test suite sets it: a test that
 drives a launch without stubbing the gate would otherwise reach a real
-runner and spend a real model's tokens. Quirework's own suite sets it in
-its `conftest.py`, and a consumer's suite should do the same.
+runner and spend a real model's tokens. `quirework.testing` sets it,
+with the rest of a test session's isolation (see "A test suite of the
+project's own").
 
 The canary runs on the cheapest model each runner offers.
 `providers.canary_models` names that model per runner, as in

@@ -10,6 +10,11 @@ from types import SimpleNamespace
 import pytest
 from quirework.project import Project, project_scope
 
+# The same isolation a consumer's suite opts into, so the two cannot drift:
+# HOME and the XDG trees point into the session's own sandbox, usage and live
+# canaries are off, and a write into a real per-user location fails its test.
+pytest_plugins = ["quirework.testing"]
+
 RUN_PREFIX = "quirework-tests-"
 # A session's run directory is taken for abandoned at this age, the same
 # three days after which pytest takes a session's lock for dead. No suite
@@ -191,38 +196,10 @@ def pytest_configure(config):
         run = Path(tempfile.mkdtemp(prefix=RUN_PREFIX, dir=temporary))
         config.stash[RUN] = run
         config.option.basetemp = str(run / "work")
-    # A project that configures no store falls back to the XDG state tree, so
-    # a test that forgets `runs.store` writes run records into the
-    # contributor's real home, and every test that dispatches a command now
-    # writes a usage record there too. Point the tree at the test run's own
-    # directory once, rather than trusting each test to remember. It sits
-    # beside basetemp instead of inside it, because pytest empties basetemp
-    # at the start of a session.
-    state = Path(config.option.basetemp).parent / "quirework-state"
-    os.environ["XDG_STATE_HOME"] = str(state)
-    # The cache tree has the same hole: a project's cache root sits under it,
-    # and a command that takes a lock or caches a digest there wrote into the
-    # contributor's real ~/.cache, keyed by a test directory that was already
-    # gone. The trail's write lock left forty of them before this line.
-    os.environ["XDG_CACHE_HOME"] = str(state.parent / "quirework-cache")
-    # The provenance home is read from the environment and then from the
-    # per-user configuration, and a contributor who keeps real sessions sets
-    # one of the two. Either would send a test's named store into that real
-    # home, so the variable is dropped and the configuration directory points
-    # at one no test writes; the tests about the home set their own.
-    os.environ.pop("QUIREWORK_PROVENANCE_HOME", None)
-    os.environ["XDG_CONFIG_HOME"] = str(state.parent / "quirework-config")
-    # Relocating the store is not the same as not recording, and a test run is
-    # not use of a command: a suite that dispatches `sop show` forty times to
-    # check its exit status should leave no usage records anywhere. The tests
-    # that are *about* recording drop this variable in their own fixture, so
-    # switching it off here costs them nothing.
-    os.environ["QUIREWORK_USAGE"] = "0"
-    # A launch now proves its seat blind with a live canary first. A test that
-    # drives a launch without stubbing that gate (the `canaries_pass` fixture)
-    # would reach a real runner and spend real tokens, so it is refused
-    # instead. The tests of the canary itself drop this in their own fixture.
-    os.environ["QUIREWORK_CANARY"] = "0"
+    # Everything per-user is `quirework.testing`'s, which runs after this and
+    # puts its sandbox beside basetemp, inside the run this removes. The tests
+    # *about* usage records and canaries drop its switches in their own
+    # fixtures, and the tests about the provenance home set their own.
 
 
 @pytest.fixture

@@ -91,13 +91,18 @@ def test_private_home_persists_across_invocations(tmp_path):
     assert blind.state_root(tmp_path) / "codex" == a
 
 
-def test_credentials_are_bound_after_the_private_home(tmp_path):
-    """They live *inside* it, so binding them first is silently undone."""
+def test_credentials_are_bound_after_the_private_home(tmp_path, monkeypatch):
+    """They live *inside* it, so binding them first is silently undone.
+
+    A fictitious login in a home of the test's own: the real one is never
+    read, and the test runs on a machine without one."""
+    home = tmp_path / "home"
+    cred = home / ".claude" / ".credentials.json"
+    cred.parent.mkdir(parents=True)
+    cred.write_text('{"claudeAiOauth": {"accessToken": "fictitious"}}')
+    monkeypatch.setenv("HOME", str(home))
     argv = _argv(tmp_path, runners=["claude"])
-    cred = Path(blind.os.path.expanduser("~/.claude/.credentials.json"))
-    if not cred.exists():
-        pytest.skip("no claude credentials on this machine")
-    home_at = argv.index(str(Path(blind.os.path.expanduser("~/.claude")).resolve()))
+    home_at = argv.index(str((home / ".claude").resolve()))
     assert argv.index(str(cred)) > home_at
 
 

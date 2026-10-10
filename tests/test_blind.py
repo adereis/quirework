@@ -455,18 +455,20 @@ os.unlink(path)
 
 
 @pytest.fixture
-def fake_bus(tmp_path, monkeypatch, request):
+def fake_bus(tmp_path, tmp_path_factory, monkeypatch, request):
     """A private runtime dir, a dead bus address and the stand-in proxy.
 
     No test here dials the operator's session bus. The runtime dir is short
     on purpose: a socket path over 107 bytes is refused, and pytest's own
-    directory names alone come close to that.
+    directory names alone come close to that. So it sits in the session's
+    run directory, beside basetemp, rather than in the test's own.
     """
     import tempfile
 
     bin_dir = tmp_path / "bin"
     bin_dir.mkdir()
-    runtime = Path(tempfile.mkdtemp(prefix="rt", dir=Path.home() / "tmp"))
+    run = tmp_path_factory.getbasetemp().parent
+    runtime = Path(tempfile.mkdtemp(prefix="rt", dir=run))
     request.addfinalizer(lambda: shutil.rmtree(runtime, ignore_errors=True))
     proxy = bin_dir / blind.BUS_PROXY
     proxy.write_text(FAKE_PROXY)

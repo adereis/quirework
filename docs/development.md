@@ -128,10 +128,16 @@ Each session writes its scratch files under a directory of its own,
 `~/tmp/quirework-tests-*`, and cleans up after itself. A passing test's
 files go as soon as it passes, and a passing session removes its whole
 directory when it ends. A failing session keeps only the failed tests'
-directories, beside the session's state and cache, for inspection. The
-next session sweeps any directory left more than three days. Passing
+directories, beside the session's own home, for inspection. The next
+session sweeps any directory left more than three days. Passing
 `--basetemp` opts out of all of it, since that directory is the caller's
 to keep.
+
+The suite loads `quirework.testing`, the plugin a consumer's suite opts
+into, so the two are isolated the same way. Each session gets a home and
+XDG trees of its own, and a test that writes into the contributor's real
+ones fails. A test that needs a harness's login plants a fictitious one
+in a home of its own, never reading the real one.
 
 Unit tests use fictional text and diagrams. They check project
 isolation, custom catalogs, formatting, artifact transforms, independent
