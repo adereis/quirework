@@ -756,6 +756,11 @@ moves the closing question into a second turn, for a read whose closing
 question is itself the measurement and must not be visible while the
 seat reads; `--wrap-ask` names it where the sequence does not.
 
+A turn that saves its work in files is measured by those files. Its
+`min_bytes` holds every declared output to that size, and the seat's
+reply, which may be one line saying where it saved, then only has to
+exist. A turn that declares no outputs is held to it in its reply.
+
 ## Consistency review
 
 Consistency has a mechanical layer and a judgment layer. Both belong in

@@ -845,7 +845,11 @@ class Run:
             ):
                 raise RuntimeError("fork names the wrong parent")
         answer = receipt.pop("answer")
-        if len(answer.encode()) < turn.get("min_bytes", 1):
+        # A turn told to save its contribution in files is measured there: its
+        # reply may be one line saying where. Without declared outputs, the
+        # reply is the contribution.
+        minimum = turn.get("min_bytes", 1)
+        if not turn["outputs"] and len(answer.encode()) < minimum:
             raise RuntimeError("answer is shorter than the declared minimum")
         headings = {
             line.strip().replace("\u2019", "'")
@@ -972,6 +976,10 @@ class Run:
             src = self.workspace(seat) / relative(output)
             if src.is_symlink() or not src.is_file() or not src.stat().st_size:
                 raise RuntimeError(f"declared output is missing/empty: {output}")
+            if src.stat().st_size < minimum:
+                raise RuntimeError(
+                    f"declared output {output} is shorter than the declared minimum"
+                )
             if digest(src) == pending.get("outputs_before", {}).get(
                 output
             ) and not turn.get("allow_unchanged_outputs", False):

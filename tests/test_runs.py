@@ -187,6 +187,48 @@ def test_bank_is_idempotent_and_preserves_receipts(setup, monkeypatch):
         run.verify()
 
 
+@pytest.mark.parametrize("written, refused", [(300, False), (50, True)])
+def test_a_turn_that_saves_its_work_is_measured_by_the_file(
+    setup, monkeypatch, written, refused
+):
+    """A turn told to save its contribution in a file may reply with a line
+    saying it did. Its size floor read that line, so a closing summary
+    written in full stayed pending for a short reply."""
+    root, path, plan = setup
+    plan["seats"][0]["policy"] = dict(tools="write")
+    plan["seats"][0]["turns"][0].update(outputs=["drafts/wrap.md"], min_bytes=200)
+    path.write_text(json.dumps(plan))
+    run = prepared(setup)
+    state = run.state("reader")
+    state["pending"] = dict(turn="first", mode="start", parent_id="sid", exit_code=0)
+    run.save("reader", state)
+    record = run.record("reader", "first")
+    record.mkdir(parents=True)
+    native = record / "source.jsonl"
+    native.write_text("{}\n")
+    saved = run.workspace("reader") / "drafts" / "wrap.md"
+    saved.parent.mkdir(parents=True)
+    saved.write_text("x" * written)
+    monkeypatch.setattr(
+        harness,
+        "receipt",
+        lambda *a: dict(
+            session_id="sid",
+            model="fixture-model",
+            rollout=str(native),
+            answer="Written.",
+            forked_from=None,
+        ),
+    )
+    monkeypatch.setattr(harness, "history_image_hashes", lambda *a: [])
+    if refused:
+        with pytest.raises(RuntimeError, match="drafts/wrap.md is shorter"):
+            run.collect_turn("reader", 0)
+    else:
+        run.collect_turn("reader", 0)
+        assert "first" in run.state("reader")["done"]
+
+
 def test_live_process_prevents_collection(setup, monkeypatch):
     run = prepared(setup)
     state = run.state("reader")
