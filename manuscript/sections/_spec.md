@@ -82,16 +82,24 @@ cure for Otto: it checks a book against itself and cannot check a book
 against the world, and Otto's lesson is Cy's to keep, not the tool's to
 enforce. Otto's chapter does not raise the question.
 
-## The name came from Otto {#the-name}
+## The name came from "quire" {#the-name}
 
 The script was check.py for a month, then notes-check, then a directory
 of four files about to become a repository, which needed a name. Cy
-spent an evening on names, mostly puns. Around two in the morning Cy
-typed "quirk" into a chat, meaning to ask Otto something else entirely,
-Otto finished it as "quirework", and Cy liked it better than anything
-they would have chosen. The first commit message was "Name it". With a
-name, a repository, a README and a version number, the script is a tool,
-and Cy is the only person who has ever used it.
+spent an evening on names, in pencil, on a page, mostly puns, and worked
+toward the name all evening without noticing. The page's last line, at
+ten to two, is "quire": the folded gathering of pages a book is sewn
+from. At two Cy typed "quire" into a chat, meaning to ask Otto something
+else entirely, and Otto finished it as "quirework". Otto finished a word
+Cy had already chosen. Right after Otto finishes it, the chapter admits
+it once, in these words: "For a year I told people Otto named it. Then I
+found the page." It does not explain what that means: a book that admits
+on its first page that it is unreliable admits this too. Cy liking the
+word better than anything on the page is the joke, and is not explained
+either. Cy does not remember what they meant to ask. The first commit
+message was "Name it". With a name, a repository, a README and a version
+number, the script is a tool, and Cy is the only person who has ever
+used it.
 
 ## No villains {#no-villains}
 

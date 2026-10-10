@@ -117,7 +117,7 @@
   Where Cy looked on the Tuesday, and the regular-expression check said
   plainly: tried on lines it should and should not catch.
 
-## The name came from Otto {#the-name}
+## The name came from "quire" {#the-name}
 
 - 2026-10-09T20:18:07Z · seed · claude-code
   1b7ad009-e68c-4219-a024-edbf242566b6
@@ -137,6 +137,33 @@
   directory about to be a repository; an evening of puns; quirk typed
   meaning to ask Otto something else; first commit "Name it"; name,
   repository, README, version number, one user
+
+- 2026-10-10T01:01:57Z · reverse · claude-code
+  c137540e-b3a2-4e2d-828a-d00d7dde354a
+
+  Reverses the seed and the sharpen: Cy remembered typing "quirk" to ask
+  Otto something else, and Otto making the name. The page of names from
+  that evening, found later, ends in pencil at ten to two on "quire",
+  the folded gathering of pages a book is sewn from; at two Cy typed
+  "quire" and Otto finished it as "quirework". The name came from
+  "quire": Otto finished a word Cy had already chosen.
+
+- 2026-10-10T01:17:24Z · sharpen · claude-code
+  c137540e-b3a2-4e2d-828a-d00d7dde354a
+
+  The chapter is not silent about the year: right after Otto finishes
+  the word, once, flatly and unexplained, "For a year I told people Otto
+  named it. Then I found the page." The reason: a memoir that admits on
+  its first page that it is unreliable should admit this too. Carried
+  into every edition that tells the scene.
+
+- 2026-10-10T01:30:49Z · sharpen · claude-code
+  c137540e-b3a2-4e2d-828a-d00d7dde354a
+
+  The admission is a commitment in Cy's words: the spec quotes "For a
+  year I told people Otto named it. Then I found the page." word for
+  word, said once. No line is made a spec commitment only so a poem can
+  leave it bare.
 
 ## No villains {#no-villains}
 
