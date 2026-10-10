@@ -13,8 +13,8 @@ Run `quirework sop show write-a-post` and read its output in full. Then
 execute it as the operator, per AGENTS.md ("How work happens"): drive
 the `quirework` tools, supervise their output, analyze it, then deliver
 the artifact -- the supervise -> analyze -> deliver loop. The human's
-request names the target (which chapter, artifact, run, or model);
-assume and state it when it is clear, ask once only when it is not.
+request names the target (which post, artifact, run, or model); assume
+and state it when it is clear, ask once only when it is not.
 
 `procedures/workflows/write-a-post.md` is the single source of truth for
 this procedure, and `sop show` prints it verbatim. This skill is only
