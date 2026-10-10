@@ -453,6 +453,69 @@ def test_askuserquestion_renders_question_options_and_answer(tmp_path):
     assert stats["human_turns"] == 1
 
 
+def _asked_and_answered(tmp_path, answer):
+    ask = {
+        "type": "assistant",
+        "message": {
+            "content": [
+                {
+                    "type": "tool_use",
+                    "id": "t1",
+                    "name": "AskUserQuestion",
+                    "input": {
+                        "questions": [
+                            {
+                                "question": "Keep the kettle image?",
+                                "options": [
+                                    {
+                                        "label": "Keep it",
+                                        "preview": "The kettle stays.",
+                                    },
+                                    {"label": "Cut it", "preview": "The dial alone."},
+                                ],
+                            }
+                        ]
+                    },
+                }
+            ]
+        },
+    }
+    result = {
+        "type": "user",
+        "message": {
+            "content": [{"type": "tool_result", "tool_use_id": "t1", "content": answer}]
+        },
+    }
+    body, _ = ccfilter.filter_session(_session(tmp_path, [ask, result]))
+    return body.split("### Human (answer to AskUserQuestion)\n\n", 1)[1]
+
+
+def test_a_blind_render_cuts_the_models_preview_from_an_answer(tmp_path):
+    """The harness copies the picked option's preview, the model's sketch, into
+    the answer, which the analyst would read as the author's words."""
+    answer = _asked_and_answered(
+        tmp_path,
+        'Your questions have been answered: "Keep the kettle image?"="Cut it" '
+        "selected preview:\nThe dial alone. notes: keep the whistle. You can now "
+        "continue with these answers in mind.",
+    )
+    assert "The dial alone" not in answer
+    assert answer.startswith(
+        'Your questions have been answered: "Keep the kettle image?"="Cut it" '
+        "notes: keep the whistle. You can now continue"
+    )
+
+
+def test_an_answer_without_a_preview_renders_as_it_always_did(tmp_path):
+    """The framing stays in the blind render, so a report on a session whose
+    answers carried no preview revalidates instead of being bought again."""
+    logged = (
+        'Your questions have been answered: "Keep the kettle image?"="Keep it". '
+        "You can now continue with these answers in mind."
+    )
+    assert _asked_and_answered(tmp_path, logged) == logged
+
+
 # --------------------------------------------------------------------------- #
 # normalize_capture: what the repository copy of a session keeps
 # --------------------------------------------------------------------------- #

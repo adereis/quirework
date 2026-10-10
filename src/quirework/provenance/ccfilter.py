@@ -63,7 +63,12 @@ import sys
 #     fails (isApiErrorMessage: "API Error: 529 Overloaded"). It rendered as
 #     the model's turn, so a blind analyst read a harness notice as something
 #     the model said.
-FILTER_VERSION = 5
+# v6: cut the preview of a picked option from an AskUserQuestion answer. The
+#     harness copies the model's sketch of the option into the result, so a
+#     blind analyst read it under "Human (answer to AskUserQuestion)" as the
+#     author's words. The harness's framing sentence stays, so an answer with
+#     no preview renders byte for byte as before and its report revalidates.
+FILTER_VERSION = 6
 
 # Human-turn *content* the harness wrote, not the human (mirrors
 # metrics.HARNESS; duplicated because this module stays import-free so the
@@ -337,7 +342,7 @@ def _previews(ask):
     return sorted(found, key=len, reverse=True)
 
 
-def answer_text(block, ask=None, raw=False):
+def answer_text(block, ask=None, raw=False, framed=False):
     """What the author answered, from the tool_result of an ``ASK_TOOL`` call.
 
     The harness logs the pick as the tool's result, so it arrives looking like
@@ -348,21 +353,30 @@ def answer_text(block, ask=None, raw=False):
     the harness copies into the result, so it is cut, using the previews the
     call offered (``ask``, the call's input) and a pattern where none matches.
     The author's notes stay, and so does a free-text answer. The harness's
-    framing sentences go. An errored result (the question dismissed, or the
-    call refused) answered nothing. With ``raw`` the text is kept exactly as
-    logged. Every reader that asks what the author said takes an answer from
-    here, so they agree on it.
+    framing sentences go, unless ``framed``: the blind render keeps them, so
+    an answer with no preview renders byte for byte as it always did and the
+    cold-read report on it stays valid; they say nothing about who thought
+    what. An errored result (the question dismissed, or the call refused)
+    answered nothing. With ``raw`` the text is kept exactly as logged. Every
+    reader that asks what the author said takes an answer from here, so they
+    agree on it.
     """
     if block.get("is_error"):
         return ""
     text = _result_text(block)
     if raw:
         return text.strip()
-    text = _ASK_OPENING.sub("", strip_wrappers(text), count=1)
-    text = _ASK_CLOSING.sub("", text, count=1)
+    text = strip_wrappers(text)
+    opening = _ASK_OPENING.match(text)
+    head = opening.group(0) if opening else ""
+    body = text[len(head) :]
+    closing = _ASK_CLOSING.search(body)
+    tail = closing.group(0) if closing else ""
+    body = body[: closing.start()] if closing else body
     for preview in _previews(ask):
-        text = text.replace(f" selected preview:\n{preview}", "")
-    return _ASK_PREVIEW.sub("", text).strip()
+        body = body.replace(f" selected preview:\n{preview}", "")
+    body = _ASK_PREVIEW.sub("", body)
+    return f"{head}{body}{tail}" if framed else body.strip()
 
 
 def tool_marker(block):
@@ -844,7 +858,7 @@ def filter_session(path):
                                     )
                                 )
                         elif job[0] == "ask":
-                            answer = answer_text(b, job[1])
+                            answer = answer_text(b, job[1], framed=True)
                             if answer:
                                 recovered.append(
                                     (
