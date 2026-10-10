@@ -914,9 +914,10 @@ this part.
 
 ## Where to go next
 
-- [examples/demo-book](../examples/demo-book): a finished book that
-  followed this guide, with every layer above adopted and nothing else.
-  Read its `quirework.toml` beside this page.
+- [examples/side-quest](../examples/side-quest): a finished book that
+  followed this guide, with every layer above adopted, three derived
+  editions among them, and the sessions it was written in. Read its
+  `quirework.toml` beside this page.
 - [examples/demo-site](../examples/demo-site): a small site that
   followed its last part.
 - [configuration.md](configuration.md): every setting, the layering

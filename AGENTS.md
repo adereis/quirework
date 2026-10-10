@@ -56,14 +56,17 @@ available with its limitations.
 
 ## The examples
 
-`examples/demo-book` is a book that consumes this package: a manuscript
-with a spec and marks, a figure and its style guide, its own procedures,
-an installed extension, a derived edition and a captured corpus.
+`examples/side-quest` is a book that consumes this package: a manuscript
+with a spec, marks and a trail, a figure, its own procedures and
+extension, three derived editions bound to the spec, and the captured
+sessions it was written in, with the records of the workshop, room,
+blind read, roundtable and review that made parts of it.
 `examples/demo-site` is a site that does: posts in page bundles, a spec
 per post beside a shared one, marks outside the rendered tree, declared
 wrap modes and a voice policy. Each is documentation and a fixture at
-once, and `tests/test_example_book.py` and `tests/test_example_site.py`
-run an author's gates against them on every test run.
+once, and `tests/test_example_side_quest.py` and
+`tests/test_example_site.py` run an author's gates against them on every
+test run.
 
 Treat them as consumers. Each one's vocabulary, characters and editorial
 rules stay inside its directory and never enter `src/`, and its content

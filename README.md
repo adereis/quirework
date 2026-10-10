@@ -272,9 +272,12 @@ quirework sop runs start /path/to/private/run --timeout 60 --wait-quota 0
 Starting from nothing? The [authoring guide](docs/authoring.md) is the
 path from an empty directory to a manuscript with a spec, marked
 chapters, figures and its own procedures, and its last part does the
-same for a site. [examples/demo-book](examples/demo-book) is a small
-finished book that walked it: a spec, marks, a figure, procedures, a
-derived edition and the session it was written in, in about forty files.
+same for a site. [examples/side-quest](examples/side-quest) is a short
+finished book that walked it: a comic memoir with a spec and its trail,
+a book in four formats, three derived editions bound to the same spec,
+an extension of its own, and the fifteen sessions it was written in. It
+is fiction about a fictional author, and every session was driven by an
+AI playing that author, which the example's own README says.
 [examples/demo-site](examples/demo-site) is the site version: posts with
 a spec each, a shared spec, marks kept outside the rendered tree, and a
 voice policy the checks enforce.
