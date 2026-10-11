@@ -1,5 +1,1 @@
-# The book's own brand, manuscript/_brand.yml: the ink is black, so the
-# PDF's title page, headings and contents are black and grays rather
-# than the template's blue.
-color:
-  primary: "#000000"
+../../manuscript/_brand.yml

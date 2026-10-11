@@ -3,3 +3,27 @@
 # and the HTML theme its links; its tints of black are grays.
 color:
   primary: "#000000"
+
+# The HTML theme's typeface, shipped with the book rather than fetched
+# from a font service, so a page of the book loads nothing from anyone
+# else. The files are Source Sans 3, which is what Source Sans Pro is now
+# called; they are named here as the theme asks for them. No typography
+# role names the family, so the PDF keeps its own face.
+typography:
+  fonts:
+    - family: Source Sans Pro
+      source: file
+      files:
+        - path: fonts/SourceSans3-Light.ttf.woff2
+          weight: 300
+        - path: fonts/SourceSans3-Regular.ttf.woff2
+          weight: 400
+        - path: fonts/SourceSans3-It.ttf.woff2
+          weight: 400
+          style: italic
+        - path: fonts/SourceSans3-Bold.ttf.woff2
+          weight: 700
+defaults:
+  bootstrap:
+    defaults:
+      web-font-path: false

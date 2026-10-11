@@ -65,6 +65,12 @@ it in conversation, write it here in the same session.
 - `manuscript/_brand.yml` makes the brand's primary color black, which
   is what keeps the PDF template's title page, headings and contents in
   black and grays rather than its default blue.
+- The HTML editions set their text in Source Sans, shipped in
+  `manuscript/fonts/` with its license, `OFL.txt`, and declared in
+  `manuscript/_brand.yml`, which also turns off the theme's download of
+  it. So no page of the book fetches a font from anyone else. The poems
+  and the young readers' edition read the book's `_brand.yml` and
+  `fonts/` through symlinks: change the book's, never theirs.
 - `scratchpad/` and `private/` are ignored by git. Nothing in
   `scratchpad/` has authority.
 - A blind read uses the `blind-read` reader preset, and its readers
