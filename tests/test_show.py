@@ -46,23 +46,23 @@ def test_cc_records_keeps_prose_drops_tools(tmp_path):
             _user("what books should I read?"),
             _assistant(
                 {"type": "thinking", "thinking": "secret reasoning", "signature": "x"},
-                _text("Read Seth first."),
+                _text("Read Pellam first."),
                 {"type": "tool_use", "name": "Bash", "input": {"command": "ls"}},
             ),
             # a tool-result echo arrives as a user turn with *list* content
             _user([{"type": "tool_result", "content": "file listing"}]),
-            _assistant(_text("Then Dehaene.")),
+            _assistant(_text("Then Ostrow.")),
         ],
     )
     recs = show.cc_records(p)
     assert _roles(recs) == [
         ("human", "what books should I read?"),
-        ("assistant", "Read Seth first."),  # thinking + tool_use stripped
-        ("assistant", "Then Dehaene."),  # tool_result echo skipped
+        ("assistant", "Read Pellam first."),  # thinking + tool_use stripped
+        ("assistant", "Then Ostrow."),  # tool_result echo skipped
     ]
 
 
-SKETCH = "Seth, then Dehaene:\n  1. Being You\n  2. Consciousness and the Brain"
+SKETCH = "Pellam, then Ostrow:\n  1. The Patient Kettle\n  2. Steam, Briefly"
 
 
 def _ask(tool_id):
@@ -75,8 +75,8 @@ def _ask(tool_id):
                 {
                     "question": "Which first?",
                     "options": [
-                        {"label": "Seth", "preview": SKETCH},
-                        {"label": "Dehaene", "preview": "Dehaene alone"},
+                        {"label": "Pellam", "preview": SKETCH},
+                        {"label": "Ostrow", "preview": "Ostrow alone"},
                     ],
                 }
             ]
@@ -90,7 +90,7 @@ def _result(tool_id, content, **extra):
     )
 
 
-PICK = '"Which first?"="Seth"'
+PICK = '"Which first?"="Pellam"'
 ANSWER = (
     f"Your questions have been answered: {PICK} selected preview:\n{SKETCH}. "
     "You can now continue with these answers in mind."
@@ -111,14 +111,14 @@ def test_an_answer_to_a_question_is_the_authors_turn(tmp_path):
             _result("ls1", "file listing"),
             _assistant(_ask("ask2")),
             _result("ask2", "The user dismissed the question", is_error=True),
-            _assistant(_text("Seth it is.")),
+            _assistant(_text("Pellam it is.")),
         ],
     )
     assert _roles(show.cc_records(p)) == [
         ("human", "plan the reading list"),
         ("assistant", "Two ways to start."),
         ("human", PICK),
-        ("assistant", "Seth it is."),
+        ("assistant", "Pellam it is."),
     ]
     turns = [(n, text) for n, _, text in show.author_turns("cc", p)]
     assert turns == [(1, "plan the reading list"), (2, PICK)]
