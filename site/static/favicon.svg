@@ -1,0 +1,5 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
+  <!-- Spectral Bold "q" as an outline, paper on ink. AGENTS.md, "Design". -->
+  <rect width="64" height="64" rx="10" fill="#1c1815"/>
+  <path fill="#faf7f2" transform="translate(14.99 38.78) scale(0.05747 -0.05747)" d="M273 -230H558V-214L492 -182V466H480L399 441C362 458 326 466 278 466C135 466 34 362 34 195C34 69 113 -10 202 -10C250 -10 294 6 345 48H351V-184L273 -214ZM175 225C175 373 222 413 280 413C304 413 326 408 342 394C350 387 351 382 351 353V92C323 78 304 72 284 72C228 72 175 120 175 225Z"/>
+</svg>

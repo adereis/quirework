@@ -1,0 +1,54 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 880 270" role="img" aria-labelledby="prov-title prov-desc">
+  <title id="prov-title">Where the record of the work is kept</title>
+  <desc id="prov-desc">Your sessions are captured from each harness's own records into a store outside the repository, where they wait as pending until you accept them. The repository keeps only the ledger: each accepted session with a hash of its bytes. From the store, Quirework searches your own words on your machine, the spec's trail points into it, and it estimates who did what, with its caveats attached.</desc>
+  <defs>
+    <marker id="prov-arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path class="dg-arrow" d="M0 0 L10 5 L0 10 z"/>
+    </marker>
+  </defs>
+
+  <text class="dg-text dg-head" x="20" y="64">Your sessions</text>
+  <rect class="dg-box" x="20" y="84" width="104" height="80" rx="2"/>
+  <rect class="dg-box" x="28" y="92" width="104" height="80" rx="2"/>
+  <rect class="dg-box" x="36" y="100" width="104" height="80" rx="2"/>
+  <rect class="dg-shade" x="48" y="114" width="78" height="5" rx="1"/>
+  <rect class="dg-shade" x="48" y="126" width="64" height="5" rx="1"/>
+  <rect class="dg-shade" x="48" y="138" width="78" height="5" rx="1"/>
+  <rect class="dg-shade" x="48" y="150" width="50" height="5" rx="1"/>
+  <text class="dg-text dg-small dg-faint" x="20" y="206">where each harness</text>
+  <text class="dg-text dg-small dg-faint" x="20" y="224">keeps them</text>
+
+  <line class="dg-line" x1="146" y1="140" x2="226" y2="140" marker-end="url(#prov-arrow)"/>
+  <text class="dg-text dg-small" x="186" y="130" text-anchor="middle">capture</text>
+
+  <rect class="dg-box" x="230" y="64" width="220" height="166" rx="3"/>
+  <text class="dg-text dg-head" x="248" y="92">The store</text>
+  <text class="dg-text dg-small dg-faint" x="248" y="112">outside the repository</text>
+  <rect class="dg-soft" x="248" y="130" width="84" height="64" rx="2"/>
+  <rect class="dg-soft" x="348" y="130" width="84" height="64" rx="2"/>
+  <text class="dg-text dg-small" x="290" y="166" text-anchor="middle">pending</text>
+  <text class="dg-text dg-small" x="390" y="166" text-anchor="middle">accepted</text>
+  <line class="dg-thin" x1="332" y1="162" x2="346" y2="162" marker-end="url(#prov-arrow)"/>
+  <text class="dg-text dg-small dg-faint" x="340" y="214" text-anchor="middle">you read, then accept</text>
+
+  <rect class="dg-dash" x="510" y="14" width="350" height="122" rx="3"/>
+  <text class="dg-text dg-head" x="528" y="40">The repository</text>
+  <rect class="dg-box" x="528" y="54" width="314" height="62" rx="2"/>
+  <text class="dg-text dg-small" x="544" y="80">The ledger: each accepted session,</text>
+  <text class="dg-text dg-small" x="544" y="100">with a hash of its bytes</text>
+  <path class="dg-line" d="M432 148 C470 148 480 86 524 86" marker-end="url(#prov-arrow)"/>
+
+  <path class="dg-thin" d="M450 178 H800"/>
+  <line class="dg-thin" x1="540" y1="178" x2="540" y2="194" marker-end="url(#prov-arrow)"/>
+  <line class="dg-thin" x1="670" y1="178" x2="670" y2="194" marker-end="url(#prov-arrow)"/>
+  <line class="dg-thin" x1="800" y1="178" x2="800" y2="194" marker-end="url(#prov-arrow)"/>
+  <rect class="dg-box" x="480" y="198" width="120" height="58" rx="2"/>
+  <rect class="dg-box" x="610" y="198" width="120" height="58" rx="2"/>
+  <rect class="dg-box" x="740" y="198" width="120" height="58" rx="2"/>
+  <text class="dg-text dg-small" x="540" y="222" text-anchor="middle">Search your</text>
+  <text class="dg-text dg-small" x="540" y="241" text-anchor="middle">words, locally</text>
+  <text class="dg-text dg-small" x="670" y="222" text-anchor="middle">The spec’s trail</text>
+  <text class="dg-text dg-small" x="670" y="241" text-anchor="middle">points into it</text>
+  <text class="dg-text dg-small" x="800" y="222" text-anchor="middle">Who did what,</text>
+  <text class="dg-text dg-small" x="800" y="241" text-anchor="middle">caveats attached</text>
+</svg>

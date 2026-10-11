@@ -1,0 +1,49 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 880 472" role="img" aria-labelledby="bind-title bind-desc">
+  <title id="bind-title">One commitment and the four places that carry it</title>
+  <desc id="bind-desc">A section of Side Quest's spec, "The name came from quire", is joined to the four documents that bind it: the book's chapter, the poems, the six-pager and the young readers' edition. The young readers' edition is circled: after the author corrected the story, it defined the word quire, where its own notes say to show it.</desc>
+
+  <text class="dg-text dg-small dg-faint" x="20" y="118">The spec</text>
+  <rect class="dg-box" x="20" y="130" width="280" height="172" rx="3"/>
+  <text class="dg-text dg-label" x="40" y="168">The name came</text>
+  <text class="dg-text dg-label" x="40" y="191">from “quire”</text>
+  <text class="dg-mono" x="40" y="217">{#the-name}</text>
+  <rect class="dg-shade" x="40" y="236" width="224" height="6" rx="2"/>
+  <rect class="dg-shade" x="40" y="252" width="206" height="6" rx="2"/>
+  <rect class="dg-shade" x="40" y="268" width="152" height="6" rx="2"/>
+
+  <path class="dg-line" d="M300 216 C400 216 400 72 500 72"/>
+  <path class="dg-line" d="M300 216 C400 216 400 170 500 170"/>
+  <path class="dg-line" d="M300 216 C400 216 400 268 500 268"/>
+  <path class="dg-line" d="M300 216 C400 216 400 366 500 366"/>
+  <circle class="dg-ink" cx="300" cy="216" r="4"/>
+  <circle class="dg-ink" cx="500" cy="72" r="4"/>
+  <circle class="dg-ink" cx="500" cy="170" r="4"/>
+  <circle class="dg-ink" cx="500" cy="268" r="4"/>
+  <circle class="dg-ink" cx="500" cy="366" r="4"/>
+
+  <text class="dg-text dg-small dg-faint" x="500" y="20">Where it is carried</text>
+
+  <rect class="dg-box" x="500" y="28" width="360" height="88" rx="3"/>
+  <text class="dg-text dg-label" x="520" y="56">The book</text>
+  <text class="dg-text dg-small dg-faint" x="520" y="78">Chapter 5, The Name</text>
+  <rect class="dg-shade" x="520" y="96" width="250" height="6" rx="2"/>
+
+  <rect class="dg-box" x="500" y="126" width="360" height="88" rx="3"/>
+  <text class="dg-text dg-label" x="520" y="154">The poems</text>
+  <text class="dg-text dg-small dg-faint" x="520" y="176">The Name, in anapestic couplets</text>
+  <rect class="dg-shade" x="520" y="194" width="214" height="6" rx="2"/>
+
+  <rect class="dg-box" x="500" y="224" width="360" height="88" rx="3"/>
+  <text class="dg-text dg-label" x="520" y="252">The six-pager</text>
+  <text class="dg-text dg-small dg-faint" x="520" y="274">One memo, in the part about Otto</text>
+  <rect class="dg-shade" x="520" y="292" width="236" height="6" rx="2"/>
+
+  <rect class="dg-box" x="500" y="322" width="360" height="88" rx="3"/>
+  <text class="dg-text dg-label" x="520" y="350">The young readers’ edition</text>
+  <text class="dg-text dg-small dg-faint" x="520" y="372">The Name, for readers of about ten</text>
+  <rect class="dg-shade" x="520" y="390" width="180" height="6" rx="2"/>
+  <path class="dg-signal draw" pathLength="1" d="M520 387 C552 381 652 380 704 386 C722 389 718 401 690 404 C640 409 556 409 522 403 C504 399 506 389 528 385 C548 382 566 381 586 381"/>
+
+  <text class="dg-text dg-small" x="500" y="440">Defines “quire”, where its notes say to show it.</text>
+  <text class="dg-text dg-small dg-faint" x="500" y="460">Found by an independent consistency review.</text>
+</svg>

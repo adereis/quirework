@@ -1,0 +1,74 @@
+#!/usr/bin/env bash
+# Capture the command output the site shows into assets/listings/.
+#
+# Every listing on the site is real: a command run against one of the
+# example projects, saved as it printed. When Quirework changes what a
+# command prints, run this again and review the diff like any other.
+# A command that fails stops the script, so a broken example is never
+# captured as if it were the output.
+#
+# Uses the checkout's own .venv when it has one, else `quirework` on
+# PATH; QUIREWORK overrides both.
+set -euo pipefail
+
+site=$(cd "$(dirname "$0")/.." && pwd)
+repo=$(cd "$site/.." && pwd)
+out="$site/assets/listings"
+
+if [[ -n ${QUIREWORK:-} ]]; then
+  quirework=$QUIREWORK
+elif [[ -x $repo/.venv/bin/quirework ]]; then
+  quirework=$repo/.venv/bin/quirework
+else
+  quirework=$(command -v quirework) || {
+    echo "capture-listings: no quirework; install it or set QUIREWORK" >&2
+    exit 1
+  }
+fi
+
+# A fixed width, so a capture does not depend on the terminal it ran in.
+export COLUMNS=88 NO_COLOR=1
+
+# Paths are shown relative to the project, and the home directory as ~,
+# so no listing carries the machine it was captured on.
+tidy() {
+  local project=$1
+  sed -e "s#$repo/$project/##g" -e "s#$repo/##g" -e "s#$HOME#~#g"
+}
+
+# run PROJECT ARGS...: one command, preceded by the line that ran it.
+run() {
+  local project=$1
+  shift
+  printf '$ quirework %s\n' "$*"
+  (cd "$repo/$project" && "$quirework" "$@") 2>&1 | tidy "$project"
+}
+
+# capture NAME: write standard input to the listing NAME, atomically.
+capture() {
+  local tmp
+  tmp=$(mktemp "$out/.$1.XXXXXX")
+  cat >"$tmp"
+  mv "$tmp" "$out/$1.txt"
+  echo "captured $1"
+}
+
+mkdir -p "$out"
+sq=examples/side-quest
+ds=examples/demo-site
+
+run $sq spec notes --primer | capture primer
+run $sq spec notes bind --slug the-name | capture bind
+run $sq spec trail the-name | capture trail
+{
+  run $sq spec units --check
+  run $sq spec notes --check
+  run $sq spec trail --check
+} | capture checks
+run $sq sop list | capture sop-list
+run $sq sop explain write-a-chapter | capture sop-explain
+run $ds spec units | capture units
+{
+  echo '$ git ls-files'
+  (cd "$repo/$ds" && git ls-files)
+} | capture files

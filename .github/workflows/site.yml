@@ -1,0 +1,135 @@
+# Builds quirework.com and deploys it to Cloudflare (site/README.md,
+# "Deploy").
+#
+# The site carries the sample book's renders, so a deploy renders the book
+# first, with the Quirework of the same commit: a change to the tool, to
+# the book or to the site can each change what the site serves.
+#
+# Two jobs, so that nothing installed to render the book ever holds the
+# Cloudflare token. `build` installs Quirework, Quarto and the system tools,
+# renders, stages and builds, and uploads the finished site. `deploy` holds
+# the token, and runs nothing but a pinned Wrangler on that upload.
+#
+# Every third-party piece is pinned: actions by commit, Hugo by checksum,
+# Quarto and Wrangler by exact version. Bump a pin on purpose, and watch
+# the next run.
+
+name: site
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "site/**"
+      - "examples/side-quest/**"
+      - "src/**"
+      - "pyproject.toml"
+      - ".github/workflows/site.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+# One deploy at a time, and never one cut off halfway.
+concurrency:
+  group: site
+  cancel-in-progress: false
+
+env:
+  HUGO_VERSION: "0.162.1"
+  HUGO_SHA256: "e34160095b6a6406af857fe212f50e4451f67ed1276b9bb0de13d08754980118"
+  QUARTO_VERSION: "1.9.38"
+  WRANGLER_VERSION: "4.149.0"
+
+jobs:
+  build:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      # What the render shells out to: librsvg for figures, Poppler for
+      # PDF pages, fontconfig and DejaVu for the figure's typeface. Java,
+      # for the EPUB checker, is already on the runner.
+      - name: Install the render's system tools
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq --no-install-recommends \
+            librsvg2-bin poppler-utils fontconfig fonts-dejavu-core
+          java -version
+
+      - name: Install Hugo
+        run: |
+          tarball="hugo_extended_${HUGO_VERSION}_linux-amd64.tar.gz"
+          curl -fsSLo "$RUNNER_TEMP/$tarball" \
+            "https://github.com/gohugoio/hugo/releases/download/v${HUGO_VERSION}/$tarball"
+          echo "${HUGO_SHA256}  $RUNNER_TEMP/$tarball" | sha256sum -c -
+          mkdir -p "$RUNNER_TEMP/hugo"
+          tar -xzf "$RUNNER_TEMP/$tarball" -C "$RUNNER_TEMP/hugo" hugo
+          echo "$RUNNER_TEMP/hugo" >> "$GITHUB_PATH"
+
+      - name: Install Quirework and the book's checks
+        run: |
+          python3 -m venv --system-site-packages .venv
+          .venv/bin/pip install -q -e '.[quarto]' "quarto-cli==${QUARTO_VERSION}"
+          .venv/bin/pip install -q -e examples/side-quest/sq_checks
+          .venv/bin/quirework publish epubcheck --install
+          echo "$PWD/.venv/bin" >> "$GITHUB_PATH"
+
+      - name: Render the sample book and its editions
+        working-directory: examples/side-quest
+        run: quirework publish build
+
+      - name: Stage the renders
+        run: python3 site/scripts/stage-renders
+
+      - name: Build the site
+        working-directory: site
+        run: hugo --panicOnWarning
+
+      # Hugo skips a mount whose source is missing, so a site built without
+      # the renders would pass. This refuses it.
+      - name: Check the site carries every edition
+        working-directory: site/public/side-quest
+        run: |
+          for page in book/index.html poems/index.html \
+            young-readers/index.html six-pager/memo.html; do
+            test -f "$page" || { echo "missing: $page"; exit 1; }
+          done
+
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: site
+          path: site/public
+          if-no-files-found: error
+          retention-days: 7
+
+  deploy:
+    needs: build
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    # The Cloudflare secrets live in this environment, which only main may
+    # deploy from.
+    environment: production
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          sparse-checkout: site/wrangler.jsonc
+          sparse-checkout-cone-mode: false
+
+      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          name: site
+          path: site/public
+
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: "22"
+
+      - name: Deploy
+        working-directory: site
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+        run: npx --yes "wrangler@${WRANGLER_VERSION}" deploy

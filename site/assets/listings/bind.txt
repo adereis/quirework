@@ -1,0 +1,14 @@
+$ quirework spec notes bind --slug the-name
+
+@bind  (4)
+------------------------------------------------------------
+  manuscript/sections/_marks/the-name.md:14  [sec-the-name]
+    (the-name)  [trail ×6]
+  variants/poems/_marks/the-name.md:43  [sec-the-name]
+    (the-name)  [trail ×6]
+  variants/six-pager/_marks/memo.md:67  [sec-otto]
+    (the-name)  [trail ×6]
+  variants/young-readers/_marks/the-name.md:16  [sec-the-name]
+    (the-name)  [trail ×6]
+
+total: 4 mark(s) across 1 kind(s)

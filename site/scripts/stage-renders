@@ -1,0 +1,108 @@
+#!/usr/bin/env python3
+"""Stage the sample book's renders for the site, under site/renders/.
+
+The deploy renders Side Quest with `quirework publish build`, and this
+copies each edition's output into renders/EDITION/, which hugo.toml mounts
+at /side-quest/EDITION/. Nothing staged here is committed: the renders are
+made fresh for every deploy, so the site never serves an old one.
+
+Every HTML page gets a notice that the book is fiction, and a robots tag
+that keeps it out of search results, because a reader can land on any
+chapter without passing the examples page that says so. The PDF, EPUB and
+Word files are copied as rendered, under a name that says which edition
+they are, so that two downloads never land in one folder as the same
+file. Quarto's pages never link to them, so the new names break nothing.
+
+A missing edition or format stops the script before anything is staged. A
+site that links to a render it does not carry is the failure this exists
+to prevent.
+"""
+
+import re
+import shutil
+import sys
+from pathlib import Path
+
+SITE = Path(__file__).resolve().parent.parent
+BOOK = SITE.parent / "examples" / "side-quest"
+OUT = SITE / "renders"
+
+BOOK_FILES = ["index.html", "Side-Quest.pdf", "Side-Quest.epub", "Side-Quest.docx"]
+
+# Each edition: where `publish build` puts it, and the files the site
+# links to, which must all be there.
+EDITIONS = {
+    "book": ("build/book/_site", BOOK_FILES),
+    "poems": ("build/variants/poems/book/_site", BOOK_FILES),
+    "young-readers": ("build/variants/young-readers/book/_site", BOOK_FILES),
+    "six-pager": ("build/variants/six-pager/book/_site", ["memo.html", "memo.pdf"]),
+}
+
+DOWNLOADS = (".pdf", ".epub", ".docx")
+
+
+def download_name(edition: str, name: str) -> str:
+    """The name a download is served under: the book's, then the edition's."""
+    stem = "Side-Quest" if edition == "book" else f"Side-Quest-{edition}"
+    return stem + Path(name).suffix
+
+
+HEAD = (
+    '<meta name="robots" content="noindex">\n'
+    '<link rel="stylesheet" href="/side-quest/notice.css">\n'
+)
+
+NOTICE = (
+    '<div class="qw-sample-notice" role="note">'
+    "<strong>Side Quest is fiction.</strong> It is a sample book, invented "
+    'to exercise <a href="/">Quirework</a>. Its author and its story do not '
+    'exist. <a href="/examples/#side-quest">About the sample</a>'
+    "</div>\n"
+)
+
+BODY = re.compile(r"<body\b[^>]*>")
+
+
+def mark(page: Path) -> None:
+    """Add the notice and the robots tag to one page, or refuse it."""
+    html = page.read_text(encoding="utf-8")
+    body = BODY.search(html)
+    if html.count("</head>") != 1 or body is None:
+        sys.exit(f"stage-renders: {page} has no single <head> and <body> to mark")
+    html = html[: body.end()] + "\n" + NOTICE + html[body.end() :]
+    html = html.replace("</head>", HEAD + "</head>", 1)
+    page.write_text(html, encoding="utf-8")
+
+
+def main() -> int:
+    sources = {}
+    for edition, (where, files) in EDITIONS.items():
+        source = BOOK / where
+        missing = [name for name in files if not (source / name).is_file()]
+        if missing:
+            sys.exit(
+                f"stage-renders: {edition} lacks {', '.join(missing)} in "
+                f"{source}; render the book first "
+                "(cd examples/side-quest && quirework publish build)"
+            )
+        sources[edition] = source
+
+    if OUT.exists():
+        shutil.rmtree(OUT)
+    for edition, source in sources.items():
+        target = OUT / edition
+        shutil.copytree(source, target)
+        pages = sorted(target.rglob("*.html"))
+        for page in pages:
+            mark(page)
+        downloads = sorted(p for p in target.iterdir() if p.suffix in DOWNLOADS)
+        for download in downloads:
+            download.rename(target / download_name(edition, download.name))
+        names = ", ".join(download_name(edition, d.name) for d in downloads)
+        count = f"{len(pages)} page" + ("" if len(pages) == 1 else "s")
+        print(f"staged {edition}: {count}; {names}")
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())

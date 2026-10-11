@@ -1,0 +1,14 @@
+<header class="site-header">
+  <div class="frame site-header-inner">
+    <a class="wordmark" href="{{ "/" | relURL }}"{{ if .IsHome }} aria-current="page"{{ end }}>Quirework</a>
+    <nav aria-label="Site">
+      <ul>
+        {{ $here := . }}
+        {{ range site.Menus.main }}
+          <li><a href="{{ .URL }}"{{ if $here.IsMenuCurrent "main" . }} aria-current="page"{{ end }}>{{ .Name }}</a></li>
+        {{ end }}
+        <li><a href="{{ site.Params.repo }}">Source</a></li>
+      </ul>
+    </nav>
+  </div>
+</header>

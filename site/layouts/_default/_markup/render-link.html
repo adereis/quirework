@@ -1,0 +1,11 @@
+{{- /* A destination written `repo:PATH` is a file in the Quirework
+       repository, linked on GitHub; `repo:PATH/` is a directory there.
+       The repository's address is written once, in hugo.toml. */ -}}
+{{- $dest := .Destination -}}
+{{- if hasPrefix $dest "repo:" -}}
+  {{- $path := strings.TrimPrefix "repo:" $dest -}}
+  {{- $kind := cond (hasSuffix $path "/") "tree" "blob" -}}
+  {{- $dest = printf "%s/%s/%s/%s" site.Params.repo $kind site.Params.branch (strings.TrimSuffix "/" $path) -}}
+{{- end -}}
+<a href="{{ $dest | safeURL }}"{{ with .Title }} title="{{ . }}"{{ end }}>{{ .Text | safeHTML }}</a>
+{{- /* No trailing newline, or a space appears before punctuation. */ -}}

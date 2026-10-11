@@ -1,0 +1,10 @@
+# Hugo build output and caches.
+/public/
+/resources/
+.hugo_build.lock
+
+# The sample book's renders, staged for each deploy, never committed.
+/renders/
+
+# What `wrangler dev` keeps between local runs.
+/.wrangler/

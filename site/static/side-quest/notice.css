@@ -1,0 +1,19 @@
+/* The notice scripts/stage-renders puts at the top of every page of the
+   sample book's renders: Side Quest is fiction. Quarto styles the rest of
+   the page; this styles only the notice, in the site's paper and ink. */
+
+.qw-sample-notice {
+  margin: 0;
+  padding: 0.6rem 1rem;
+  border-bottom: 1px solid #e4dccd;
+  background: #f2ece1;
+  color: #1c1815;
+  font: 0.95rem/1.45 Spectral, Georgia, "Iowan Old Style", serif;
+  text-align: center;
+}
+
+.qw-sample-notice a {
+  color: inherit;
+  text-decoration: underline;
+  text-underline-offset: 0.18em;
+}

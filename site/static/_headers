@@ -1,0 +1,43 @@
+# Response headers for every asset the Worker serves. Workers static
+# assets read this file from the output directory and do not serve it.
+#
+# The policy allows only this site's own files, plus the Web Analytics
+# beacon that Cloudflare injects. The layouts and the diagrams have no
+# inline styles or scripts: an inline SVG is styled by classes from the
+# stylesheet, never by a <style> element or a style= attribute. Keep it
+# that way, or the policy blocks them in production while `hugo server`,
+# which sends no headers, shows them working.
+/*
+  Content-Security-Policy: default-src 'none'; script-src 'self' https://static.cloudflareinsights.com; connect-src 'self' https://cloudflareinsights.com; style-src 'self'; font-src 'self'; img-src 'self'; base-uri 'none'; form-action 'none'; frame-ancestors 'none'
+  X-Content-Type-Options: nosniff
+  X-Frame-Options: DENY
+  Referrer-Policy: strict-origin-when-cross-origin
+  Permissions-Policy: camera=(), microphone=(), geolocation=(), browsing-topics=()
+  Cross-Origin-Opener-Policy: same-origin
+
+# The sample book's renders are Quarto's pages, which need inline scripts
+# and styles, so its path drops the site's policy for a looser one: still
+# only this site's own files, but inline code allowed. The pages hold no
+# form and take no input. The book is fiction, so search engines are told
+# not to index it. Tested with `wrangler dev`: a block that detaches a
+# header and sets it again serves only the new value.
+/side-quest/*
+  ! Content-Security-Policy
+  Content-Security-Policy: default-src 'none'; script-src 'self' 'unsafe-inline' https://static.cloudflareinsights.com; connect-src 'self' https://cloudflareinsights.com; style-src 'self' 'unsafe-inline'; font-src 'self' data:; img-src 'self' data:; base-uri 'none'; form-action 'none'; frame-ancestors 'none'
+  X-Robots-Tag: noindex
+
+# A download is served with no policy at all, since a policy on the file
+# itself can break a browser's built-in PDF viewer.
+/side-quest/*.pdf
+  ! Content-Security-Policy
+/side-quest/*.epub
+  ! Content-Security-Policy
+/side-quest/*.docx
+  ! Content-Security-Policy
+
+# The stylesheet's and the images' names carry a hash of their contents,
+# so a changed file is a new URL and the old one never needs revalidating.
+/css/*
+  Cache-Control: public, max-age=31536000, immutable
+/images/*
+  Cache-Control: public, max-age=31536000, immutable

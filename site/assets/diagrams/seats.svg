@@ -1,0 +1,48 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 880 340" role="img" aria-labelledby="seats-title seats-desc">
+  <title id="seats-title">A run, from plan to receipts</title>
+  <desc id="seats-desc">Your companion writes a run plan. The plan names each seat's harness and model, its effort, and what it may see and use, and is frozen and hashed. The seats can be models from different makers, through different harnesses, or a person. Their receipts record the model actually served and what was enforced, and go back to the companion.</desc>
+  <defs>
+    <marker id="seats-arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path class="dg-arrow" d="M0 0 L10 5 L0 10 z"/>
+    </marker>
+  </defs>
+
+  <rect class="dg-box" x="20" y="120" width="170" height="84" rx="3"/>
+  <text class="dg-text dg-label" x="40" y="156">Your</text>
+  <text class="dg-text dg-label" x="40" y="180">companion</text>
+
+  <line class="dg-line" x1="190" y1="150" x2="246" y2="150" marker-end="url(#seats-arrow)"/>
+
+  <rect class="dg-soft" x="250" y="40" width="200" height="168" rx="3"/>
+  <text class="dg-text dg-label" x="270" y="72">A run plan</text>
+  <text class="dg-text dg-small" x="270" y="98">Each seat names its</text>
+  <text class="dg-text dg-small" x="270" y="117">harness and model,</text>
+  <text class="dg-text dg-small" x="270" y="136">its effort, and what</text>
+  <text class="dg-text dg-small" x="270" y="155">it may see and use.</text>
+  <text class="dg-text dg-small dg-faint dg-it" x="270" y="188">Frozen and hashed</text>
+
+  <path class="dg-line" d="M450 90 C485 90 485 62 516 62" marker-end="url(#seats-arrow)"/>
+  <path class="dg-line" d="M450 124 C485 124 485 150 516 150" marker-end="url(#seats-arrow)"/>
+  <path class="dg-line" d="M450 158 C485 158 485 238 516 238" marker-end="url(#seats-arrow)"/>
+
+  <rect class="dg-box" x="520" y="30" width="340" height="64" rx="3"/>
+  <text class="dg-text dg-head" x="540" y="57">A model from one maker</text>
+  <text class="dg-text dg-small dg-faint" x="540" y="79">confined by the operating system</text>
+
+  <rect class="dg-box" x="520" y="118" width="340" height="64" rx="3"/>
+  <text class="dg-text dg-head" x="540" y="145">A model from another, by another harness</text>
+  <text class="dg-text dg-small dg-faint" x="540" y="167">where only an audit is possible, it says so</text>
+
+  <rect class="dg-box" x="520" y="206" width="340" height="64" rx="3"/>
+  <text class="dg-text dg-head" x="540" y="233">A person</text>
+  <text class="dg-text dg-small dg-faint" x="540" y="255">described as a person, never as a model</text>
+
+  <path class="dg-line" d="M690 270 V292 H454" marker-end="url(#seats-arrow)"/>
+
+  <rect class="dg-box" x="250" y="250" width="200" height="76" rx="3"/>
+  <text class="dg-text dg-head" x="270" y="276">Receipts</text>
+  <text class="dg-text dg-small" x="270" y="297">the model actually served,</text>
+  <text class="dg-text dg-small" x="270" y="315">and what was enforced</text>
+
+  <path class="dg-line" d="M250 290 H105 V208" marker-end="url(#seats-arrow)"/>
+</svg>

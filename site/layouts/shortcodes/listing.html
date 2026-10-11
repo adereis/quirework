@@ -1,0 +1,49 @@
+{{- /* Real command output, captured from the examples by
+       scripts/capture-listings into assets/listings/NAME.txt. A line
+       that starts with "$ " is the command. `lines="1-14,20-22"` shows
+       an excerpt, and every gap is marked, so an excerpt never reads as
+       the whole output. */ -}}
+{{- $name := .Get "name" -}}
+{{- $res := resources.Get (printf "listings/%s.txt" $name) -}}
+{{- if not $res -}}
+  {{- errorf "listing %q: no assets/listings/%s.txt; run scripts/capture-listings (%s)" $name $name .Position -}}
+{{- end -}}
+{{- $lines := split (strings.TrimRight "\n" $res.Content) "\n" -}}
+{{- $total := len $lines -}}
+{{- $keep := slice -}}
+{{- with .Get "lines" -}}
+  {{- range split . "," -}}
+    {{- $parts := split (trim . " ") "-" -}}
+    {{- $a := int (index $parts 0) -}}
+    {{- $b := $a -}}
+    {{- if gt (len $parts) 1 -}}{{- $b = int (index $parts 1) -}}{{- end -}}
+    {{- if or (lt $a 1) (gt $b $total) (gt $a $b) -}}
+      {{- errorf "listing %q: lines %d-%d outside 1-%d (%s)" $name $a $b $total $.Position -}}
+    {{- end -}}
+    {{- range seq $a $b -}}{{- $keep = $keep | append . -}}{{- end -}}
+  {{- end -}}
+{{- else -}}
+  {{- range seq $total -}}{{- $keep = $keep | append . -}}{{- end -}}
+{{- end -}}
+<figure class="listing{{ with .Get "class" }} {{ . }}{{ end }}">
+<pre><code>
+{{- $prev := 0 -}}
+{{- range $n := $keep -}}
+  {{- if or (and (eq $prev 0) (gt $n 1)) (and (gt $prev 0) (gt $n (add $prev 1))) -}}
+    <span class="elided">lines left out</span>{{ "\n" }}
+  {{- end -}}
+  {{- $line := index $lines (sub $n 1) -}}
+  {{- if hasPrefix $line "$ " -}}
+    <span class="cmd"><span class="prompt" aria-hidden="true">$ </span>{{ strings.TrimPrefix "$ " $line }}</span>
+  {{- else -}}
+    {{ $line }}
+  {{- end -}}
+  {{ "\n" }}
+  {{- $prev = $n -}}
+{{- end -}}
+{{- if lt $prev $total -}}<span class="elided">lines left out</span>{{ "\n" }}{{- end -}}
+</code></pre>
+{{- with .Get "caption" }}
+<figcaption>{{ . | $.Page.RenderString }}</figcaption>
+{{- end }}
+</figure>

@@ -1,0 +1,70 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 880 452" role="img" aria-labelledby="loop-title loop-desc">
+  <title id="loop-title">A session, in three lanes</title>
+  <desc id="loop-desc">You name the aim. Your companion reads the guide and the procedure, loads the spec and the notes, drafts or researches, and convenes other models, each with its own packet, which return evidence with receipts. The companion weighs that evidence against the spec, runs the checks, and hands you the change, the evidence and the decision that is yours.</desc>
+  <defs>
+    <marker id="loop-arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path class="dg-arrow" d="M0 0 L10 5 L0 10 z"/>
+    </marker>
+  </defs>
+
+  <text class="dg-text dg-label" x="20" y="32">You</text>
+  <text class="dg-text dg-label" x="228" y="32">Your companion</text>
+  <text class="dg-text dg-label" x="648" y="32">Other models</text>
+  <line class="dg-line" x1="20" y1="48" x2="860" y2="48"/>
+  <line class="dg-dash" x1="208" y1="58" x2="208" y2="440"/>
+  <line class="dg-dash" x1="628" y1="58" x2="628" y2="440"/>
+
+  <!-- 1: you name the aim -->
+  <circle class="dg-ink" cx="34" cy="94" r="12"/>
+  <text class="dg-text dg-small dg-on-ink" x="34" y="99" text-anchor="middle" font-weight="700">1</text>
+  <text class="dg-text" x="54" y="90">The aim</text>
+  <text class="dg-text" x="54" y="110">and the scope</text>
+  <line class="dg-line" x1="160" y1="94" x2="218" y2="94" marker-end="url(#loop-arrow)"/>
+
+  <!-- 2..4: the companion's own work -->
+  <circle class="dg-ink" cx="242" cy="94" r="12"/>
+  <text class="dg-text dg-small dg-on-ink" x="242" y="99" text-anchor="middle" font-weight="700">2</text>
+  <text class="dg-text" x="264" y="99">Reads the guide and the procedure</text>
+
+  <circle class="dg-ink" cx="242" cy="148" r="12"/>
+  <text class="dg-text dg-small dg-on-ink" x="242" y="153" text-anchor="middle" font-weight="700">3</text>
+  <text class="dg-text" x="264" y="144">Loads the spec, where each commitment</text>
+  <text class="dg-text" x="264" y="164">is carried, and the chapter’s notes</text>
+
+  <circle class="dg-ink" cx="242" cy="208" r="12"/>
+  <text class="dg-text dg-small dg-on-ink" x="242" y="213" text-anchor="middle" font-weight="700">4</text>
+  <text class="dg-text" x="264" y="213">Drafts, revises or researches</text>
+
+  <!-- 5: other models -->
+  <circle class="dg-ink" cx="242" cy="262" r="12"/>
+  <text class="dg-text dg-small dg-on-ink" x="242" y="267" text-anchor="middle" font-weight="700">5</text>
+  <text class="dg-text" x="264" y="267">Convenes other views</text>
+  <line class="dg-line" x1="484" y1="262" x2="640" y2="262" marker-end="url(#loop-arrow)"/>
+  <text class="dg-text dg-small dg-faint" x="494" y="252">a frozen packet each</text>
+
+  <rect class="dg-box" x="650" y="232" width="62" height="40" rx="3"/>
+  <rect class="dg-box" x="724" y="232" width="62" height="40" rx="3"/>
+  <rect class="dg-box" x="798" y="232" width="62" height="40" rx="3"/>
+  <text class="dg-text dg-small" x="681" y="257" text-anchor="middle">seat</text>
+  <text class="dg-text dg-small" x="755" y="257" text-anchor="middle">seat</text>
+  <text class="dg-text dg-small" x="829" y="257" text-anchor="middle">seat</text>
+  <text class="dg-text dg-small dg-faint" x="650" y="296">each sees only what</text>
+  <text class="dg-text dg-small dg-faint" x="650" y="314">the procedure allows</text>
+
+  <line class="dg-line" x1="640" y1="336" x2="484" y2="336" marker-end="url(#loop-arrow)"/>
+  <text class="dg-text dg-small dg-faint" x="494" y="326">reports and receipts</text>
+
+  <!-- 6..7 -->
+  <circle class="dg-ink" cx="242" cy="336" r="12"/>
+  <text class="dg-text dg-small dg-on-ink" x="242" y="341" text-anchor="middle" font-weight="700">6</text>
+  <text class="dg-text" x="264" y="341">Weighs it against the spec</text>
+
+  <circle class="dg-ink" cx="242" cy="392" r="12"/>
+  <text class="dg-text dg-small dg-on-ink" x="242" y="397" text-anchor="middle" font-weight="700">7</text>
+  <text class="dg-text" x="264" y="397">Runs the checks, and returns</text>
+  <text class="dg-text" x="264" y="417">the change and the evidence</text>
+  <line class="dg-line" x1="226" y1="404" x2="164" y2="404" marker-end="url(#loop-arrow)"/>
+
+  <rect class="dg-box" x="20" y="380" width="138" height="48" rx="3"/>
+  <text class="dg-text dg-label" x="89" y="410" text-anchor="middle">You decide</text>
+</svg>

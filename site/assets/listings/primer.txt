@@ -1,0 +1,320 @@
+$ quirework spec notes --primer
+spec — manuscript/sections/_spec.md (shared; 12 section(s); read it before the marks):
+  #side-quest                      The side quest is the subject  [trail ×2]
+  #claims-in-sentences             Claims that lived only in sentences  [trail ×4]
+  #two-shops                       Two shops, one habit  [trail ×3]
+  #notes-escalate                  The notes escalate  [trail ×3]
+  #worth-what-you-check            An assistant is worth what you can check  [trail ×5]
+  #the-name                        The name came from "quire"  [trail ×6]
+  #no-villains                     No villains  [trail ×3]
+  #em-never-asked                  Em is never asked  [trail ×4]
+  #em-dashes-off-the-page          Em's dashes stay off the page  [trail ×2]
+  #people-who-ask                  The people who ask about the book  [trail ×9]
+  #not-the-book-it-was-built-for   The tool is not the book it was built for  [trail ×4]
+  #written-with-the-tool           Written with the tool it is about  [trail ×5]
+  12 of 12 section(s) have a trail of the sessions that shaped them: quirework spec trail SLUG
+
+manuscript/sections/preface.qmd — Preface  (4)
+  marks: manuscript/sections/_marks/preface.md
+------------------------------------------------------------
+  L8    @guidance  shorter than a chapter; admits the book is written with the tool, and says once, in one flat sentence, that the names are changed and everything that deserved it is exaggerated
+  L11   @guidance  "I fixed most of them" stays: Cy stands behind the book not claiming to be fully consistent
+  L13   @bind(written-with-the-tool)  [trail ×5]
+  L14   @bind(side-quest)  [trail ×2]
+
+manuscript/sections/hows-the-book.qmd — How's the Book?  (4)
+  marks: manuscript/sections/_marks/hows-the-book.md
+------------------------------------------------------------
+  L8    @guidance  opens part one, The Book That Disagreed
+  L9    @guidance  Cy's answers to Hedda are the book's spine, spread over three chapters: this one gets only the first, "chapter four", and stops there. The second belongs to Index Cards, the demo to The Demo; Red's README belongs to Nine Hundred Lines
+  L13   @bind(people-who-ask)  [trail ×9]
+  L14   @bind(side-quest)  [trail ×2]
+
+manuscript/sections/two-shops.qmd — Two Shops  (4)
+  marks: manuscript/sections/_marks/two-shops.md
+------------------------------------------------------------
+  L8    @guidance  ends where the contradiction stops being about two shops and starts being about where the claims live, and does not say that last part out loud; Index Cards does
+  L11   @guidance  the shops are named only by their chapters: the shop in chapter four and the shop in chapter nine
+  L13   @bind(two-shops)  [trail ×3]
+  L14   @bind(claims-in-sentences)  [trail ×4]
+
+manuscript/sections/index-cards.qmd — Index Cards  (9)
+  marks: manuscript/sections/_marks/index-cards.md
+------------------------------------------------------------
+  L8    @guidance  it has the most to carry; closes part one
+  L9    @guidance  Cy's second answer to Hedda, "I'm building something for chapter four", lands here, when the script starts
+  L11   @guidance  the first chapter to say out loud that the trouble is where the claims live, not the two shops; Two Shops only arrives there
+  L14   @guidance  says the thesis once, plainly, near the end: the book never failed at the sentences; its claims lived only in sentences. It does not say it again
+  L17   @guidance  the script stays unnamed here; the name comes later
+  L18   @guidance  the script is seen working once: its first complaint on the first Sunday, quoted, one line, the date chapter eight had moved, and nothing after it explains it
+  L21   @bind(notes-escalate)  [trail ×3]
+  L22   @bind(claims-in-sentences)  [trail ×4]
+  L23   @bind(people-who-ask)  [trail ×9]
+
+manuscript/sections/otto.qmd — Otto  (9)
+  marks: manuscript/sections/_marks/otto.md
+------------------------------------------------------------
+  L8    @guidance  opens part two, The Side Quest; Otto gets no pronoun, and never "it"
+  L10   @guidance  short on purpose, at most about seven hundred and fifty words: a chapter about a sentence with no papers carries no padding of its own
+  L13   @guidance  Cy's regular-expression check is said plainly: tried on lines it should catch and lines it should not before it touches anything
+  L16   @guidance  the Tuesday search names its two places once, the trade directories and the list of printers fined for anything that century, and the emptiness after them stays flat
+  L19   @guidance  leaves the name to The Name and Em to Em
+  L20   @guidance  no script line: part two starts with Otto, and Otto carries it. Steps back into part one's time, during the footnote war, in one clause, and moves on
+  L23   @guidance  never raises whether Quirework could have caught the compositor
+  L25   @bind(worth-what-you-check)  [trail ×5]
+  L26   @bind(no-villains)  [trail ×3]
+
+manuscript/sections/the-name.qmd — The Name  (6)
+  marks: manuscript/sections/_marks/the-name.md
+------------------------------------------------------------
+  L8    @guidance  the irony of who named the tool is left for the reader to find: "quire" is the page's last line and the word Cy types, Otto only finishes it, and Cy likes the result better than anything on the page, and nothing after it explains the joke. "For a year I told people Otto named it. Then I found the page." comes right after Otto's word, once, and nothing explains it
+  L14   @bind(the-name)  [trail ×6]
+  L15   @guidance  the escalation names its last step: the notes become a tool with a name, a repository, a README and a version number, and one user. The README starts a page long; its growth is Nine Hundred Lines'
+  L19   @bind(notes-escalate)  [trail ×3]
+  L20   @guidance  Cy's day job is said once in the book, in Index Cards, and not again here
+  L22   @guidance  the evening of names is short: both blind readers wanted to get on to the word. It still ends on "quire", which carries the name and is not cut
+
+manuscript/sections/nine-hundred-lines.qmd — Nine Hundred Lines  (4)
+  marks: manuscript/sections/_marks/nine-hundred-lines.md
+------------------------------------------------------------
+  L8    @guidance  closes part two
+  L9    @guidance  Red's half of people-who-ask: the outline Cy meant to send, the README Cy sent, and Red's one line. Hedda stays out; her third answer is The Demo's
+  L12   @guidance  ends on Getting Started, and does not say what Cy does next
+  L14   @bind(people-who-ask)  [trail ×9]
+
+manuscript/sections/em.qmd — Em  (7)
+  marks: manuscript/sections/_marks/em.md
+------------------------------------------------------------
+  L8    @guidance  opens part three, The Book That Got Finished; Em gets no pronoun; ends with the question still unasked
+  L10   @guidance  Em's question about checking for exactly three of something, "I didn't write that check" and "I've thought about why" stay unexplained, each on its own line
+  L13   @guidance  Hedda and Red stay out; Hedda's third answer is The Demo's
+  L15   @guidance  the order is said plainly, the tool first and the README after, and the joke that everyone does it in that order is not explained
+  L18   @bind(em-never-asked)  [trail ×4]
+  L19   @bind(em-dashes-off-the-page)  [trail ×2]
+  L20   @bind(no-villains)  [trail ×3]
+
+manuscript/sections/the-demo.qmd — The Demo  (6)
+  marks: manuscript/sections/_marks/the-demo.md
+------------------------------------------------------------
+  L8    @guidance  Cy's third answer to Hedda, the live demo on her monitor
+  L9    @guidance  carries claims-in-sentences by showing it, a claim on Hedda's monitor with the sentences it lives in under it, and never says it; Index Cards already did
+  L12   @guidance  says nothing of how the book ends: the answer is "no", and the chapter stops at Hedda's line
+  L24   @guidance  two blind readers checked this screen against the prose and both found it wrong: every sentence on it says what its label says it does, and the prose's counts match the drawing
+  L27   @bind(people-who-ask)  [trail ×9]
+  L28   @bind(claims-in-sentences)  [trail ×4]
+
+manuscript/sections/full-stop.qmd — Full Stop  (9)
+  marks: manuscript/sections/_marks/full-stop.md
+------------------------------------------------------------
+  L8    @guidance  at most about seven hundred words, and only if the scene earns them; closes the book; the memoir stops here and Full Stop does not
+  L11   @guidance  one scene, the first night's run on this book, after "how I found out": the tool flags Full Stop's "eleven chapters" and Cy writes it a note. The admission that the book was written with the tool comes out of it
+  L15   @guidance  a list of endings is not a chapter: everything else stays a short line around the scene
+  L17   @guidance  says the spec's sentence once, that a tool built to avoid a book can still be how a book gets finished, just not the book it was built for; no explanation, no moral
+  L20   @guidance  never ends on the words "full stop": everyone is waiting for it. It ends on Hedda writing down "Which one?"
+  L23   @bind(not-the-book-it-was-built-for)  [trail ×4]
+  L24   @bind(side-quest)  [trail ×2]
+  L25   @bind(people-who-ask)  [trail ×9]
+  L26   @bind(written-with-the-tool)  [trail ×5]
+
+manuscript/sections/back-cover.qmd — Back Cover  (3)
+  marks: manuscript/sections/_marks/back-cover.md
+------------------------------------------------------------
+  L8    @guidance  the back cover, after Full Stop, unnumbered and out of the contents. Made by the back-cover roundtable on 2026-10-09, provenance/roundtables/back-cover/: Haiku's final version, with Gemini-Flash's "When they ran it on the book they wrote instead" and Cy's "two of which disagreed". The text is Cy's choice; change it only when Cy asks
+  L14   @guidance  a blurb of about a hundred and twenty words and one author line that says they/them by using it. No comparable titles, no endorsements, no real books or people
+  L17   @guidance  the blurb comes from the book. The author line is the one place the facts come from Cy: "a software company" is true and is not in the book, and stays
+
+variants/poems/em.qmd — Em  (5)
+  marks: variants/poems/_marks/em.md
+------------------------------------------------------------
+  L9    @guidance  triplets in loose iambic pentameter around exactly one limerick, which carries the month of counting: the words moved, the dashes did not. Opens part three. Em gets no pronoun: every "they" is the messages, every "we" is Em and Cy. "It could.", "I didn't write that check." and "I've thought about why." stand alone, one line each, unrhymed, unexplained; "I still haven't asked." stands alone the same way at the end, the question still unasked. The order, the tool first and the README after, is said and not explained. The only quotation is Cy's own first draft. Hedda and Red stay out
+  L19   @guidance  left out: nothing of substance. Compressed: "a two-word message, which is harder than it sounds" is split across the limerick's last line and the next triplet; "I do this for a living" is "This is my livelihood"; "a long time ago" is "long ago, I let be"
+  L24   @bind(em-never-asked)  [trail ×4]
+  L25   @bind(em-dashes-off-the-page)  [trail ×2]
+  L26   @bind(no-villains)  [trail ×3]
+
+variants/poems/full-stop.qmd — Full Stop  (6)
+  marks: variants/poems/_marks/full-stop.md
+------------------------------------------------------------
+  L9    @guidance  two Shakespearean sonnets and a coda, answering the preface's sonnet: "As the preface said" and "I fixed most of them" bring back its admission. Closes the book. The second sonnet's couplet is the spec's sentence, word for word and unrhymed, the one place the form gives way, said once with nothing around it. The coda keeps the sonnets' quatrains and ends on the chapter's own bare lines: "Which one?", and Hedda writing it down. Never ends on the words "full stop"
+  L17   @guidance  left out: nothing of the chapter's. "Little to show" is the chapter's "There wasn't much of it yet"
+  L20   @bind(not-the-book-it-was-built-for)  [trail ×4]
+  L21   @bind(side-quest)  [trail ×2]
+  L22   @bind(people-who-ask)  [trail ×9]
+  L23   @bind(written-with-the-tool)  [trail ×5]
+
+variants/poems/hows-the-book.qmd — How's the Book?  (4)
+  marks: variants/poems/_marks/hows-the-book.md
+------------------------------------------------------------
+  L9    @guidance  a villanelle in iambic heptameter, its two refrains the question and the first answer, "Chapter four", and no other answer. Opens part one. Hedda, Red and Full Stop are introduced here, once. "Still the dash one?" is quoted word for word. Ends on the refrains, as the chapter ends on the question and the answer
+  L14   @guidance  left out: the reorganization, the airport gate, the face strangers make at "punctuation", the pilcrow and the shelf of comma books, the answers tried on the walk to her office, and selecting the manuscript to count its words. A villanelle has nineteen lines, and these are the chapter's color, not its spine. Red is not called an editor here: Nine Hundred Lines says so, once
+  L21   @bind(people-who-ask)  [trail ×9]
+  L22   @bind(side-quest)  [trail ×2]
+
+variants/poems/index-cards.qmd — Index Cards  (5)
+  marks: variants/poems/_marks/index-cards.md
+------------------------------------------------------------
+  L9    @guidance  ottava rima, closed by a coda of two couplets and a short last line, the chapter's own "It was still true." Closes part one. Its lines run long where the numbers and colors are kept whole. The script stays unnamed; its first complaint is quoted exactly, once, on a line of its own, and nothing after it explains it. Cy's second answer is quoted word for word and Hedda's line changes to "Book: ch. 4 (tool)". The day job is said once. The thesis is said once, plainly, near the end, and not again
+  L17   @guidance  left out: the front of the first card, "the shop in chapter four made the dash fashionable", since the spreadsheet's columns already say what a card held; and that the script reported everything else along with the two shops. "Black and white" is the page's, not the inks'
+  L23   @bind(notes-escalate)  [trail ×3]
+  L24   @bind(claims-in-sentences)  [trail ×4]
+  L25   @bind(people-who-ask)  [trail ×9]
+
+variants/poems/nine-hundred-lines.qmd — Nine Hundred Lines  (3)
+  marks: variants/poems/_marks/nine-hundred-lines.md
+------------------------------------------------------------
+  L9    @guidance  In Memoriam stanzas, abba in iambic tetrameter, closes part two. The one poem that says Red is Cy's editor at a small press. Red's half of people-who-ask: the outline Cy meant to send, the README Cy sent, and Red's one line, quoted word for word. Line six hundred and twelve comes months later, as the chapter has it. "It was documentation, which is my job, which is the problem." is kept word for word on a line of its own, and the poem ends on the chapter's two bare lines, Getting Started last. Hedda stays out, and nothing says what Cy does next
+  L18   @guidance  left out: "I answered every one", "not an answer", and "I did not have to" as its own sentence, which "No need" carries. The config file is the chapter's configuration file, shortened for the metre
+  L22   @bind(people-who-ask)  [trail ×9]
+
+variants/poems/otto.qmd — Otto  (4)
+  marks: variants/poems/_marks/otto.md
+------------------------------------------------------------
+  L9    @guidance  heroic couplets, with one triplet and one alexandrine, as Dryden allowed. Opens part two. Otto gets no pronoun and is never "it": every line that wanted one was rewritten until Otto fit, and the pattern is "the pattern" where an "it" could be read as Otto. The compositor's line is quoted exactly, capitals and all, and breaks the metre. The two places searched are both named, and the poem never raises whether Quirework could have caught the compositor. Ends on the chapter's own last line
+  L17   @guidance  left out: the voice Cy imagined for the compositor, which was tired, since the couplet it needed said more than the chapter does. "In two emails, at work" folds in the people who stopped by Cy's desk for something else
+  L21   @bind(worth-what-you-check)  [trail ×5]
+  L22   @bind(no-villains)  [trail ×3]
+
+variants/poems/preface.qmd — Preface  (3)
+  marks: variants/poems/_marks/preface.md
+------------------------------------------------------------
+  L9    @guidance  a Shakespearean sonnet, which Full Stop's sonnets answer. Keeps every admission: written with the tool, demonstration or confession undecided, "I fixed most of them", the invitation to find what it missed, and the names changed in one flat line. Left out: nothing the preface says; it is already short enough to be a sonnet
+  L15   @bind(written-with-the-tool)  [trail ×5]
+  L16   @bind(side-quest)  [trail ×2]
+
+variants/poems/the-demo.qmd — The Demo  (4)
+  marks: variants/poems/_marks/the-demo.md
+------------------------------------------------------------
+  L9    @guidance  ballad stanzas in common metre, the third answer to Hedda, ending on "Book: demo." with nothing after it. The poem has no figure: the verse tells the screen, one claim at the top and its five places under it, three in red, and never says what that means. Quoted word for word: "Can I show you?", "Contradicts, but I like it," and "No,". Says nothing of how the book ends
+  L15   @guidance  left out: the book's figure of Hedda's screen, which a ballad cannot hold and the stanzas already tell; and the line numbers the figure shows. "How's the book?" stands for the chapter's "asked how the book was", her question in its usual words
+  L19   @bind(people-who-ask)  [trail ×9]
+  L20   @bind(claims-in-sentences)  [trail ×4]
+
+variants/poems/the-name.qmd — The Name  (6)
+  marks: variants/poems/_marks/the-name.md
+------------------------------------------------------------
+  L9    @guidance  anapestic couplets, loose as light verse allows, with one triplet where chapter four's consistency closes the morning. Otto gets no pronoun; "it" near Otto is always the word or the tool. The irony of who named the tool is left for the reader to find. The escalation names its last step, a name, a repository, a README and a version number, and ends on its one user. Cy's day job is not mentioned
+  L16   @guidance  left out: the month Cy had been meaning to put the script under version control, which the couplet about changes made at night already carries
+  L19   @guidance  the page is in pencil; its last line, at ten to two, is "quire", with the book's gloss word for word, and Cy types "quire", which Otto only finishes. The gloss is the book's line kept word for word, the end of a couplet, and runs longer than the metre; the spec does not ask for it word for word, so nothing exempts it. The year, "For a year I told people Otto named it. Then I found the page.", is the spec's words, asked for once and word for word, so it stands bare and unrhymed outside the metre, right after Otto's word, and nothing explains it. "I liked it better than anything on the page." is kept word for word as the end of a couplet, and nothing after it explains the joke
+  L30   @guidance  left out: "set aside", which "an evening for names" carries; "which is how two in the morning happens", which is "which is how it gets late", since ten to two and two follow at once. "Meaning to ask something else entirely" is "meaning something else"; "sounded like something that should already exist" is "sounded already made: an old word, not a new one", and "as far as I could find, it didn't. I checked." keeps the chapter's words, after the sounding, as the book has it, with "I checked the name" for the check. "Name" and "page" are the poem's one loose rhyme, taken so the line says what the chapter says. "I don't remember what I meant to ask" is "I don't recall, though", and "before I could think better of it" is "before I could think better and say no"
+  L43   @bind(the-name)  [trail ×6]
+  L44   @bind(notes-escalate)  [trail ×3]
+
+variants/poems/two-shops.qmd — Two Shops  (4)
+  marks: variants/poems/_marks/two-shops.md
+------------------------------------------------------------
+  L9    @guidance  terza rima, the rhyme handed from tercet to tercet and closed by the chapter's own last line. Its lines run long, often six beats, because the chapter's quotations and footnote numbers are kept whole. The shops stay unnamed and the rounds uncounted. Ends where the contradiction stops being about two shops, with chapters two, six and seven on the wall, and never says where the claims live
+  L16   @guidance  left out: the paragraph about the apprentices, the wedding guest nobody knows, the two footnotes' exact wording (their numbers stay), the new near-twin paragraph for each chapter in the happy week, and "chapter four" said to Hedda with something close to pleasure. Hedda is named once, in the count of rounds
+  L21   @bind(two-shops)  [trail ×3]
+  L22   @bind(claims-in-sentences)  [trail ×4]
+
+variants/six-pager/memo.qmd — How's the Book?  (32)
+  marks: variants/six-pager/_marks/memo.md
+------------------------------------------------------------
+  L12   @guidance  one narrative memo to Hedda, in Cy's first person, read in silence at the start of a meeting. She is "you", and the memo says only what she did and said, never what she thought. It proposes nothing and asks her for nothing. Six printed pages is a ceiling
+  L17   @guidance  opens with the preface's admissions: written with the tool, "I fixed most of them", the names changed and everything that deserved it exaggerated. Left out: demonstration or confession, and the invitation to find what the software missed
+  L21   @bind(written-with-the-tool)  [trail ×5]
+  L22   @bind(side-quest)  [trail ×2]
+  L26   @guidance  the first answer, and the document's line "Book: ch. 4". Left out: the week of the reorganization, the face strangers make at "punctuation", the pilcrow and the shelf of comma books, Red's praise for the eleven chapters, the answers Cy tried on the walk to her office, and selecting the whole manuscript to count its words. None of them is Hedda's, and the memo is
+  L32   @bind(people-who-ask)  [trail ×9]
+  L33   @bind(no-villains)  [trail ×3]
+  L37   @guidance  the rounds are said as the spec has them, each fix to one chapter breaking the other. Left out: the rewrites themselves and "helped popularize", chapter six on the wall, the red, blue and purple pencils, the shower, and making four vaguer about the date and nine about the street. The round count stays untold
+  L42   @bind(two-shops)  [trail ×3]
+  L46   @guidance  says the thesis once, plainly, as Index Cards does. Left out: two cards disagreeing in Cy's handwriting, and the year of keeping the spreadsheet
+  L49   @bind(notes-escalate)  [trail ×3]
+  L50   @bind(claims-in-sentences)  [trail ×4]
+  L51   @bind(people-who-ask)  [trail ×9]
+  L55   @guidance  Otto has no pronoun and is never "it". The Tuesday is a few weeks before the both-shops week; the asking is not dated. No "last week" for the cedilla: the memo comes after the book. Left out: the small jobs Otto did, reading the line aloud in the kitchen, the two emails and the people at Cy's desk, the colon pun, and "quirework" sounding like something that should already exist
+  L61   @guidance  "quire" is the page's last line and the word Cy types, and Otto only finishes it. "For a year I told people Otto named it. Then I found the page." follows Otto's word, as in the book, and nothing explains it
+  L65   @bind(worth-what-you-check)  [trail ×5]
+  L66   @bind(no-villains)  [trail ×3]
+  L67   @bind(the-name)  [trail ×6]
+  L68   @bind(notes-escalate)  [trail ×3]
+  L72   @guidance  Em has no pronoun. "I didn't write that check" and "I've thought about why" stand on their own lines, unexplained. Left out: how the README grew, section by section, and how Em's notes were ranked
+  L76   @bind(people-who-ask)  [trail ×9]
+  L77   @bind(em-never-asked)  [trail ×4]
+  L78   @bind(em-dashes-off-the-page)  [trail ×2]
+  L79   @bind(no-villains)  [trail ×3]
+  L83   @guidance  shows the claim and its sentences on her monitor in the book's own sentence about the screen, and does not say what it means. Ends on "Book: demo." Left out: the book's figure of the screen, which cannot sit where the scene needs it without leaving a third of a page blank and the memo over six pages
+  L88   @bind(people-who-ask)  [trail ×9]
+  L89   @bind(claims-in-sentences)  [trail ×4]
+  L93   @guidance  the book's ending, unchanged: the spec's sentence once, and "Which one?" with Hedda writing it down. Left out: the evenings going to the tool, the empty wall, and "I've stopped minding"
+  L97   @bind(not-the-book-it-was-built-for)  [trail ×4]
+  L98   @bind(written-with-the-tool)  [trail ×5]
+  L99   @bind(people-who-ask)  [trail ×9]
+  L100  @bind(side-quest)  [trail ×2]
+
+variants/young-readers/em.qmd — Em  (4)
+  marks: variants/young-readers/_marks/em.md
+------------------------------------------------------------
+  L9    @guidance  opens part three; Em gets no pronoun; the threads are the book's threads, not email, and Em works where Cy works, never "at the same company"; "I didn't write that check" and "I've thought about why" stand alone, unexplained; ends with the question still unasked
+  L14   @bind(em-never-asked)  [trail ×4]
+  L15   @bind(em-dashes-off-the-page)  [trail ×2]
+  L16   @bind(no-villains)  [trail ×3]
+
+variants/young-readers/full-stop.qmd — Full Stop  (5)
+  marks: variants/young-readers/_marks/full-stop.md
+------------------------------------------------------------
+  L9    @guidance  closes the book; the spec's sentence once, no moral; ends on Hedda writing down "Which one?"
+  L12   @bind(not-the-book-it-was-built-for)  [trail ×4]
+  L13   @bind(side-quest)  [trail ×2]
+  L14   @bind(people-who-ask)  [trail ×9]
+  L15   @bind(written-with-the-tool)  [trail ×5]
+
+variants/young-readers/hows-the-book.qmd — How's the Book?  (4)
+  marks: variants/young-readers/_marks/hows-the-book.md
+------------------------------------------------------------
+  L9    @guidance  opens part one; Cy's first answer to Hedda, "chapter four", and no other. The edition's one introduction of Hedda, as the person whose job is to help Cy do theirs, and of Red, as the person whose job is to help turn the book into one; no later chapter introduces either again. "Cy has a job", never "at a company": the book does not say so. The font change is the day every letter in the document changed shape
+  L16   @guidance  the reorganization, the quarter and the fiscal year are the week everyone was moved around, a new quarter of the work year and a whole new work year, and nothing is added about when a work year starts
+  L21   @bind(people-who-ask)  [trail ×9]
+  L22   @bind(side-quest)  [trail ×2]
+
+variants/young-readers/index-cards.qmd — Index Cards  (4)
+  marks: variants/young-readers/_marks/index-cards.md
+------------------------------------------------------------
+  L9    @guidance  closes part one; Cy's second answer to Hedda; the script unnamed, its first complaint quoted; the thesis said once, plainly, near the end. The script is "the program"; its configuration files are settings files, as Nine Hundred Lines calls them too. No picture of the shoeboxes: the book has none
+  L16   @bind(notes-escalate)  [trail ×3]
+  L17   @bind(claims-in-sentences)  [trail ×4]
+  L18   @bind(people-who-ask)  [trail ×9]
+
+variants/young-readers/nine-hundred-lines.qmd — Nine Hundred Lines  (2)
+  marks: variants/young-readers/_marks/nine-hundred-lines.md
+------------------------------------------------------------
+  L10   @guidance  closes part two; ends on Getting Started, and does not say what Cy does next
+  L12   @bind(people-who-ask)  [trail ×9]
+
+variants/young-readers/otto.qmd — Otto  (3)
+  marks: variants/young-readers/_marks/otto.md
+------------------------------------------------------------
+  L9    @guidance  opens part two; Otto gets no pronoun, and never "it". The compositor's line is quoted exactly, capitals and all, and the chapter never raises whether Quirework could have caught it. The compositor and the regular expression are shown once, in the sentence; the trade directories are named by what they are, the old books that list every printer; footnotes are already shown in Two Shops. "The expression" is named, never "it", where "it" could be read as Otto
+  L17   @bind(worth-what-you-check)  [trail ×5]
+  L18   @bind(no-villains)  [trail ×3]
+
+variants/young-readers/preface.qmd — Preface  (3)
+  marks: variants/young-readers/_marks/preface.md
+------------------------------------------------------------
+  L9    @guidance  the book's preface, its sentences split where they ran long; nothing added, nothing explained
+  L11   @bind(written-with-the-tool)  [trail ×5]
+  L12   @bind(side-quest)  [trail ×2]
+
+variants/young-readers/the-demo.qmd — The Demo  (3)
+  marks: variants/young-readers/_marks/the-demo.md
+------------------------------------------------------------
+  L9    @guidance  Cy's third answer to Hedda. Shows the claim and its sentences on her monitor, in the book's own figure, and never says what it means; stops at "Book: demo." Opens on the third answer, with no recap of the first two: the book never says how long "chapter four" lasted
+  L14   @bind(people-who-ask)  [trail ×9]
+  L15   @bind(claims-in-sentences)  [trail ×4]
+
+variants/young-readers/the-name.qmd — The Name  (3)
+  marks: variants/young-readers/_marks/the-name.md
+------------------------------------------------------------
+  L9    @guidance  the irony of who named the tool is left for the reader to find: "quire" is the page's last word and the word Cy types, and Otto only finishes it. "Quire" carries the book's own words, the folded gathering of pages a book is sewn from, in the sentence that uses it, and nothing more. "For a year I told people Otto named it. Then I found the page." follows Otto's word, as in the book, and nothing explains it
+  L16   @bind(the-name)  [trail ×6]
+  L17   @bind(notes-escalate)  [trail ×3]
+
+variants/young-readers/two-shops.qmd — Two Shops  (3)
+  marks: variants/young-readers/_marks/two-shops.md
+------------------------------------------------------------
+  L9    @guidance  the shops stay unnamed and the rounds uncounted. No picture of the wall: the book has none, and the edition draws nothing the book does not
+  L12   @bind(two-shops)  [trail ×3]
+  L13   @bind(claims-in-sentences)  [trail ×4]
+
+total: 175 mark(s) across 32 chapter(s)

@@ -1,0 +1,25 @@
+{{- /* An SVG from assets/diagrams/, inlined so that the stylesheet's
+       classes color it in both themes. A diagram carries no <style> and
+       no style= attribute, which the Content Security Policy blocks.
+       `narrow="NAME"` names an upright variant for a phone's width. */ -}}
+{{- $name := .Get "name" -}}
+{{- $res := resources.Get (printf "diagrams/%s.svg" $name) -}}
+{{- if not $res -}}
+  {{- errorf "diagram %q: no assets/diagrams/%s.svg (%s)" $name $name .Position -}}
+{{- end -}}
+{{- $narrow := "" -}}
+{{- with .Get "narrow" -}}
+  {{- $narrow = resources.Get (printf "diagrams/%s.svg" .) -}}
+  {{- if not $narrow -}}
+    {{- errorf "diagram %q: no assets/diagrams/%s.svg (%s)" . . $.Position -}}
+  {{- end -}}
+{{- end -}}
+<figure class="diagram{{ if $narrow }} has-narrow{{ end }}{{ with .Get "class" }} {{ . }}{{ end }}">
+<div class="diagram-canvas wide">{{ $res.Content | safeHTML }}</div>
+{{- with $narrow }}
+<div class="diagram-canvas narrow">{{ .Content | safeHTML }}</div>
+{{- end }}
+{{- with .Get "caption" }}
+<figcaption>{{ . | $.Page.RenderString }}</figcaption>
+{{- end }}
+</figure>

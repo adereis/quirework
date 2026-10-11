@@ -1,0 +1,7 @@
+$ quirework spec units
+  2031-03-02T09:00:00-03:00 published  why-the-lamp-turns                 Why the Lamp Turns
+  2031-04-11                draft      what-the-fog-signal-is-for         What the Fog Signal Is For
+planned (a spec, no post yet):
+  a-keepers-first-winter             specs/a-keepers-first-winter/spec.md
+ideas (no post has taken them up):
+  the-tide-clock                     ideas/the-tide-clock/brief.md

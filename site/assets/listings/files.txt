@@ -1,0 +1,23 @@
+$ git ls-files
+.claude/skills/lh-write-a-post/SKILL.md
+AGENTS.md
+CLAUDE.md
+README.md
+content/posts/_index.md
+content/posts/what-the-fog-signal-is-for/index.md
+content/posts/why-the-lamp-turns/index.md
+hugo.toml
+ideas/the-tide-clock/brief.md
+procedures/catalog.json
+procedures/catalog/README.md
+procedures/workflows/write-a-post.md
+quirework.toml
+quirework/terms.toml
+research/copies/coast-pilot.txt
+research/sources.md
+specs/_site.md
+specs/a-keepers-first-winter/spec.md
+specs/what-the-fog-signal-is-for/marks.md
+specs/what-the-fog-signal-is-for/spec.md
+specs/why-the-lamp-turns/marks.md
+specs/why-the-lamp-turns/spec.md

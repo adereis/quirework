@@ -1,0 +1,35 @@
+{{- /* A screenshot or picture from assets/, resized and re-encoded by
+       Hugo. scripts/capture-images makes the screenshots from a render
+       of the example book. `link="URL"` makes the picture a link, and
+       its alt text is then the link's name, so it says where it goes. */ -}}
+{{- $src := .Get "src" -}}
+{{- $img := resources.Get $src -}}
+{{- if not $img -}}
+  {{- errorf "shot %q: not under assets/ (%s)" $src .Position -}}
+{{- end -}}
+{{- $alt := .Get "alt" -}}
+{{- if not $alt -}}
+  {{- errorf "shot %q: needs alt text (%s)" $src .Position -}}
+{{- end -}}
+{{- $w := int (.Get "width" | default "720") -}}
+{{- $link := .Get "link" -}}
+<figure class="shot{{ with .Get "class" }} {{ . }}{{ end }}">
+{{- with $link }}<a href="{{ . }}">{{ end }}
+{{- if eq $img.MediaType.SubType "svg" }}
+{{- /* A drawing scales by itself; it is published as the book ships it. */}}
+<img src="{{ $img.RelPermalink }}" width="{{ $w }}" alt="{{ $alt }}" loading="lazy" decoding="async">
+{{- else }}
+{{- $w = cond (gt $w $img.Width) $img.Width $w -}}
+{{- $one := $img.Resize (printf "%dx webp q86" $w) -}}
+{{- $srcset := "" -}}
+{{- if ge $img.Width (mul $w 2) -}}
+  {{- $two := $img.Resize (printf "%dx webp q80" (mul $w 2)) -}}
+  {{- $srcset = printf "%s 1x, %s 2x" $one.RelPermalink $two.RelPermalink -}}
+{{- end }}
+<img src="{{ $one.RelPermalink }}"{{ with $srcset }} srcset="{{ . }}"{{ end }} width="{{ $one.Width }}" height="{{ $one.Height }}" alt="{{ $alt }}" loading="lazy" decoding="async">
+{{- end }}
+{{- with $link }}</a>{{ end }}
+{{- with .Get "caption" }}
+<figcaption>{{ . | $.Page.RenderString }}</figcaption>
+{{- end }}
+</figure>

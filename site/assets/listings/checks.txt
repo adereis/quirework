@@ -1,0 +1,9 @@
+$ quirework spec units --check
+✓ units --check: 12 chapter(s) in reading order, every @unit() resolves.
+$ quirework spec notes --check
+
+advisory (1 contract mark(s)/spec section(s) carry decision-journaling; current state, never history — the story belongs in git):
+  manuscript/sections/_marks/back-cover.md:8: @guidance — '2026-10-09'
+✓ notes --check: sidecar layout clean.
+$ quirework spec trail --check
+✓ trail --check: 50 breadcrumb(s) in provenance/spec-trail.md.

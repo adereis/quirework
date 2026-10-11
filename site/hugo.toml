@@ -1,0 +1,63 @@
+baseURL = "https://quirework.com/"
+title = "Quirework"
+locale = "en-US"
+enableRobotsTXT = true
+
+# A handful of standalone pages. No feeds, sections or taxonomies.
+disableKinds = ["rss", "section", "taxonomy", "term"]
+
+[markup.goldmark.renderer]
+  # The paired shortcodes (`aside`, `band`) wrap Markdown in an element,
+  # which Goldmark drops as raw HTML unless this is on. Every page here is
+  # written in this directory; nothing a visitor sends is rendered.
+  unsafe = true
+
+[markup.highlight]
+  # Code blocks are listings set by the stylesheet, not colored by Chroma,
+  # whose inline styles the Content Security Policy would block anyway.
+  noClasses = false
+  codeFences = false
+
+[params]
+  description = "Quirework is a set of tools for writing and researching with an AI companion: a spec of what the work holds, procedures the companion follows, checks that catch drift, and a record of how the work was made."
+  author = "Ademar Reis"
+  # The one place the repository's address is written. Guides are linked
+  # into it rather than copied here, so the site cannot fall behind them.
+  repo = "https://github.com/adereis/quirework"
+  branch = "main"
+
+[menus]
+  [[menus.main]]
+    name = "Spec and trail"
+    pageRef = "/spec-and-trail"
+    weight = 10
+  [[menus.main]]
+    name = "Procedures"
+    pageRef = "/procedures"
+    weight = 20
+  [[menus.main]]
+    name = "Examples"
+    pageRef = "/examples"
+    weight = 30
+
+# The example book's own cover and figure, read where the book keeps
+# them, so the site shows whatever the book currently ships. Mounting
+# replaces Hugo's default for assets/, which is therefore listed too.
+[module]
+  [[module.mounts]]
+    source = "assets"
+    target = "assets"
+  [[module.mounts]]
+    source = "../examples/side-quest/manuscript"
+    target = "assets/images/side-quest"
+    files = ["cover.jpg", "sections/illustrations/*.svg"]
+
+# The sample book's renders, made at deploy and staged into renders/ by
+# scripts/stage-renders, served at /side-quest/. Never committed. Mounting
+# replaces Hugo's default for static/ too, so it is listed.
+  [[module.mounts]]
+    source = "static"
+    target = "static"
+  [[module.mounts]]
+    source = "renders"
+    target = "static/side-quest"

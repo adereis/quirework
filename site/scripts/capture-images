@@ -1,0 +1,78 @@
+#!/usr/bin/env bash
+# Make the site's pictures of Side Quest into assets/images/side-quest/.
+#
+# Each one comes from the example book as Quirework renders it: a page of
+# an HTML edition shot by headless Chrome, or a page of a PDF rasterized
+# by Poppler. Pass --build to render the book and its editions first (it
+# needs Quarto and takes minutes); without it the script uses the render
+# already in the book's build/. The cover and the figure need no capture:
+# hugo.toml mounts them from the book itself.
+#
+# Needs google-chrome (or CHROME), pdftoppm and magick. Hugo resizes and
+# re-encodes the results; these are the sources.
+set -euo pipefail
+
+site=$(cd "$(dirname "$0")/.." && pwd)
+repo=$(cd "$site/.." && pwd)
+book=$repo/examples/side-quest
+build=$book/build
+out=$site/assets/images/side-quest
+chrome=${CHROME:-google-chrome}
+
+for tool in "$chrome" pdftoppm magick; do
+  command -v "$tool" >/dev/null || {
+    echo "capture-images: $tool is not installed" >&2
+    exit 1
+  }
+done
+
+if [[ ${1:-} == --build ]]; then
+  quirework=${QUIREWORK:-$repo/.venv/bin/quirework}
+  (cd "$book" && PYTHONPATH=sq_checks/src "$quirework" publish build)
+fi
+[[ -d $build/book/_site ]] || {
+  echo "capture-images: no render in $build; run with --build" >&2
+  exit 1
+}
+
+work=$(mktemp -d)
+trap 'rm -rf "$work"' EXIT
+mkdir -p "$out"
+
+# A screenshot is taken at twice the size it is shown, so it stays sharp
+# on a dense screen. Geometry below is in those doubled pixels.
+save() { # save SRC NAME GEOMETRY: crop, reduce to a palette, write
+  magick "$1" -crop "$3" +repage -strip -colors 256 "PNG8:$out/$2.png"
+  echo "saved $2"
+}
+
+html() { # html NAME PAGE: a chapter of an HTML edition, in Chrome
+  "$chrome" --headless=new --disable-gpu --hide-scrollbars \
+    --force-device-scale-factor=2 --window-size=1280,900 \
+    --screenshot="$work/$1.png" "file://$build/$2" >/dev/null 2>&1
+  # The text column, without the contents sidebar.
+  save "$work/$1.png" "$1" 1440x1180+560+40
+}
+
+pdf() { # pdf NAME FILE PAGE GEOMETRY: one page of a PDF edition
+  pdftoppm -f "$3" -l "$3" -r 220 -png -singlefile "$build/$2" "$work/$1"
+  save "$work/$1.png" "$1" "$4"
+}
+
+html book-html book/_site/sections/the-name.html
+html poems-html variants/poems/book/_site/the-name.html
+html young-html variants/young-readers/book/_site/the-name.html
+
+# The chapter's page in the book's PDF: found by its heading, not by a
+# page number that moves whenever an earlier chapter grows.
+page=$(for p in $(seq 1 "$(pdfinfo "$build/book/_site/Side-Quest.pdf" 2>/dev/null |
+  awk '/^Pages:/ {print $2}')"); do
+  pdftotext -f "$p" -l "$p" "$build/book/_site/Side-Quest.pdf" - 2>/dev/null |
+    head -3 | grep -qx '5. The Name' && { echo "$p"; break; }
+done)
+[[ -n $page ]] || {
+  echo "capture-images: no page opens with '5. The Name'" >&2
+  exit 1
+}
+pdf book-pdf book/_site/Side-Quest.pdf "$page" 1520x1180+200+180
+pdf memo-pdf variants/six-pager/book/_site/memo.pdf 1 1520x1180+220+220

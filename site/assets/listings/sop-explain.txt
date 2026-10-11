@@ -1,0 +1,13 @@
+$ quirework sop explain write-a-chapter
+write-a-chapter: Write or revise a chapter of Side Quest, from the primer through the gates.
+
+Required SOP reading, dependencies first (not an execution plan):
+  procedures/workflows/write-a-chapter.md (420 words)
+Total: 420 words
+
+Mechanical tools: quirework spec notes --primer, quirework spec trail, quirework spec trail add, quirework spec units --check, quirework spec notes --check, quirework spec trail --check, quirework config check, quirework dev check
+
+Conditional follow-ups (operator decides whether triggered):
+  None cataloged.
+
+SOP reading dependencies only; root guidance, directory cards and task-specific inputs still apply. No follow-up is executed.

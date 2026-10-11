@@ -1,0 +1,11 @@
+{{ define "main" }}
+<article class="frame page">
+  <header class="page-head">
+    <h1>{{ .Title }}</h1>
+    {{ with .Params.lede }}<div class="lede">{{ . | $.RenderString (dict "display" "block") }}</div>{{ end }}
+  </header>
+  <div class="prose">
+    {{ .Content }}
+  </div>
+</article>
+{{ end }}

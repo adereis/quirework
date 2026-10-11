@@ -1,0 +1,36 @@
+$ quirework spec trail the-name
+#the-name — The name came from "quire"
+bound by: the-name
+6 breadcrumbs from 3 sessions, 2026-10 · seed 1 · sharpen 3 · correct 1 · reverse 1
+
+  2026-10-09  1b7ad009  seed     Human 3
+      note     Otto completed quirk as quirework.
+      opens    Here's the story, roughly in order. Everyone's name is changed, and I've exaggerated everything that deserved it. Full Stop is a natural history of punctuation: where each mark came from, and who spr…
+      read     quirework provenance show 1b7ad009 --turn 3
+
+  2026-10-09  1b7ad009  correct  Human 4
+      note     Cuts the drafted line on who named the tool; the reader finds that irony alone.
+      opens    Good draft. Answers in your order. 1. Keep "counted, never shown". It's the best rule in the spec and I didn't write it, which I'll be annoyed about later. 2. Cut "The tool that exists to check an as…
+      read     quirework provenance show 1b7ad009 --turn 4
+
+  2026-10-09  26d889c8  sharpen  Human 1
+      note     The Name material: check.py, then notes-check, then a four-file directory about to be a repository; an evening of puns; quirk typed meaning to ask Otto something else; first commit "Name it"; name, repository, README, version number, one user
+      opens    The rest of part two: chapter five, The Name, then chapter six, Nine Hundred Lines, by the write-a-chapter procedure. The Name first; show it to me before you start six. Material for The Name: - The …
+      read     quirework provenance show 26d889c8 --turn 1
+
+  2026-10-09  c137540e  reverse  Human 1
+      note     Reverses the seed and the sharpen: Cy remembered typing "quirk" to ask Otto something else, and Otto making the name. The page of names from that evening, found later, ends in pencil at ten to two on "quire", the folded gathering of pages a book is sewn from; at two Cy typed "quire" and Otto finished it as "quirework". The name came from "quire": Otto finished a word Cy had already chosen.
+      opens    Something in chapter five is wrong, and it's my fault. Last night I went looking for the shoebox with the radiator card and found the page of names from that evening instead. The last line on it, in …
+      read     quirework provenance show c137540e --turn 1
+
+  2026-10-09  c137540e  sharpen  Human 2
+      note     The chapter is not silent about the year: right after Otto finishes the word, once, flatly and unexplained, "For a year I told people Otto named it. Then I found the page." The reason: a memoir that admits on its first page that it is unreliable should admit this too. Carried into every edition that tells the scene.
+      opens    Good work, and a good review. Apply both fixes as you propose them, the book's own line for the young readers and tighter stanzas in the poem, then send the new diff back to the same reviewer and bri…
+      read     quirework provenance show c137540e --turn 2
+
+  2026-10-09  c137540e  sharpen  Human 3
+      note     The admission is a commitment in Cy's words: the spec quotes "For a year I told people Otto named it. Then I found the page." word for word, said once. No line is made a spec commitment only so a poem can leave it bare.
+      opens    Apply all three as you propose them. Quote my two sentences word for word in the spec, since they are a commitment now: the book admits it, once, in those words. Bring Otto's line and "I liked it bet…
+      read     quirework provenance show c137540e --turn 3
+
+The trail is context, never authority: the spec states what the work holds now, and a request made now outranks anything on it.

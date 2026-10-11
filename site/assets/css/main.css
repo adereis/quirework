@@ -1,0 +1,731 @@
+/* Quirework's site.
+
+   Plain CSS on purpose: no Sass step, so the site builds with the single
+   Hugo binary and nothing to rot.
+
+   The paper, the ink and the text face are mindwright.dev's, so the tool
+   and the book being written with it read as one author's work. They are
+   copied by hand from that site's stylesheet; nothing links the two.
+
+   One color is the site's own: --signal, the orange of the example
+   book's cover. It means one thing, "Quirework caught this", and appears
+   only where a diagram marks a finding. Links, buttons and headings never
+   use it. A meaning carried by the signal is also carried by a label,
+   because the color alone does not reach every reader. */
+
+@font-face {
+  font-family: "Spectral";
+  src: url("/fonts/Spectral-Regular.woff2") format("woff2");
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: "Spectral";
+  src: url("/fonts/Spectral-Italic.woff2") format("woff2");
+  font-weight: 400;
+  font-style: italic;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: "Spectral";
+  src: url("/fonts/Spectral-Bold.woff2") format("woff2");
+  font-weight: 700;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: "Spectral";
+  src: url("/fonts/Spectral-BoldItalic.woff2") format("woff2");
+  font-weight: 700;
+  font-style: italic;
+  font-display: swap;
+}
+
+:root {
+  --paper:    #faf7f2;   /* reading ground */
+  --paper-2:  #f2ece1;   /* listings, the band */
+  --ink:      #1c1815;   /* text and drawing */
+  --ink-soft: #5a524a;   /* secondary text, notes */
+  --rule:     #e4dccd;   /* hairlines */
+  --shade:    #e9e1d3;   /* filled shapes in diagrams */
+  --signal:   #e8740c;   /* a finding, and nothing else */
+
+  --serif: Spectral, Georgia, "Iowan Old Style", "Palatino Linotype",
+    "Book Antiqua", "Times New Roman", serif;
+  --mono: ui-monospace, "SF Mono", "Cascadia Mono", "JetBrains Mono",
+    "DejaVu Sans Mono", Menlo, Consolas, monospace;
+
+  --measure: 38rem;      /* the text column: ~67 characters at 19px */
+  --gutter:  3rem;       /* between the column and its margin */
+  --margin:  15rem;      /* the margin, where notes sit */
+  --wide: calc(var(--measure) + var(--gutter) + var(--margin));
+  --side: 1rem;          /* the page's own edge on a phone */
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --paper:    #15110d;
+    --paper-2:  #201a14;
+    --ink:      #efe7d8;
+    --ink-soft: #b9ad97;
+    --rule:     #3a3129;
+    --shade:    #2c241c;
+    --signal:   #f08a2e;
+  }
+}
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html {
+  -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
+}
+
+body {
+  margin: 0;
+  background: var(--paper);
+  color: var(--ink);
+  font-family: var(--serif);
+  font-size: 1.1875rem;
+  line-height: 1.62;
+  font-kerning: normal;
+  font-variant-numeric: oldstyle-nums proportional-nums;
+  text-rendering: optimizeLegibility;
+}
+
+:focus-visible {
+  outline: 2px solid var(--ink);
+  outline-offset: 3px;
+}
+
+.skip {
+  position: absolute;
+  left: var(--side);
+  top: -3rem;
+  padding: 0.4rem 0.8rem;
+  background: var(--ink);
+  color: var(--paper);
+}
+
+.skip:focus {
+  top: 0.75rem;
+}
+
+a {
+  color: inherit;
+  text-decoration-line: underline;
+  text-decoration-thickness: 1px;
+  text-decoration-color: var(--ink-soft);
+  text-underline-offset: 0.18em;
+}
+
+a:hover {
+  text-decoration-thickness: 2px;
+  text-decoration-color: var(--ink);
+}
+
+/* The frame: the column plus its margin, set left of center so that the
+   margin, not empty space, takes the right side of a wide screen. */
+.frame {
+  width: min(100% - 2 * var(--side), var(--wide));
+  margin-inline: auto;
+}
+
+/* Header and footer. */
+
+.site-header {
+  border-bottom: 1px solid var(--rule);
+}
+
+.site-header-inner {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 0.5rem 2rem;
+  padding-block: 1.1rem;
+}
+
+.wordmark {
+  font-size: 1.4rem;
+  font-weight: 700;
+  letter-spacing: -0.005em;
+  text-decoration: none;
+}
+
+.site-header ul {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.25rem 1.5rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  font-size: 1.0625rem;
+}
+
+.site-header a {
+  text-decoration: none;
+}
+
+.site-header a:hover,
+.site-header a[aria-current="page"] {
+  text-decoration: underline;
+  text-decoration-thickness: 1px;
+  text-underline-offset: 0.3em;
+}
+
+.site-header .wordmark[aria-current="page"] {
+  text-decoration: none;
+}
+
+.site-footer {
+  margin-top: 6rem;
+  border-top: 1px solid var(--rule);
+  padding-block: 2rem 3rem;
+  color: var(--ink-soft);
+  font-size: 1rem;
+}
+
+.site-footer p {
+  max-width: var(--measure);
+  margin: 0 0 0.5rem;
+}
+
+/* The page head. */
+
+.page-head {
+  padding-top: 3.5rem;
+  margin-bottom: 2.5rem;
+}
+
+.page-head h1 {
+  max-width: 22ch;
+  margin: 0 0 1.25rem;
+  font-size: clamp(2.25rem, 1.5rem + 3vw, 3.5rem);
+  line-height: 1.08;
+  letter-spacing: -0.012em;
+  text-wrap: balance;
+}
+
+.hero h1 {
+  max-width: 19ch;
+  font-size: clamp(2.4rem, 1.3rem + 3.8vw, 4rem);
+  line-height: 1.02;
+  letter-spacing: -0.02em;
+}
+
+.lede {
+  max-width: var(--measure);
+  font-size: 1.375rem;
+  line-height: 1.5;
+}
+
+.lede p {
+  margin: 0 0 0.75rem;
+}
+
+/* The prose and its margin. Every block is the column's width; a note
+   floats out into the margin beside the block that follows it, and a
+   wide block spans the column and the margin together. */
+
+.prose > * {
+  max-width: var(--measure);
+}
+
+.prose > .wide,
+.prose > .diagram,
+.prose > .listing,
+.prose > .gallery,
+.prose > table,
+.prose > .band {
+  max-width: var(--wide);
+}
+
+.prose p,
+.prose ul,
+.prose ol {
+  margin: 0 0 1rem;
+}
+
+.prose h2 {
+  margin: 4.5rem 0 1rem;
+  font-size: 1.875rem;
+  line-height: 1.18;
+  letter-spacing: -0.008em;
+  text-wrap: balance;
+}
+
+.prose h3 {
+  margin: 2.5rem 0 0.5rem;
+  font-size: 1.3125rem;
+  line-height: 1.3;
+}
+
+.prose h2 + h3 {
+  margin-top: 1.25rem;
+}
+
+.prose li {
+  margin-bottom: 0.4rem;
+}
+
+.prose ul {
+  padding-left: 1.2rem;
+}
+
+/* A sequence is numbered in the margin, not inside the column. */
+.prose ol {
+  list-style: none;
+  counter-reset: step;
+  padding-left: 0;
+}
+
+.prose ol > li {
+  counter-increment: step;
+  position: relative;
+  padding-left: 2.25rem;
+}
+
+.prose ol > li::before {
+  content: counter(step);
+  position: absolute;
+  left: 0;
+  top: 0.05em;
+  width: 1.5rem;
+  font-weight: 700;
+  font-variant-numeric: lining-nums;
+  text-align: right;
+}
+
+.prose blockquote {
+  margin: 1.5rem 0;
+  padding-left: 1.25rem;
+  border-left: 2px solid var(--ink);
+  font-style: italic;
+}
+
+.prose blockquote p:last-child {
+  margin-bottom: 0;
+}
+
+dl {
+  margin: 0 0 1.25rem;
+}
+
+dt {
+  font-weight: 700;
+}
+
+dd {
+  margin: 0 0 0.6rem 1.25rem;
+}
+
+code {
+  font-family: var(--mono);
+  font-size: 0.8em;
+  padding: 0.08em 0.3em;
+  border-radius: 3px;
+  background: var(--paper-2);
+  /* A command never breaks at its own hyphens. Every inline command on
+     the site fits a phone's width; a longer one belongs in a listing. */
+  white-space: nowrap;
+}
+
+/* A code block in the prose is a listing too. */
+.prose > pre,
+.listing pre {
+  margin: 0;
+  padding: 1rem 1.25rem;
+  overflow-x: auto;
+  border-left: 3px solid var(--ink);
+  background: var(--paper-2);
+  font-family: var(--mono);
+  font-size: 0.8rem;
+  line-height: 1.55;
+}
+
+.prose > pre {
+  margin-bottom: 1.25rem;
+}
+
+.prose > pre code,
+.listing pre code {
+  padding: 0;
+  background: none;
+  font-size: inherit;
+  white-space: inherit;
+}
+
+/* Output is wrapped where it would run off the box, the way a terminal
+   of that width wraps it. Nothing is shortened. */
+.listing pre {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.listing,
+.diagram,
+.shot {
+  margin: 1.75rem 0 2rem;
+}
+
+.listing .cmd {
+  font-weight: 700;
+}
+
+.listing .prompt {
+  color: var(--ink-soft);
+  font-weight: 400;
+  user-select: none;
+}
+
+/* Set in the page's face, so a cut is never mistaken for output. */
+.listing .elided {
+  color: var(--ink-soft);
+  font-family: var(--serif);
+  font-size: 0.95rem;
+  font-style: italic;
+  user-select: none;
+}
+
+figcaption {
+  max-width: var(--measure);
+  margin-top: 0.65rem;
+  color: var(--ink-soft);
+  font-size: 1rem;
+  font-style: italic;
+  line-height: 1.5;
+}
+
+figcaption code {
+  font-style: normal;
+}
+
+/* Notes in the margin. */
+
+.note {
+  margin: 0 0 1rem;
+  padding-left: 0.85rem;
+  border-left: 1px solid var(--rule);
+  color: var(--ink-soft);
+  font-size: 0.95rem;
+  line-height: 1.5;
+}
+
+.note p {
+  margin: 0 0 0.5rem;
+}
+
+.note p:last-child {
+  margin-bottom: 0;
+}
+
+/* A picture in the margin needs no rule beside it. */
+.note:has(> .shot) {
+  padding-left: 0;
+  border-left: 0;
+}
+
+.note .shot {
+  margin: 0;
+}
+
+@media (min-width: 64rem) {
+  /* The prose is the frame's full width and every block in it stops at
+     --measure, so a note floated right lands in the margin and shortens
+     no line of the column. */
+  .prose > .note {
+    float: right;
+    clear: right;
+    width: var(--margin);
+    max-width: var(--margin);
+    margin: 0.3rem 0 1rem;
+  }
+
+  .prose > h2,
+  .prose > .diagram,
+  .prose > .listing,
+  .prose > .gallery,
+  .prose > table,
+  .prose > .band {
+    clear: both;
+  }
+}
+
+/* What the fictional sample book did, set apart from the account of
+   the tool by a dotted rule: the rule of a draft, never of the work. */
+.sample {
+  margin: 0 0 1.25rem;
+  padding: 0.15rem 0 0.15rem 1rem;
+  border-left: 2px dotted var(--ink-soft);
+  font-size: 1.0625rem;
+  line-height: 1.55;
+}
+
+.sample p {
+  margin: 0 0 0.5rem;
+}
+
+.sample p:last-child {
+  margin-bottom: 0;
+}
+
+/* Tables. */
+
+.prose table {
+  width: 100%;
+  margin: 1.5rem 0 2rem;
+  border-collapse: collapse;
+  font-size: 1rem;
+  line-height: 1.45;
+}
+
+.prose th,
+.prose td {
+  padding: 0.6rem 1rem 0.6rem 0;
+  border-bottom: 1px solid var(--rule);
+  text-align: left;
+  vertical-align: top;
+}
+
+.prose th {
+  border-bottom-color: var(--ink);
+  font-weight: 700;
+}
+
+@media (max-width: 40rem) {
+  .prose table,
+  .prose thead,
+  .prose tbody,
+  .prose tr,
+  .prose td {
+    display: block;
+  }
+
+  .prose thead {
+    display: none;
+  }
+
+  .prose tr {
+    padding: 0.75rem 0;
+    border-bottom: 1px solid var(--rule);
+  }
+
+  .prose td {
+    padding: 0;
+    border: 0;
+  }
+
+  .prose td:first-child {
+    font-weight: 700;
+  }
+}
+
+/* Screenshots: a page of a rendered book, framed like one. */
+
+.shot img {
+  display: block;
+  max-width: 100%;
+  height: auto;
+  border: 1px solid var(--rule);
+  background: #fff;
+}
+
+.gallery {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 22rem), 1fr));
+  gap: 1.5rem 1.75rem;
+  margin: 1.75rem 0 2.25rem;
+}
+
+.gallery > p {
+  display: contents;
+}
+
+.gallery .shot {
+  margin: 0;
+}
+
+.gallery figcaption {
+  font-size: 0.95rem;
+}
+
+.shot.cover img {
+  border: 0;
+  background: none;
+}
+
+/* The band: a section about something other than the tool, set off by
+   its ground. The ground reaches the window's edges without the band
+   leaving the frame. */
+
+.band {
+  position: relative;
+  margin: 4.5rem 0;
+  padding: 3rem 0 2.5rem;
+  background: var(--paper-2);
+  box-shadow: 0 0 0 100vmax var(--paper-2);
+  clip-path: inset(0 -100vmax);
+}
+
+.band > * {
+  max-width: var(--measure);
+}
+
+.band h2 {
+  margin-top: 0;
+}
+
+.band blockquote {
+  margin: 1.75rem 0;
+  padding: 0;
+  border: 0;
+  font-size: 1.5rem;
+  line-height: 1.42;
+  max-width: 30em;
+}
+
+.band blockquote p {
+  margin-bottom: 0.8rem;
+}
+
+.band .source {
+  color: var(--ink-soft);
+  font-size: 1rem;
+}
+
+/* Diagrams. Inline SVG, drawn in the page's own colors through these
+   classes. Text inside is set in the page's faces. On a narrow screen a
+   diagram keeps a legible size and scrolls sideways inside its frame
+   rather than shrinking its lettering to nothing. */
+
+/* The canvas shades its right edge while there is more to scroll to:
+   the shade is pinned to the box, the cover that hides it scrolls with
+   the content and reaches the edge only at the end. */
+.diagram-canvas {
+  overflow-x: auto;
+  background:
+    linear-gradient(to left, var(--paper) 1.5rem, transparent 3rem) right / 3rem 100% no-repeat local,
+    linear-gradient(to left, var(--shade), transparent) right / 1rem 100% no-repeat scroll;
+}
+
+/* A diagram with an upright variant shows it on a narrow screen, where
+   the wide one would scroll. */
+.diagram .narrow {
+  display: none;
+}
+
+@media (max-width: 40rem) {
+  .diagram.has-narrow .wide {
+    display: none;
+  }
+
+  .diagram.has-narrow .narrow {
+    display: block;
+  }
+
+  .diagram.has-narrow .narrow svg {
+    min-width: 0;
+    max-width: 24rem;
+  }
+}
+
+.diagram svg {
+  display: block;
+  width: 100%;
+  min-width: 36rem;
+  height: auto;
+}
+
+.diagram.compact svg {
+  min-width: 0;
+  max-width: 22rem;
+}
+
+.dg-line   { fill: none; stroke: var(--ink); stroke-width: 1.5; }
+.dg-thin   { fill: none; stroke: var(--ink-soft); stroke-width: 1; }
+.dg-rule   { fill: none; stroke: var(--rule); stroke-width: 1; }
+.dg-dash   { fill: none; stroke: var(--ink-soft); stroke-width: 1.25; stroke-dasharray: 4 4; }
+.dg-wall   { fill: none; stroke: var(--ink); stroke-width: 3; }
+.dg-box    { fill: var(--paper); stroke: var(--ink); stroke-width: 1.5; }
+.dg-soft   { fill: var(--paper-2); stroke: var(--ink-soft); stroke-width: 1; }
+.dg-shade  { fill: var(--shade); stroke: none; }
+.dg-ink    { fill: var(--ink); stroke: none; }
+.dg-ground { fill: var(--paper); stroke: none; }
+.dg-arrow  { fill: var(--ink); }
+
+.dg-signal {
+  fill: none;
+  stroke: var(--signal);
+  stroke-width: 2.75;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.dg-text {
+  fill: var(--ink);
+  font-family: var(--serif);
+  font-size: 16px;
+  /* Old-style figures suit the prose, not a numbered marker. */
+  font-variant-numeric: lining-nums;
+}
+
+.dg-small { font-size: 13.5px; }
+.dg-label { font-size: 18px; font-weight: 700; }
+.dg-head  { font-size: 16px; font-weight: 700; }
+.dg-it    { font-style: italic; }
+.dg-faint { fill: var(--ink-soft); }
+.dg-on-ink { fill: var(--paper); }
+
+.dg-mono {
+  fill: var(--ink);
+  font-family: var(--mono);
+  font-size: 12.5px;
+}
+
+/* The one moment of motion: the pencil circles the first finding as its
+   diagram scrolls into view. A browser without scroll-driven animation
+   shows the circle already drawn, never a circle that drew itself while
+   nobody was looking. */
+@media (prefers-reduced-motion: no-preference) {
+  /* The timeline is the figure's, an HTML box: an SVG shape has none
+     for a view timeline to track. The circle is drawn over the last
+     stretch of the figure's entry, and is whole once all of it shows. */
+  @supports (animation-timeline: view()) {
+    .draw-on-view {
+      view-timeline-name: --pencil;
+    }
+
+    .draw-on-view .dg-signal.draw {
+      stroke-dasharray: 1;
+      animation: draw linear both;
+      animation-timeline: --pencil;
+      animation-range: entry 55% entry 100%;
+    }
+  }
+
+  @keyframes draw {
+    from { stroke-dashoffset: 1; }
+    to   { stroke-dashoffset: 0; }
+  }
+}
+
+@media print {
+  .site-header nav,
+  .skip {
+    display: none;
+  }
+
+  .band {
+    box-shadow: none;
+    clip-path: none;
+  }
+}

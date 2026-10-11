@@ -1,0 +1,106 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 900 262" role="img" aria-labelledby="seeing-title seeing-desc">
+  <title id="seeing-title">What each seat sees, in five procedures</title>
+  <desc id="seeing-desc">A prose workshop gives several writers one frozen packet, walled off from one another, and seals their drafts under letters. A writers room gives each seat its own packet, then a shared board between rounds. A roundtable seats models as themselves, taking turns, with every turn visible and a shared folder. A blind read gives a reader only the pages, never the spec. A consistency review gives a reviewer the guide, the spec, the notes and the exact change, with the work read-only.</desc>
+  <defs>
+    <marker id="seeing-arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+      <path class="dg-arrow" d="M0 0 L10 5 L0 10 z"/>
+    </marker>
+  </defs>
+
+  <line class="dg-rule" x1="180" y1="8" x2="180" y2="254"/>
+  <line class="dg-rule" x1="360" y1="8" x2="360" y2="254"/>
+  <line class="dg-rule" x1="540" y1="8" x2="540" y2="254"/>
+  <line class="dg-rule" x1="720" y1="8" x2="720" y2="254"/>
+
+  <!-- Prose workshop -->
+  <text class="dg-text dg-head" x="14" y="26">Prose workshop</text>
+  <rect class="dg-soft" x="62" y="44" width="56" height="30" rx="2"/>
+  <text class="dg-text dg-small" x="90" y="64" text-anchor="middle">packet</text>
+  <line class="dg-thin" x1="90" y1="74" x2="40" y2="114"/>
+  <line class="dg-thin" x1="90" y1="74" x2="90" y2="114"/>
+  <line class="dg-thin" x1="90" y1="74" x2="140" y2="114"/>
+  <line class="dg-wall" x1="65" y1="100" x2="65" y2="160"/>
+  <line class="dg-wall" x1="115" y1="100" x2="115" y2="160"/>
+  <circle class="dg-box" cx="40" cy="128" r="14"/>
+  <circle class="dg-box" cx="90" cy="128" r="14"/>
+  <circle class="dg-box" cx="140" cy="128" r="14"/>
+  <text class="dg-text dg-small" x="40" y="133" text-anchor="middle" font-weight="700">A</text>
+  <text class="dg-text dg-small" x="90" y="133" text-anchor="middle" font-weight="700">B</text>
+  <text class="dg-text dg-small" x="140" y="133" text-anchor="middle" font-weight="700">C</text>
+  <text class="dg-text dg-small" x="14" y="200">One frozen packet,</text>
+  <text class="dg-text dg-small" x="14" y="218">never another draft</text>
+  <text class="dg-text dg-small dg-faint" x="14" y="240">Drafts sealed under letters</text>
+
+  <!-- Writers room -->
+  <text class="dg-text dg-head" x="194" y="26">Writers room</text>
+  <rect class="dg-soft" x="240" y="92" width="60" height="40" rx="2"/>
+  <text class="dg-text dg-small" x="270" y="117" text-anchor="middle">board</text>
+  <line class="dg-dash" x1="221" y1="76" x2="244" y2="96"/>
+  <line class="dg-dash" x1="319" y1="76" x2="296" y2="96"/>
+  <line class="dg-dash" x1="221" y1="150" x2="244" y2="128"/>
+  <line class="dg-dash" x1="319" y1="150" x2="296" y2="128"/>
+  <circle class="dg-box" cx="210" cy="66" r="14"/>
+  <circle class="dg-box" cx="330" cy="66" r="14"/>
+  <circle class="dg-box" cx="210" cy="160" r="14"/>
+  <circle class="dg-box" cx="330" cy="160" r="14"/>
+  <text class="dg-text dg-small" x="194" y="200">Its own packet, then the</text>
+  <text class="dg-text dg-small" x="194" y="218">board between rounds</text>
+  <text class="dg-text dg-small dg-faint" x="194" y="240">Personas, and a chair</text>
+
+  <!-- Roundtable -->
+  <text class="dg-text dg-head" x="374" y="26">Roundtable</text>
+  <circle class="dg-box" cx="392" cy="70" r="14"/>
+  <circle class="dg-box" cx="434" cy="70" r="14"/>
+  <circle class="dg-box" cx="476" cy="70" r="14"/>
+  <circle class="dg-box" cx="518" cy="70" r="14"/>
+  <text class="dg-text dg-small" x="392" y="75" text-anchor="middle" font-weight="700">1</text>
+  <text class="dg-text dg-small" x="434" y="75" text-anchor="middle" font-weight="700">2</text>
+  <text class="dg-text dg-small" x="476" y="75" text-anchor="middle" font-weight="700">3</text>
+  <text class="dg-text dg-small" x="518" y="75" text-anchor="middle" font-weight="700">4</text>
+  <line class="dg-thin" x1="392" y1="84" x2="412" y2="128"/>
+  <line class="dg-thin" x1="434" y1="84" x2="440" y2="128"/>
+  <line class="dg-thin" x1="476" y1="84" x2="470" y2="128"/>
+  <line class="dg-thin" x1="518" y1="84" x2="498" y2="128"/>
+  <rect class="dg-soft" x="390" y="128" width="130" height="34" rx="2"/>
+  <text class="dg-text dg-small" x="455" y="150" text-anchor="middle">board and folder</text>
+  <text class="dg-text dg-small" x="374" y="200">Every turn as it happens,</text>
+  <text class="dg-text dg-small" x="374" y="218">and a shared folder</text>
+  <text class="dg-text dg-small dg-faint" x="374" y="240">Models as themselves</text>
+
+  <!-- Blind read -->
+  <text class="dg-text dg-head" x="554" y="26">Blind read</text>
+  <rect class="dg-box" x="566" y="56" width="46" height="60" rx="2"/>
+  <rect class="dg-box" x="572" y="62" width="46" height="60" rx="2"/>
+  <rect class="dg-box" x="578" y="68" width="46" height="60" rx="2"/>
+  <rect class="dg-shade" x="585" y="80" width="32" height="4" rx="1"/>
+  <rect class="dg-shade" x="585" y="90" width="28" height="4" rx="1"/>
+  <rect class="dg-shade" x="585" y="100" width="32" height="4" rx="1"/>
+  <rect class="dg-shade" x="585" y="110" width="20" height="4" rx="1"/>
+  <line class="dg-line" x1="630" y1="98" x2="662" y2="98" marker-end="url(#seeing-arrow)"/>
+  <circle class="dg-box" cx="680" cy="98" r="14"/>
+  <rect class="dg-dash" x="652" y="134" width="56" height="28" rx="2"/>
+  <text class="dg-text dg-small dg-faint" x="680" y="153" text-anchor="middle">spec</text>
+  <line class="dg-thin" x1="648" y1="166" x2="712" y2="130"/>
+  <text class="dg-text dg-small" x="554" y="200">Only the pages a</text>
+  <text class="dg-text dg-small" x="554" y="218">reader would see</text>
+  <text class="dg-text dg-small dg-faint" x="554" y="240">One chapter at a time</text>
+
+  <!-- Consistency review -->
+  <text class="dg-text dg-head" x="734" y="26">Consistency review</text>
+  <rect class="dg-soft" x="734" y="46" width="70" height="22" rx="2"/>
+  <rect class="dg-soft" x="734" y="76" width="70" height="22" rx="2"/>
+  <rect class="dg-soft" x="734" y="106" width="70" height="22" rx="2"/>
+  <rect class="dg-box" x="734" y="136" width="70" height="22" rx="2"/>
+  <text class="dg-text dg-small" x="769" y="62" text-anchor="middle">guide</text>
+  <text class="dg-text dg-small" x="769" y="92" text-anchor="middle">spec</text>
+  <text class="dg-text dg-small" x="769" y="122" text-anchor="middle">notes</text>
+  <text class="dg-text dg-small" x="769" y="152" text-anchor="middle" font-weight="700">change</text>
+  <line class="dg-thin" x1="804" y1="57" x2="846" y2="94"/>
+  <line class="dg-thin" x1="804" y1="87" x2="846" y2="98"/>
+  <line class="dg-thin" x1="804" y1="117" x2="846" y2="104"/>
+  <line class="dg-thin" x1="804" y1="147" x2="846" y2="108"/>
+  <circle class="dg-box" cx="860" cy="101" r="14"/>
+  <text class="dg-text dg-small" x="734" y="200">The work read-only,</text>
+  <text class="dg-text dg-small" x="734" y="218">and the exact change</text>
+  <text class="dg-text dg-small dg-faint" x="734" y="240">A findings report</text>
+</svg>

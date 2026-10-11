@@ -1,0 +1,33 @@
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+
+{{ $description := .Params.description | default site.Params.description }}
+<title>{{ if .IsHome }}{{ site.Title }}{{ else }}{{ .Title }} &middot; {{ site.Title }}{{ end }}</title>
+<meta name="description" content="{{ $description }}">
+<meta name="author" content="{{ site.Params.author }}">
+<meta name="color-scheme" content="light dark">
+
+{{ with resources.Get "css/main.css" }}
+  {{ if hugo.IsProduction }}
+    {{ with . | minify | fingerprint }}
+      <link rel="stylesheet" href="{{ .RelPermalink }}" integrity="{{ .Data.Integrity }}">
+    {{ end }}
+  {{ else }}
+    <link rel="stylesheet" href="{{ .RelPermalink }}">
+  {{ end }}
+{{ end }}
+
+<meta property="og:site_name" content="{{ site.Title }}">
+<meta property="og:title" content="{{ if .IsHome }}{{ site.Title }}{{ else }}{{ .Title }}{{ end }}">
+<meta property="og:description" content="{{ $description }}">
+<meta property="og:type" content="website">
+<meta property="og:url" content="{{ .Permalink }}">
+<meta name="twitter:card" content="summary">
+
+<link rel="canonical" href="{{ .Permalink }}">
+
+{{/* A Spectral Bold "q" on the ink. The SVG is the source; the ICO and
+     PNG are rendered from it (AGENTS.md, "Design"). */}}
+<link rel="icon" href="{{ "favicon.ico" | relURL }}" sizes="32x32">
+<link rel="icon" href="{{ "favicon.svg" | relURL }}" type="image/svg+xml">
+<link rel="apple-touch-icon" href="{{ "apple-touch-icon.png" | relURL }}">
