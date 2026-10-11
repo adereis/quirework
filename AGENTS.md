@@ -74,14 +74,33 @@ is fiction written for the purpose. When a change to Quirework breaks
 one, the example is usually right: the examples are the only projects
 here that were not designed around the implementation.
 
+## The site
+
+`site/` is Quirework's website, a Hugo site deployed from this
+repository. It describes the tool, so it is a consumer too: nothing
+under `src/` reads it, and its copy, layouts and pictures stay inside
+it. Every listing and screenshot on it is captured from the examples by
+its own scripts, so a change that alters what a command prints, or how
+an example renders, is followed by a refresh of the site's captures.
+`site/AGENTS.md` holds its rules, including what it may say about a book
+written with Quirework.
+
+The site serves the sample book's renders, made fresh by
+`.github/workflows/site.yml` at every deploy with the Quirework of the
+same commit. So a push that changes the tool redeploys the site, and a
+change that breaks the sample book's render fails that deploy. The
+workflow belongs to the site, and its changes travel with the site's.
+
 ## Git
 
 Stage only reviewed files. Keep each commit on one side of the
 tool-and-consumer boundary: a change to Quirework under `src/`, `docs/`
 or `tests/` never shares a commit with a change to an example under
-`examples/`, so the tool's own history can be reviewed without reading
-around an example's content. Keep commit subjects within 50 columns and
-prose body lines within 72 columns. Non-trivial commits explain their
-motivation and important invariants. End commits with a Co-Authored-By
-trailer identifying the model established by the harness. Do not push
-unless the user authorizes it. Preserve unrelated concurrent changes.
+`examples/` or to the site under `site/`, so the tool's own history can
+be reviewed without reading around a consumer's content. The site's
+commits stay apart from an example's for the same reason. Keep commit
+subjects within 50 columns and prose body lines within 72 columns.
+Non-trivial commits explain their motivation and important invariants.
+End commits with a Co-Authored-By trailer identifying the model
+established by the harness. Do not push unless the user authorizes it.
+Preserve unrelated concurrent changes.
