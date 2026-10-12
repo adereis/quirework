@@ -23,6 +23,11 @@ Hugo blog. One installation serves several, because a project is
 selected by a `quirework.toml` found from the working directory and
 never by where the package happens to live.
 
+The website, [quirework.com](https://quirework.com), shows the tool at
+work: the spec and its trail, the procedures, and a fictional sample
+book you can read in every edition it was published in. Every deploy
+renders that book again from the same commit of this repository.
+
 ## The default workflow
 
 The author sets the aim and keeps editorial authority. The AI companion
@@ -277,7 +282,9 @@ finished book that walked it: a comic memoir with a spec and its trail,
 a book in four formats, three derived editions bound to the same spec,
 an extension of its own, and the fifteen sessions it was written in. It
 is fiction about a fictional author, and every session was driven by an
-AI playing that author, which the example's own README says.
+AI playing that author, which the example's own README says. Its
+editions can be read at
+[quirework.com/examples](https://quirework.com/examples/).
 [examples/demo-site](examples/demo-site) is the site version: posts with
 a spec each, a shared spec, marks kept outside the rendered tree, and a
 voice policy the checks enforce.

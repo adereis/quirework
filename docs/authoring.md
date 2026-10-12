@@ -947,7 +947,8 @@ this part.
 - [examples/side-quest](../examples/side-quest): a finished book that
   followed this guide, with every layer above adopted, three derived
   editions among them, and the sessions it was written in. Read its
-  `quirework.toml` beside this page.
+  `quirework.toml` beside this page, and its published editions at
+  [quirework.com/examples](https://quirework.com/examples/).
 - [examples/demo-site](../examples/demo-site): a small site that
   followed its last part.
 - [configuration.md](configuration.md): every setting, the layering
