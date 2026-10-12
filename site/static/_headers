@@ -7,7 +7,14 @@
 # stylesheet, never by a <style> element or a style= attribute. Keep it
 # that way, or the policy blocks them in production while `hugo server`,
 # which sends no headers, shows them working.
+#
+# HSTS tells a browser that has seen the site to use HTTPS for a year
+# without asking. A .com is on no browser's HTTPS preload list, and the
+# zone's Always Use HTTPS only redirects a plain request after it has
+# been sent. There is no preload directive, so leaving the header out
+# withdraws it once a browser's year runs out.
 /*
+  Strict-Transport-Security: max-age=31536000
   Content-Security-Policy: default-src 'none'; script-src 'self' https://static.cloudflareinsights.com; connect-src 'self' https://cloudflareinsights.com; style-src 'self'; font-src 'self'; img-src 'self'; base-uri 'none'; form-action 'none'; frame-ancestors 'none'
   X-Content-Type-Options: nosniff
   X-Frame-Options: DENY
