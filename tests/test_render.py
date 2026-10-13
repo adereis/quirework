@@ -10,6 +10,8 @@ covered in test_bookstage, and the end-to-end render by running it for real.
 from conftest import patch_setting
 from quirework.runs import commands as run_commands
 import json
+import shutil
+import subprocess
 import zipfile
 
 import pytest
@@ -511,3 +513,158 @@ def test_a_reader_policy_the_stage_cannot_apply_stops_it(tmp_path, monkeypatch, 
     (tmp_path / "render.toml").write_text("[reader_metadata.notice]\ntext = 'x'\n")
     assert render.stage_book_reader(tmp_path / "build" / "panel-stage") == 1
     assert "reader_metadata in the render policy" in capsys.readouterr().err
+
+
+# --------------------------------------------------------------------------- #
+# revision_metadata: a copy says which source it was copied from
+# --------------------------------------------------------------------------- #
+_STAMPED_POLICY = (
+    'epub_style_headers = ["epub-styles.html"]\nrevision_metadata = true\n'
+)
+
+
+def _git(root, *args):
+    return subprocess.run(
+        ["git", "-C", str(root), *args], capture_output=True, text=True, check=True
+    ).stdout.strip()
+
+
+@pytest.fixture
+def stamped_book(tmp_path, monkeypatch):
+    """A book under git whose render policy asks every stage for its revision.
+
+    The git has no global or system configuration and cannot see a repository
+    above the test's own directory."""
+    empty = tmp_path / "gitconfig"
+    empty.write_text("")
+    monkeypatch.setenv("GIT_CONFIG_GLOBAL", str(empty))
+    monkeypatch.setenv("GIT_CONFIG_NOSYSTEM", "1")
+    monkeypatch.setenv("GIT_CEILING_DIRECTORIES", str(tmp_path.parent))
+    for role in ("AUTHOR", "COMMITTER"):
+        monkeypatch.setenv(f"GIT_{role}_NAME", "Ada Kettle")
+        monkeypatch.setenv(f"GIT_{role}_EMAIL", "ada@example.org")
+    docs = tmp_path / "docs"
+    docs.mkdir()
+    (docs / "_quarto.yml").write_text(_DRAFT, encoding="utf-8")
+    (docs / "index.qmd").write_text("# Welcome\n\nA kettle boils.\n")
+    (docs / "epub-styles.html").write_text("<style>p { margin: 0; }</style>\n")
+    (tmp_path / "render.toml").write_text(_STAMPED_POLICY)
+    (tmp_path / ".gitignore").write_text("build/\ngitconfig\ndocs/.local/\n")
+    monkeypatch.setattr(render, "current_project", lambda: project_at(tmp_path))
+    monkeypatch.setattr(render._figures, "build", lambda stage=None, gray=False: 0)
+    _git(tmp_path, "init", "-q")
+    _git(tmp_path, "add", ".")
+    _git(tmp_path, "commit", "-qm", "A fictional first draft")
+    return tmp_path
+
+
+def _recorded(stage):
+    """The source metadata a stage's `_quarto.yml` carries, as written."""
+    return {
+        key: value
+        for key, _, value in (
+            line.partition(": ")
+            for line in (stage / "_quarto.yml").read_text().splitlines()
+        )
+        if key.startswith("source-")
+    }
+
+
+def test_a_stage_records_the_commit_it_was_copied_from(stamped_book, capsys):
+    stage = stamped_book / "build" / "book"
+    assert render.stage_book(stage) == 0
+    short = _git(stamped_book, "log", "-1", "--format=%h")
+    date = _git(stamped_book, "log", "-1", "--format=%cs")
+    assert _recorded(stage) == {
+        "source-commit": f'"{_git(stamped_book, "rev-parse", "HEAD")}"',
+        "source-commit-short": f'"{short}"',
+        "source-date": f'"{date}"',
+        "source-modified": "false",
+    }
+    out = capsys.readouterr().out
+    assert f"build/book is commit {short} of {date}\n" in out
+
+
+@pytest.mark.parametrize(
+    "change",
+    [
+        lambda docs: (docs / "index.qmd").write_text("# Welcome\n\nIt whistles.\n"),
+        lambda docs: (docs / "notes.qmd").write_text("# Not yet added\n"),
+    ],
+    ids=["edited", "untracked"],
+)
+def test_sources_not_committed_mark_the_copy_modified(stamped_book, change, capsys):
+    change(stamped_book / "docs")
+    stage = stamped_book / "build" / "book"
+    assert render.stage_book(stage) == 0
+    assert _recorded(stage)["source-modified"] == "true"
+    assert "with uncommitted changes" in capsys.readouterr().out
+
+
+def test_a_file_git_ignores_is_not_a_source(stamped_book):
+    (stamped_book / "docs" / ".local").mkdir()
+    (stamped_book / "docs" / ".local" / "settings.json").write_text("{}\n")
+    stage = stamped_book / "build" / "book"
+    assert render.stage_book(stage) == 0
+    assert _recorded(stage)["source-modified"] == "false"
+
+
+def test_a_change_outside_the_sources_is_not_theirs(stamped_book):
+    (stamped_book / "render.toml").write_text(_STAMPED_POLICY + "# a note\n")
+    stage = stamped_book / "build" / "book"
+    assert render.stage_book(stage) == 0
+    assert _recorded(stage)["source-modified"] == "false"
+
+
+@pytest.mark.parametrize("moved", ["edited", "committed"])
+def test_sources_that_move_while_copied_mark_the_copy_modified(
+    stamped_book, monkeypatch, moved
+):
+    """Another hand at work during the copy: the copy is neither commit, so it
+    names the one it started from and says it is not that commit."""
+    first = _git(stamped_book, "rev-parse", "HEAD")
+    copy = render.mirror_sources
+
+    def copy_then_move(src, stage):
+        copy(src, stage)
+        (stamped_book / "docs" / "index.qmd").write_text("# Welcome\n\nSteam.\n")
+        if moved == "committed":
+            _git(stamped_book, "commit", "-qam", "A fictional second draft")
+
+    monkeypatch.setattr(render, "mirror_sources", copy_then_move)
+    stage = stamped_book / "build" / "book"
+    assert render.stage_book(stage) == 0
+    recorded = _recorded(stage)
+    assert recorded["source-commit"] == f'"{first}"'
+    assert recorded["source-modified"] == "true"
+
+
+def test_every_stage_records_its_own_revision(stamped_book, monkeypatch):
+    noparts = stamped_book / "build" / "book-noparts"
+    patch_setting(monkeypatch, render, "_settings", "BUILD_BOOK_NOPARTS", noparts)
+    reader = stamped_book / "build" / "panel-stage"
+    assert render.stage_book_noparts() == 0
+    assert render.stage_book_reader(reader) == 0
+    for stage in (noparts, reader):
+        assert _recorded(stage)["source-modified"] == "false"
+
+
+def test_without_the_policy_no_stage_records_a_revision(stamped_book):
+    (stamped_book / "render.toml").write_text("")
+    stage = stamped_book / "build" / "book"
+    assert render.stage_book(stage) == 0
+    assert _recorded(stage) == {}
+
+
+def test_a_policy_that_is_not_a_boolean_stops_the_stage(stamped_book, capsys):
+    (stamped_book / "render.toml").write_text('revision_metadata = "true"\n')
+    assert render.stage_book(stamped_book / "build" / "book") == 1
+    assert "must be true or false, not 'true'" in capsys.readouterr().err
+
+
+def test_outside_a_checkout_no_revision_is_recorded(stamped_book, capsys):
+    shutil.rmtree(stamped_book / ".git")
+    stage = stamped_book / "build" / "book"
+    assert render.stage_book(stage) == 0
+    assert _recorded(stage) == {}
+    assert "not in a git checkout" in capsys.readouterr().err

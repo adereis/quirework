@@ -154,6 +154,7 @@ POLICIES: dict[str, tuple[str, ...]] = {
         "epub_style_headers",
         "print_drops",
         "reader_metadata.*",
+        "revision_metadata",
     ),
     "publish.variant_policy": (
         "blind_tells",

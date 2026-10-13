@@ -145,6 +145,13 @@ back into the source. `quirework spec units` prints the reading order,
 and `--check` verifies that the files on disk and the files
 `_quarto.yml` names are the same set.
 
+A copy handed out before the book is finished can name the source it
+came from, so a reviewer's notes find the text they were written
+against. `revision_metadata = true` in the render policy has every build
+record its commit, the commit's date and whether the sources had changes
+not yet committed, as metadata a copyright page can print. The
+configuration guide lists the keys.
+
 A chapter's file name is its identifier. Retitling a chapter does not
 rename it, and inserting one does not renumber anything, because numbers
 are derived at render time and nothing else refers to them.

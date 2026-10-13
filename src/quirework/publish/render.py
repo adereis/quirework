@@ -149,16 +149,131 @@ def mirror_sources(src: Path, stage: Path) -> None:
     )
 
 
+# --------------------------------------------------------------------------- #
+# the source revision a stage was copied from
+# --------------------------------------------------------------------------- #
+def source_revision() -> dict | None:
+    """The commit the configured sources are at, and whether they differ from it.
+
+    Returns `commit` (the full hash), `short` (abbreviated as the repository
+    abbreviates), `date` (the commit's date, YYYY-MM-DD) and `modified`, true
+    when a tracked file under the sources has changes not committed or an
+    untracked file sits among them. Files git ignores are not sources and are
+    not compared. Returns None outside a git checkout or before its first
+    commit.
+    """
+    root = current_project().root
+    try:
+        commit, short, date = subprocess.run(
+            ["git", "log", "-1", "--format=%H%n%h%n%cs", "HEAD"],
+            cwd=root,
+            capture_output=True,
+            text=True,
+            check=True,
+        ).stdout.split()
+    except (subprocess.CalledProcessError, FileNotFoundError, ValueError):
+        return None
+    source = current_project().path("manuscript.source")
+    try:
+        named = source.relative_to(root)
+    except ValueError:
+        named = source
+    status = subprocess.run(
+        ["git", "status", "--porcelain", "--", str(named)],
+        cwd=root,
+        capture_output=True,
+        text=True,
+    )
+    return {
+        "commit": commit,
+        "short": short,
+        "date": date,
+        # A status that cannot be read is not a clean one.
+        "modified": status.returncode != 0 or bool(status.stdout.strip()),
+    }
+
+
+def _revision_wanted() -> object:
+    return (
+        current_project()
+        .data("publish.render_policy", {})
+        .get("revision_metadata", False)
+    )
+
+
+def _revision_before() -> dict | None:
+    """The source revision before a stage copies anything, when the render
+    policy asks for one."""
+    return source_revision() if _revision_wanted() is True else None
+
+
+def _record_revision(stage: Path, before: dict | None) -> int:
+    """Set the source revision a stage was copied from as its metadata.
+
+    A render policy with `revision_metadata = true` asks for it, so that a
+    copy can say which source it is: `source-commit`, `source-commit-short`,
+    `source-date` and `source-modified`, at the top of the staged
+    `_quarto.yml`. The revision is read before the copy and again after it,
+    because a copy is only that commit if the sources sat still while it was
+    taken. Anything that moved in between, a commit landing or a file
+    changing, makes the copy `source-modified`, and the stamp names the
+    commit the copy started from. An edit made and undone entirely inside
+    the copy is the one change this cannot see.
+
+    Returns 1 for a policy value that is not a boolean, since a quoted "true"
+    would otherwise leave every copy unstamped without a word. Outside a git
+    checkout there is no revision to record: it says so and records none."""
+    wanted = _revision_wanted()
+    if wanted is False:
+        return 0
+    if wanted is not True:
+        print(
+            "render: revision_metadata in the render policy must be true or "
+            f"false, not {wanted!r}",
+            file=sys.stderr,
+        )
+        return 1
+    if before is None:
+        print(
+            "render: revision_metadata: the sources are not in a git checkout "
+            "with a commit, so the stage records no revision",
+            file=sys.stderr,
+        )
+        return 0
+    after = source_revision()
+    modified = before["modified"] or after != before
+    _bookstage.set_top_metadata(
+        stage,
+        {
+            "source-commit": before["commit"],
+            "source-commit-short": before["short"],
+            "source-date": before["date"],
+            "source-modified": modified,
+        },
+    )
+    try:
+        named = stage.relative_to(current_project().root)
+    except ValueError:
+        named = stage
+    print(
+        f"render: {named} is commit {before['short']} of {before['date']}"
+        + (", with uncommitted changes" if modified else "")
+    )
+    return 0
+
+
 def stage_book(stage: Path | None = None) -> int:
     """Stage configured sources into a parts-intact tree and materialize figures.
 
     Default stage is build/book/ (the publish stage); redpen passes its own so a
     review-copy build cannot clobber the publish stage's `_site` outputs or its
     incremental `.quarto` cache. Returns the figure-build return code (non-zero
-    if a figure source is missing or malformed); callers should abort the render
-    on a non-zero result.
+    if a figure source is missing or malformed), or 1 for a `revision_metadata`
+    the stage cannot apply; callers should abort the render on a non-zero
+    result.
     """
     stage = stage or _options().BUILD_BOOK
+    before = _revision_before()
     mirror_sources(current_project().path("manuscript.source"), stage)
     _bookstage.render_contents(stage)
     # Print settings that have to take effect partway through the book (the
@@ -167,11 +282,12 @@ def stage_book(stage: Path | None = None) -> int:
     # bookstage.TYPST_PROLOGUES owns what they are and why they cannot live in
     # the template.
     _bookstage.inject_typst_prologues(stage)
-    return (
+    rc = (
         _figures.build()
         if stage == _options().BUILD_BOOK
         else _figures.build(stage=stage)
     )
+    return rc or _record_revision(stage, before)
 
 
 # Front matter that belongs to the screen and not to the printed block.
@@ -234,8 +350,10 @@ def stage_book_noparts() -> int:
     each file-based `part:` to a chapter in its reading-order slot and mark its H1
     `.unnumbered`, so the Part Two opener reaches EPUB/DOCX in position without
     shifting any chapter number (`bookstage.flatten_book_parts` / `unnumber_h1`).
-    Returns the figure-build return code.
+    Returns the figure-build return code, or 1 for a `revision_metadata` the
+    stage cannot apply.
     """
+    revision = _revision_before()
     mirror_sources(
         current_project().path("manuscript.source"), _settings().BUILD_BOOK_NOPARTS
     )
@@ -261,7 +379,7 @@ def stage_book_noparts() -> int:
             f"file(s) to chapters ({', '.join(promoted) or '-'}), materialized "
             f"{len(dividers)} divider(s) ({', '.join(dividers) or '-'})"
         )
-    return 0
+    return _record_revision(_settings().BUILD_BOOK_NOPARTS, revision)
 
 
 def book_formats() -> list[str]:

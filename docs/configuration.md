@@ -1068,7 +1068,17 @@ and visual choices out of Quirework's implementation:
   Values are strings, numbers or booleans, and a boolean stays one. Only
   the packet's own stage applies them. `publish build`, `publish redpen`
   and every copy made for a person keep the book's own metadata, and
-  nothing else switches it.
+  nothing else switches it. `revision_metadata = true` has every stage
+  record the source it was copied from, so a copy handed to a reviewer
+  can say which revision it is: `source-commit` (the full hash),
+  `source-commit-short`, `source-date` (the commit's date, YYYY-MM-DD)
+  and `source-modified`, at the top of the staged `_quarto.yml`. A book
+  prints them where it chooses, or nowhere. `source-modified` is true
+  when the sources had uncommitted changes or untracked files, or moved
+  while they were copied; files git ignores are not compared. Each stage
+  is copied at its own moment, so each records its own revision. Outside
+  a git checkout no stage records one, and a value that is not a boolean
+  stops the render.
 - `text.terminology`: `terms`, `retired`, `allow`, `scope_glob`, and
   `exclude_names`. A term warns and waits for the author's ruling; a
   `retired` phrase is a ruling already made, so `text check` fails while

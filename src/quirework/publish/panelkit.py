@@ -494,30 +494,10 @@ def _source_sha() -> tuple[str, bool]:
     """(short HEAD SHA, working-tree-dirty) for configured book sources.
     The kit renders the working tree, so a dirty flag says the read includes
     uncommitted edits. Returns ("unknown", False) outside a git checkout."""
-    try:
-        sha = subprocess.run(
-            ["git", "rev-parse", "--short", "HEAD"],
-            cwd=current_project().root,
-            capture_output=True,
-            text=True,
-            check=True,
-        ).stdout.strip()
-    except (subprocess.CalledProcessError, FileNotFoundError):
+    revision = _render.source_revision()
+    if revision is None:
         return "unknown", False
-    # The packet records whether the book had uncommitted edits, so the status
-    # query must name the configured source tree.
-    source = current_project().path("manuscript.source")
-    try:
-        named = source.relative_to(current_project().root)
-    except ValueError:
-        named = source
-    dirty = subprocess.run(
-        ["git", "status", "--porcelain", "--", str(named)],
-        cwd=current_project().root,
-        capture_output=True,
-        text=True,
-    ).stdout.strip()
-    return sha, bool(dirty)
+    return revision["short"], revision["modified"]
 
 
 def _entry(seq: int, seg: Segment) -> dict:
