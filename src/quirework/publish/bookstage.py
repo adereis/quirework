@@ -557,13 +557,14 @@ _UNLISTED_DOCX_STYLE_XML = (
 _DOCX_HEADING1 = re.compile(r'<w:pStyle w:val="Heading1"\s*/>')
 
 
-def _heading_key(title: str) -> str:
+def heading_key(title: str) -> str:
     """What two forms of one title share: its letters and digits.
 
     The book's form is Markdown, with a span's brackets and attributes or a
-    link's target; Word's is the rendered text, with typographic quotes. A
-    key this coarse still tells any two chapters apart, which is all the
-    match in `unlist_docx_headings` asks of it."""
+    link's target; Word's or a PDF's is the rendered text, with typographic
+    quotes. A key this coarse still tells any two chapters apart, which is
+    all the match in `unlist_docx_headings`, or in a reader packet's reading
+    of the PDF's tags, asks of it."""
     title = re.sub(r"\{[^}]*\}|\]\([^)]*\)", "", title)
     return re.sub(r"[\W_]+", "", title).lower()
 
@@ -611,7 +612,7 @@ def unlist_docx_headings(docx_path: Path, rows: list[Row]) -> list[str]:
         found = html.unescape("".join(runs)).strip()
         if row.number is not None:  # printed before the title it numbers
             found = re.sub(rf"^{row.number}\.?\s+", "", found)
-        if _heading_key(found) != _heading_key(row.title):
+        if heading_key(found) != heading_key(row.title):
             raise ValueError(
                 f"docx: {docx_path.name}'s heading {n} reads {found!r} where the "
                 f"book has {row.title!r}"

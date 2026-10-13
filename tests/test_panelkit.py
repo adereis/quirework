@@ -155,7 +155,7 @@ def test_unlisted_pages_after_the_body_are_one_back_matter_block():
 
 
 def test_unlisted_pages_after_the_body_need_their_first_page():
-    with pytest.raises(ValueError, match="does not record: Back Cover"):
+    with pytest.raises(ValueError, match="place: Back Cover"):
         panelkit.plan_segments(_book_with_a_back_cover(), STARTS[:6], 20)
 
 
@@ -164,6 +164,98 @@ def test_unlisted_pages_after_a_matter_part_join_its_block():
     back = panelkit.plan_segments(rows, STARTS, TOTAL)[-1]
     assert (back.title, back.start, back.end) == ("Back matter", 20, TOTAL)
     assert back.contains == ["Sources", "Colophon", "Back Cover"]
+
+
+def _tagged_pdf(path, headings, pages=20):
+    """A PDF whose structure tree tags `headings`, `(title, page)` pairs, as H1
+    elements inside a Document element and a section, the way Typst nests
+    them. The first carries its page itself; the rest carry it on the marked
+    content inside, which is the other place the PDF format allows."""
+    from pypdf import PdfWriter
+    from pypdf.generic import (
+        ArrayObject,
+        DictionaryObject,
+        NameObject,
+        NumberObject,
+        TextStringObject,
+    )
+
+    w = PdfWriter()
+    for _ in range(pages):
+        w.add_blank_page(100, 100)
+    elems = ArrayObject()
+    for n, (title, page) in enumerate(headings):
+        ref = w.pages[page - 1].indirect_reference
+        el = DictionaryObject(
+            {
+                NameObject("/S"): NameObject("/H1"),
+                NameObject("/T"): TextStringObject(title),
+            }
+        )
+        if n == 0:
+            el[NameObject("/Pg")] = ref
+        else:
+            mcr = {NameObject("/Pg"): ref, NameObject("/MCID"): NumberObject(n)}
+            el[NameObject("/K")] = DictionaryObject(mcr)
+        elems.append(el)
+    section = DictionaryObject(
+        {NameObject("/S"): NameObject("/Sect"), NameObject("/K"): elems}
+    )
+    doc = DictionaryObject(
+        {NameObject("/S"): NameObject("/Document"), NameObject("/K"): section}
+    )
+    w.root_object[NameObject("/StructTreeRoot")] = DictionaryObject(
+        {NameObject("/K"): doc}
+    )
+    w.write(str(path))
+    return path
+
+
+def test_the_tags_give_every_heading_its_page_listed_or_not(tmp_path):
+    pdf = _tagged_pdf(
+        tmp_path / "book.pdf", [("Preface", 3), ("Three", 15), ("Back Cover", 19)]
+    )
+    assert panelkit.heading_pages(pdf) == [
+        ("Preface", 3),
+        ("Three", 15),
+        ("Back Cover", 19),
+    ]
+
+
+def test_a_pdf_without_tags_gives_no_headings(tmp_path):
+    from pypdf import PdfWriter
+
+    w = PdfWriter()
+    w.add_blank_page(100, 100)
+    w.write(str(tmp_path / "plain.pdf"))
+    assert panelkit.heading_pages(tmp_path / "plain.pdf") is None
+
+
+# The chapters of `_book_with_a_back_cover`, tagged where its outline puts
+# them, with the template's own Contents page ahead of them.
+TAGGED = [("Contents", 2), ("Preface", 3), ("One", 6), ("Two", 10), ("Three", 15)]
+
+
+def test_the_tags_place_the_back_matter_where_they_agree_with_the_outline():
+    headings = TAGGED + [("Back Cover", 19)]
+    rows = _book_with_a_back_cover()
+    assert panelkit.back_matter_start(headings, rows, STARTS[:6]) == 19
+
+
+def test_tags_that_disagree_with_the_outline_are_not_trusted():
+    headings = [("Contents", 2), ("Preface", 3), ("One", 7)] + TAGGED[3:]
+    with pytest.raises(
+        ValueError, match="bookmarks One on page 6 but has it tagged on page 7"
+    ):
+        panelkit.back_matter_start(
+            headings + [("Back Cover", 19)], _book_with_a_back_cover(), STARTS[:6]
+        )
+
+
+def test_without_its_tag_the_back_matter_has_no_start():
+    rows = _book_with_a_back_cover()
+    assert panelkit.back_matter_start(TAGGED, rows, STARTS[:6]) is None
+    assert panelkit.back_matter_start(None, rows, STARTS[:6]) is None
 
 
 # The book above as `bookstage.book_outline` lists it: every listed entry.

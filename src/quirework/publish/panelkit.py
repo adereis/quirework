@@ -128,6 +128,54 @@ def outline_pages(pdf: Path) -> list[tuple[str, int]]:
     return rows
 
 
+def heading_pages(pdf: Path) -> list[tuple[str, int]] | None:
+    """The top-level headings the PDF's tags record: `(title, page)`, in order.
+
+    None for a PDF with no tags. The outline bookmarks only what the Contents
+    lists, and Typst writes a named destination only where something links, so
+    an unlisted page, such as a back cover, appears in neither. A tagged PDF,
+    which Typst writes by default from 0.14, records every heading for screen
+    readers in its structure tree, each with its page and its title. That is
+    the compiler's own account of the book, not a guess from a page's text.
+    A heading the tags give no title reads as an empty one."""
+    pypdf = _pypdf()
+    reader = pypdf.PdfReader(str(pdf))
+    tree = reader.trailer["/Root"].get("/StructTreeRoot")
+    if tree is None:
+        return None
+    number = {p.indirect_reference.idnum: n for n, p in enumerate(reader.pages, 1)}
+
+    def kids(node) -> list:
+        k = node.get("/K")
+        k = k.get_object() if hasattr(k, "get_object") else k
+        return list(k) if isinstance(k, list) else [] if k is None else [k]
+
+    def page_of(node) -> int | None:
+        pg = node.get("/Pg")
+        if pg is not None:
+            return number.get(pg.idnum)
+        for kid in kids(node):
+            kid = kid.get_object() if hasattr(kid, "get_object") else kid
+            if isinstance(kid, dict) and (found := page_of(kid)) is not None:
+                return found
+        return None
+
+    found: list[tuple[str, int]] = []
+    stack = [tree.get_object()]
+    while stack:
+        node = stack.pop()
+        if node.get("/S") == "/H1":
+            page = page_of(node)
+            if page is not None:
+                found.append((str(node.get("/T", "")), page))
+            continue
+        for kid in reversed(kids(node)):
+            kid = kid.get_object() if hasattr(kid, "get_object") else kid
+            if isinstance(kid, dict):
+                stack.append(kid)
+    return found
+
+
 def contents_pages(pdf: Path, before: int) -> list[int]:
     """The pages the book's Contents page links to, in the order it lists them.
 
@@ -279,6 +327,44 @@ def body_parts(rows: list[_bookstage.Row]) -> set[str | None]:
     return {r.part for r in rows if r.kind == "chapter" and r.number is not None}
 
 
+def back_matter_start(
+    headings: list[tuple[str, int]] | None,
+    rows: list[_bookstage.Row],
+    starts: list[int],
+) -> int | None:
+    """The page the unlisted pages after the body start on, from the PDF's
+    tagged `headings`, or None when the tags do not show it.
+
+    `rows` and `starts` are what `plan_segments` takes. The tags are trusted
+    only where they agree with the outline: every listed chapter's heading
+    must be tagged, in order, on the page its bookmark names. Otherwise the
+    two describe different books, and this raises rather than cut the back
+    matter off at a guess."""
+    _, tail = body_span(rows)
+    if tail == len(rows) or headings is None:
+        return None
+    key = _bookstage.heading_key
+    listed = [i for i, r in enumerate(rows) if r.kind == "part" or r.listed]
+    seen = -1
+    for i, page in zip(listed, starts):
+        if rows[i].kind != "chapter":
+            continue
+        want = key(rows[i].title)
+        at = next(
+            (j for j in range(seen + 1, len(headings)) if key(headings[j][0]) == want),
+            None,
+        )
+        if at is None or headings[at][1] != page:
+            tagged = "untagged" if at is None else f"tagged on page {headings[at][1]}"
+            raise ValueError(
+                f"packet: the PDF bookmarks {rows[i].title} on page {page} but has "
+                f"it {tagged}, so its tags cannot place the back matter"
+            )
+        seen = at
+    first = key(rows[tail].title)
+    return next((p for title, p in headings[seen + 1 :] if key(title) == first), None)
+
+
 def plan_segments(
     rows: list[_bookstage.Row],
     starts: list[int],
@@ -383,8 +469,8 @@ def plan_segments(
     elif trailing:
         if back_start is None:
             raise ValueError(
-                "packet: the book ends with unlisted pages whose first page the "
-                f"PDF does not record: {', '.join(r.title for r in trailing)}"
+                "packet: the book ends with unlisted pages that neither the PDF's "
+                f"outline nor its tags place: {', '.join(r.title for r in trailing)}"
             )
         segs.append(
             Segment(
@@ -503,7 +589,12 @@ def build(out_dir: Path) -> int:
     total = page_count(book_pdf)
     try:
         contents = contents_pages(book_pdf, got[0][1] if got else total + 1)
-        segs = plan_segments(rows, entry_pages(outline, got, contents), total)
+        starts = entry_pages(outline, got, contents)
+        # Unlisted pages after the body have no bookmark; the tags place them.
+        back = None
+        if body_span(rows)[1] < len(rows):
+            back = back_matter_start(heading_pages(book_pdf), rows, starts)
+        segs = plan_segments(rows, starts, total, back)
     except ValueError as exc:
         print(exc, file=sys.stderr)
         return 1
