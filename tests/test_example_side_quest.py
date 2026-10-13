@@ -203,7 +203,9 @@ def test_the_book_keeps_its_own_punctuation_treaty(book):
 def test_a_self_driven_reader_gets_clean_text_and_the_figure_by_name(book, tmp_path):
     """The directory a blind reader walks on its own, built from the same
     reading order as the printed book, Parts announced as a print reader
-    would see them, and the plate under the name the chapter asks for."""
+    would see them, and the plate under the name the chapter asks for. The
+    note on the book's unlisted first page is front matter, so the reader
+    starts at the preface."""
     from quirework.publish import panelkit
 
     out = tmp_path / "read"
@@ -214,10 +216,7 @@ def test_a_self_driven_reader_gets_clean_text_and_the_figure_by_name(book, tmp_p
     file = {n[3:-3]: n for n in names}
     body = ["preface", "hows-the-book", "two-shops", "index-cards", "otto"]
     body += ["the-name", "nine-hundred-lines", "em", "the-demo", "full-stop"]
-    # From the preface on, whatever the book puts before it.
-    slugs = list(file)
-    start = slugs.index("preface")
-    assert slugs[start : start + len(body)] == body
+    assert list(file)[: len(body)] == body
     assert sorted(p.name for p in (out / "figures").glob("*")) == ["hedda-screen.png"]
     demo = (out / "chapters" / file["the-demo"]).read_text(encoding="utf-8")
     assert "figures/hedda-screen.png" in demo
