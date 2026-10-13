@@ -1,6 +1,6 @@
-// The site as a Cloudflare Worker serving static assets. Workers Builds
-// runs `hugo` in site/ and then a pinned Wrangler on every push to main;
-// the build settings live in the dashboard (README.md, "Deploy").
+// The site as a Cloudflare Worker serving static assets. The GitHub
+// Actions workflow .github/workflows/site.yml builds it and deploys it
+// with a pinned Wrangler (README.md, "Deploy"); Workers Builds is not used.
 {
   // Must match the Worker's name in the dashboard, or the build fails.
   "name": "quirework-site",

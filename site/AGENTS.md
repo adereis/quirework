@@ -212,3 +212,45 @@ couple of weeks has had little time to be vetted.
 
 The workflow runs on a push that touches the site, the sample book or
 the tool, since each can change what the site serves.
+
+## Set outside this repository
+
+Several parts of the live site are set in Cloudflare's dashboard or at
+the search engines, not here.
+
+- **The deploy token** is an account API token named "quirework-site
+  deploy (GitHub Actions)", made from Cloudflare's "Edit Cloudflare
+  Workers" template. It may edit Workers routes on the quirework.com
+  zone only, plus the template's account-wide Workers permissions, and
+  it never expires. It and the account id are the secrets of the
+  repository's `production` environment, which only `main` may deploy
+  from. To roll it, create a new token and replace
+  `CLOUDFLARE_API_TOKEN` there, then delete the old one.
+- **The Worker has no `workers.dev` address and no previews**, as
+  `wrangler.jsonc` declares, so quirework.com is its only address.
+- **Web Analytics** runs with automatic setup. Cloudflare adds its
+  beacon script to the HTML a browser receives, so production pages
+  carry a script that no layout contains, and that neither `hugo server`
+  nor `curl` shows. It sets no cookies, so the site needs no consent
+  banner. The policies in `static/_headers` allow it.
+- **`www` redirects to the apex** through a Redirect Rule, a 301 that
+  keeps the path and query string. Its DNS record points at 192.0.2.1, a
+  documentation address that is never reached, because the rule answers
+  first.
+- **Always Use HTTPS** is on for the zone, and `static/_headers` sends
+  HSTS for a year on top of it.
+- **DNSSEC** is on. The domain is registered with Cloudflare, which
+  keeps a fingerprint (DS record) of its signing key at the registry.
+  **Before moving the domain's DNS away from Cloudflare, turn DNSSEC off
+  and wait at least a day before changing nameservers.** If the
+  fingerprint is still at the registry when another provider starts
+  answering, validating resolvers reject every answer, and the site
+  stops resolving for most people.
+- **Google Search Console** verifies the domain through a TXT record at
+  the apex (`google-site-verification=...`). Deleting it unverifies the
+  property.
+- **Bing Webmaster Tools** verifies the site through a DNS-only CNAME
+  from a hex name to `verify.bing.com`. Deleting it unverifies the site.
+  Both search engines have the sitemap,
+  `https://quirework.com/sitemap.xml`, which lists only the site's own
+  pages, since the sample book is `noindex`.
