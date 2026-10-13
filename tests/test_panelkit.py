@@ -108,13 +108,62 @@ def test_an_outline_that_does_not_match_the_book_is_an_error():
         panelkit.plan_segments(_book(), STARTS[:-1], TOTAL)
 
 
-def test_an_unlisted_page_outside_the_front_matter_is_an_error():
+def test_an_unlisted_page_inside_the_body_is_an_error():
     rows = _book()
     rows.insert(
         5, Row("chapter", "canon/hidden.qmd", "Hidden", None, False, "Part One")
     )
-    with pytest.raises(ValueError, match="no segment to sit in"):
+    with pytest.raises(ValueError, match="no segment to sit in: Hidden"):
         panelkit.plan_segments(rows, STARTS, TOTAL)
+
+
+def test_an_unlisted_page_in_a_matter_part_sits_in_its_block():
+    rows = _book()
+    rows.insert(
+        10, Row("chapter", "canon/thanks.qmd", "Thanks", None, False, "Back matter")
+    )
+    back = panelkit.plan_segments(rows, STARTS, TOTAL)[-1]
+    assert back.contains == ["Sources", "Thanks", "Colophon"]
+
+
+def _book_with_a_back_cover():
+    """The authoring guide's back cover: unnumbered, unlisted, after the last
+    chapter and outside every Part, in a book with no back-matter Part."""
+    return [r for r in _book() if r.part != "Back matter"] + [
+        Row("chapter", "back-cover.qmd", "Back Cover", None, False, None)
+    ]
+
+
+def test_the_body_ends_at_the_last_listed_entry():
+    rows = _book_with_a_back_cover()
+    head, tail = panelkit.body_span(rows)
+    assert (rows[head].title, rows[tail - 1].title) == ("Preface", "Three")
+    assert [r.title for r in rows[tail:]] == ["Back Cover"]
+
+
+def test_unlisted_pages_after_the_body_are_one_back_matter_block():
+    segs = panelkit.plan_segments(_book_with_a_back_cover(), STARTS[:6], 20, 19)
+    three, back = segs[-2:]
+    assert (three.title, three.start, three.end) == ("Three", 14, 18)
+    assert (back.kind, back.stem, back.start, back.end) == (
+        "back-matter",
+        "back-matter",
+        19,
+        20,
+    )
+    assert back.contains == ["Back Cover"]
+
+
+def test_unlisted_pages_after_the_body_need_their_first_page():
+    with pytest.raises(ValueError, match="does not record: Back Cover"):
+        panelkit.plan_segments(_book_with_a_back_cover(), STARTS[:6], 20)
+
+
+def test_unlisted_pages_after_a_matter_part_join_its_block():
+    rows = _book() + [Row("chapter", "back-cover.qmd", "Back Cover", None, False, None)]
+    back = panelkit.plan_segments(rows, STARTS, TOTAL)[-1]
+    assert (back.title, back.start, back.end) == ("Back matter", 20, TOTAL)
+    assert back.contains == ["Sources", "Colophon", "Back Cover"]
 
 
 # The book above as `bookstage.book_outline` lists it: every listed entry.

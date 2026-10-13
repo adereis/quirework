@@ -696,6 +696,13 @@ that chapter references, and writes a reaction file before opening the
 next one. One session's prefix only grows, so most of its input is
 served from cache.
 
+Both draw the book's edges by one rule. The body runs from the first
+entry the Contents lists to the last. The unlisted pages before it are
+front matter, such as a welcome or a copyright page. The unlisted pages
+after it are back matter, such as a back cover, and so is a Part that
+holds no numbered chapter. A self-driven directory carries the body
+alone.
+
 The two are not interchangeable, and the differences belong in the
 charter. The self-driven material is mounted rather than frozen, so the
 bytes live outside the record. `plan selfdriven` names them instead: it

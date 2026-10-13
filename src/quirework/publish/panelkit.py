@@ -253,20 +253,53 @@ class Segment:
         return self.end - self.start + 1
 
 
+def body_span(rows: list[_bookstage.Row]) -> tuple[int, int]:
+    """The book's body as `(head, tail)`, the slice `rows[head:tail]`.
+
+    The body runs from the first listed entry through the last. The unlisted
+    pages before it are front matter, such as a welcome or a copyright page.
+    The unlisted pages after it are back matter, such as a back cover written
+    the way the authoring guide shows, `.unnumbered .unlisted` after the last
+    chapter. A reader turns past both, and the Contents lists neither.
+
+    The packet slices on this and a self-driven directory leaves out what it
+    excludes, so the two cannot disagree about where a book starts and ends.
+    When each kept its own copy, one handed a reader the back cover as a
+    chapter and the other refused the book."""
+    listed = [i for i, r in enumerate(rows) if r.kind == "part" or r.listed]
+    if not listed:
+        return len(rows), len(rows)
+    return listed[0], listed[-1] + 1
+
+
+def body_parts(rows: list[_bookstage.Row]) -> set[str | None]:
+    """The Parts that hold a numbered chapter, None standing for none at all.
+    Any other Part is matter, such as a "Back matter" Part of sources and a
+    colophon, and a packet collapses it into one block."""
+    return {r.part for r in rows if r.kind == "chapter" and r.number is not None}
+
+
 def plan_segments(
-    rows: list[_bookstage.Row], starts: list[int], total: int
+    rows: list[_bookstage.Row],
+    starts: list[int],
+    total: int,
+    back_start: int | None = None,
 ) -> list[Segment]:
     """Group the book's reading order into the segments a reader consumes.
 
     `rows` is `bookstage.book_rows` (parts intact); `starts` is the first page of
     each row that the PDF outline lists, in the same order; `total` is the book's
-    page count. Pure, so the grouping rules are testable without rendering a book.
+    page count. `back_start` is the page the unlisted pages after the body begin
+    on, which no outline records; a book with such pages needs it. Pure, so the
+    grouping rules are testable without rendering a book.
 
     A Part divider is not a segment. It rides on the chapter it opens, because
     that is where it is bound and where the reader turns it. A Part with no
     numbered chapter in it is matter rather than body, so it collapses -- divider
     and all its pages -- into one block; that rule is what makes the back matter
-    a single file without naming it in code."""
+    a single file without naming it in code. The unlisted pages after the body
+    (`body_span`) are one back-matter block too, or join the matter Part they
+    follow."""
     listed = [i for i, r in enumerate(rows) if r.kind == "part" or r.listed]
     if len(listed) != len(starts):
         raise ValueError(
@@ -276,15 +309,16 @@ def plan_segments(
     if not listed:
         raise ValueError("packet: the book has no listed entries to slice on")
     page_of = dict(zip(listed, starts))
-    head = listed[0]
-    for r in rows[head + 1 :]:
-        if r.kind == "chapter" and not r.listed:
+    head, tail = body_span(rows)
+    kept = body_parts(rows)
+    matter_parts = {r.title for r in rows if r.kind == "part"} - kept
+    for r in rows[head + 1 : tail]:
+        if r.kind == "chapter" and not r.listed and r.part not in matter_parts:
             raise ValueError(
-                "packet: an .unlisted page outside the front "
-                f"matter has no segment to sit in: {r.title}"
+                "packet: an .unlisted page inside the body has no segment "
+                f"to sit in: {r.title}"
             )
 
-    body_parts = {r.part for r in rows if r.kind == "chapter" and r.number is not None}
     segs: list[Segment] = []
 
     # The pages before the first entry: the book's unlisted ones, and any the
@@ -302,10 +336,10 @@ def plan_segments(
 
     pending: tuple[str, int] | None = None  # a Part divider waiting for its chapter
     i = head
-    while i < len(rows):
+    while i < tail:
         r = rows[i]
         if r.kind == "part":
-            if r.title in body_parts:
+            if r.title in kept:
                 pending = (r.title, page_of[i])
                 i += 1
                 continue
@@ -319,7 +353,7 @@ def plan_segments(
                 )
             )
             i += 1
-            while i < len(rows) and rows[i].part == r.title:
+            while i < tail and rows[i].part == r.title:
                 i += 1
             pending = None
             continue
@@ -338,6 +372,29 @@ def plan_segments(
         )
         pending = None
         i += 1
+
+    # The unlisted pages after the body. After a matter Part they are its own
+    # last pages, or follow it, and its block already runs to the end of the
+    # book. After a chapter they need a block, and a page to start it on.
+    trailing = rows[tail:]
+    if trailing and segs[-1].kind == "back-matter":
+        last = segs[-1]
+        last.contains += [r.title for r in trailing if r.part != last.title]
+    elif trailing:
+        if back_start is None:
+            raise ValueError(
+                "packet: the book ends with unlisted pages whose first page the "
+                f"PDF does not record: {', '.join(r.title for r in trailing)}"
+            )
+        segs.append(
+            Segment(
+                "back-matter",
+                "back-matter",
+                "Back matter",
+                start=back_start,
+                contains=[r.title for r in trailing],
+            )
+        )
 
     for this, nxt in zip(segs, segs[1:]):
         this.end = nxt.start - 1
@@ -624,23 +681,16 @@ def prose_dir(out: Path) -> int:
     rc = _render.stage_book(stage)
     if rc:
         return rc
-    # The body, by the same two rules the packet slices on, because
-    # `kind == "chapter"` alone also matches a copyright page or a colophon: the
-    # front matter is the unlisted run before the first listed entry, and the
-    # back matter is a Part holding no numbered chapter. What is left is what a
-    # reader reads.
+    # The body, by the rules the packet slices on (`body_span`, `body_parts`),
+    # because `kind == "chapter"` alone also matches a copyright page, a back
+    # cover or a colophon. What is left is what a reader reads.
     all_rows = _bookstage.book_rows(stage)
-    head = next(
-        (i for i, r in enumerate(all_rows) if r.kind == "part" or r.listed),
-        len(all_rows),
-    )
-    body_parts = {
-        r.part for r in all_rows if r.kind == "chapter" and r.number is not None
-    }
+    head, tail = body_span(all_rows)
+    kept = body_parts(all_rows)
     rows = [
         r
-        for r in all_rows[head:]
-        if r.kind == "chapter" and r.rel and (r.part is None or r.part in body_parts)
+        for r in all_rows[head:tail]
+        if r.kind == "chapter" and r.rel and (r.part is None or r.part in kept)
     ]
     if out.exists() and any(out.iterdir()):
         return _fail(f"{_shown(out)} is not empty -- name a fresh directory")

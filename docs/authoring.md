@@ -156,7 +156,10 @@ copyright page or a back cover, carries `.unlisted` on its heading, with
 contents. In a DOCX that takes one more step, because Word builds the
 contents from heading styles whenever a reader updates them, so the
 build gives the page's title a style that looks like a heading and is
-not one.
+not one. Such a page belongs before the first listed chapter or after
+the last: there it is front or back matter, which a blind read leaves
+out by default, as most readers turn past it. Between two chapters, the
+PDF reader packet has no segment to put it in, and refuses the book.
 
 ## 2. The spec
 
