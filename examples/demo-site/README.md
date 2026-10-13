@@ -4,6 +4,11 @@ A small fictional blog, kept by the keeper of the Gull Point light, and
 a worked example of Quirework on a site rather than a book. Hugo renders
 it; Quirework keeps what each post commits to and checks the prose.
 
+The keeper is invented, and AI wrote the posts. No person edited or
+reviewed them. The blog exists to test Quirework and to document it, so
+read it for the structure the tool keeps, not as an example of the
+writing Quirework helps an author make.
+
 ```text
 content/posts/<slug>/index.md   the posts, as Hugo page bundles
 specs/_site.md                  what several posts lean on
