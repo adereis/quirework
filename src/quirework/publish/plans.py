@@ -248,6 +248,17 @@ def selfdriven(
     listing = "\n".join(
         f"  {i}. chapters/{c.name}" for i, c in enumerate(chapters, start=1)
     )
+    # Most readers know the pages after the last chapter are there and turn
+    # past them. The directory carries the body alone, so the seat is told
+    # what it skips, as a print reader can see it.
+    back = _back_matter(source)
+    skipped = (
+        f"\nAfter its last chapter, the printed book has back matter: {_names(back)}.\n"
+        "It is not among these files. Like most readers, you know it is there,\n"
+        "and you skip it.\n"
+        if back
+        else ""
+    )
     # A withheld final question is the instrument, not a convenience: a read that
     # measures what the seat believed while reading must not let it see what is
     # being tested. So its wrap is a second turn into the same session, and the
@@ -269,7 +280,7 @@ down how each chapter felt to read.
 The book is at `{mount}`. Its {len(chapters)} chapter files are in reading order:
 
 {listing}
-
+{skipped}
 Illustrations are in `{mount}/figures/`. Each chapter's text references its own
 figures by relative path from the chapter file, under the names the text gives.
 Open every figure a chapter references and look at it.
@@ -347,6 +358,25 @@ Each reaction file contains exactly these headings and nothing else:
         raise ValueError("plan output exists")
     write(output, plan)
     return str(output)
+
+
+def _back_matter(source) -> list[str]:
+    """The back matter a `--prose-dir` directory left out, by title, from the
+    manifest beside it. Empty when it has none, or when no manifest says;
+    `_pin_material` warns about a missing one."""
+    from quirework.publish.panelkit import manifest_path
+
+    record = manifest_path(source)
+    if not record.is_file():
+        return []
+    return list(json.loads(record.read_text(encoding="utf-8")).get("back_matter", []))
+
+
+def _names(titles: list[str]) -> str:
+    """Titles as a sentence lists them: "A", "A and B", "A, B and C"."""
+    return (
+        titles[0] if len(titles) == 1 else f"{', '.join(titles[:-1])} and {titles[-1]}"
+    )
 
 
 def _pin_material(source, mount):

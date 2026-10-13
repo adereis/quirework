@@ -348,3 +348,22 @@ def test_the_engine_accepts_what_the_planner_declares(book, tmp_path):
     seat = frozen["seats"][0]
     assert seat["policy"]["read_root_digests"]
     assert len(seat["turns"][0]["referenced_files"]) == 2
+
+
+def test_the_seat_knows_the_back_matter_is_there_and_skips_it(book, tmp_path):
+    """Most readers know the pages after the last chapter exist and do not read
+    them. The directory carries the body alone, so the prompt names what the
+    seat skips, as the printed book would show it."""
+    with_manifest(book, back_matter=["Notes", "Colophon"])
+    prompt = plan_for(book, tmp_path / "plan.json")["turns"][0]["prompt"]
+    assert "the printed book has back matter: Notes and Colophon." in prompt
+    assert "you know it is there,\nand you skip it." in prompt
+    assert prompt.index("02-later.md") < prompt.index("back matter")
+
+
+def test_a_book_without_back_matter_says_nothing_of_it(book, tmp_path):
+    with_manifest(book, back_matter=[])
+    prompt = plan_for(book, tmp_path / "plan.json")["turns"][0]["prompt"]
+    assert "back matter" not in prompt
+    assert "reading order:\n\n  1. chapters/01-opening.md" in prompt
+    assert "chapters/02-later.md\n\nIllustrations are in" in prompt

@@ -701,7 +701,10 @@ entry the Contents lists to the last. The unlisted pages before it are
 front matter, such as a welcome or a copyright page. The unlisted pages
 after it are back matter, such as a back cover, and so is a Part that
 holds no numbered chapter. A self-driven directory carries the body
-alone. A packet cuts each run of matter as one block, which `--run-dir`
+alone, and its manifest names the back matter it left out. The plan
+tells the seat, by title, that the printed book has those pages after
+its last chapter: like most readers, it knows they are there and skips
+them. A packet cuts each run of matter as one block, which `--run-dir`
 leaves out unless `--with-matter` asks for it. The PDF bookmarks only
 what the Contents lists, so the packet finds where back matter after the
 last chapter begins in the PDF's tags, which Typst writes from 0.14, and

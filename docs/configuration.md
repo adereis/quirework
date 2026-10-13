@@ -1279,9 +1279,12 @@ records, so saved runs and their integrity checks retain their format.
 The comments explain choices and do not enter the model assignment.
 
 A book can define `sops.default_reader` and named `sops.reader_presets`.
-Each preset selects an `instrument` and `include_matter` boolean. The
-instrument supplies its own default persona. An explicit `--instrument`
-or `--persona` overrides that selection for a prepared book read.
+Each preset selects an `instrument` and `include_matter` boolean.
+`include_matter` decides whether a sequential read is handed the front
+and back matter; a self-driven read never is, and is told the back
+matter's titles instead. The instrument supplies its own default
+persona. An explicit `--instrument` or `--persona` overrides that
+selection for a prepared book read.
 
 A preset may also declare `delivery`, the list of deliveries its
 questions were written for, from `pages`, `file` and `self-driven`. A

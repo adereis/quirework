@@ -783,6 +783,16 @@ def prose_dir(out: Path) -> int:
         for r in all_rows[head:tail]
         if r.kind == "chapter" and r.rel and (r.part is None or r.part in kept)
     ]
+    # The back matter the directory leaves out, by title. A reader knows it is
+    # there, as a print reader sees the pages after the last chapter, so the
+    # plan names it to the seat, without the pages.
+    back = [
+        r.title
+        for n, r in enumerate(all_rows)
+        if r.kind == "chapter"
+        and n >= head
+        and (n >= tail or (r.part is not None and r.part not in kept))
+    ]
     if out.exists() and any(out.iterdir()):
         return _fail(f"{_shown(out)} is not empty -- name a fresh directory")
     (out / "chapters").mkdir(parents=True, exist_ok=True)
@@ -853,6 +863,7 @@ def prose_dir(out: Path) -> int:
                 # Which Part each chapter file sits in, so a read's answers
                 # about the book's structure can be checked against it.
                 "parts": parts,
+                "back_matter": back,
                 "files": hashes(out),
                 "digest": tree_digest(out),
             },

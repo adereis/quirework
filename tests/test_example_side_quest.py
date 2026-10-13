@@ -225,3 +225,4 @@ def test_a_self_driven_reader_gets_clean_text_and_the_figure_by_name(book, tmp_p
     record = json.loads(panelkit.manifest_path(out).read_text(encoding="utf-8"))
     assert record["parts"][file["hows-the-book"]] == "The Book That Disagreed"
     assert record["parts"][file["preface"]] is None
+    assert record["back_matter"] == ["Back Cover"]
