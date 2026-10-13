@@ -209,12 +209,19 @@ def test_a_self_driven_reader_gets_clean_text_and_the_figure_by_name(book, tmp_p
     out = tmp_path / "read"
     assert panelkit.prose_dir(out) == 0
     names = sorted(p.name for p in (out / "chapters").glob("*.md"))
-    assert names[:3] == ["01-index.md", "02-preface.md", "03-hows-the-book.md"]
-    assert "11-full-stop.md" in names
+    # NN-slug.md, numbered from 01 in reading order, and found below by slug.
+    assert [n[:3] for n in names] == [f"{i:02d}-" for i in range(1, len(names) + 1)]
+    file = {n[3:-3]: n for n in names}
+    body = ["preface", "hows-the-book", "two-shops", "index-cards", "otto"]
+    body += ["the-name", "nine-hundred-lines", "em", "the-demo", "full-stop"]
+    # From the preface on, whatever the book puts before it.
+    slugs = list(file)
+    start = slugs.index("preface")
+    assert slugs[start : start + len(body)] == body
     assert sorted(p.name for p in (out / "figures").glob("*")) == ["hedda-screen.png"]
-    demo = (out / "chapters" / "10-the-demo.md").read_text(encoding="utf-8")
+    demo = (out / "chapters" / file["the-demo"]).read_text(encoding="utf-8")
     assert "figures/hedda-screen.png" in demo
     assert "@bind" not in demo and "{#sec-" not in demo
     record = json.loads(panelkit.manifest_path(out).read_text(encoding="utf-8"))
-    assert record["parts"]["03-hows-the-book.md"] == "The Book That Disagreed"
-    assert record["parts"]["02-preface.md"] is None
+    assert record["parts"][file["hows-the-book"]] == "The Book That Disagreed"
+    assert record["parts"][file["preface"]] is None
