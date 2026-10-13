@@ -540,6 +540,23 @@ def restrict_formats(stage: Path, keep: list[str]) -> None:
     cfg.write_text("\n".join(out) + "\n", encoding="utf-8")
 
 
+def replace_outputs(site: Path, suffixes: set[str], produced: list[Path]) -> None:
+    """Consolidate a stage's single-file outputs into `site`, replacing what an
+    earlier render left there in the same formats.
+
+    A file the render names for its commit, as a proof is named, gets a new
+    name with every commit, so copying alone would pile one copy per commit
+    into `site`, and every check that reads the directory would read them
+    all. Formats this render did not make keep their last output, as they
+    did when each format had one name."""
+    site.mkdir(parents=True, exist_ok=True)
+    for old in site.iterdir():
+        if old.is_file() and old.suffix in suffixes:
+            old.unlink()
+    for path in produced:
+        shutil.copyfile(path, site / path.name)
+
+
 def partition_formats(
     requested: list[str] | None,
 ) -> tuple[list[str], list[str], list[str]]:
@@ -794,9 +811,7 @@ def render(
             return rc
         psite = _settings().BUILD_BOOK_PRINT / SITE
         site = _options().BUILD_BOOK / SITE
-        site.mkdir(parents=True, exist_ok=True)
-        for produced in sorted(psite.glob("*.pdf")):
-            shutil.copyfile(produced, site / produced.name)
+        replace_outputs(site, {".pdf"}, sorted(psite.glob("*.pdf")))
 
     if less:
         rc = stage_book_noparts()
@@ -838,10 +853,12 @@ def render(
         # A proof's library title, which Pandoc cannot set apart from the
         # title page; before the copy, like the fixes above.
         _proof.retitle(nsite, _settings().BUILD_BOOK_NOPARTS)
-        site = _options().BUILD_BOOK / SITE
-        site.mkdir(parents=True, exist_ok=True)
-        for produced in (*sorted(nsite.glob("*.epub")), *sorted(nsite.glob("*.docx"))):
-            shutil.copyfile(produced, site / produced.name)
+        suffixes = {f".{fmt}" for fmt in less}
+        replace_outputs(
+            _options().BUILD_BOOK / SITE,
+            suffixes,
+            sorted(p for p in nsite.iterdir() if p.suffix in suffixes),
+        )
 
     # Figure numbering, proved against the artifacts rather than trusted from
     # the config. The four writers reach their numbers four different ways and

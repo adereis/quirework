@@ -668,3 +668,20 @@ def test_outside_a_checkout_no_revision_is_recorded(stamped_book, capsys):
     assert render.stage_book(stage) == 0
     assert _recorded(stage) == {}
     assert "not in a git checkout" in capsys.readouterr().err
+
+
+def test_a_format_s_new_output_replaces_its_last(tmp_path):
+    """A proof is named for its commit, so the next build's file has a new
+    name; the old one must go, or the site keeps one per commit."""
+    site, stage = tmp_path / "site", tmp_path / "stage"
+    site.mkdir()
+    stage.mkdir()
+    for name in ("book_proof_aaa.pdf", "book_proof_aaa.epub", "index.html"):
+        (site / name).write_text("old")
+    (stage / "book_proof_bbb.pdf").write_text("new")
+    render.replace_outputs(site, {".pdf"}, [stage / "book_proof_bbb.pdf"])
+    assert sorted(p.name for p in site.iterdir()) == [
+        "book_proof_aaa.epub",  # a format this render did not make keeps it
+        "book_proof_bbb.pdf",
+        "index.html",
+    ]
