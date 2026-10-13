@@ -944,11 +944,13 @@ this part.
 
 ## Where to go next
 
-- [examples/side-quest](../examples/side-quest): a finished book that
+- [examples/side-quest](../examples/side-quest): a complete book that
   followed this guide, with every layer above adopted, three derived
   editions among them, and the sessions it was written in. Read its
   `quirework.toml` beside this page, and its published editions at
-  [quirework.com/examples](https://quirework.com/examples/).
+  [quirework.com/examples](https://quirework.com/examples/). AI wrote it
+  to test the tool, and no person reviewed its prose, so read it for the
+  layers, not the writing.
 - [examples/demo-site](../examples/demo-site): a small site that
   followed its last part.
 - [configuration.md](configuration.md): every setting, the layering

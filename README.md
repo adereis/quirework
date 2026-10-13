@@ -25,8 +25,9 @@ never by where the package happens to live.
 
 The website, [quirework.com](https://quirework.com), shows the tool at
 work: the spec and its trail, the procedures, and a fictional sample
-book you can read in every edition it was published in. Every deploy
-renders that book again from the same commit of this repository.
+book you can read in every edition it was published in. AI wrote that
+book to test the tool, and no person reviewed its prose. Every deploy
+renders it again from the same commit of this repository.
 
 ## The default workflow
 
@@ -278,16 +279,20 @@ Starting from nothing? The [authoring guide](docs/authoring.md) is the
 path from an empty directory to a manuscript with a spec, marked
 chapters, figures and its own procedures, and its last part does the
 same for a site. [examples/side-quest](examples/side-quest) is a short
-finished book that walked it: a comic memoir with a spec and its trail,
+complete book that walked it: a comic memoir with a spec and its trail,
 a book in four formats, three derived editions bound to the same spec,
-an extension of its own, and the fifteen sessions it was written in. It
-is fiction about a fictional author, and every session was driven by an
-AI playing that author, which the example's own README says. Its
+an extension of its own, and the fifteen sessions it was written in. Its
 editions can be read at
 [quirework.com/examples](https://quirework.com/examples/).
 [examples/demo-site](examples/demo-site) is the site version: posts with
 a spec each, a shared spec, marks kept outside the rendered tree, and a
 voice policy the checks enforce.
+
+Both examples are test fixtures, not showcases. Their authors are
+invented, AI wrote them, and no person edited or reviewed their prose.
+Every session of the book was driven by an AI playing its author, which
+the example's own README says. Read them for the structure Quirework
+keeps, not as examples of the writing it helps an author make.
 
 The [configuration guide](docs/configuration.md) explains how to connect
 a project. The [workflow guide](docs/workflows.md) covers procedures,
