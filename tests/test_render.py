@@ -454,3 +454,60 @@ def test_mirror_sources_stages_book_without_touching_source(tmp_path):
         "ch.qmd",
         "illustrations",
     ]
+
+
+# --------------------------------------------------------------------------- #
+# stage_book_reader: a reader instrument's copy is the book as published
+# --------------------------------------------------------------------------- #
+_DRAFT = """\
+project:
+  type: book
+draft-copy: true
+book:
+  title: "T"
+  chapters:
+    - index.qmd
+"""
+
+
+def _draft_book(tmp_path, monkeypatch):
+    """A book that reserves its rights until publication, and whose render
+    policy names what its published state sets."""
+    docs = tmp_path / "docs"
+    docs.mkdir()
+    (docs / "_quarto.yml").write_text(_DRAFT, encoding="utf-8")
+    (docs / "index.qmd").write_text("# Welcome\n")
+    (tmp_path / "render.toml").write_text(
+        '[reader_metadata]\ndraft-copy = false\nedition = "First"\n'
+    )
+    monkeypatch.setattr(render, "current_project", lambda: project_at(tmp_path))
+    monkeypatch.setattr(render._figures, "build", lambda stage=None, gray=False: 0)
+    return docs
+
+
+def test_a_reader_stage_renders_the_book_as_published(tmp_path, monkeypatch, capsys):
+    _draft_book(tmp_path, monkeypatch)
+    stage = tmp_path / "build" / "panel-stage"
+    assert render.stage_book_reader(stage) == 0
+    lines = (stage / "_quarto.yml").read_text().splitlines()
+    assert "draft-copy: false" in lines and "draft-copy: true" not in lines
+    assert lines[-1] == 'edition: "First"'
+    assert "sets draft-copy, edition as published" in capsys.readouterr().out
+
+
+def test_a_copy_for_a_person_keeps_the_book_s_own_metadata(tmp_path, monkeypatch):
+    """The other half: `publish build` stages without the reader's metadata,
+    and nothing a reader stage does reaches the sources or the publish stage."""
+    docs = _draft_book(tmp_path, monkeypatch)
+    assert render.stage_book_reader(tmp_path / "build" / "panel-stage") == 0
+    assert render.stage_book() == 0
+    published = (tmp_path / "build" / "book" / "_quarto.yml").read_text()
+    assert published == _DRAFT
+    assert (docs / "_quarto.yml").read_text() == _DRAFT
+
+
+def test_a_reader_policy_the_stage_cannot_apply_stops_it(tmp_path, monkeypatch, capsys):
+    _draft_book(tmp_path, monkeypatch)
+    (tmp_path / "render.toml").write_text("[reader_metadata.notice]\ntext = 'x'\n")
+    assert render.stage_book_reader(tmp_path / "build" / "panel-stage") == 1
+    assert "reader_metadata in the render policy" in capsys.readouterr().err

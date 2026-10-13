@@ -564,7 +564,7 @@ def build(out_dir: Path) -> int:
     # Own stage: the whole-book typst render below writes a _site, and Quarto
     # cleans other formats' output from a shared _site — on build/book/ that
     # deleted the site render's HTML out from under it.
-    rc = _render.stage_book(_settings().STAGE_KIT)
+    rc = _render.stage_book_reader(_settings().STAGE_KIT)
     if rc:
         return rc
     stage = _settings().STAGE_KIT
@@ -769,7 +769,7 @@ def prose_dir(out: Path) -> int:
     directory.
     """
     stage = _settings().STAGE_KIT
-    rc = _render.stage_book(stage)
+    rc = _render.stage_book_reader(stage)
     if rc:
         return rc
     # The body, by the rules the packet slices on (`body_span`, `body_parts`),

@@ -672,9 +672,12 @@ the difference to the human.
 
 Sequential delivery hands the seat one chapter per launch and the
 operator controls every reveal. `quirework publish packet` builds the
-segments and `quirework publish plan read` compiles them. The material
-is frozen into the record, which is what lets the record certify the
-bytes the reader saw, and the cost is one launch per chapter.
+segments and `quirework publish plan read` compiles them. The packet
+renders the book as it will be published, with any `reader_metadata` the
+render policy declares, in a stage of its own that no copy for a person
+is made from. The material is frozen into the record, which is what lets
+the record certify the bytes the reader saw, and the cost is one launch
+per chapter.
 
 A self-driven read launches once.
 `quirework publish packet --prose-dir DIR` writes the reader-facing

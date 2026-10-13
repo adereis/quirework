@@ -471,3 +471,24 @@ def test_a_prose_directory_shows_the_parts_a_print_reader_would_see():
         "",
         f"# {one}\n\n---\n\n",
     ]
+
+
+def test_both_reader_paths_stage_the_book_as_published(tmp_path, monkeypatch):
+    """The kit and the self-driven directory both stage through
+    `stage_book_reader`, the one stage that sets the metadata the book's
+    published state declares, so neither can hand a reader a draft."""
+    from types import SimpleNamespace
+
+    staged = []
+
+    def stage(where):
+        staged.append(where)
+        return 1  # stop before anything renders
+
+    monkeypatch.setattr(panelkit._render, "stage_book_reader", stage)
+    monkeypatch.setattr(panelkit._render, "find_quarto", lambda: "quarto")
+    settings = SimpleNamespace(STAGE_KIT=tmp_path / "stage", BUILD_KIT=tmp_path / "kit")
+    monkeypatch.setattr(panelkit, "_settings", lambda: settings)
+    assert panelkit.build(tmp_path / "kit") == 1
+    assert panelkit.prose_dir(tmp_path / "read") == 1
+    assert staged == [tmp_path / "stage", tmp_path / "stage"]

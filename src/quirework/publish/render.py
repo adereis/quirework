@@ -197,6 +197,36 @@ def stage_book_print() -> int:
     return 0
 
 
+def stage_book_reader(stage: Path) -> int:
+    """Stage the book for a reader instrument: as it will be published.
+
+    Same staging as `stage_book`, then each `reader_metadata` key of the
+    render policy is set at the top of the staged `_quarto.yml`. A book that
+    renders differently until it is published, such as a copyright page that
+    reserves every right until then, names there what its published state
+    sets. A reader seat then meets the book a reader will hold, not a copy
+    that tells it, on a page of front matter, that it holds a draft.
+
+    Only the reader packet's stages call this. They live in directories of
+    their own, never in `build/book/`, so a copy made for a person never
+    carries the change, and nothing but the policy file turns it on. Returns
+    the figure-build return code, or 1 for a policy the stage cannot apply."""
+    rc = stage_book(stage=stage)
+    if rc:
+        return rc
+    values = (
+        current_project().data("publish.render_policy", {}).get("reader_metadata", {})
+    )
+    try:
+        keys = _bookstage.set_top_metadata(stage, dict(values))
+    except ValueError as exc:
+        print(f"render: reader_metadata in the render policy: {exc}", file=sys.stderr)
+        return 1
+    if keys:
+        print(f"render: the reader's copy sets {', '.join(keys)} as published")
+    return 0
+
+
 def stage_book_noparts() -> int:
     """Stage sources with the book's parts flattened.
 

@@ -555,3 +555,57 @@ def test_word_headings_that_do_not_line_up_with_the_chapters_are_refused(tmp_pat
     _docx(docx, ("Heading1", "Preface"), ("Heading1", "Back Cover"))
     with pytest.raises(ValueError, match="2 chapter headings where the book has 3"):
         bookstage.unlist_docx_headings(docx, ROWS)
+
+
+# --------------------------------------------------------------------------- #
+# set_top_metadata: the metadata a reader stage sets in its staged copy
+# --------------------------------------------------------------------------- #
+_DRAFT_CONFIG = """\
+project:
+  type: book
+# Until publication, every copy keeps its rights reserved.
+draft-copy: true
+notice:
+  text: "Reserved"
+  scope: all
+
+book:
+  title: "T"
+  draft-copy: "a nested key of the same name is not the switch"
+  chapters:
+    - index.qmd
+"""
+
+
+def test_top_metadata_replaces_a_declared_key_in_place(tmp_path):
+    (tmp_path / "_quarto.yml").write_text(_DRAFT_CONFIG)
+    assert bookstage.set_top_metadata(tmp_path, {"draft-copy": False}) == ["draft-copy"]
+    lines = (tmp_path / "_quarto.yml").read_text().splitlines()
+    assert lines[2:4] == [
+        "# Until publication, every copy keeps its rights reserved.",
+        "draft-copy: false",
+    ]
+    assert '  draft-copy: "a nested key of the same name is not the switch"' in lines
+
+
+def test_top_metadata_replaces_a_block_and_adds_a_new_key(tmp_path):
+    (tmp_path / "_quarto.yml").write_text(_DRAFT_CONFIG)
+    bookstage.set_top_metadata(tmp_path, {"notice": "Licensed", "edition": "First"})
+    text = (tmp_path / "_quarto.yml").read_text()
+    assert 'notice: "Licensed"\n\nbook:\n' in text
+    assert "scope: all" not in text
+    assert text.endswith('    - index.qmd\nedition: "First"\n')
+
+
+@pytest.mark.parametrize(
+    "values, why",
+    [
+        ({"notice": {"text": "Licensed"}}, "must be a string, a number or a boolean"),
+        ({"book.title": "U"}, "is not a plain name"),
+    ],
+)
+def test_top_metadata_refuses_what_yaml_would_read_otherwise(tmp_path, values, why):
+    (tmp_path / "_quarto.yml").write_text(_DRAFT_CONFIG)
+    with pytest.raises(ValueError, match=why):
+        bookstage.set_top_metadata(tmp_path, values)
+    assert (tmp_path / "_quarto.yml").read_text() == _DRAFT_CONFIG

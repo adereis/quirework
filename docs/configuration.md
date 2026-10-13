@@ -1056,8 +1056,19 @@ and visual choices out of Quirework's implementation:
   with `manuscript.notes.mask_fences()`, so it reads exactly what
   `spec units --check` reads.
 - `publish.layout_policy`: `typst_prologues` and `typst_epilogues`.
-- `publish.render_policy`: `print_drops` and `epub_style_headers`
-  requiring CSS-comment cleanup in staged EPUB headers.
+- `publish.render_policy`: `print_drops`, `epub_style_headers` requiring
+  CSS-comment cleanup in staged EPUB headers, and `reader_metadata`, the
+  metadata a reader instrument's render sets. A book that renders
+  differently until it is published, such as a copyright page that
+  reserves every right until then, names here what its published state
+  sets: `[reader_metadata]` with `draft-copy = false`, in a book whose
+  `_quarto.yml` declares `draft-copy: true`. Each key is set at the top
+  level of the reader packet's staged `_quarto.yml`, so a seat meets the
+  book a reader will hold, not a copy that tells it it holds a draft.
+  Values are strings, numbers or booleans, and a boolean stays one. Only
+  the packet's own stage applies them. `publish build`, `publish redpen`
+  and every copy made for a person keep the book's own metadata, and
+  nothing else switches it.
 - `text.terminology`: `terms`, `retired`, `allow`, `scope_glob`, and
   `exclude_names`. A term warns and waits for the author's ruling; a
   `retired` phrase is a ruling already made, so `text check` fails while

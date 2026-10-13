@@ -150,7 +150,11 @@ POLICIES: dict[str, tuple[str, ...]] = {
     "provenance.redaction_policy": ("markers",),
     "providers.isolation_policy": ("mount_markers", "project_markers"),
     "publish.layout_policy": ("typst_epilogues.*", "typst_prologues.*"),
-    "publish.render_policy": ("epub_style_headers", "print_drops"),
+    "publish.render_policy": (
+        "epub_style_headers",
+        "print_drops",
+        "reader_metadata.*",
+    ),
     "publish.variant_policy": (
         "blind_tells",
         "default_effort",

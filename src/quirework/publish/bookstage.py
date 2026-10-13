@@ -12,6 +12,7 @@ from __future__ import annotations
 
 from quirework.project import current_project
 import html
+import json
 import posixpath
 import re
 import shutil
@@ -898,3 +899,51 @@ def blank_chapters(stage: Path, rels: set[str]) -> list[str]:
         )
         blanked.append(rel)
     return blanked
+
+
+# --------------------------------------------------------------------------- #
+# metadata a stage sets: a reader instrument's render of the book as published
+# --------------------------------------------------------------------------- #
+_METADATA_KEY = re.compile(r"[A-Za-z][\w-]*")
+
+
+def set_top_metadata(stage: Path, values: dict) -> list[str]:
+    """Set each of `values` as a top-level key of the staged `_quarto.yml`.
+
+    The top level is where a book declares metadata that every chapter and
+    every filter reads. A key the file already declares has its value, with
+    any block under it, replaced in place, and a new key is added at the end.
+    Values are TOML's scalars, strings, booleans and numbers, written as JSON,
+    which YAML reads as the same value: `false` stays the boolean a filter
+    tests for, never the string. Operates on staged copies only.
+
+    Raises ValueError for a key YAML would read differently or a value that is
+    not a scalar, rather than write a file Quarto reads another way. Returns
+    the keys set."""
+    for key, value in values.items():
+        if not _METADATA_KEY.fullmatch(key):
+            raise ValueError(f"metadata key {key!r} is not a plain name")
+        if not isinstance(value, (str, bool, int, float)):
+            raise ValueError(
+                f"metadata {key} must be a string, a number or a boolean, "
+                f"not {type(value).__name__}"
+            )
+    cfg = stage / BOOK_CONFIG
+    lines = cfg.read_text(encoding="utf-8").splitlines()
+    for key, value in values.items():
+        line = f"{key}: {json.dumps(value, ensure_ascii=False)}"
+        at = next(
+            (i for i, s in enumerate(lines) if re.match(rf"{re.escape(key)}\s*:", s)),
+            None,
+        )
+        if at is None:
+            lines.append(line)
+            continue
+        end = at + 1  # the value's block: indented or blank lines under it
+        while end < len(lines) and (not lines[end].strip() or lines[end][0] in " \t"):
+            end += 1
+        while end > at + 1 and not lines[end - 1].strip():
+            end -= 1
+        lines[at:end] = [line]
+    cfg.write_text("\n".join(lines) + "\n", encoding="utf-8")
+    return list(values)
