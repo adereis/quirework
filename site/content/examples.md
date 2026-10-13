@@ -2,12 +2,13 @@
 title: Examples
 lede: >-
   Two projects in Quirework's repository consume it the way yours would: a
-  sample book and a sample site. Both are fiction, invented to exercise the
-  tool, and both run in its test suite.
+  sample book and a sample site. Both are test fixtures, not showcases. AI
+  wrote them, and no person edited or reviewed their prose, so read them for
+  the structure the tool keeps, not for the writing.
 description: >-
   Side Quest, a short book with a spec, a trail, four formats and three
   derived editions, and the Lighthouse Log, a Hugo site with a spec per
-  post: the two worked examples in Quirework's repository.
+  post: the two test fixtures in Quirework's repository, written by AI.
 ---
 
 ## Side Quest
@@ -26,10 +27,11 @@ Everything in it is fiction, its author included. Cy Dequest, Cy's
 manager, editor and colleagues, and the book Cy never finished do not
 exist, and none of it is an account of how Quirework was made. An AI
 played Cy, writing every one of Cy's messages from a brief, and drove an
-AI companion that did the work. So the book demonstrates the method and
-nothing more. Its provenance metrics, which measure what the human
-contributed against what the machine did, measure one model against
-another.
+AI companion that did the work. No person edited or reviewed its prose.
+So the book demonstrates the method and nothing more: read it for what
+the tool kept, not for the writing. Its provenance metrics, which
+measure what the human contributed against what the machine did, measure
+one model against another.
 
 ### The problem it is about
 
@@ -66,7 +68,7 @@ commitment the book makes.
 
 {{< shot src="images/side-quest/book-pdf.png" alt="Chapter 5 of Side Quest in the PDF, under a boxed chapter heading." width="440" caption="The same chapter in the PDF, set by Typst." >}}
 
-{{< shot src="images/side-quest/poems-html.png" alt="Chapter 5 of Side Quest retold as rhyming verse." width="440" caption="The poems: one per chapter, in real metre and full rhyme, drafted on a different model from the other editions." >}}
+{{< shot src="images/side-quest/poems-html.png" alt="Chapter 5 of Side Quest retold as rhyming verse." width="440" caption="The poems: one per chapter, drafted on a different model from the other editions." >}}
 
 {{< shot src="images/side-quest/young-html.png" alt="Chapter 5 of Side Quest in the young readers' edition." width="440" caption="The young readers' edition, for readers of about ten who read well and alone." >}}
 
@@ -84,7 +86,9 @@ typeface.
 
 Each edition is rendered from the book's source every time this site is
 published, by the same `quirework publish build` an author runs. Every
-page carries a notice that the book is fiction.
+page carries a notice that the book is a test fixture whose prose no
+person reviewed, and every download carries the book's own note to the
+same effect, ahead of the preface.
 
 | Edition | In the browser | Download |
 |---|---|---|
@@ -117,10 +121,11 @@ quirework publish build
 ## The Lighthouse Log
 
 The Lighthouse Log is a small blog built by Hugo: the log of a fictional
-lighthouse keeper. It has two posts in page bundles, one of them a
-draft. Each post has a spec of its own, with its reader, its thesis and
-its boundaries. A shared spec holds what both posts lean on, and a post
-that binds another's claim is listed when that claim changes.
+lighthouse keeper. Like the book, AI wrote it, and no person reviewed
+its posts. It has two posts in page bundles, one of them a draft. Each
+post has a spec of its own, with its reader, its thesis and its
+boundaries. A shared spec holds what both posts lean on, and a post that
+binds another's claim is listed when that claim changes.
 
 {{< listing name="files" caption="Every file in the site. Hugo reads `hugo.toml` and `content/`. Quirework reads the rest, and the specs and notes sit outside the tree Hugo renders, so no visitor is ever served one. The skill under `.claude/` is the entry point `sop skills` generated." >}}
 

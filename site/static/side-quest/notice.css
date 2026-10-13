@@ -1,6 +1,7 @@
 /* The notice scripts/stage-renders puts at the top of every page of the
-   sample book's renders: Side Quest is fiction. Quarto styles the rest of
-   the page; this styles only the notice, in the site's paper and ink. */
+   sample book's renders: Side Quest is a test fixture. Quarto styles the
+   rest of the page; this styles only the notice, in the site's paper and
+   ink. */
 
 .qw-sample-notice {
   margin: 0;

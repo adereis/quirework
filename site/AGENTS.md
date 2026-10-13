@@ -19,14 +19,18 @@ of commits.
 ## What it may say about mindwright
 
 The home page names one project written with Quirework, the book at
-mindwright.dev. It may say only what that site says publicly, and that
-the book is being written with Quirework:
+mindwright.dev. It may say what that site says publicly:
 
 - that a book by Ademar Reis, with the subtitle *A software engineer's
   philosophy of mind*, is due in early 2027;
 - the page's paragraph on how the book is being made, quoted word for
   word;
 - the link to mindwright.dev.
+
+It may also say two things of its own. The book is being written with
+Quirework. It is not published yet, and once it is, it will be the
+measure of the tool, which the samples are not. Both are claims about
+Quirework, made by its maintainer, and neither describes the book.
 
 It says nothing else about the book:
 
@@ -51,15 +55,27 @@ one where an example's own text does.
 ## The tool first, the samples last
 
 The site is about the tool. Side Quest and the Lighthouse Log are
-fiction, invented to exercise it, and they never lead.
+fiction that AI wrote to test it, with prose no person reviewed, and
+they never lead.
 
+- **The samples are fixtures, never showcases.** A visitor judges a tool
+  by the best work it shows, and nobody judged a page of these. So no
+  copy praises their prose, and no caption calls an edition good. A
+  caption says how an edition was made, never how well it reads.
+- **Wherever a reader reaches a sample, it says who wrote it.** Each
+  mention says that AI wrote it and that no person reviewed its prose.
+  The home page also says that the book at mindwright.dev, once
+  published, will be the measure of the tool.
 - **The home page reaches them only in their own section**, near its
   end, after the spec, the trail, the procedures and the book written
   with Quirework. Every section before it explains the tool in general
   terms and draws it with general diagrams.
+- **The home page shows no picture of a sample.** The cover lives on the
+  examples page, inside the explanation. On the home page it would be a
+  showcase, whatever the copy beside it says.
 - **A deeper page opens on the tool too.** Where it shows the samples'
-  output, it says once that they are fiction, and every caption names
-  the sample book as the sample book.
+  output, it says once that they are fiction that AI wrote and no person
+  reviewed, and every caption names the sample book as the sample book.
 - **What a sample did is set apart** with `{{% sample %}}`, a dotted
   rule beside text that itself begins "In the sample book". The style
   marks it, and the words say it, since a style alone does not reach
@@ -166,10 +182,13 @@ site never serves a render older than the book, or than the tool.
   refuses to run if any edition or format is missing. It names each
   download for its edition, so that two never land in one folder as the
   same file.
-- **Every page says the book is fiction.** A reader can land on any
-  chapter from anywhere, so the notice goes on each page, and the robots
-  tag and an `X-Robots-Tag` header keep the pages out of search results.
-  The PDF, EPUB and Word files are the renders as made.
+- **Every page says the book is a test fixture**, which AI wrote and no
+  person reviewed. A reader can land on any chapter from anywhere, so
+  the notice goes on each page, and the robots tag and an `X-Robots-Tag`
+  header keep the pages out of search results. The PDF, EPUB and Word
+  files are the renders as made. They carry the same message in the
+  book's own note, on an unlisted page before the preface, which the
+  book's `AGENTS.md` describes.
 - **The pages run under a looser policy of their own.** Quarto's pages
   need inline scripts and styles, so `static/_headers` drops the site's
   Content Security Policy for `/side-quest/` and sets one that allows

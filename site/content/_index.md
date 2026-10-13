@@ -141,26 +141,27 @@ this way.
 > judgments and the direction are the author's. Most of the sentences are
 > the machine's, and the book will account for exactly who did what.
 
+The book is not published yet. When it is, it will be the measure of the
+tool. The two samples below are not.
+
 [Read about the book at mindwright.dev](https://mindwright.dev/)
 
 {{% /band %}}
 
-## A sample book and a sample site
+## Two samples, made to test the tool
 
-{{% aside %}}
-{{< shot src="images/side-quest/cover.jpg" alt="Read Side Quest, the fictional sample book. Its cover is a pencil drawing of a kitchen table with a tied manuscript, a box of index cards, a laptop and a mug, and one line on a loose page circled in orange." width="240" class="cover" link="/side-quest/book/" caption="[Read the book](/side-quest/book/)" >}}
-{{% /aside %}}
-
-Quirework's repository carries two worked examples, and both are
-fiction, invented to exercise the tool. Their authors, their people and
-their stories do not exist. What is real is the work the tool did on
-them.
+Quirework's repository carries two worked examples, a book and a blog.
+**Both are test fixtures, not showcases.** Their authors, their people
+and their stories are invented. AI wrote them, and no person edited or
+reviewed their prose. Quirework is built for an author who judges every
+page, and these two had no such author. So read them for the structure
+the tool keeps, not for the writing.
 
 [Side Quest](/side-quest/book/) is a short comic memoir by Cy Dequest,
 about building Quirework instead of finishing a book. Cy is invented: an
-AI played the author and drove the companion that did the work, and the
-book's README says so. It is not an account of how Quirework was made.
-The tool's part is real: a spec and its trail, a book in four formats,
+AI played the author and drove the companion that did the work. It is
+not an account of how Quirework was made. The tool's part is real, and
+it is the part to judge: a spec and its trail, a book in four formats,
 three derived editions bound to the same spec, and the fifteen sessions
 it was written in.
 

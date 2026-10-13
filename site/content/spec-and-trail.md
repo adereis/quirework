@@ -21,8 +21,9 @@ that has to stay consistent with itself while it grows.
 {{< diagram name="commitment" narrow="commitment-narrow" caption="One commitment, and every place the work carries it. When the commitment changes, every one of them is listed. The circle marks the one that still says what the work no longer holds." >}}
 
 The listings on this page are real output, run against Side Quest, the
-sample book in Quirework's repository. The book is fiction, invented to
-exercise the tool; [the examples page](/examples/#side-quest) says more.
+sample book in Quirework's repository. The book is fiction that AI wrote
+to test the tool, and no person reviewed its prose.
+[The examples page](/examples/#side-quest) says more.
 
 ## A file of commitments
 

@@ -17,7 +17,7 @@ chapter, checks a claim, researches a source, or makes an edition. A
 catalog says what each one requires reading first, which tools it uses,
 and which other procedures may follow it.
 
-{{< listing name="sop-list" caption="The procedures of Side Quest, the sample book in Quirework's repository, grouped by the question each one answers. The book is fiction, invented to exercise the tool." >}}
+{{< listing name="sop-list" caption="The procedures of Side Quest, the sample book in Quirework's repository, grouped by the question each one answers. The book is fiction that AI wrote to test the tool, and no person reviewed its prose." >}}
 
 `sop explain` prints a procedure's required reading in dependency order,
 with its length, so the companion knows what to read before it starts.

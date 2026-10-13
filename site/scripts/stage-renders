@@ -6,12 +6,14 @@ copies each edition's output into renders/EDITION/, which hugo.toml mounts
 at /side-quest/EDITION/. Nothing staged here is committed: the renders are
 made fresh for every deploy, so the site never serves an old one.
 
-Every HTML page gets a notice that the book is fiction, and a robots tag
-that keeps it out of search results, because a reader can land on any
-chapter without passing the examples page that says so. The PDF, EPUB and
-Word files are copied as rendered, under a name that says which edition
-they are, so that two downloads never land in one folder as the same
-file. Quarto's pages never link to them, so the new names break nothing.
+Every HTML page gets a notice that the book is a test fixture, which AI
+wrote and no person reviewed, and a robots tag that keeps it out of
+search results, because a reader can land on any chapter without passing
+the examples page that says so. The PDF, EPUB and Word files are copied
+as rendered, since each carries the book's own note to the same effect,
+ahead of the preface. Each is named for its edition, so that two
+downloads never land in one folder as the same file. Quarto's pages
+never link to them, so the new names break nothing.
 
 A missing edition or format stops the script before anything is staged. A
 site that links to a render it does not carry is the failure this exists
@@ -54,9 +56,10 @@ HEAD = (
 
 NOTICE = (
     '<div class="qw-sample-notice" role="note">'
-    "<strong>Side Quest is fiction.</strong> It is a sample book, invented "
-    'to exercise <a href="/">Quirework</a>. Its author and its story do not '
-    'exist. <a href="/examples/#side-quest">About the sample</a>'
+    "<strong>Side Quest is a test fixture.</strong> Its author and its story "
+    'are invented, and AI wrote it to test <a href="/">Quirework</a>. No '
+    "person edited or reviewed its prose. "
+    '<a href="/examples/#side-quest">About the sample</a>'
     "</div>\n"
 )
 
