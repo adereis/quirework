@@ -367,9 +367,11 @@ credential mechanism, not in these files.
 One file belongs to you rather than to a project:
 `$XDG_CONFIG_HOME/quirework/config.toml`, normally
 `~/.config/quirework/config.toml`. It holds what every project on the
-machine shares, and today that is only `provenance.home` (see
-[Provenance](#provenance)). A key it does not read is refused, as in a
-project's file.
+machine shares: `provenance.home` (see [Provenance](#provenance)), and
+`copies.log`, the file that numbers the proofs `publish copy` makes for
+one person and names whom each was for. The log names people, so
+`publish copy` refuses one inside the project, where a commit could
+carry it. A key it does not read is refused, as in a project's file.
 
 An explicit `--project` or `--config` selects a directory or
 configuration file. `QUIREWORK_PROJECT` supplies a project selection for
@@ -1079,6 +1081,38 @@ and visual choices out of Quirework's implementation:
   is copied at its own moment, so each records its own revision. Outside
   a git checkout no stage records one, and a value that is not a boolean
   stops the render.
+
+  `proof_switch` names the top-level metadata key that says the book is
+  not yet published, `draft-copy` in the example above. Until that key
+  is the boolean `false`, every render is a proof; a missing, quoted or
+  misspelled value leaves it one. A proof needs `revision_metadata`. Its
+  files are named for their commit by `proof_name`, a pattern over
+  `{slug}` (the book's title or `book.output-file`, lowercased and
+  hyphenated), `{title}`, `{date}`, `{short}` and `{commit}`, by default
+  `{slug}_proof_{date}_{short}`, with `-modified` added when the sources
+  had changes and `_copy-NN` for a copy made for one person. Its library
+  title, `proof_title` over the same fields and `{copy_note}` (empty, or
+  `, copy N`), by default
+  `{title} (uncorrected proof {short}{copy_note})`, replaces the first
+  `dc:title` of an EPUB and a DOCX's core title after the render, and
+  each stage sets it as `proof-title` for a PDF template. A copy for one
+  person also sets `copy-number` and `copy-recipient`. The book prints
+  the stamp where it chooses. The build then reads every proof back and
+  stops when one does not say what it is: the short commit on every page
+  of a PDF and every HTML page, in every reading-order document of an
+  EPUB but its picture-only pages and in a DOCX's text, the library
+  title naming it, an EPUB's cover being the proof's own, and a copy for
+  one person naming them. The reader packet's stage keeps the published
+  state its `reader_metadata` sets and names its file
+  `reader-instrument-not-a-copy`.
+
+  `cover_source` names a Typst source, relative to the manuscript, that
+  every stage compiles into the image `book.cover-image` names, at 300
+  ppi, as JPEG or PNG by that file's extension (Pillow writes it). It
+  reads `sys.inputs`: `proof`, "true" or "false" when the policy names a
+  switch, and on a proof `commit`, `short`, `date`, `modified`, and for
+  a copy `copy` and `recipient`. A proof's cover carries its commit in
+  the image file's comment, which is how the check recognizes it.
 - `text.terminology`: `terms`, `retired`, `allow`, `scope_glob`, and
   `exclude_names`. A term warns and waits for the author's ruling; a
   `retired` phrase is a ruling already made, so `text check` fails while

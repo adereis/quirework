@@ -151,8 +151,12 @@ POLICIES: dict[str, tuple[str, ...]] = {
     "providers.isolation_policy": ("mount_markers", "project_markers"),
     "publish.layout_policy": ("typst_epilogues.*", "typst_prologues.*"),
     "publish.render_policy": (
+        "cover_source",
         "epub_style_headers",
         "print_drops",
+        "proof_name",
+        "proof_switch",
+        "proof_title",
         "reader_metadata.*",
         "revision_metadata",
     ),

@@ -26,6 +26,11 @@ itself (`bookstage.render_contents`).
 
 Final outputs from all stages are consolidated into `build/book/_site/`.
 
+A book whose render policy names a proof switch renders proofs until it is
+published, and every stage prepares its own (`proof.prepare`): the files are
+named for the commit, the cover is drawn with it, and the render ends by
+reading the artifacts back (`proof.verify`).
+
 Every composed edition then renders through the same three stages, under the
 edition's own view of the project (`editions.project`), into
 `build/variants/KIND/book/_site/`.
@@ -33,6 +38,7 @@ edition's own view of the project (`editions.project`), into
 
 from __future__ import annotations
 
+import contextlib
 import re
 import shutil
 import subprocess
@@ -44,6 +50,7 @@ from quirework.publish import bookstage as _bookstage
 from quirework.publish import editions as _editions
 from quirework.publish import fignumbers as _fignumbers
 from quirework.publish import figures as _figures
+from quirework.publish import proof as _proof
 
 # the screen stage (git-ignored)
 # the parts-flattened stage
@@ -262,6 +269,14 @@ def _record_revision(stage: Path, before: dict | None) -> int:
     return 0
 
 
+def _finish(stage: Path, before: dict | None) -> int:
+    """Record the revision a stage was copied from, then prepare its proof.
+
+    The last steps of every stage, in this order because a proof is named for
+    the revision and must see any metadata the stage set before it."""
+    return _record_revision(stage, before) or _proof.prepare(stage)
+
+
 def stage_book(stage: Path | None = None) -> int:
     """Stage configured sources into a parts-intact tree and materialize figures.
 
@@ -269,10 +284,18 @@ def stage_book(stage: Path | None = None) -> int:
     review-copy build cannot clobber the publish stage's `_site` outputs or its
     incremental `.quarto` cache. Returns the figure-build return code (non-zero
     if a figure source is missing or malformed), or 1 for a `revision_metadata`
-    the stage cannot apply; callers should abort the render on a non-zero
-    result.
+    or a proof the stage cannot apply; callers should abort the render on a
+    non-zero result.
     """
     stage = stage or _options().BUILD_BOOK
+    rc, before = _copy_sources(stage)
+    return rc or _finish(stage, before)
+
+
+def _copy_sources(stage: Path) -> tuple[int, dict | None]:
+    """Copy the sources into a parts-intact stage, with its figures and
+    contents; returns the figure build's return code and the revision read
+    before the copy."""
     before = _revision_before()
     mirror_sources(current_project().path("manuscript.source"), stage)
     _bookstage.render_contents(stage)
@@ -287,7 +310,7 @@ def stage_book(stage: Path | None = None) -> int:
         if stage == _options().BUILD_BOOK
         else _figures.build(stage=stage)
     )
-    return rc or _record_revision(stage, before)
+    return rc, before
 
 
 # Front matter that belongs to the screen and not to the printed block.
@@ -313,6 +336,10 @@ def stage_book_print() -> int:
     return 0
 
 
+# What a reader instrument's render is called, whatever the book's title.
+READER_STAGE_FILE = "reader-instrument-not-a-copy"
+
+
 def stage_book_reader(stage: Path) -> int:
     """Stage the book for a reader instrument: as it will be published.
 
@@ -325,9 +352,12 @@ def stage_book_reader(stage: Path) -> int:
 
     Only the reader packet's stages call this. They live in directories of
     their own, never in `build/book/`, so a copy made for a person never
-    carries the change, and nothing but the policy file turns it on. Returns
-    the figure-build return code, or 1 for a policy the stage cannot apply."""
-    rc = stage_book(stage=stage)
+    carries the change, and nothing but the policy file turns it on. The
+    stage's file is named `READER_STAGE_FILE`: a render of the book as
+    published, left in a build directory, must not be mistaken for a copy to
+    hand out. Returns the figure-build return code, or 1 for a policy the
+    stage cannot apply."""
+    rc, before = _copy_sources(stage)
     if rc:
         return rc
     values = (
@@ -340,7 +370,9 @@ def stage_book_reader(stage: Path) -> int:
         return 1
     if keys:
         print(f"render: the reader's copy sets {', '.join(keys)} as published")
-    return 0
+    with contextlib.suppress(ValueError):  # a single-document project has no book:
+        _bookstage.set_book_option(stage, "output-file", READER_STAGE_FILE)
+    return _finish(stage, before)
 
 
 def stage_book_noparts() -> int:
@@ -379,7 +411,7 @@ def stage_book_noparts() -> int:
             f"file(s) to chapters ({', '.join(promoted) or '-'}), materialized "
             f"{len(dividers)} divider(s) ({', '.join(dividers) or '-'})"
         )
-    return _record_revision(_settings().BUILD_BOOK_NOPARTS, revision)
+    return _finish(_settings().BUILD_BOOK_NOPARTS, revision)
 
 
 def book_formats() -> list[str]:
@@ -561,6 +593,10 @@ options:
 
 Anything else passes straight through to `quarto render`
 (e.g. --cache-refresh). Uses the quarto from the venv or PATH.
+
+A book whose render policy names a proof_switch renders proofs until it is
+published: each file is named for its commit, and the build reads them back
+and stops if a page does not name it. `publish copy` makes one for a person.
 """
 
 
@@ -724,10 +760,12 @@ def render(
     # output from _site, so instead the staged _quarto.yml is trimmed to the
     # stage's formats. Parts-safe formats render from the parts-intact stage;
     # parts-less ones from the flattened stage.
+    rendered: list[tuple[Path, list[str]]] = []
     if screen:
         rc = stage_book()
         if rc:
             return rc
+        rendered.append((_options().BUILD_BOOK, screen))
         restrict_formats(_options().BUILD_BOOK, screen)
         rc = subprocess.call(
             [quarto, "render", *passthru, "--output-dir", SITE],
@@ -746,6 +784,7 @@ def render(
         rc = stage_book_print()
         if rc:
             return rc
+        rendered.append((_settings().BUILD_BOOK_PRINT, printed))
         restrict_formats(_settings().BUILD_BOOK_PRINT, printed)
         rc = subprocess.call(
             [quarto, "render", *passthru, "--output-dir", SITE],
@@ -763,6 +802,7 @@ def render(
         rc = stage_book_noparts()
         if rc:
             return rc
+        rendered.append((_settings().BUILD_BOOK_NOPARTS, less))
         restrict_formats(_settings().BUILD_BOOK_NOPARTS, less)
         rc = subprocess.call(
             [quarto, "render", *passthru, "--output-dir", SITE],
@@ -795,6 +835,9 @@ def render(
         # artifact and the shipped one are the same file. `bookstage` owns why.
         for epub_path in nsite.glob("*.epub"):
             _bookstage.conform_epub(epub_path)
+        # A proof's library title, which Pandoc cannot set apart from the
+        # title page; before the copy, like the fixes above.
+        _proof.retitle(nsite, _settings().BUILD_BOOK_NOPARTS)
         site = _options().BUILD_BOOK / SITE
         site.mkdir(parents=True, exist_ok=True)
         for produced in (*sorted(nsite.glob("*.epub")), *sorted(nsite.glob("*.docx"))):
@@ -829,7 +872,10 @@ def render(
         from quirework.publish import epubcheck as _epubcheck
 
         rc_epub = _epubcheck.verify(_options().BUILD_BOOK / SITE)
-    return rc or rc_epub
+    # Last, because it reads what every check above may have rewritten: a
+    # proof says what it is on every page, or the build stops.
+    rc_proof = _proof.verify(_options().BUILD_BOOK / SITE, rendered)
+    return rc or rc_epub or rc_proof
 
 
 if __name__ == "__main__":

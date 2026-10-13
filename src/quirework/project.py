@@ -501,7 +501,10 @@ def private_tmp_parent() -> Path | None:
 # harness runs, an editor opened from a launcher) never sees what the profile
 # exported, while every program can read a file. Strict like a project's: a
 # misspelled key would otherwise leave its default in force without a word.
-USER_KEYS = {"provenance": frozenset({"home"})}
+USER_KEYS = {
+    "copies": frozenset({"log"}),
+    "provenance": frozenset({"home"}),
+}
 
 # Parsed per-user configurations, keyed by the file's path and checked against
 # its inode, size and modification time before use, so an edit is never missed.

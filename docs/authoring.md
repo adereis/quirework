@@ -152,6 +152,18 @@ record its commit, the commit's date and whether the sources had changes
 not yet committed, as metadata a copyright page can print. The
 configuration guide lists the keys.
 
+A book can go further and render every copy as a proof until it is
+published. Its render policy names the switch (`proof_switch`), and each
+proof is named for its commit, carries a library title that says it is a
+proof, and has its cover drawn with the commit when the book declares a
+Typst cover source. The book's own filters and templates print the stamp
+on its pages, and the build reads the files back and stops if one page
+does not carry the commit, because a template that silently drops the
+stamp renders a copy that passes for the published book.
+`quirework publish copy --for NAME` makes a proof for one person: it
+needs a committed tree, gives the copy the next number in the per-user
+log of copies, and names the file by number and never by the person.
+
 A chapter's file name is its identifier. Retitling a chapter does not
 rename it, and inserting one does not renumber anything, because numbers
 are derived at render time and nothing else refers to them.

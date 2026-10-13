@@ -947,3 +947,135 @@ def set_top_metadata(stage: Path, values: dict) -> list[str]:
         lines[at:end] = [line]
     cfg.write_text("\n".join(lines) + "\n", encoding="utf-8")
     return list(values)
+
+
+# --------------------------------------------------------------------------- #
+# reading a stage's configuration back, and setting a book option in it
+# --------------------------------------------------------------------------- #
+_YAML_TRUE = frozenset({"true", "True", "TRUE"})
+_YAML_FALSE = frozenset({"false", "False", "FALSE"})
+_SINGLE_QUOTED = re.compile(r"'((?:[^']|'')*)'")
+
+
+def yaml_scalar(text: str) -> object:
+    """A YAML scalar as Quarto's core schema reads it, for the shapes a book's
+    configuration writes at its top level: a quoted or plain string, or a
+    boolean. Numbers and dates stay the text they were written as, and an empty
+    value (a block follows) is None. Only `true` and `false` in the three
+    spellings the core schema accepts are booleans, so a quoted "false" is the
+    string it looks like, as it is to Quarto."""
+    text = text.strip()
+    if not text:
+        return None
+    if text[0] == '"':
+        try:
+            return json.JSONDecoder().raw_decode(text)[0]
+        except ValueError:
+            return text
+    if text[0] == "'":
+        m = _SINGLE_QUOTED.match(text)
+        return m.group(1).replace("''", "'") if m else text
+    plain = re.split(r"\s+#", text, maxsplit=1)[0].strip()
+    if plain in _YAML_TRUE:
+        return True
+    if plain in _YAML_FALSE:
+        return False
+    return plain
+
+
+def top_metadata(stage: Path, key: str) -> object:
+    """The value of top-level `key` in the stage's `_quarto.yml`, read as
+    `yaml_scalar` reads it, or None when the file does not set it or sets a
+    block under it."""
+    for line in (stage / BOOK_CONFIG).read_text(encoding="utf-8").splitlines():
+        m = re.match(rf"{re.escape(key)}\s*:(.*)$", line)
+        if m:
+            return yaml_scalar(m.group(1))
+    return None
+
+
+def _book_block(lines: list[str]) -> tuple[int, int, int] | None:
+    """(the `book:` line, the end of its block, its children's indent)."""
+    at = next((i for i, s in enumerate(lines) if re.match(r"book\s*:\s*$", s)), None)
+    if at is None:
+        return None
+    end, indent = at + 1, None
+    while end < len(lines):
+        line = lines[end]
+        if line.strip() and not line.lstrip().startswith("#"):
+            width = len(line) - len(line.lstrip())
+            if width == 0:
+                break
+            indent = width if indent is None else indent
+        elif line.strip() and line[0] not in " \t":
+            break  # a comment at column 0 belongs to whatever follows
+        end += 1
+    return at, end, indent or 2
+
+
+def book_option(stage: Path, key: str) -> object:
+    """The value of `book.KEY` in the stage's `_quarto.yml`, read as
+    `yaml_scalar` reads it, or None when the book does not set it."""
+    lines = (stage / BOOK_CONFIG).read_text(encoding="utf-8").splitlines()
+    block = _book_block(lines)
+    if block is None:
+        return None
+    at, end, indent = block
+    pattern = re.compile(rf" {{{indent}}}{re.escape(key)}\s*:(.*)$")
+    for line in lines[at + 1 : end]:
+        m = pattern.match(line)
+        if m:
+            return yaml_scalar(m.group(1))
+    return None
+
+
+def set_book_option(stage: Path, key: str, value: str | bool | int | float) -> None:
+    """Set `book.KEY` in the staged `_quarto.yml`, replacing the value and any
+    block under it in place, or adding the key as the block's first child.
+
+    The value is written as JSON, which YAML reads as the same scalar. Raises
+    ValueError for a key YAML would read differently, a value that is not a
+    scalar, or a configuration with no `book:` block to set it in. Operates on
+    staged copies only."""
+    if not _METADATA_KEY.fullmatch(key):
+        raise ValueError(f"book option {key!r} is not a plain name")
+    if not isinstance(value, (str, bool, int, float)):
+        raise ValueError(f"book.{key} must be a scalar, not {type(value).__name__}")
+    cfg = stage / BOOK_CONFIG
+    lines = cfg.read_text(encoding="utf-8").splitlines()
+    block = _book_block(lines)
+    if block is None:
+        raise ValueError(f"{cfg} has no book: block to set {key} in")
+    at, end, indent = block
+    line = f"{' ' * indent}{key}: {json.dumps(value, ensure_ascii=False)}"
+    pattern = re.compile(rf" {{{indent}}}{re.escape(key)}\s*:")
+    found = next((i for i in range(at + 1, end) if pattern.match(lines[i])), None)
+    if found is None:
+        lines.insert(at + 1, line)
+    else:
+        stop = found + 1  # the value's own block, indented deeper than its key
+        while stop < end and (
+            not lines[stop].strip()
+            or len(lines[stop]) - len(lines[stop].lstrip()) > indent
+        ):
+            stop += 1
+        while stop > found + 1 and not lines[stop - 1].strip():
+            stop -= 1
+        lines[found:stop] = [line]
+    cfg.write_text("\n".join(lines) + "\n", encoding="utf-8")
+
+
+def repack_zip(path: Path, blobs: dict[str, bytes]) -> None:
+    """Rewrite the zip at `path` with some entries' contents replaced.
+
+    Entry order and each entry's compression are kept, which an EPUB needs:
+    `mimetype` has to stay first and stored, or the container is invalid."""
+    with zipfile.ZipFile(path) as zin:
+        infos = zin.infolist()
+        contents = {i.filename: zin.read(i.filename) for i in infos}
+    contents.update(blobs)
+    tmp = path.with_name(path.name + ".tmp")
+    with zipfile.ZipFile(tmp, "w", zipfile.ZIP_DEFLATED) as zout:
+        for info in infos:
+            zout.writestr(info, contents[info.filename])
+    tmp.replace(path)

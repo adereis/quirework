@@ -68,6 +68,12 @@ COMMANDS = {
         "publish",
         backend="quarto",
     ),
+    ("publish", "copy"): Command(
+        "publish.proof",
+        "Render a proof prepared for one person",
+        "publish",
+        backend="quarto",
+    ),
     ("publish", "fonts"): Command(
         "publish.fonts",
         "Inspect required typefaces",
