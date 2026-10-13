@@ -9,7 +9,14 @@ Everything here is fiction. Cy Dequest does not exist, nor do Hedda,
 Red, Otto or Em. The book is 100% AI-driven: an AI played Cy, writing
 every one of Cy's messages from a brief, and drove an AI companion that
 did the work in this directory. None of the Quirework maintainer's own
-words are in it.
+words are in it, apart from the note on its first page, which says what
+the book is.
+
+No person edited or reviewed its prose, either. The book exists to test
+Quirework and to document it, so read it for the structure the tool
+keeps: the spec, the trail, the editions and the records. It is not an
+example of the writing Quirework helps an author make. The tool is built
+for an author who judges every page, and this book had none.
 
 ## What to look at
 

@@ -110,6 +110,28 @@ it in conversation, write it here in the same session.
   place the facts come from Cy rather than the book. No comparable
   titles, no endorsements, no real books or people.
 
+## The note about the sample
+
+The book's first page, `manuscript/index.qmd`, is not Cy's. Neither are
+the same page in the poems and the young readers' edition, or the
+paragraph above the six-pager's heading. They are the Quirework
+repository's note about this sample: that Cy and everyone in the book
+are invented, that AI wrote all of it, and that no person reviewed its
+prose. Each note sits outside the story, in every format.
+
+- The page is `.unnumbered .unlisted`, like the back cover. It is not a
+  chapter, it binds nothing, and it counts in none of the book's
+  numbers.
+- Being unlisted makes it front matter, so a blind read never receives
+  it, and a reader's reactions stay a reader's.
+- The memo's note counts against the six-page ceiling like the rest of
+  the PDF.
+- The house rules hold it to no em dash and US spelling. Cy's voice does
+  not reach it.
+
+Change a note only when Quirework's maintainer asks, and change all four
+together.
+
 ## The editions
 
 - Three derived editions, under `variants/`: a six-pager for Hedda, a

@@ -1,1 +1,12 @@
-# Side Quest {.unnumbered #sec-index}
+# About this sample {.unnumbered .unlisted #sec-index}
+
+Side Quest is a sample book, made to test Quirework, a tool for writing books with AI, and to show it at work.
+Its author, Cy Dequest, does not exist, and neither does anyone in it.
+An AI played Cy, writing every one of Cy's messages, and AI models did the writing.
+No person wrote, edited or reviewed its prose.
+
+So read it for the structure Quirework keeps, not for the writing.
+Quirework is made for an author who judges every page.
+This book had no such author.
+
+More at [quirework.com](https://quirework.com).
