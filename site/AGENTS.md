@@ -219,13 +219,15 @@ Several parts of the live site are set in Cloudflare's dashboard or at
 the search engines, not here.
 
 - **The deploy token** is an account API token named "quirework-site
-  deploy (GitHub Actions)", made from Cloudflare's "Edit Cloudflare
-  Workers" template. It may edit Workers routes on the quirework.com
-  zone only, plus the template's account-wide Workers permissions, and
-  it never expires. It and the account id are the secrets of the
-  repository's `production` environment, which only `main` may deploy
-  from. To roll it, create a new token and replace
-  `CLOUDFLARE_API_TOKEN` there, then delete the old one.
+  deploy (GitHub Actions, trimmed)" with three permissions and nothing
+  else: Workers Scripts Write and Account Settings Read on the account,
+  and Workers Routes Write on the quirework.com zone only. That is what
+  `wrangler deploy` of an assets-only Worker with a custom domain uses,
+  as a full deploy proved. It never expires. It and the account id are
+  the secrets of the repository's `production` environment, which only
+  `main` may deploy from. To roll it, create a new token with the same
+  three permissions, replace `CLOUDFLARE_API_TOKEN` there, run the
+  workflow, and delete the old token only after that deploy succeeds.
 - **The Worker has no `workers.dev` address and no previews**, as
   `wrangler.jsonc` declares, so quirework.com is its only address.
 - **Web Analytics** runs with automatic setup. Cloudflare adds its
