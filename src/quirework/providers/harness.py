@@ -10,6 +10,7 @@ from pathlib import Path
 
 from quirework.providers import blind
 from quirework.providers import quota
+from quirework.providers import replies
 from quirework.providers import models as workshop_drivers
 from quirework.runs.storage import read
 from quirework.runs.storage import write
@@ -395,6 +396,9 @@ def receipt(config, policy, record, private, established=None):
     notices = []
     calls = []
     efforts = set()
+    # Only Claude's record says why each response stopped and marks what
+    # the harness itself wrote, so elsewhere neither can be evidenced.
+    reply = dict(output_limit=None, harness_text=[])
     if name == "codex":
         ids = {r["thread_id"] for r in stream if r.get("type") == "thread.started"}
         complete = [r for r in stream if r.get("type") == "turn.completed"]
@@ -514,6 +518,12 @@ def receipt(config, policy, record, private, established=None):
         if len(paths) != 1:
             raise RuntimeError("missing or ambiguous native Claude session")
         native = rows(paths[0])
+        # The result row holds only the last response. A reply that reached
+        # the output ceiling was resumed in a further response, so it is
+        # rebuilt from the stream, and the native session says where.
+        answer, reply = replies.claude(stream, native)
+        if reply["output_limit"] is not None:
+            reply["output_limit"]["ceiling"] = served.get("maxOutputTokens")
         window = None
         parent = None
         # The session states each answer's effort and token use, so both
@@ -612,6 +622,7 @@ def receipt(config, policy, record, private, established=None):
         if compactions
         else []
     )
+    red_flags += replies.flags(reply)
     red_flags += bus_flags(record)
     minimum = policy.get("minimum_context_window", 0)
     if minimum and (window is None or window < minimum):
@@ -687,6 +698,8 @@ def receipt(config, policy, record, private, established=None):
         compaction_observed=bool(compactions),
         compaction_policy_satisfied=policy["allow_compaction"] or not compactions,
         red_flags=red_flags,
+        output_limit=reply["output_limit"],
+        harness_text=reply["harness_text"],
         effective_window=window,
         peak_input=peak,
         usage=usage,

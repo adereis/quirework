@@ -919,6 +919,28 @@ keeps the reason and a red flag that the answer spans two submissions. A
 record frozen before this command existed answers it with an
 unknown-choice error; its remaining recovery is a distinct new run.
 
+A long reply at high effort can reach the model's output ceiling. Claude
+Code then stops the response, writes a message of its own asking the
+model to resume, and the model finishes in a further response. The
+harness reports only that last response as the turn's result, so the
+receipt rebuilds the reply from the turn's stream instead. Wherever the
+native session says a response stopped at the ceiling, the next one is
+joined to it verbatim, and a cut that fell inside a word comes back as
+that word. The receipt's `output_limit` says how many responses reached
+the ceiling, at which characters the answer was joined, and whether the
+answer itself ends at the ceiling. The harness's message never enters
+the answer; `harness_text` keeps it, with the character where it was
+said. Either way the turn carries a red flag, which `inspect` and
+`verify` show. Only Claude's record says why a response stopped, so a
+Codex or Antigravity receipt leaves `output_limit` empty rather than
+claiming the ceiling was never reached.
+
+A record banked before receipts did this kept only the last part of such
+a reply. `observe` runs from the installed package rather than the
+record's frozen executor, so it can check one: for every Claude turn it
+rebuilds the reply from the turn's own stream and its frozen copy of the
+session, and says whether the banked answer holds all of it.
+
 A resume continues a session the harness keeps in the seat's private
 runner home, so a home can still be needed long after its last turn.
 Homes live in the cache, which the configuration guide describes, so a

@@ -2,12 +2,16 @@
 
 Observations neither mutate run state nor certify a completed result. This
 version observes the native JSONL locations used by the shared adapters.
+Because it runs from the installed package rather than a record's frozen
+executor, it also checks records banked by older code for conditions their
+own receipts could not see.
 """
 
 import json
 from pathlib import Path
 
 from quirework.providers import blind
+from quirework.providers import replies
 from quirework.runs.storage import digest
 from quirework.runs.storage import identifier
 from quirework.runs.storage import read
@@ -100,6 +104,51 @@ def codex(path):
     }
 
 
+def banked_answers(root, name):
+    """Each banked Claude turn's answer, checked against the seat's whole reply.
+
+    A receipt made before replies were rebuilt across the output ceiling
+    banked only the last response of a reply that reached it, and said
+    nothing. The turn's own stream and its frozen copy of the native session
+    still hold every part, so the whole reply can be rebuilt here and the
+    banked answer measured against it. ``{turn: finding}`` plus the red
+    flags they raise.
+    """
+    path = root / "state" / f"{name}.json"
+    done = read(path).get("done", {}) if path.exists() else {}
+    found, flags = {}, []
+    for turn, banked in done.items():
+        record = (
+            root / "records" / name / turn / f"attempt-{banked.get('attempt', 0):03d}"
+        )
+        files = [
+            record / f for f in ("events.jsonl", "native.jsonl", "answers/answer.md")
+        ]
+        if not all(f.is_file() for f in files):
+            continue  # an imported answer has no native evidence to check
+        stream = list(native_rows(files[0]))
+        if not any(r.get("type") == "result" for r in stream):
+            continue
+        whole, evidence = replies.claude(stream, native_rows(files[1]))
+        kept = files[2].read_text()
+        complete = kept == whole + "\n"
+        found[turn] = dict(
+            evidence,
+            banked_answer="whole reply" if complete else "part of the reply",
+            banked_characters=len(kept.removesuffix("\n")),
+            reply_characters=len(whole),
+        )
+        flags += [f"turn {turn}: {flag}" for flag in replies.flags(evidence)]
+        if not complete:
+            flags.append(
+                f"turn {turn}: the banked answer holds "
+                f"{found[turn]['banked_characters']:,} of the reply's "
+                f"{len(whole):,} characters; the whole reply is in the turn's "
+                "events.jsonl and native.jsonl"
+            )
+    return found, flags
+
+
 def observe(root):
     root = Path(root).expanduser().resolve()
     if digest(root / "plan.json") != read(root / "plan-digest.json")["sha256"]:
@@ -154,6 +203,12 @@ def observe(root):
             "supported": True,
             "available": bool(observations),
             "sessions": observations,
+        }
+        if harness == "claude":
+            answers, flags = banked_answers(root, name)
+            seats[name]["answers"] = answers
+            red_flags.update(flags)
+        seats[name] |= {
             "policy_violations": sorted(violations),
             "red_flags": sorted(red_flags),
         }
