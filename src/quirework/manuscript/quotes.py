@@ -85,7 +85,16 @@ _CUE = re.compile(
     r"(?:\b(verbatim|reads?|prints?|printed|says?|in-?prose|quotes?|stated|"
     r"carries|the line|the sentence|the phrase|the wording|word for word)\b"
     r"|\b(caption)\s*:)"
-    r"\W{0,4}$",
+    r"\W{0,4}$"
+    # A sentence named by where it stands. "the sentence after it, Q" and
+    # "the paragraph's last line (Q)" cite Q as surely as "the sentence Q"
+    # does, but the qualifier between the noun and the quotation left the cue
+    # short of the quotation it introduces. Only a position may stand there:
+    # a free run of words would read "the closing sentence is now Q", the
+    # record of a rewrite that `--all` exists for, as a citation.
+    r"|\b(?:the|its|last|closing|opening|final|first|next)\s+"
+    r"(?:line|sentence|phrase)"
+    r"(?:\s+(?:after|before|above|below)\s+(?:it|this|that|them))?\W{0,4}$",
     re.I,
 )
 
@@ -101,7 +110,14 @@ _NEGATED = re.compile(
 )
 NEG_WINDOW = 34
 
-_QUOTED = re.compile(r'"([^"\n]{12,400})"')
+# Pairs every straight quotation mark, however short the span between, and
+# leaves the length floor to `MIN_CHARS`. Putting the floor in the pattern
+# lost the pairing instead: a short span such as "it" failed to match, the
+# scan moved one character on, and from there each closing mark was read as
+# an opening one. Every later quotation in that mark went unchecked while the
+# prose between quotations was scanned in its place.
+_QUOTED = re.compile(r'"([^"\n]{1,400})"')
+MIN_CHARS = 12
 # `--all`: any quoted span at all, straight or curly, however short.
 _ANY_QUOTED = re.compile(r'"([^"\n]{1,400})"|“([^”\n]{1,400})”')
 _ELISION = re.compile(r"\s*(?:\.\.\.|…)\s*")
@@ -284,6 +300,8 @@ def scan(docs: Path | None = None) -> list[Hit]:
         body = notes._norm(anno.body)
         for m in _QUOTED.finditer(body):
             span = m.group(1)
+            if len(span) < MIN_CHARS:
+                continue
             base = max(0, m.start() - CUE_WINDOW)
             before = body[base : m.start()]
             cue = _CUE.search(before)

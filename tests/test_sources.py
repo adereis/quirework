@@ -114,6 +114,21 @@ def test_a_quotation_that_drifted_from_the_source_is_named(site, capsys):
     assert '@source(almanac) "shows one red flash every ten seconds"' in err
 
 
+def test_a_quotation_after_a_short_quoted_word_is_still_checked(site, capsys):
+    """A short span used to fail the pattern and leave its closing mark to open
+    the next span, so the prose between was checked as a quotation and the
+    real one after it was never checked."""
+    _write(
+        site / "specs" / "why-the-lamp-turns" / "marks.md",
+        '## The light\n\n<!-- @source(almanac) the "lamp" entry in the second '
+        'edition: "shows one red flash every ten seconds" -->\n',
+    )
+    assert sources.main(["--check"]) == 0
+    err = capsys.readouterr().err
+    assert '@source(almanac) "shows one red flash every ten seconds"' in err
+    assert "second edition" not in err
+
+
 def test_a_citation_of_no_source_fails_the_notes_gate(site, capsys):
     _write(
         site / "specs" / "why-the-lamp-turns" / "marks.md",

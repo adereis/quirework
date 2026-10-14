@@ -37,9 +37,12 @@ from quirework.core import frontmatter
 from quirework.manuscript import formats, notes, units
 from quirework.project import ConfigurationError, current_project
 
-# A quotation long enough to be one: five words or more, in straight or curly
-# double quotes. A shorter span is a term or a title, not a citation.
-_QUOTED = re.compile(r"[\"“]([^\"“”]{12,600})[\"”]")
+# A quotation in straight or curly double quotes. Every pair is matched,
+# however short, and `quotations` then keeps those long enough to be one: five
+# words or more. A shorter span is a term or a title, not a citation. A length
+# floor in the pattern would lose the pairing instead, since a short span that
+# fails to match leaves its closing mark to be read as the next opening one.
+_QUOTED = re.compile(r"[\"“]([^\"“”]{1,600})[\"”]")
 
 
 @dataclass(frozen=True)
@@ -170,7 +173,9 @@ def quotations() -> tuple[list[str], int]:
     unchecked = 0
     for a in citations():
         spans = [
-            m.group(1) for m in _QUOTED.finditer(a.body) if len(m.group(1).split()) >= 5
+            m.group(1)
+            for m in _QUOTED.finditer(a.body)
+            if len(m.group(1)) >= 12 and len(m.group(1).split()) >= 5
         ]
         if not spans:
             continue

@@ -251,8 +251,11 @@ def _code_spec_refs(text: str) -> list[tuple[str, int]]:
 # Only the curly form can be matched by a delimiter pair, because the marks are
 # the only place curly quotes appear. Straight quotes are the entries'
 # convention and open and close identically, so they are paired by ALTERNATION
-# in `_quoted_spans` instead.
-_QUOTED_SPAN = re.compile(r"[“”]((?:[^“”]|\n(?!\s*\n)){25,400})[“”]")
+# in `_quoted_spans` instead. The pair is directional: a class taking either
+# mark at either end let the close of a short span such as “it”, too short to
+# match, open the next span, which then ran to the following quotation's open
+# and read the prose between as a quotation.
+_QUOTED_SPAN = re.compile(r"“((?:[^“”]|\n(?!\s*\n)){25,400})”")
 # A bold span stays single-line, and the asymmetry is load-bearing rather than
 # an oversight. A quotation wraps, because these files hard-wrap at 72 columns;
 # a bold label never does. Letting `**` cross a newline pairs one label's close

@@ -538,13 +538,14 @@ that merely moved down because of an edit above it is not new.
 
 `quirework spec quotes` checks that wording a mark quotes is still in
 the book, and it is narrow on purpose. It checks only a long quotation
-introduced as one (`reads "…"`, `the sentence "…"`), because most quoted
-spans in marks are guards, coinages or outside sources that are meant to
-be absent. After a rewrite or a retired term that is the wrong trade,
-since the quotations left stale are short or uncued: a note that says a
-sentence is `now "…"` names no cue. `--all` adds every other quoted span
-in a group of its own. `--grep PATTERN` keeps the spans a regular
-expression matches, so retiring a word is one command:
+introduced as one (`reads "…"`, `the sentence "…"`,
+`the sentence after it, "…"`, `the last line ("…")`), because most
+quoted spans in marks are guards, coinages or outside sources that are
+meant to be absent. After a rewrite or a retired term that is the wrong
+trade, since the quotations left stale are short or uncued: a note that
+says a sentence is `now "…"` names no cue. `--all` adds every other
+quoted span in a group of its own. `--grep PATTERN` keeps the spans a
+regular expression matches, so retiring a word is one command:
 
 ```bash
 quirework spec quotes --grep '\bbreaker\b'

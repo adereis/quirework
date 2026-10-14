@@ -730,6 +730,22 @@ def test_check_companion_quote_allows_case_and_trailing_punctuation(tmp_path, ca
     assert "appear nowhere in the work" not in capsys.readouterr().err
 
 
+def test_check_companion_curly_quote_survives_a_short_curly_span(tmp_path, capsys):
+    """Curly marks pair by direction. A class taking either mark at either end
+    let the close of “it” open a span running to the next quotation's open, so
+    the prose between was checked and the quotation itself never was."""
+    docs = _mini_repo(
+        tmp_path,
+        "Call the gauge “it” for short. As `#shore` has it, “these three never "
+        "gather into one number at all” and that settles it.\n",
+        canon_prose="These three do not gather into a single number.",
+    )
+    assert notes.check(docs) == 0  # advisory, not fatal
+    err = capsys.readouterr().err
+    assert "these three never gather into one number at all" in err
+    assert "for short" not in err
+
+
 def test_check_companion_ignores_entry_subheadings(tmp_path, capsys):
     """A bold span opening a block or a list item is the entry's own
     subheading, never a quotation of the book."""
@@ -929,6 +945,69 @@ def test_quotes_spares_wording_taken_out_of_a_caption(tmp_path, monkeypatch):
         "The catching is not quiet, it is roaring.",
         "the pass took the measured ratio out of the caption "
         '("drawn to the work each one cost")',
+    )
+    monkeypatch.setattr(_n, "current_project", lambda: project_at(tmp_path))
+    assert _q.scan(docs) == []
+
+
+def test_quotes_checks_a_citation_after_a_short_quoted_word(tmp_path, monkeypatch):
+    """A short span such as "it" failed the pattern, the scan moved one
+    character on, and its closing mark opened the next span: every later
+    quotation in the mark went unchecked, and the prose between was scanned."""
+    from quirework.manuscript import notes as _n
+    from quirework.manuscript import quotes as _q
+
+    docs = _quotes_docs(
+        tmp_path,
+        "The kettle sang. The lights held through the storm.",
+        'the title keeps "it"; the chapter says the sentence '
+        '"the lights went out in the storm"',
+    )
+    monkeypatch.setattr(_n, "current_project", lambda: project_at(tmp_path))
+    assert [h.quote for h in _q.scan(docs)] == ["the lights went out in the storm"]
+
+
+def test_quotes_reads_a_sentence_named_by_its_place(tmp_path, monkeypatch):
+    """ "the sentence after it, Q" cites Q; the qualifier used to leave the
+    cue short of the quotation."""
+    from quirework.manuscript import notes as _n
+    from quirework.manuscript import quotes as _q
+
+    docs = _quotes_docs(
+        tmp_path,
+        "The kettle sang. The lights held through the storm.",
+        "keep the opening, and the sentence after it, "
+        '"the lights went out in the storm", takes no hedge',
+    )
+    monkeypatch.setattr(_n, "current_project", lambda: project_at(tmp_path))
+    assert [h.quote for h in _q.scan(docs)] == ["the lights went out in the storm"]
+
+
+def test_quotes_reads_a_placement_by_last_line(tmp_path, monkeypatch):
+    from quirework.manuscript import notes as _n
+    from quirework.manuscript import quotes as _q
+
+    docs = _quotes_docs(
+        tmp_path,
+        "The kettle sang. The lights held through the storm.",
+        "PLACEMENT: after the paragraph's last line "
+        '("the lights went out in the storm"), before the next movement',
+    )
+    monkeypatch.setattr(_n, "current_project", lambda: project_at(tmp_path))
+    assert [h.quote for h in _q.scan(docs)] == ["the lights went out in the storm"]
+
+
+def test_quotes_does_not_stretch_a_place_cue_over_a_clause(tmp_path, monkeypatch):
+    """A line in the figurative sense, followed by a whole clause, is not a
+    citation: only a position may stand between the noun and the quote."""
+    from quirework.manuscript import notes as _n
+    from quirework.manuscript import quotes as _q
+
+    docs = _quotes_docs(
+        tmp_path,
+        "The kettle sang. The lights held through the storm.",
+        'the line between the two halves of the argument is "a seam nobody '
+        'ever stitched closed"',
     )
     monkeypatch.setattr(_n, "current_project", lambda: project_at(tmp_path))
     assert _q.scan(docs) == []
