@@ -8,12 +8,16 @@ own receipts could not see.
 """
 
 import json
+import time
+from collections import Counter
 from pathlib import Path
 
 from quirework.providers import blind
+from quirework.providers import models as drivers
 from quirework.providers import replies
 from quirework.runs.storage import digest
 from quirework.runs.storage import identifier
+from quirework.runs.storage import process_identity
 from quirework.runs.storage import read
 
 
@@ -104,6 +108,155 @@ def codex(path):
     }
 
 
+# What a Claude transcript cannot show yet, said instead of empty fields.
+CLAUDE_PENDING = (
+    "no response has completed yet. Claude Code writes a response to its "
+    "transcript only once the response completes, so a turn still thinking "
+    "shows here only when it ends; the seat's progress follows it meanwhile"
+)
+CLAUDE_USAGE = (
+    "input_tokens",
+    "cache_creation_input_tokens",
+    "cache_read_input_tokens",
+    "output_tokens",
+)
+
+
+def claude(path):
+    """What a Claude session's transcript says so far.
+
+    Each completed response carries its model, effort, usage and the reason
+    it stopped. The rows of one response repeat its usage, so it is counted
+    once per response.
+    """
+    rows = list(native_rows(path))
+    models, efforts, usage, stops = set(), set(), {}, Counter()
+    for row in rows:
+        message = row.get("message")
+        if row.get("type") != "assistant" or not isinstance(message, dict):
+            continue
+        if message.get("model") not in (None, "<synthetic>"):
+            models.add(message["model"])
+        if row.get("effort"):
+            efforts.add(row["effort"])
+        ident = message.get("id")
+        if ident and isinstance(message.get("usage"), dict):
+            if ident not in usage:
+                stops[message.get("stop_reason")] += 1
+            usage[ident] = message["usage"]
+    observed = {
+        "native_rows": len(rows),
+        "compaction_markers": compaction_markers(rows),
+    }
+    if not usage:
+        return observed | {"unavailable": CLAUDE_PENDING}
+    return observed | {
+        "models": sorted(models),
+        "efforts": sorted(efforts),
+        "responses": len(usage),
+        "responses_at_output_limit": stops[replies.LIMIT],
+        "usage": {
+            key: sum((u.get(key) or 0) for u in usage.values()) for key in CLAUDE_USAGE
+        },
+        "usage_scope": "this native session's completed responses, cumulative; "
+        "not a bill or a run-wide sum",
+    }
+
+
+def progress(root, name, harness, declared):
+    """What a seat is doing now, read from the run's own record of it.
+
+    A native transcript says what a session finished, and Claude Code
+    writes nothing there until a response completes, which at high effort
+    can take many minutes. The turn's event stream is written as the
+    harness works: Claude Code adds an estimate of its thinking every few
+    seconds, and Codex each item it completes. So whether a seat is thinking
+    or has stalled is read there, from how recently it was written and what
+    it says.
+    """
+    path = root / "state" / f"{name}.json"
+    state = read(path) if path.exists() else {}
+    banked = f"{len(state.get('done', {}))} of {declared} turns banked"
+    pending = state.get("pending")
+    if state.get("complete"):
+        return dict(state="complete", turns=banked)
+    if not pending:
+        if state.get("done") or state.get("attempts") or state.get("session_id"):
+            return dict(state="between turns", turns=banked)
+        return dict(state="not started", turns=banked)
+    attempt = state.get("attempts", {}).get(pending["turn"], 0)
+    alive = bool(pending.get("pid")) and process_identity(
+        pending["pid"]
+    ) == pending.get("process_identity")
+    if alive:
+        doing = "running"
+    elif pending.get("pid"):
+        doing = "exited, not yet banked"
+    else:
+        doing = "launching"
+    now = time.time()
+    found = dict(state=doing, turn=pending["turn"], attempt=attempt, turns=banked)
+    if pending.get("created_at"):
+        found["elapsed_seconds"] = round(now - pending["created_at"])
+    events = (
+        root / "records" / name / pending["turn"] / f"attempt-{attempt:03d}"
+    ) / "events.jsonl"
+    if not events.is_file() or not events.stat().st_size:
+        found["events"] = "none yet: the harness has written nothing for this turn"
+        return found
+    rows = list(native_rows(events))
+    found |= dict(
+        events=len(rows),
+        seconds_since_last_event=round(now - events.stat().st_mtime),
+    )
+    if harness == "claude":
+        found |= claude_progress(rows)
+    elif harness == "codex":
+        found["items_completed"] = dict(
+            Counter(
+                (r.get("item") or {}).get("type")
+                for r in rows
+                if r.get("type") == "item.completed"
+            )
+        )
+    return found
+
+
+def claude_progress(rows):
+    """A Claude turn in flight, from its stream.
+
+    Claude Code reports an estimate of its thinking while it thinks,
+    counting from zero again for each request, with the step since the last
+    report beside it; the steps add up to the turn's whole estimate. A
+    response's text arrives in one row once the text is complete, so after
+    thinking ends the stream is quiet while the reply is written.
+    """
+    thinking = [r for r in rows if r.get("subtype") == "thinking_tokens"]
+    found = dict(
+        thinking_tokens_estimated=sum(
+            r.get("estimated_tokens_delta") or 0 for r in thinking
+        )
+    )
+    last = rows[-1]
+    blocks = (last.get("message") or {}).get("content")
+    if last.get("type") == "result":
+        found["now"] = "finished"
+    elif last.get("subtype") == "thinking_tokens":
+        found["now"] = "thinking"
+    elif (
+        last.get("type") == "assistant"
+        and isinstance(blocks, list)
+        and blocks
+        and blocks[-1].get("type") == "thinking"
+    ):
+        found["now"] = "writing, after thinking"
+    else:
+        found["now"] = "between responses"
+    if injected := sum(1 for r in rows if r.get("isSynthetic")):
+        found["harness_messages"] = injected
+    return found
+
+
 def banked_answers(root, name):
     """Each banked Claude turn's answer, checked against the seat's whole reply.
 
@@ -174,15 +327,15 @@ def observe(root):
         for path in sorted(private.glob(patterns[harness])):
             if harness == "codex":
                 observed = codex(path)
+            elif harness == "claude":
+                observed = claude(path)
             else:
                 values = list(native_rows(path))
                 observed = {
                     "native_rows": len(values),
                     "compaction_markers": compaction_markers(values),
-                    "models": [],
-                    "efforts": [],
-                    "usage": None,
-                    "note": "compaction signals only; use final adapter receipts for identity and usage",
+                    "unavailable": "this transcript is read for compaction "
+                    "only; the turn's receipt gives identity and usage",
                 }
             observed["source"] = str(path.relative_to(root))
             observations.append(observed)
@@ -193,15 +346,26 @@ def observe(root):
                 and not seat["policy"]["allow_compaction"]
             ):
                 violations.add("compaction despite allow_compaction=false")
-            if observed["models"] and observed["models"] != [seat["config"]["model"]]:
+            # A Claude seat may name a family alias, which any version of
+            # the family satisfies; the others name the exact model.
+            served = observed.get("models", [])
+            if served and (
+                any(
+                    not drivers._model_matches(seat["config"]["model"], m)
+                    for m in served
+                )
+                if harness == "claude"
+                else served != [seat["config"]["model"]]
+            ):
                 violations.add("native model differs from plan")
-            if observed["efforts"] and observed["efforts"] != [
+            if observed.get("efforts") and observed["efforts"] != [
                 seat["config"]["effort"]
             ]:
                 violations.add("native effort differs from plan")
         seats[name] = {
             "supported": True,
             "available": bool(observations),
+            "progress": progress(root, name, harness, len(seat.get("turns", []))),
             "sessions": observations,
         }
         if harness == "claude":

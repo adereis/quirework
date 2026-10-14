@@ -962,6 +962,24 @@ record's frozen executor, so it can check one: for every Claude turn it
 rebuilds the reply from the turn's own stream and its frozen copy of the
 session, and says whether the banked answer holds all of it.
 
+`observe` also says what each seat is doing now. A native transcript
+shows only what a session has finished, and Claude Code writes nothing
+there until a response completes, which at high effort can take a
+quarter of an hour. So each seat's `progress` reads the turn in flight
+from the run's own event stream, which the harness writes as it works.
+It says whether the turn's process is alive, how long ago the turn was
+submitted, and how many seconds have passed since the harness last
+wrote. For a Claude seat it adds Claude Code's running estimate of the
+turn's thinking tokens and whether the seat is thinking or writing; for
+a Codex seat, the items it has completed. A seat that is thinking writes
+an estimate every few seconds, and the estimate keeps rising, while a
+seat that has stalled goes quiet. Once thinking ends, Claude Code writes
+the reply's text in one row when the text is complete, so a quiet stream
+whose `now` reads `writing, after thinking` is a seat still at work.
+Each native session reports the models, effort and token use of the
+responses it has completed, and a Claude session with none yet says so
+rather than printing empty fields.
+
 A resume continues a session the harness keeps in the seat's private
 runner home, so a home can still be needed long after its last turn.
 Homes live in the cache, which the configuration guide describes, so a

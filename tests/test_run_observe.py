@@ -1,4 +1,6 @@
 import json
+import os
+import time
 
 import pytest
 
@@ -158,3 +160,149 @@ def test_compaction_words_in_content_are_not_events():
         },
     ]
     assert observe.compaction_markers(values) == []
+
+
+def claude_record(tmp_path, *, model="claude-fixture-1-0", turns=1):
+    """A one-seat Claude record with a turn in flight in this process."""
+    root = tmp_path / "record"
+    plan = {
+        "schema": 1,
+        "seats": [
+            {
+                "id": "reader",
+                "config": {"harness": "claude", "model": model, "effort": "high"},
+                "policy": {"allow_compaction": False},
+                "turns": [{"id": f"t{i}"} for i in range(turns)],
+            }
+        ],
+    }
+    root.mkdir()
+    (root / "plan.json").write_text(json.dumps(plan))
+    (root / "plan-digest.json").write_text(
+        json.dumps({"sha256": digest(root / "plan.json")})
+    )
+    return root
+
+
+def in_flight(root, rows, *, alive=True):
+    from quirework.runs.storage import process_identity
+
+    state = {
+        "done": {},
+        "attempts": {},
+        "pending": {
+            "turn": "t0",
+            "phase": "process-started",
+            "created_at": time.time() - 600,
+            "pid": os.getpid(),
+            "process_identity": process_identity(os.getpid()) if alive else "gone",
+        },
+    }
+    (root / "state").mkdir(exist_ok=True)
+    (root / "state/reader.json").write_text(json.dumps(state))
+    events = root / "records/reader/t0/attempt-000/events.jsonl"
+    events.parent.mkdir(parents=True, exist_ok=True)
+    events.write_text("".join(json.dumps(r) + "\n" for r in rows))
+
+
+def thinking(*steps):
+    """Claude Code's thinking estimates for one request: running total and step."""
+    total, rows = 0, []
+    for step in steps:
+        total += step
+        rows.append(
+            {
+                "type": "system",
+                "subtype": "thinking_tokens",
+                "estimated_tokens": total,
+                "estimated_tokens_delta": step,
+            }
+        )
+    return rows
+
+
+def test_a_claude_seat_thinking_mid_turn_shows_its_progress(tmp_path):
+    root = claude_record(tmp_path)
+    in_flight(root, [{"type": "system", "subtype": "init"}, *thinking(50, 100, 150)])
+    native = root / "work/reader/seat.blind-state/claude/projects/w/sid.jsonl"
+    native.parent.mkdir(parents=True)
+    native.write_text(json.dumps({"type": "user", "message": {"content": "Read."}}))
+    seat = observe.observe(root)["seats"]["reader"]
+    progress = seat["progress"]
+    assert progress["state"] == "running"
+    assert progress["now"] == "thinking"
+    assert progress["thinking_tokens_estimated"] == 300
+    assert progress["seconds_since_last_event"] < 60
+    assert 590 <= progress["elapsed_seconds"] < 660
+    # Nothing has completed, and the session says so instead of printing
+    # an empty model list and a null usage.
+    (session,) = seat["sessions"]
+    assert "models" not in session and "usage" not in session
+    assert "only once the response completes" in session["unavailable"]
+
+
+def test_thinking_estimates_add_up_across_requests(tmp_path):
+    root = claude_record(tmp_path)
+    reply = {
+        "type": "assistant",
+        "message": {"id": "m1", "content": [{"type": "thinking", "thinking": ""}]},
+    }
+    in_flight(root, [*thinking(50, 100), reply])
+    progress = observe.observe(root)["seats"]["reader"]["progress"]
+    assert progress["now"] == "writing, after thinking"
+    resumed = [
+        *thinking(50, 100),
+        reply,
+        {"type": "user", "isSynthetic": True, "message": {"content": "Resume."}},
+        *thinking(50, 25),
+    ]
+    in_flight(root, resumed)
+    progress = observe.observe(root)["seats"]["reader"]["progress"]
+    assert progress["thinking_tokens_estimated"] == 225
+    assert progress["harness_messages"] == 1
+
+
+def test_a_turn_whose_process_is_gone_is_not_reported_running(tmp_path):
+    root = claude_record(tmp_path)
+    in_flight(root, thinking(50), alive=False)
+    progress = observe.observe(root)["seats"]["reader"]["progress"]
+    assert progress["state"] == "exited, not yet banked"
+
+
+def test_a_seat_with_no_progress_says_why(tmp_path):
+    root = claude_record(tmp_path, turns=2)
+    progress = observe.observe(root)["seats"]["reader"]["progress"]
+    assert progress == {"state": "not started", "turns": "0 of 2 turns banked"}
+
+
+def test_a_claude_session_reports_what_its_completed_responses_used(tmp_path):
+    root = claude_record(tmp_path, model="fixture")
+    native = root / "work/reader/seat.blind-state/claude/projects/w/sid.jsonl"
+    native.parent.mkdir(parents=True)
+    rows = []
+    for ident, stop, out in (("m1", "max_tokens", 300), ("m2", "end_turn", 20)):
+        for block in ("thinking", "text"):
+            rows.append(
+                {
+                    "type": "assistant",
+                    "effort": "high",
+                    "message": {
+                        "id": ident,
+                        "model": "claude-fixture-1-0",
+                        "stop_reason": stop,
+                        "content": [{"type": block}],
+                        "usage": {"input_tokens": 5, "output_tokens": out},
+                    },
+                }
+            )
+    native.write_text("".join(json.dumps(r) + "\n" for r in rows))
+    seat = observe.observe(root)["seats"]["reader"]
+    (session,) = seat["sessions"]
+    assert session["models"] == ["claude-fixture-1-0"]
+    assert session["responses"] == 2
+    assert session["responses_at_output_limit"] == 1
+    # One response's rows repeat its usage; it is counted once.
+    assert session["usage"]["output_tokens"] == 320
+    assert session["usage"]["input_tokens"] == 10
+    # A family alias in the plan is satisfied by any version of the family.
+    assert seat["policy_violations"] == []
