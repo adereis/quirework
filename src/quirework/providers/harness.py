@@ -332,7 +332,11 @@ def canary(config, policy, label):
             )
         return canaries.Twin(args, payload)
 
-    contract = canaries.Contract(web=policy["tools"] == "research")
+    # agy keeps its web tools under any flags; `receipt` reads its calls
+    # afterwards and refuses a run that used them outside a research policy.
+    contract = canaries.Contract(
+        web=policy["tools"] == "research", web_audited=name == "agy"
+    )
     return canaries.require(label, name, build, contract)
 
 

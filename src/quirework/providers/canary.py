@@ -74,11 +74,18 @@ class Contract:
     contract allows the operator's connected services (an ``mcp__`` tool, or
     any server in a Codex seat's MCP inventory), or Codex's injected
     personality.
+
+    ``web_audited`` is for agy alone, which cannot be confined to a tool set
+    and holds its web tools under any flags. Its launch reads the seat's
+    transcript afterwards and refuses a run that used them, so holding them
+    is not a breach there. Claude and codex can be confined, so for them a
+    held web tool stays a breach whatever this says.
     """
 
     tree: bool = False
     context: bool = False
     web: bool = False
+    web_audited: bool = False
 
 
 BLIND = Contract()
@@ -123,8 +130,18 @@ _PLACEHOLDER = dict(
 )
 
 # Tool names that give a seat the web, by runner; any `mcp__` tool means the
-# operator's connected services reached it.
-WEB_TOOLS = ("web__run", "web_search", "websearch", "webfetch", "google_web_search")
+# operator's connected services reached it. agy's are `search_web` and
+# `read_url_content`, which none of the others' names match: without them an
+# agy seat passed as holding no web while it held both.
+WEB_TOOLS = (
+    "web__run",
+    "web_search",
+    "websearch",
+    "webfetch",
+    "google_web_search",
+    "search_web",
+    "read_url",
+)
 MCP_TOOLS = ("mcp__",)
 
 # The wording `-c personality="none"` actually removes, verbatim from a seat
@@ -618,10 +635,17 @@ def judge(
     if not contract.tree and "fail" not in fields["READ"].lower():
         problems.append(f"READ the project tree ({fields['READ'][:60]})")
     said = fields["TOOLS"].lower()
-    forbidden = MCP_TOOLS + (() if contract.web else WEB_TOOLS)
+    web = contract.web or (contract.web_audited and runner == "agy")
+    forbidden = MCP_TOOLS + (() if web else WEB_TOOLS)
     hits = [t for t in forbidden if t in said]
     if hits:
-        problems.append(f"forbidden tool(s): {', '.join(hits)}")
+        problem = f"forbidden tool(s): {', '.join(hits)}"
+        if runner == "agy" and any(t in WEB_TOOLS for t in hits):
+            problem += (
+                " (agy cannot be confined to a tool set; only a launch that "
+                "audits its transcript afterwards may run it)"
+            )
+        problems.append(problem)
     argv = [str(a) for a in argv]
     if init is not None:
         # Claude's own list of what it loaded, which the model cannot misreport.

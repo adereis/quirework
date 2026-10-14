@@ -264,6 +264,42 @@ def test_web_tools_need_a_research_contract_and_mcp_is_never_allowed(project):
     assert canary.judge("claude", ["claude"], mcp, canary.Contract(web=True))
 
 
+def test_agy_web_tools_are_seen_and_pass_only_an_audited_launch(project):
+    """agy's are `search_web` and `read_url_content`, which no other runner's
+    names match, so its seats once passed as holding no web."""
+    said = fields(TOOLS="run_command, view_file, search_web, read_url_content")
+    problems = canary.judge("agy", ["agy"], said, canary.BLIND)
+    assert any("search_web" in p and "read_url" in p for p in problems)
+    assert any("audits its transcript" in p for p in problems)
+    audited = canary.Contract(web_audited=True)
+    assert canary.judge("agy", ["agy"], said, audited) == []
+    mcp = fields(TOOLS="search_web, mcp__drive__search")
+    assert canary.judge("agy", ["agy"], mcp, audited)
+
+
+def test_an_audited_contract_never_excuses_a_runner_that_can_be_confined(project):
+    audited = canary.Contract(web_audited=True)
+    for runner, tool in (("claude", "WebFetch"), ("codex", "web_search")):
+        said = fields(TOOLS=f"Read, {tool}")
+        assert canary.judge(runner, [runner], said, audited)
+
+
+def test_only_the_launchers_that_audit_agy_accept_its_web_tools(project, monkeypatch):
+    from quirework.providers import harness, models
+
+    seen = []
+    monkeypatch.setattr(
+        canary, "require", lambda label, runner, build, contract: seen.append(contract)
+    )
+    for name in ("agy", "codex"):
+        harness.canary({"harness": name}, {"tools": "write"}, "seat")
+        models.canary({"harness": name, "tools": "write"}, "writer")
+    agy_seat, agy_writer, codex_seat, codex_writer = seen
+    assert agy_seat.web_audited and agy_writer.web_audited
+    assert not codex_seat.web_audited and not codex_writer.web_audited
+    assert not any(c.web for c in seen)
+
+
 def test_claude_holding_more_than_its_tools_list_is_a_breach(project):
     """Its own init event, which the model cannot misreport. `--tools ""` once
     fell back to the default set while every seat believed it held nothing."""

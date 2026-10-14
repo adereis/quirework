@@ -559,7 +559,11 @@ def canary(config, label):
         args, payload = command(twin, workdir, prompt)
         return canaries.Twin(args, payload)
 
-    contract = canaries.Contract(web=tools in ("research", "workbench"))
+    # agy keeps its web tools under any flags; the writer's transcript is read
+    # afterwards and a run that used them outside a workbench is refused.
+    contract = canaries.Contract(
+        web=tools in ("research", "workbench"), web_audited=harness == "agy"
+    )
     return canaries.require(label, harness, build, contract)
 
 

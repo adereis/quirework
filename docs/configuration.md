@@ -1332,6 +1332,18 @@ spending the exchange. An inventory that cannot be read proves nothing,
 so it refuses the launch too. The record keeps the inventory as
 `mcp_servers`.
 
+Antigravity cannot be confined to a tool set, so every agy seat holds
+its web search and page-reading tools under any flags, and its canary
+cannot prove a seat without the web. A launch that reads the agy
+transcript afterwards and refuses a run that used those tools, as the
+run engine and the writers of a workshop or room do, says so in its
+contract. Its agy canary then accepts the web tools and still refuses
+MCP, the tree and the project's guidance. `sop blind run` and
+`sop blind canary` have no such audit, so they refuse an agy seat.
+Records proven before the canary knew agy's tool names do not carry
+over: the contract changed for every runner, so each runs its canary
+again on its next launch.
+
 The records are per machine, in `providers/canaries.json` under the
 project's cache, because blindness is a property of the runner installed
 here. Each launch writes the record it relied on into its own receipt,

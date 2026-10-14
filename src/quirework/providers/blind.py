@@ -1621,7 +1621,9 @@ not a wall".
   canary  COSTS TOKENS: one live seat per runner, asserting it really
           cannot read the tree and really has no web or MCP tool. Every
           launch already runs one when its runner release is new; this
-          runs it again on demand and records it the same way.
+          runs it again on demand and records it the same way. agy fails
+          the web check here by design: it cannot be confined to a tool
+          set, so only a launch that audits its transcript may run it.
 
 options for `prune`:
   PATH            where to look (default: the project's run store)
