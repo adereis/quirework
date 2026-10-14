@@ -502,6 +502,39 @@ nothing yet. Init itself, when it creates a store for a ledger that
 already lists files, names the home too and says what to do if that
 store belongs elsewhere.
 
+### Capturing Claude Code sessions
+
+A `SessionEnd` hook in the project's `.claude/settings.json` captures
+each Claude Code session as it closes:
+
+```json
+{
+  "hooks": {
+    "SessionEnd": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "quirework provenance ingest claude --hook",
+            "timeout": 30
+          }
+        ]
+      }
+    ]
+  }
+}
+```
+
+Keep the `timeout`. Without one, Claude Code gives a `SessionEnd` hook
+1.5 seconds and then ends it, and reports "Hook cancelled" as it exits.
+The capture often needs longer, because it captures again every session
+of the project that grew since its last capture, so one closing session
+pays for every other session still open. With the timeout, Claude Code
+waits as long as the capture takes, up to 60 seconds whatever the
+setting says. A hook ended anyway has captured the closing session
+first, since its payload names it, and leaves no partial file behind.
+What it did not reach waits for the next session to close.
+
 ### Accepting sessions
 
 Capture writes into the store's pending area and never decides what

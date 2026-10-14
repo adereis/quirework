@@ -10,8 +10,11 @@ reported, never read around.
 Every session here is fiction written for the purpose.
 """
 
+import io
 import json
 import os
+import signal
+import sys
 import time
 from pathlib import Path
 
@@ -803,3 +806,106 @@ def test_a_session_whose_dialogue_grew_is_not_called_subagents_only(tmp_path, ca
         _subagent(source, "agent-a1b2c3", "The kettle is on.")
         assert claude.survey().subagents_only == frozenset()
         assert f"{KETTLE}  grown since its capture" in _status(capsys)
+
+
+# --------------------------------------------------------------------------- #
+# the SessionEnd hook, which may be ended before it is through
+# --------------------------------------------------------------------------- #
+def _hook(monkeypatch, payload):
+    """Run the capture as Claude Code's SessionEnd hook, with this payload."""
+    from quirework.provenance.ingestion import claude
+
+    text = payload if isinstance(payload, str) else json.dumps(payload)
+    monkeypatch.setattr(sys, "stdin", io.StringIO(text))
+    claude.main(["--hook"])
+
+
+def _written(monkeypatch):
+    """The sessions the capture writes, in the order it writes them."""
+    from quirework.provenance.ingestion import claude
+
+    order = []
+    write = claude.write_capture
+
+    def recording(src, dst):
+        order.append(src.stem)
+        write(src, dst)
+
+    monkeypatch.setattr(claude, "write_capture", recording)
+    return order
+
+
+def test_the_hook_captures_the_ending_session_before_the_sweep(
+    tmp_path, monkeypatch, capsys
+):
+    project = _claude_book(tmp_path)
+    _claude_home(tmp_path, project, KETTLE, "Boil the water.")
+    ending = _claude_home(tmp_path, project, STORM, "Close the shutters.")
+    with project_scope(project):
+        store.init()
+        order = _written(monkeypatch)
+        _hook(
+            monkeypatch,
+            {"hook_event_name": "SessionEnd", "transcript_path": str(ending)},
+        )
+        assert order == [STORM, KETTLE]
+        assert sorted(p.stem for p in store.pending(store.CC)) == [KETTLE, STORM]
+        assert "captured 2 sessions" in capsys.readouterr().out
+
+
+def test_a_payload_never_captures_what_the_sweep_would_not(tmp_path, monkeypatch):
+    project = _claude_book(tmp_path)
+    _claude_home(tmp_path, project, KETTLE, "Boil the water.")
+    removed = _claude_home(tmp_path, project, STORM, "Close the shutters.")
+    stray = tmp_path / "elsewhere" / "0badc0de-0000-4000-8000-000000000003.jsonl"
+    stray.parent.mkdir()
+    stray.write_bytes(removed.read_bytes())
+    with project_scope(project):
+        store.init()
+        store.add_to_list(store.REMOVED, "cc", STORM, "a stub")
+        order = _written(monkeypatch)
+        _hook(monkeypatch, {"transcript_path": str(removed)})
+        _hook(monkeypatch, {"transcript_path": str(stray)})
+        _hook(monkeypatch, {"transcript_path": 42})
+        _hook(monkeypatch, ["not", "an", "object"])
+        _hook(monkeypatch, "")
+        assert order == [KETTLE]
+        assert [p.stem for p in store.pending(store.CC)] == [KETTLE]
+
+
+def test_a_capture_ended_by_sigterm_leaves_no_temporary_file(tmp_path, monkeypatch):
+    # Claude Code ends a SessionEnd hook that outlives its budget with SIGTERM.
+    # The test's own handler stands behind the capture's, so a capture that
+    # installed none fails here instead of ending the test run.
+    from quirework.provenance.ingestion import claude
+
+    project = _claude_book(tmp_path)
+    _claude_home(tmp_path, project, KETTLE, "Boil the water.")
+    received = []
+    fallback = lambda signum, _frame: received.append(signum)
+    previous = signal.signal(signal.SIGTERM, fallback)
+    try:
+        with project_scope(project):
+            store.init()
+            pending = store.open_store().pending_dir(store.CC)
+            cut = []
+            utime = os.utime
+
+            def cut_off(path, *args, **kwargs):
+                # The temporary file is complete and not yet renamed into place.
+                if Path(path).name.startswith(f".{KETTLE}"):
+                    cut.append(Path(path))
+                    signal.raise_signal(signal.SIGTERM)
+                return utime(path, *args, **kwargs)
+
+            monkeypatch.setattr(os, "utime", cut_off)
+            with pytest.raises(SystemExit) as ended:
+                claude.main([])
+            monkeypatch.undo()
+            assert ended.value.code == 128 + signal.SIGTERM
+            assert received == []
+            assert signal.getsignal(signal.SIGTERM) is fallback
+            assert [p.parent for p in cut] == [pending]
+            assert list(pending.iterdir()) == []
+    finally:
+        signal.signal(signal.SIGTERM, previous)

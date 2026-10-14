@@ -31,9 +31,16 @@ Modes:
   quirework provenance ingest claude          sweep every project dir for this
                                               repo (root + subdirectory
                                               launches + worktrees)
-  quirework provenance ingest claude --hook   same sweep, quiet unless something
+  quirework provenance ingest claude --hook   the ending session first, then the
+                                              same sweep, quiet unless something
                                               new was captured (what SessionEnd
                                               invokes)
+
+The hook works against a deadline. Claude Code ends a `SessionEnd` hook that
+outlives its budget with SIGTERM, and the sweep re-captures every session that
+grew, including every other session open at the time. So the hook captures the
+session its payload names before it surveys anything, and SIGTERM unwinds as an
+exit, which lets a capture cut off mid-write remove its temporary file.
 
 `quirework provenance store status` asks the same selection, through `survey`,
 without writing: a session whose hook failed is listed there until a sweep
@@ -46,7 +53,8 @@ hook would keep re-materializing sessions deliberately removed.
 Pure stdlib. Never accepts anything: that stays a reviewed step.
 """
 
-import json, os, re, sys, tempfile
+import json, os, re, signal, sys, tempfile
+from contextlib import contextmanager
 from dataclasses import dataclass
 from pathlib import Path
 from quirework.project import current_project
@@ -297,6 +305,53 @@ class Survey:
     foreign: int  # recorded as running in another project
 
 
+@dataclass(frozen=True)
+class _Selection:
+    """What one transcript is judged against: the ledger's removed list, the
+    project's trees, and every capture of each session in the store. The sweep
+    and the hook's ending session share it, so naming a session changes when
+    it is captured and never whether."""
+
+    removed: frozenset
+    roots: list
+    excluding: list
+    pending: Path
+    accepted: dict
+
+    @classmethod
+    def load(cls):
+        project = current_project()
+        roots = worktrees.project_trees(project.root)
+        return cls(
+            frozenset(store.removed_ids("cc")),
+            roots,
+            worktrees.excluded_trees(project, roots),
+            store.open_store().pending_dir(store.CC),
+            accepted_versions(store.CC),
+        )
+
+    def versions(self, path: Path) -> list[Path]:
+        """The pending capture and every accepted version, whether or not
+        they exist."""
+        return [self.pending / path.name, *self.accepted.get(path.name, ())]
+
+    def verdict(self, path: Path) -> str:
+        """``removed``, ``unchanged``, ``foreign`` or ``due``.
+
+        The recorded cwd is read last, only for a transcript that would
+        otherwise be captured: on a settled corpus that is nothing, so the
+        steady state stays a stat and a header read per file rather than a
+        read of all five hundred.
+        """
+        if path.stem.lower() in self.removed:
+            return "removed"
+        if is_current(path, self.versions(path)):
+            return "unchanged"
+        if not belongs(path, self.roots, self.excluding):
+            return "foreign"
+        return "due"
+
+
 def survey() -> Survey | None:
     """What a sweep would capture, found without writing anything.
 
@@ -308,39 +363,67 @@ def survey() -> Survey | None:
     dirs = sibling_session_dirs()
     if not dirs:
         return None
-    sources = sorted(p for d in dirs for p in d.glob("*.jsonl"))
-    removed = store.removed_ids("cc")
-    kept = [p for p in sources if p.stem.lower() not in removed]
-
-    # Verify the recorded cwd only for transcripts that would actually be
-    # captured: on a settled corpus that is nothing, so the steady state stays
-    # a stat and a header read per file rather than a read of all five hundred.
-    roots = worktrees.project_trees(current_project().root)
-    excluding = worktrees.excluded_trees(current_project(), roots)
-    pending = store.open_store().pending_dir(store.CC)
-    accepted = accepted_versions(store.CC)
+    selection = _Selection.load()
     due, grown, only = [], set(), set()
-    unchanged = foreign = 0
-    for p in kept:
-        versions = [pending / p.name, *accepted.get(p.name, ())]
-        if is_current(p, versions):
-            unchanged += 1
-        elif not belongs(p, roots, excluding):
-            foreign += 1
-        else:
-            due.append(p)
-            if any(v.is_file() for v in versions):
-                grown.add(p)
-                if any(dialogue_unchanged(p, v) for v in versions):
-                    only.add(p)
+    counts = {"removed": 0, "unchanged": 0, "foreign": 0}
+    for p in sorted(p for d in dirs for p in d.glob("*.jsonl")):
+        verdict = selection.verdict(p)
+        if verdict != "due":
+            counts[verdict] += 1
+            continue
+        due.append(p)
+        versions = selection.versions(p)
+        if any(v.is_file() for v in versions):
+            grown.add(p)
+            if any(dialogue_unchanged(p, v) for v in versions):
+                only.add(p)
     return Survey(
         tuple(due),
         frozenset(grown),
         frozenset(only),
-        unchanged,
-        len(sources) - len(kept),
-        foreign,
+        counts["unchanged"],
+        counts["removed"],
+        counts["foreign"],
     )
+
+
+def ending_session(payload) -> Path | None:
+    """The transcript a `SessionEnd` payload names, when a sweep would capture it.
+
+    Only a transcript in one of this project's session directories counts, and
+    the sweep's own selection judges it. ``None`` for anything else, including
+    a payload that is missing, malformed or names nothing.
+    """
+    named = payload.get("transcript_path") if isinstance(payload, dict) else None
+    if not isinstance(named, str) or not named:
+        return None
+    path = Path(named)
+    if path.suffix != ".jsonl" or not path.is_file():
+        return None
+    if path.parent.resolve() not in {d.resolve() for d in sibling_session_dirs()}:
+        return None
+    return path if _Selection.load().verdict(path) == "due" else None
+
+
+def _exit_on_signal(signum, _frame):
+    raise SystemExit(128 + signum)
+
+
+@contextmanager
+def _terminate_as_exit():
+    """Turn SIGTERM into `SystemExit` for the duration of a sweep.
+
+    SIGTERM's default action ends the process without running a single
+    `finally`, so a capture cut off mid-write would leave its temporary file in
+    the pending area. As an exit it unwinds through `write_capture`, which
+    removes the file. The previous handler comes back afterwards, so a caller
+    running the sweep in-process keeps its own.
+    """
+    previous = signal.signal(signal.SIGTERM, _exit_on_signal)
+    try:
+        yield
+    finally:
+        signal.signal(signal.SIGTERM, signal.SIG_DFL if previous is None else previous)
 
 
 def main(argv=None):
@@ -355,35 +438,41 @@ def main(argv=None):
     parser.add_argument(
         "--hook",
         action="store_true",
-        help="run as a SessionEnd hook: read the hook's JSON from stdin, and "
-        "print only when something was captured",
+        help="run as a SessionEnd hook: read the hook's JSON from stdin, "
+        "capture the session it names first, and print only when something "
+        "was captured",
     )
     args = parser.parse_args(argv)
     pending = store.open_store().pending_dir(store.CC)
     pending.mkdir(parents=True, exist_ok=True)
     hook = args.hook
+    payload = None
     if hook:
-        # Consume the SessionEnd payload to be a well-behaved hook consumer;
-        # its transcript_path is redundant with the sweep below, which is the
-        # actual capture mechanism (and the only one that also reaches
-        # subdirectory-launched sessions the payload can't name on its own).
+        # The payload names the session that is ending. The sweep below would
+        # reach it too, and is still the only way to reach a session launched
+        # from a subdirectory, but in file-name order, and the hook may be
+        # ended before the sweep is through.
         try:
-            json.load(sys.stdin)
+            payload = json.load(sys.stdin)
         except json.JSONDecodeError:
             pass
-    # Recorded before anything is captured: a session is only ever captured
-    # from a tree that exists now, and this is the last moment that is known.
-    for tree in trees.record(current_project()):
-        print(f"cc-sessions: recorded project tree {shown(tree)}")
-    found = survey()
-    if found is None:
-        raise SystemExit(
-            f"no Claude Code session dir for {current_project().root}: "
-            f"{encoded_project_dir(current_project().root)}"
-        )
-    copied = found.due
-    for p in copied:
-        write_capture(p, pending / p.name)
+    with _terminate_as_exit():
+        # Recorded before anything is captured: a session is only ever captured
+        # from a tree that exists now, and this is the last moment that is known.
+        for tree in trees.record(current_project()):
+            print(f"cc-sessions: recorded project tree {shown(tree)}")
+        first = ending_session(payload)
+        if first is not None:
+            write_capture(first, pending / first.name)
+        found = survey()
+        if found is None:
+            raise SystemExit(
+                f"no Claude Code session dir for {current_project().root}: "
+                f"{encoded_project_dir(current_project().root)}"
+            )
+        for p in found.due:
+            write_capture(p, pending / p.name)
+    copied = ([first] if first is not None else []) + list(found.due)
     if hook:
         # Stay quiet on the happy path so SessionEnd doesn't spam the transcript.
         if copied:
