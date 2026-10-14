@@ -865,6 +865,16 @@ Search, `show`, the catalog and the trail still read each capture whole,
 as files of the corpus; the trail's backfill notes a turn captured
 twice.
 
+Recent Claude Code releases record on each assistant turn the reasoning
+effort it asked for, and Codex records it on each turn's context. The
+effort metrics count it beside the model id, in a table under the
+models, with the share of records that carry one. The table appears only
+when some accepted session records an effort, so a corpus captured
+before any harness did prints the report it always printed. An effort is
+the setting requested, not the reasoning done: the same word buys a
+different amount from each model, and after a mid-session model swap it
+names what was selected, as the model id does.
+
 A spec trail reads sessions only where provenance is enabled. There,
 `spec trail add --find` also reads this project's live Claude Code and
 Codex transcripts, from the same locations capture sweeps, and never

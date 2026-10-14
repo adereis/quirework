@@ -40,6 +40,9 @@ Metrics are deliberately conservative and labeled with their caveats:
   * Tokens are a chars/4 estimate, not a tokenizer count.
   * "Engaged wall-clock" sums each session's first->last message gap; it ignores
     idle gaps between sessions (those show up in the calendar span instead).
+  * Effort is the reasoning setting a record says it asked for, counted per
+    model id and printed only when some record carries one. It is a request,
+    never a measure of reasoning done, and shares the model id's weakness.
 
 Pasted content (e.g. the human pasting the whole spec into a turn) inflates
 "human words" and cannot be reliably separated from typed input. Rather than
@@ -163,6 +166,7 @@ class Acc:
         self.subagent_tool_calls = 0
         self.subagent_words = 0
         self.models = {}  # model id -> assistant-turn count
+        self.efforts = {}  # (model id, effort) -> count, a subset of `models`
         self.times = []  # all message timestamps (datetime, tz-aware)
         self.engaged = 0.0  # seconds, summed per-session first->last
         # Claude Code sessions resumed under a new id, whose whole dialogue is
@@ -184,9 +188,20 @@ class Acc:
         self.think_chars += len(text)
         self.think_words += words(text)
 
-    def model(self, mid):
+    def model(self, mid, effort=None):
+        """Count one record's model id, and the effort it asked for if recorded.
+
+        An effort is counted only beside a model id, never on its own: the
+        same word buys a different amount of reasoning from each model, so the
+        pair is the unit. It also keeps the records with an effort a subset of
+        the records with a model id, which is what the report's coverage line
+        divides by.
+        """
         if mid:
             self.models[mid] = self.models.get(mid, 0) + 1
+            if isinstance(effort, str) and effort:
+                key = (mid, effort)
+                self.efforts[key] = self.efforts.get(key, 0) + 1
 
     def delegate(self, content):
         """Count one side-thread reply: a sub-agent's tool calls and prose.
@@ -236,6 +251,8 @@ class Acc:
         self.times += o.times
         for mid, n in o.models.items():
             self.models[mid] = self.models.get(mid, 0) + n
+        for key, n in o.efforts.items():
+            self.efforts[key] = self.efforts.get(key, 0) + n
 
 
 def parse_ts(s):
@@ -380,7 +397,10 @@ def claude_code(acc, scope=None, making=None):
                         acc.human(c)
                 # list-content user lines are tool_result echoes -> skip
             else:
-                acc.model((o.get("message") or {}).get("model"))
+                # Recent Claude Code releases stamp the effort asked for on
+                # each assistant record; older ones recorded none. The run
+                # engine's drift check reads the same field.
+                acc.model((o.get("message") or {}).get("model"), o.get("effort"))
                 gated = mode == "default"
                 if isinstance(c, list):
                     first_text = True
@@ -462,7 +482,7 @@ def codex_sessions(acc, scope=None, making=None):
             if not isinstance(payload, dict):
                 continue
             if obj.get("type") == "turn_context" and payload.get("model"):
-                acc.model(payload["model"])
+                acc.model(payload["model"], payload.get("effort"))
             if obj.get("type") == "response_item" and payload.get("type") in (
                 "custom_tool_call",
                 "function_call",
@@ -991,6 +1011,31 @@ def report(accs, total, pst=None, scope=None):
         print(
             "    Read this as a rough sense of the mix. Where the model actually"
             " matters, take it from the human or the harness, and say so."
+        )
+
+    # ---- effort ----
+    # Only where a record says what effort it asked for, so a corpus captured
+    # before any harness recorded one prints the report it always printed.
+    if total.efforts:
+        print("\nEffort (the setting each record asked for, by model id):")
+        order = sorted(
+            total.efforts.items(),
+            key=lambda x: (-total.models[x[0][0]], x[0][0], -x[1], x[0][1]),
+        )
+        shown = None
+        for (mid, effort), n in order:
+            print(f"    {mid if mid != shown else '':24} {effort:10} {n:>6,}")
+            shown = mid
+        print(
+            f"  ({sum(total.efforts.values()):,} of {sum(total.models.values()):,}"
+            " records counted above say what effort they asked for; the rest"
+            " record none.)"
+        )
+        print(
+            "  (A setting, not a measure of the reasoning done. The same word buys"
+            " a different amount from each model, so compare efforts within a"
+            " model, never across. It shares the model id's weakness above:"
+            " after a mid-session swap it names what was selected.)"
         )
 
 
