@@ -1950,6 +1950,11 @@ def status(name=None, store=None):
     if not (record / "run.json").exists():
         return {"run": name, "record": str(record), "note": "no run record here"}
     state = read_json(record / "run.json")
+    continued = {
+        t.get("parent_turn")
+        for t in state.get("turns", [])
+        if t.get("mode") == "continue"
+    }
     return {
         "run": name,
         "record": str(record),
@@ -1984,11 +1989,15 @@ def status(name=None, store=None):
         ],
         # Named here rather than left for the operator to infer, because the
         # recovery differs: an interrupted turn is continued in its session,
-        # a refused one never ran and is relaunched.
+        # a refused one never ran and is relaunched. A turn a later `continue`
+        # already took up is not offered again: listing it read as work still
+        # owed, and continuing it twice pays for the same reading twice.
         "continuable": [
             t["turn"]
             for t in state.get("turns", [])
-            if t.get("quota_stop") == "interrupted" and t.get("session_id")
+            if t.get("quota_stop") == "interrupted"
+            and t.get("session_id")
+            and t["turn"] not in continued
         ],
     }
 

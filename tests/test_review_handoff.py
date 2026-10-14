@@ -262,3 +262,35 @@ def test_a_short_status_keeps_what_a_poll_asks_and_drops_the_rest(project):
     assert pending["progress"] == "PROGRESS: commits 2/7"
     assert not any(key.endswith("_path") for key in pending)
     assert short["continuable"] == []
+
+
+def test_a_continued_turn_is_not_offered_for_continuing_again(project):
+    """Once a `continue` has taken up an interrupted turn, status stops listing
+    it: a second continuation would pay for the same reading twice."""
+    (project / "records" / "reviews" / RUN).mkdir(parents=True)
+    record = project / "state" / RUN
+    record.mkdir(parents=True)
+    stopped = entry(status="quota-stopped", quota_stop="interrupted", mode="run")
+    (record / "run.json").write_text(
+        review.json.dumps(
+            {
+                "run": RUN,
+                "config": {"harness": "codex", "model": "demo-model"},
+                "delta": {"kind": "range", "range": "a..b"},
+                "turns": [stopped],
+            }
+        )
+    )
+    assert review.status(RUN, store=record.parent)["continuable"] == ["01"]
+    resumed = entry(turn="02", mode="continue", parent_turn="01")
+    (record / "run.json").write_text(
+        review.json.dumps(
+            {
+                "run": RUN,
+                "config": {"harness": "codex", "model": "demo-model"},
+                "delta": {"kind": "range", "range": "a..b"},
+                "turns": [stopped, resumed],
+            }
+        )
+    )
+    assert review.status(RUN, store=record.parent)["continuable"] == []
