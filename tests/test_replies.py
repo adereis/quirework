@@ -11,9 +11,12 @@ checked the same way by `observe`.
 import json
 
 from quirework.providers import harness
+from quirework.providers import models as drivers
 from quirework.providers import replies
+from quirework.publish import experiment
 from quirework.runs import observe
 from quirework.runs.storage import digest
+from quirework.sops import review
 
 POLICY = dict(
     tools="none", read_roots=[], allow_compaction=False, minimum_context_window=0
@@ -68,6 +71,8 @@ def turn(tmp_path, parts, *, result_stop="end_turn"):
             type="system",
             subtype="init",
             session_id="sid",
+            model="fixture-model",
+            tools=["Read"],
             mcp_servers=[],
             output_style="default",
         )
@@ -135,6 +140,34 @@ def test_a_reply_resumed_after_the_ceiling_is_banked_whole(tmp_path):
     assert RESUME not in receipt["answer"]
     (flag,) = receipt["red_flags"]
     assert "output limit once" in flag and "character 32" in flag
+
+
+def test_every_procedure_that_reads_a_claude_answer_banks_it_whole(tmp_path):
+    """Rooms and workshops, reviews and chapter comparisons each read a
+    Claude answer through their own receipt, and each had read the result
+    row alone."""
+    record, private = turn(
+        tmp_path,
+        [
+            ("m1", "Mira left the umbrella by the do", "max_tokens"),
+            ("m2", "or, and it was green.", "end_turn"),
+        ],
+    )
+    whole = "Mira left the umbrella by the door, and it was green."
+    stream = drivers.json_rows(record / "events.jsonl")
+    reaction, compared = experiment.parse_claude(
+        stream, private, "fixture-model", "high", None
+    )
+    read = [
+        drivers.receipt(CONFIG, record, private),
+        review._answer("claude", CONFIG, stream, private),
+        compared | {"answer": reaction},
+    ]
+    for receipt in read:
+        assert receipt["answer"] == whole
+        assert receipt["output_limit"]["answer_joined_at"] == [32]
+        assert receipt["harness_text"][0]["cause"] == "output limit"
+        assert "output limit once" in receipt["red_flags"][0]
 
 
 def test_two_cuts_are_joined_in_order(tmp_path):

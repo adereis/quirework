@@ -1214,7 +1214,8 @@ def launch_turn(
             "quota_stop": stop["phase"] if stop else None,
             "quota_scope": stop.get("scope") if stop else None,
             "quota_resets_at": stop.get("resets_at") if stop else None,
-            "red_flags": [blind.Bus.flag(bus.receipt())] if bus else [],
+            "red_flags": got.get("red_flags", [])
+            + ([blind.Bus.flag(bus.receipt())] if bus else []),
         },
     )
     if compacted:

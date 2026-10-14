@@ -48,6 +48,7 @@ from quirework.core import usage as usage_records
 from quirework.providers import blind
 from quirework.sops import personas
 from quirework.providers import quota
+from quirework.providers import replies
 from quirework.providers import models as drivers
 from quirework.project import current_project
 
@@ -868,6 +869,9 @@ def _answer(harness, config, rows, private):
         "usage": None,
         "native_transcripts": [],
         "sandbox": None,
+        "output_limit": None,
+        "harness_text": [],
+        "red_flags": [],
     }
     if harness == "codex":
         ids = {r["thread_id"] for r in rows if r.get("type") == "thread.started"}
@@ -902,10 +906,25 @@ def _answer(harness, config, rows, private):
                 + (f": {said[:300]}" if said else "; inspect events and stderr")
             )
         result = results[0]
+        # The result row holds only the last response, so a reply the output
+        # ceiling cut is rebuilt from every part. Only a jailed reviewer's
+        # home is at hand to say why each response stopped.
+        native = (
+            [
+                r
+                for p in (private / "projects").rglob(f"*{result['session_id']}*.jsonl")
+                for r in drivers.json_rows(p)
+            ]
+            if private is not None
+            else []
+        )
+        answer, reply = replies.claude(rows, native)
         out.update(
             session_id=result["session_id"],
-            answer=result.get("result", ""),
+            answer=answer,
             usage=result.get("modelUsage"),
+            red_flags=replies.flags(reply),
+            **reply,
         )
         served = {
             r.get("message", {}).get("model")
@@ -1511,6 +1530,9 @@ def _collect(
         "report_status": report_status,
         "usage": receipt["usage"],
         "native_transcripts": receipt["native_transcripts"],
+        "output_limit": receipt.get("output_limit"),
+        "harness_text": receipt.get("harness_text", []),
+        "red_flags": receipt.get("red_flags", []),
         "seconds": round(time.time() - started, 1),
         "find_only": verdict["find_only"],
         "workspace": verdict["workspace"],
@@ -1955,6 +1977,7 @@ def status(name=None, store=None):
                     "answer_source",
                     "find_only",
                     "report",
+                    "red_flags",
                 )
             }
             for t in state.get("turns", [])

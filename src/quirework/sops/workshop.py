@@ -592,7 +592,7 @@ def _collect(root, writer, *, external=None):
             result["transport"] = "confined harness session"
             # An Antigravity writer reaches the keyring through the bus its
             # launch opened. The receipt says so, as every procedure's does.
-            result["red_flags"] = bus_flags(record)
+            result["red_flags"] = result.get("red_flags", []) + bus_flags(record)
         if missing := _missing_outputs(plan, work):
             raise RuntimeError(f"missing or undersized declared outputs: {missing}")
         transcripts = record / "transcripts"
@@ -1096,8 +1096,9 @@ def inspect(root, *, full=False):
                 {k: a.get(k) for k in ("attempt", "reason", "record")}
                 for a in s["attempts"]
             ]
-        # From the launch, so a writer still running or stopped shows it too.
-        if flags := bus_flags(p.parent):
+        # From the receipt once the writer is collected, and before that from
+        # the launch, so a writer still running or stopped shows its bus too.
+        if flags := (s.get("receipt") or {}).get("red_flags") or bus_flags(p.parent):
             item["red_flags"] = flags
         item["persona"] = personas.identity(s.get("config", {}).get("persona"))
         if not full and "config" in item:

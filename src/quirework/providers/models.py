@@ -16,7 +16,7 @@ import time
 from pathlib import Path
 
 from quirework.project import current_project
-from quirework.providers import blind, quota
+from quirework.providers import blind, quota, replies
 
 HARNESSES = ("codex", "claude", "agy")
 
@@ -993,6 +993,9 @@ def receipt(config, record, private, *, manual=False, resumed=None):
     _no_compaction(rows)
     native = []
     answer = ""
+    # Only Claude's record says why each response stopped and marks what
+    # the harness itself wrote; see `replies`.
+    reply = dict(output_limit=None, harness_text=[])
     if harness == "codex":
         if manual:
             paths = list((private / "sessions").rglob("*.jsonl"))
@@ -1086,6 +1089,11 @@ def receipt(config, record, private, *, manual=False, resumed=None):
             )
             _check_resumed(sid, resumed)
             paths = _rollouts(private, harness, sid, resumed=bool(resumed))
+            # The result row holds only the last response, so a reply the
+            # output ceiling cut is rebuilt from every part of it.
+            answer, reply = replies.claude(
+                rows, [r for p in paths for r in json_rows(p)]
+            )
         native = paths
         for path in paths:
             _no_compaction(json_rows(path))
@@ -1199,6 +1207,9 @@ def receipt(config, record, private, *, manual=False, resumed=None):
         else "explicit CLI selection",
         "usage": usage,
         "native_transcripts": [str(p) for p in native],
+        "output_limit": reply["output_limit"],
+        "harness_text": reply["harness_text"],
+        "red_flags": replies.flags(reply),
         "answer": answer,
     }
 

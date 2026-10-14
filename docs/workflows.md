@@ -933,7 +933,10 @@ the answer; `harness_text` keeps it, with the character where it was
 said. Either way the turn carries a red flag, which `inspect` and
 `verify` show. Only Claude's record says why a response stopped, so a
 Codex or Antigravity receipt leaves `output_limit` empty rather than
-claiming the ceiling was never reached.
+claiming the ceiling was never reached. Every other procedure that reads
+a Claude answer, from rooms and workshops to reviews and chapter
+comparisons, rebuilds it the same way, and its receipt carries the same
+fields and flag.
 
 A record banked before receipts did this kept only the last part of such
 a reply. `observe` runs from the installed package rather than the

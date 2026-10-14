@@ -25,6 +25,7 @@ import uuid
 
 from quirework.core import usage as usage_records
 from quirework.providers import blind
+from quirework.providers import replies
 
 # Above every published ceiling on purpose; Codex clamps it down.
 OVER_REQUEST = 1_050_000
@@ -292,14 +293,20 @@ def parse_claude(rows, home, model, effort, established):
     matches = list((home / "projects").glob(f"**/{sid}.jsonl"))
     if len(matches) != 1:
         raise RuntimeError("Claude session was not durably persisted")
-    reject_compaction(events(matches[0]))
-    return result.get("result", ""), {
+    native = events(matches[0])
+    reject_compaction(native)
+    # The result row holds only the last response, so a reaction the output
+    # ceiling cut is rebuilt from every part of it.
+    answer, reply = replies.claude(rows, native)
+    return answer, {
         "session_id": sid,
         "model": actual,
         "usage": usage[actual],
         "auxiliary_usage": auxiliary,
         "cost_usd": result.get("total_cost_usd"),
         "rollout": str(matches[0]),
+        "red_flags": replies.flags(reply),
+        **reply,
     }
 
 
@@ -727,6 +734,8 @@ class Experiment:
         for image in physical_images:
             image.unlink()
         self.emit(f"{self.runner}: banked {key} ({receipt['model']})")
+        for flag in receipt.get("red_flags", []):
+            self.emit(f"{self.runner}: {key}: {flag}")
         if receipt["exit_code"] not in (None, 0):
             raise RuntimeError(
                 f"{key}: answer banked, but process exited {receipt['exit_code']}; halt"
