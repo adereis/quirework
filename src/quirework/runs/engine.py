@@ -35,6 +35,7 @@ from quirework.runs.storage import digest
 from quirework.runs.storage import hashes
 from quirework.runs.storage import tree_digest
 from quirework.runs.storage import identifier
+from quirework.runs.storage import Held
 from quirework.runs.storage import lock
 from quirework.runs.storage import process_identity
 from quirework.runs.storage import read
@@ -75,6 +76,9 @@ WINDOW_TOLERANCE = 0.99
 # Claude publishes no catalog. Its CLI accepts an auto-compact window up to
 # this, which is also the largest window its current models carry.
 CLAUDE_MAX_WINDOW = 1_000_000
+# What `start` reports for a seat another operator holds. It is not a
+# failure: that operator's own command runs the seat and reports it.
+HELD = "held by another operator"
 
 
 def order(seats):
@@ -1445,58 +1449,100 @@ class Run:
         ):
             raise ValueError("--through must name a turn of one selected seat")
         results = {}
-        with lock(self.root / "run.lock"):
-            remaining = list(names)
-            while remaining:
-                ready = [
-                    n
-                    for n in remaining
-                    if not self.seats[n].get("parent")
-                    or self.state(self.seats[n]["parent"]["seat"]).get("complete")
-                ]
-                if not ready:
-                    for n in remaining:
-                        results[n] = "blocked by incomplete parent"
-                    break
+        # A seat is what an operator holds, never the whole record. Each
+        # seat's own lock keeps a second operator off it, so a later `start`
+        # can launch further seats while an earlier one still runs: the
+        # trial seat first, then the rest once it proves the assignment,
+        # without splitting one run across two records.
+        remaining = list(names)
+        while remaining:
+            ready = [
+                n
+                for n in remaining
+                if not self.seats[n].get("parent")
+                or self.state(self.seats[n]["parent"]["seat"]).get("complete")
+            ]
+            if not ready:
+                for n in remaining:
+                    results[n] = "blocked by incomplete parent"
+                break
 
-                def execute(n):
-                    try:
-                        return self.run_seat(n, timeout, through, wait_quota)
-                    except (
-                        ValueError,
-                        RuntimeError,
-                        OSError,
-                        subprocess.SubprocessError,
-                    ) as exc:
-                        # A pending turn is kept, never discarded: say so, and
-                        # name the two decisions left to the operator.
-                        kept = (self.state(n).get("pending") or {}).get("turn")
-                        if not kept:
-                            return "stopped: " + str(exc)
-                        return (
-                            f"stopped: {exc}; turn {kept!r} is kept with its "
-                            "session. Read its record, then `continue` it or "
-                            "prepare a distinct new run"
-                        )
+            def execute(n):
+                try:
+                    return self.run_seat(n, timeout, through, wait_quota)
+                except Held:
+                    return HELD
+                except (
+                    ValueError,
+                    RuntimeError,
+                    OSError,
+                    subprocess.SubprocessError,
+                ) as exc:
+                    # A pending turn is kept, never discarded: say so, and
+                    # name the two decisions left to the operator.
+                    kept = (self.state(n).get("pending") or {}).get("turn")
+                    if not kept:
+                        return "stopped: " + str(exc)
+                    return (
+                        f"stopped: {exc}; turn {kept!r} is kept with its "
+                        "session. Read its record, then `continue` it or "
+                        "prepare a distinct new run"
+                    )
 
-                # `submit` carries the caller's project context into each
-                # worker. A bare pool.map would let a worker re-resolve the
-                # project from disk, and under the frozen executor that walk
-                # starts from the record rather than the project: the seat
-                # would then read another catalog and another account lease.
-                with ThreadPoolExecutor(max_workers=jobs) as pool:
-                    futures = [submit(pool, execute, n) for n in ready]
-                    for name, future in zip(ready, futures):
-                        results[name] = future.result()
-                remaining = [n for n in remaining if n not in ready]
+            # `submit` carries the caller's project context into each
+            # worker. A bare pool.map would let a worker re-resolve the
+            # project from disk, and under the frozen executor that walk
+            # starts from the record rather than the project: the seat
+            # would then read another catalog and another account lease.
+            with ThreadPoolExecutor(max_workers=jobs) as pool:
+                futures = [submit(pool, execute, n) for n in ready]
+                for name, future in zip(ready, futures):
+                    results[name] = future.result()
+            remaining = [n for n in remaining if n not in ready]
         return results
+
+    def status(self, name):
+        """Where a seat stands, in the words `inspect` and an export use."""
+        spec, state = self.seats[name], self.state(name)
+        banked = f"{len(state['done'])} of {len(spec['turns'])} turns banked"
+        pending = state.get("pending")
+        if state.get("complete"):
+            return "complete"
+        if pending:
+            alive = pending.get("pid") and process_identity(
+                pending["pid"]
+            ) == pending.get("process_identity")
+            if alive:
+                return f"running turn {pending['turn']}"
+            return f"turn {pending['turn']} pending with no process; {banked}"
+        if spec["mode"] == "external":
+            return f"awaiting external answers; {banked}"
+        if state["done"] or state.get("attempts") or state.get("session_id"):
+            return banked
+        return "not started"
+
+    def not_started(self):
+        """The seats a bare `start` would launch for the first time.
+
+        Named wherever the record is read, because a record that holds
+        finished seats beside seats that never ran looks finished, and a
+        later bare `start` would pay for every one of them.
+        """
+        return [
+            name
+            for name in self.plan["order"]
+            if self.seats[name]["mode"] != "external"
+            and self.status(name) == "not started"
+        ]
 
     def inspect(self, *, prompts=False):
         return dict(
             id=self.plan["id"],
             title=self.plan["title"],
+            not_started=self.not_started(),
             seats={
                 name: dict(
+                    status=self.status(name),
                     mode=s["mode"],
                     model=s["config"]["model"],
                     requested_model=s["config"].get("requested_model"),
@@ -1573,6 +1619,9 @@ class Run:
             title=self.plan["title"],
             source=self.plan["source"],
             metadata=self.plan.get("metadata", {}),
+            # A partial export says which declared seats never ran, so the
+            # finished ones are not read as the whole panel.
+            not_started=self.not_started(),
             seats={},
         )
         for name in self.seats:
@@ -1597,6 +1646,7 @@ class Run:
             # State an exported seat's completeness in the receipt itself, so
             # a partial read can never be read later as a whole one.
             public["seats"][name]["_completeness"] = dict(
+                status=self.status(name),
                 declared_turns=len(self.seats[name]["turns"]),
                 answered_turns=len(state["done"]),
                 complete=bool(state.get("complete")),

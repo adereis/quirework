@@ -898,6 +898,24 @@ Use `sop runs prepare`, `start`, `inspect`, `observe`, `collect`,
 and the generic executor. Each run has separate seats, ordered turns,
 attempts, and checkpoints.
 
+An operator holds a seat, never the whole record, so a later `start` can
+launch seats while an earlier one still runs. That is how the spend
+order is followed in one record: `start RECORD TRIAL` runs the cheap
+seat alone, and once it has proved the assignment, a bare `start RECORD`
+runs the rest, in turn or side by side with `--jobs`, whether or not the
+trial seat has finished. A seat another operator holds is reported as
+`held by another operator`, which is not a failure, since that
+operator's own command runs it. `collect`, `retry`, `continue` and
+`import` likewise take only the seat they act on, so one seat can be
+repaired while others run. A record frozen before this admits one
+operator at a time, as its own executor did.
+
+`inspect` gives each seat a status and lists the declared seats that
+have never started. A partial `export` names them too, in its receipt
+and on stderr. A record that holds finished seats beside seats that
+never ran looks finished, and a later bare `start` would pay for every
+one of them.
+
 Launch intent is recorded before process creation. A pending request
 must be reconciled before another submission. `collect` recovers
 existing evidence without buying a new answer. An explicit retry is

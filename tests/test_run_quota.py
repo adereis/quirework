@@ -248,8 +248,13 @@ def test_one_stalled_seat_does_not_withhold_a_finished_seat(two_seats, tmp_path)
     assert (tmp_path / "partial" / "finished" / "one" / "answer.md").exists()
     assert receipt["seats"]["finished"]["_completeness"]["complete"] is True
     assert receipt["seats"]["stalled"]["_completeness"] == dict(
-        declared_turns=1, answered_turns=0, complete=False, pending=None
+        status="not started",
+        declared_turns=1,
+        answered_turns=0,
+        complete=False,
+        pending=None,
     )
+    assert receipt["not_started"] == ["stalled"]
     assert out
 
 

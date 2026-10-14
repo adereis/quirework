@@ -111,6 +111,10 @@ def process_identity(pid):
     return None if fields[0] == "Z" else fields[19]
 
 
+class Held(RuntimeError):
+    """Another operator holds the lock; nothing is wrong with what it guards."""
+
+
 @contextmanager
 def lock(path, *, wait=False):
     path = Path(path)
@@ -119,7 +123,7 @@ def lock(path, *, wait=False):
         try:
             fcntl.flock(f, fcntl.LOCK_EX | (0 if wait else fcntl.LOCK_NB))
         except BlockingIOError as exc:
-            raise RuntimeError(f"another operator owns {path}") from exc
+            raise Held(f"another operator owns {path}") from exc
         yield
 
 

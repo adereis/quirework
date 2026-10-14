@@ -9,7 +9,7 @@ from pathlib import Path
 from quirework.providers import harness
 from quirework.runs import engine
 from quirework.runs.engine import WAIT_QUOTA_DEFAULT
-from quirework.runs.storage import lock, read
+from quirework.runs.storage import Held, lock, read
 
 
 def main(argv=None):
@@ -174,10 +174,9 @@ def main(argv=None):
                     t["id"] for t in run.seats[args.seat]["turns"]
                 }:
                     raise ValueError("unknown seat or turn")
-                with (
-                    lock(run.root / "run.lock"),
-                    lock(run.root / "locks" / f"{args.seat}.lock"),
-                ):
+                # The seat's own lock, the one `start` holds while it runs the
+                # seat, so other seats may run while this one is repaired.
+                with lock(run.root / "locks" / f"{args.seat}.lock"):
                     run.verify()
                     if args.action == "retry":
                         result = engine.retry(run, args.seat, args.turn)
@@ -199,19 +198,30 @@ def main(argv=None):
                 result = run.export(
                     args.destination, partial=args.partial, flat=args.flat
                 )
+                if args.partial and (unstarted := run.not_started()):
+                    print(
+                        "run: these declared seats never started and are not "
+                        f"in the export: {', '.join(unstarted)}. A bare "
+                        "`start` would run them.",
+                        file=sys.stderr,
+                    )
             elif args.action == "collect":
                 result = {}
-                with lock(run.root / "run.lock"):
-                    for name, spec in run.seats.items():
-                        state = run.state(name)
-                        if state["pending"]:
-                            index = next(
-                                i
-                                for i, t in enumerate(spec["turns"])
-                                if t["id"] == state["pending"]["turn"]
-                            )
+                for name, spec in run.seats.items():
+                    state = run.state(name)
+                    if state["pending"]:
+                        index = next(
+                            i
+                            for i, t in enumerate(spec["turns"])
+                            if t["id"] == state["pending"]["turn"]
+                        )
+                        # A seat another `start` is running is that
+                        # operator's to bank, and the others are still ours.
+                        try:
                             with lock(run.root / "locks" / f"{name}.lock"):
                                 result[name] = run.collect_turn(name, index)
+                        except Held:
+                            result[name] = engine.HELD
             else:
                 result = run.run(
                     args.seats,
@@ -222,7 +232,10 @@ def main(argv=None):
                 )
                 print(json.dumps(result, indent=2))
                 return int(
-                    any(v not in ("completed", "paused") for v in result.values())
+                    any(
+                        v not in ("completed", "paused", engine.HELD)
+                        for v in result.values()
+                    )
                 )
         print(json.dumps(result, indent=2, ensure_ascii=False))
         return 0
