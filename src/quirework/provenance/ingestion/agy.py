@@ -9,7 +9,6 @@ as grown.
 from __future__ import annotations
 
 import argparse
-import json
 import re
 from pathlib import Path
 from quirework.project import current_project
@@ -28,12 +27,23 @@ def _strings(value):
             yield from _strings(child)
 
 
+# An absolute path starts a word. Without the look-behind, the tail of a
+# relative path read as one: `source .venv/bin/activate` "opened"
+# `/bin/activate`, `docs/AGENTS.md` opened `/AGENTS.md`, and either is outside
+# every checkout, so a working session that began with one was skipped as a
+# review run. Many such skips were right by accident: evaluation seats from
+# when captures lived inside the project, read by a relative path that the
+# evaluation-seat rule, which looks for the store, does not recognize. A
+# project with seats like that lists them as removed before relying on this.
+_ABSOLUTE = re.compile(r"(?<![\w.~*/-])/[A-Za-z0-9._/-]+")
+
+
 def working_context(rows):
     """First absolute path actually passed to a tool, excluding runtime state."""
     own = str(Path.home() / ".gemini")
     for row in rows:
         for value in _strings(row.get("tool_calls", [])):
-            for path in re.findall(r"/[A-Za-z0-9._/-]+", value):
+            for path in _ABSOLUTE.findall(value):
                 if not path.startswith(own):
                     return path
     return None
@@ -58,6 +68,18 @@ def evaluates_corpus(rows, root):
                 for prefix in prefixes
             )
     return False
+
+
+def _damage(dropped, recovered):
+    """A capture line's note on what was wrong with its transcript, or nothing."""
+    notes = []
+    torn = dropped.get("<unparseable>", 0)
+    if torn:
+        notes.append(f"{torn} line(s) did not parse")
+    if recovered:
+        steps = ", ".join(str(step) for step in recovered)
+        notes.append(f"step(s) {steps} taken from {agyfilter.CUT}")
+    return f" ({'; '.join(notes)})" if notes else ""
 
 
 def main(argv=None):
@@ -108,26 +130,23 @@ def main(argv=None):
         text = source.read_text()
         if not any(str(root) in text for root in roots):
             continue
-        try:
-            rows = [json.loads(line) for line in text.splitlines() if line.strip()]
-        except json.JSONDecodeError as exc:
-            # Antigravity writes some records with a literal newline inside a
-            # string value, so one record arrives as several lines and none of
-            # the fragments parse. Nine of 308 transcripts were like this, and
-            # one of them aborted the whole sweep: 299 readable transcripts
-            # went unswept because the loop raised on the first bad one.
-            #
-            # The transcript is skipped whole rather than parsed around. What
-            # these rows decide is whether to EXCLUDE this session -- a review
-            # run, or a seat that was handed a transcript to evaluate -- and
-            # both are positive detections, so a tell lost with an unparsed
-            # fragment is a capture that should never have happened. Reading
-            # part of a transcript to decide whether to keep all of it is the
-            # wrong trade against a private corpus.
+        # A damaged transcript is read around, not skipped. Antigravity can
+        # write a record over another one, leaving a line that does not parse,
+        # and `agyfilter.records` takes the destroyed step from the cut-down
+        # copy beside it. These rows decide whether to EXCLUDE the session, so
+        # a tell lost with a destroyed record could let a review run or a seat
+        # through. Skipping such a transcript traded that for something worse:
+        # it left a session uncaptured behind a printed "needs a look" nobody
+        # was obliged to act on, while the runtime's copy, the only one, aged.
+        # A wrong capture costs one read and a rejection at the next ingest; a
+        # skipped session is lost. So the session is captured, and its line
+        # says how it was damaged, for the read that judges it.
+        rows, dropped, recovered = agyfilter.records(source)
+        if not rows:
             counts["unreadable"] += 1
             print(
-                f"  ? {directory.name} transcript does not parse as JSONL "
-                f"({exc}) -- not captured, needs a look"
+                f"  ? {directory.name} has no record that parses as JSON "
+                "-- not captured, needs a look"
             )
             continue
         context = working_context(rows)
@@ -149,16 +168,17 @@ def main(argv=None):
             continue
         output = dest / f"{sid}.jsonl"
         captures = [c for c in (output, *accepted.get(output.name, ())) if c.is_file()]
+        damage = _damage(dropped, recovered)
         if not captures:
             agyfilter.write_capture(source, output)
             counts["new"] += 1
-            print(f"  + {sid}")
+            print(f"  + {sid}{damage}")
         elif any(agyfilter.is_current(source, c) for c in captures):
             counts["unchanged"] += 1
         elif args.force is not None and (not args.force or sid in args.force):
             agyfilter.write_capture(source, output)
             counts["replaced"] += 1
-            print(f"  ~ {sid} (replaced)")
+            print(f"  ~ {sid} (replaced){damage}")
         else:
             counts["differ"] += 1
             why = agyfilter.why_not_current(source, captures[0])

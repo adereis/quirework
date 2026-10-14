@@ -84,6 +84,11 @@ from quirework.provenance.ccfilter import marker_prefix
 CAPTURE_SCHEMA = "quirework-agy-v1"
 CAPTURE_TYPE = "CAPTURE_META"
 
+# Antigravity writes each conversation twice, side by side: the whole
+# transcript, and a copy that cuts a long tool call at about 2 kB.
+FULL = "transcript_full.jsonl"
+CUT = "transcript.jsonl"
+
 # Record kinds whose ``content`` is somebody's words rather than tool output,
 # injected context, or a replay of the conversation so far.
 KEEP_CONTENT = ("USER_INPUT", "PLANNER_RESPONSE", "SYSTEM_MESSAGE", "ERROR_MESSAGE")
@@ -132,27 +137,25 @@ def _prune_tool_calls(calls, dropped):
     return out
 
 
-def normalize_capture(path):
-    """Return the bytes of a normalized provenance capture for one transcript.
+def companion(path):
+    """The cut-down copy Antigravity writes beside a full transcript, or ``None``.
 
-    Deterministic: the same source bytes give the same capture bytes, which is
-    what lets the sweep decide by fingerprint and lets a migration prove itself
-    by re-rendering.
-
-    A line that does not parse is counted and dropped, which is what every
-    reader in the package already does with it.  In this corpus all five are
-    torn halves of a ``VIEW_FILE`` or ``EPHEMERAL_MESSAGE`` body whose content
-    contained a raw newline -- freight either way, and never anything a reader
-    has seen.
+    Only a full transcript has one: the cut-down copy is the fallback when the
+    full one is missing, and nothing stands beside it.
     """
+    path = os.fspath(path)
+    if os.path.basename(path) != FULL:
+        return None
+    other = os.path.join(os.path.dirname(path), CUT)
+    return other if os.path.isfile(other) else None
+
+
+def _parse(path):
+    """One file's records in file order, and a census of the lines that are not."""
+    rows = []
     dropped = collections.Counter()
-    source = hashlib.sha256()
-    source_bytes = 0
-    kept = []
     with open(path, "rb") as fh:
         for raw in fh:
-            source.update(raw)
-            source_bytes += len(raw)
             line = raw.strip()
             if not line:
                 continue
@@ -164,27 +167,110 @@ def normalize_capture(path):
             if not isinstance(obj, dict):
                 dropped["<not-an-object>"] += 1
                 continue
-            kind = obj.get("type")
-            rec = dict(obj)
-            if kind not in KEEP_CONTENT and "content" in rec:
-                del rec["content"]
-                dropped[f"{kind}.content"] += 1
-            if "tool_calls" in rec:
-                rec["tool_calls"] = _prune_tool_calls(rec["tool_calls"], dropped)
-            kept.append(rec)
+            rows.append(obj)
+    return rows, dropped
+
+
+def _step(record):
+    step = record.get("step_index")
+    return step if isinstance(step, int) and not isinstance(step, bool) else None
+
+
+def records(path):
+    """A transcript's records, with every step it lacks taken from its companion.
+
+    Returns ``(rows, dropped, recovered)``: the records in file order, the census
+    of lines in ``path`` that are not records, and the step indexes taken from
+    the cut-down copy, ascending.
+
+    WHY BOTH COPIES ARE READ
+
+    Antigravity sometimes writes a record over another one. The overwritten
+    record's tail survives as a line that does not parse, and its head is gone:
+    most often it is the first record, which is the human's opening request, and
+    a late step sits in its place. Other transcripts simply lack a step, with no
+    torn line to show for it. Neither copy is reliably the whole one, but they
+    were damaged in different places, so a step the full transcript lost is
+    usually still in the cut-down copy. That copy cuts a long tool call at about
+    2 kB, which costs little here, since the capture cuts file bodies to a
+    prefix anyway.
+
+    A step absent from both is not reported as lost. Step indexes skip numbers
+    in transcripts with no damage at all, so a gap is not evidence of anything.
+
+    A recovered record goes right after the record of the nearest earlier step,
+    or first when there is none. File order is what every reader renders, and
+    the overwrite that destroyed an opening request left a late step at the top
+    of the file, so "first" has to mean the step, not the position.
+    """
+    rows, dropped = _parse(path)
+    other = companion(path)
+    if other is None:
+        return rows, dropped, []
+    have = {_step(r) for r in rows} - {None}
+    spare = {}
+    for record in _parse(other)[0]:
+        step = _step(record)
+        if step is not None and step not in have:
+            spare.setdefault(step, record)
+    for step in sorted(spare):
+        earlier = [
+            (s, i)
+            for i, r in enumerate(rows)
+            if (s := _step(r)) is not None and s < step
+        ]
+        rows.insert(max(earlier)[1] + 1 if earlier else 0, spare[step])
+    return rows, dropped, sorted(spare)
+
+
+def normalize_capture(path):
+    """Return the bytes of a normalized provenance capture for one transcript.
+
+    Deterministic: the same source bytes give the same capture bytes, which is
+    what lets the sweep decide by fingerprint and lets a migration prove itself
+    by re-rendering.
+
+    A line that does not parse is counted and dropped, which is what every
+    reader in the package already does with it. The record it was part of is
+    taken from the cut-down copy when that copy holds it (``records``), and the
+    header then names that copy by its fingerprint as well, because the capture
+    was made from both. A transcript whose full copy lacks no step comes out
+    exactly as it did before the cut-down copy was read at all.
+    """
+    rows, dropped, recovered = records(path)
+    dropped = collections.Counter(dropped)
+    kept = []
+    for obj in rows:
+        kind = obj.get("type")
+        rec = dict(obj)
+        if kind not in KEEP_CONTENT and "content" in rec:
+            del rec["content"]
+            dropped[f"{kind}.content"] += 1
+        if "tool_calls" in rec:
+            rec["tool_calls"] = _prune_tool_calls(rec["tool_calls"], dropped)
+        kept.append(rec)
 
     # No ``created_at`` on the header, deliberately: `catalog._agy_scan` dates a
     # session from the first record that carries one, and `metrics` feeds every
     # one into the session span. A timestamp here would silently become the
     # session's start.
+    source_bytes, source_sha256 = source_fingerprint(path)
     header = {
         "type": CAPTURE_TYPE,
         "capture_schema": CAPTURE_SCHEMA,
-        "source_sha256": source.hexdigest(),
+        "source_sha256": source_sha256,
         "source_bytes": source_bytes,
         "records": len(kept),
         "dropped": dict(sorted(dropped.items())),
     }
+    if recovered:
+        size, digest = source_fingerprint(companion(path))
+        header["recovered"] = {
+            "source": CUT,
+            "source_sha256": digest,
+            "source_bytes": size,
+            "steps": recovered,
+        }
     return b"".join(
         json.dumps(row, ensure_ascii=False, separators=(",", ":")).encode("utf-8")
         + b"\n"
@@ -221,8 +307,28 @@ def source_fingerprint(path):
     return size, digest.hexdigest()
 
 
+def _companion_matches(src, header):
+    """Whether the capture took from the cut-down copy exactly what it offers now.
+
+    A capture that took steps from it names it by fingerprint, so it is current
+    only while that copy is unchanged. One that took none is current only while
+    that copy still offers none. Without that second half, a capture made before
+    the cut-down copy was read would stay current forever, missing a step the
+    copy beside it holds.
+    """
+    other = companion(src)
+    took = header.get("recovered")
+    if took:
+        try:
+            recorded = (int(took["source_bytes"]), str(took["source_sha256"]))
+        except (KeyError, TypeError, ValueError):
+            return False
+        return other is not None and source_fingerprint(other) == recorded
+    return not records(src)[2]
+
+
 def is_current(src, dst):
-    """Whether the capture at ``dst`` was normalized from the source at ``src``."""
+    """Whether the capture at ``dst`` is what normalizing ``src`` would make now."""
     header = capture_header(dst)
     if not header:
         return False
@@ -230,7 +336,7 @@ def is_current(src, dst):
         recorded = (int(header["source_bytes"]), str(header["source_sha256"]))
     except (KeyError, TypeError, ValueError):
         return False
-    return source_fingerprint(src) == recorded
+    return source_fingerprint(src) == recorded and _companion_matches(src, header)
 
 
 def why_not_current(src, dst):
@@ -239,6 +345,8 @@ def why_not_current(src, dst):
     A capture whose header names another format, over a source that has not
     changed, is not a changed session. A tool that renames its format leaves
     such captures behind, and the words say so rather than report a change.
+    Nor is a capture that lacks a step the cut-down copy holds: the session is
+    the same, and the capture is what falls short.
     """
     try:
         with open(dst, encoding="utf-8", errors="replace") as fh:
@@ -246,13 +354,20 @@ def why_not_current(src, dst):
         recorded = (int(header["source_bytes"]), str(header["source_sha256"]))
     except (OSError, ValueError, KeyError, TypeError):
         return "it holds no capture header"
+    if recorded != source_fingerprint(src):
+        return "its source has changed since it was captured"
     schema = header.get("capture_schema")
-    if recorded == source_fingerprint(src) and schema != CAPTURE_SCHEMA:
+    if schema != CAPTURE_SCHEMA:
         return (
             f"its source is unchanged, but its header names the format {schema}, "
             f"not {CAPTURE_SCHEMA}"
         )
-    return "its source has changed since it was captured"
+    if not header.get("recovered"):
+        return (
+            f"its source is unchanged, but the {CUT} beside it holds steps "
+            "the capture lacks"
+        )
+    return f"the {CUT} it took steps from has changed since it was captured"
 
 
 def write_capture(src, dst):

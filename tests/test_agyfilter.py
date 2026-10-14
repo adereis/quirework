@@ -202,6 +202,122 @@ def test_a_torn_line_costs_only_itself(tmp_path):
     assert json.loads(rows[0])["dropped"]["<unparseable>"] == 1
 
 
+def _pair(tmp_path, full, cut):
+    """A conversation's two copies, each given as lines of text or records."""
+    logs = tmp_path / "conversation" / ".system_generated" / "logs"
+    logs.mkdir(parents=True)
+    for name, lines in ((agy.FULL, full), (agy.CUT, cut)):
+        if lines is not None:
+            text = "\n".join(x if isinstance(x, str) else json.dumps(x) for x in lines)
+            (logs / name).write_text(text + "\n", encoding="utf-8")
+    return str(logs / agy.FULL)
+
+
+def _opening(step=0):
+    return _row(
+        "USER_INPUT",
+        "<USER_REQUEST>Draft the opening scene.</USER_REQUEST>",
+        source="USER_EXPLICIT",
+        step_index=step,
+    )
+
+
+def test_a_record_written_over_is_taken_from_the_cut_copy(tmp_path):
+    """The shape that destroyed opening requests: a late step written over the
+    first record, whose tail survives on the next line and does not parse."""
+    late = _row("PLANNER_RESPONSE", "done", step_index=52)
+    full = _pair(
+        tmp_path,
+        [
+            late,
+            'ols in the list are available."}',
+            _row("VIEW_FILE", "x", step_index=1),
+        ],
+        [_opening(), _row("VIEW_FILE", "x", step_index=1), late],
+    )
+    rows, dropped, recovered = agy.records(full)
+    assert recovered == [0]
+    assert dropped["<unparseable>"] == 1
+    assert [r["step_index"] for r in rows] == [0, 52, 1]
+
+    header, *kept = [
+        json.loads(line) for line in agy.normalize_capture(full).decode().splitlines()
+    ]
+    assert kept[0]["content"] == "<USER_REQUEST>Draft the opening scene.</USER_REQUEST>"
+    took = header["recovered"]
+    assert took["source"] == agy.CUT and took["steps"] == [0]
+    assert (took["source_bytes"], took["source_sha256"]) == agy.source_fingerprint(
+        agy.companion(full)
+    )
+    # The header still names the full copy as the source it fingerprints.
+    assert (header["source_bytes"], header["source_sha256"]) == agy.source_fingerprint(
+        full
+    )
+
+
+def test_a_recovered_step_goes_after_its_nearest_earlier_step(tmp_path):
+    """Not before the first later step: the late step left at the top of the
+    file would pull every recovered record up to the start."""
+    rows, _, recovered = agy.records(
+        _pair(
+            tmp_path,
+            [_row("PLANNER_RESPONSE", "late", step_index=400)]
+            + [_row("VIEW_FILE", step_index=s) for s in (1, 2, 4)],
+            [_row("VIEW_FILE", step_index=s) for s in (1, 2, 3, 4)],
+        )
+    )
+    assert recovered == [3]
+    assert [r["step_index"] for r in rows] == [400, 1, 2, 3, 4]
+
+
+def test_a_full_copy_that_lacks_nothing_is_captured_as_before(tmp_path):
+    """Step indexes skip numbers in undamaged transcripts, so a gap that
+    neither copy fills is not a repair and leaves no trace in the header."""
+    steps = [_opening(), _row("PLANNER_RESPONSE", "ok", step_index=2)]
+    full = _pair(tmp_path, steps, steps[:1])
+    header = agy.capture_header(_written(tmp_path, full))
+    assert "recovered" not in header
+    alone = _session(tmp_path, steps, name="alone.jsonl")
+    assert (
+        agy.normalize_capture(full).split(b"\n", 1)[1]
+        == (agy.normalize_capture(alone).split(b"\n", 1)[1])
+    )
+
+
+def _written(tmp_path, source, name="capture.jsonl"):
+    capture = str(tmp_path / name)
+    agy.write_capture(source, capture)
+    return capture
+
+
+def test_a_capture_missing_a_step_its_cut_copy_holds_is_not_current(tmp_path):
+    """A capture made from the full copy alone stays current by its own
+    fingerprint, so the copy beside it has to be asked as well."""
+    full = _pair(tmp_path, [_row("PLANNER_RESPONSE", "ok", step_index=1)], None)
+    capture = _written(tmp_path, full)
+    assert agy.is_current(full, capture)
+
+    cut = tmp_path / "conversation" / ".system_generated" / "logs" / agy.CUT
+    cut.write_text(
+        "\n".join(json.dumps(r) for r in [_opening(), _row("VIEW_FILE", step_index=1)])
+        + "\n"
+    )
+    assert not agy.is_current(full, capture)
+    assert "holds steps the capture lacks" in agy.why_not_current(full, capture)
+
+    repaired = _written(tmp_path, full, name="repaired.jsonl")
+    assert agy.is_current(full, repaired)
+    cut.write_text(cut.read_text() + json.dumps(_row("VIEW_FILE", step_index=9)) + "\n")
+    assert not agy.is_current(full, repaired)
+    assert "has changed" in agy.why_not_current(full, repaired)
+
+
+def test_only_a_full_transcript_has_a_companion(tmp_path):
+    full = _pair(tmp_path, [_opening()], [_opening()])
+    assert agy.companion(full).endswith(agy.CUT)
+    assert agy.companion(agy.companion(full)) is None
+
+
 def test_a_renamed_format_is_not_reported_as_a_changed_session(tmp_path):
     raw = _session(tmp_path, [_row("USER_INPUT", "go")])
     capture = tmp_path / "capture.jsonl"
