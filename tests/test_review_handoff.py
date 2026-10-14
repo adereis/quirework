@@ -205,18 +205,19 @@ def test_only_the_last_status_line_counts(body, stated, flagged):
         (
             {"harness": "codex", "model": "demo-model", "effort": "high"}
             | {"max_context_window": 400000},
-            "harness=codex model=demo-model effort=high context=400000 "
+            "harness=codex model=demo-model effort=high tools=review context=400000 "
             "compaction=prevented jailed=true",
         ),
         (
             {"harness": "claude", "model": "opus", "effort": "xhigh"}
             | {"model_pinned": "claude-opus-5-5"},
-            f"harness=claude model=claude-opus-5-5 effort=xhigh "
+            f"harness=claude model=claude-opus-5-5 effort=xhigh tools=review "
             f"context={models.CLAUDE_MAX_WINDOW} compaction=prevented jailed=true",
         ),
         (
             {"harness": "agy", "model": "gemini-pro-high", "effort": "high"},
-            "harness=agy model=gemini-pro-high effort=high context=default "
+            "harness=agy model=gemini-pro-high effort=high tools=unconfined "
+            "context=default "
             "compaction=detected jailed=true",
         ),
     ],

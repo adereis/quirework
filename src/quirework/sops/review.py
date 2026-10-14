@@ -410,6 +410,33 @@ def codex_sandbox(jailed):
     return "danger-full-access" if jailed else "workspace-write"
 
 
+# What a reviewer may reach beyond the repository and its own report.
+# `research` adds the harness's web search and page fetch, for a delta that
+# rests on sources a reviewer should check for itself.
+TOOLS = ("review", "research")
+
+
+def review_tools(harness, tools=None):
+    """The tool policy a run records, refused where the runner cannot hold it.
+
+    agy cannot confine a seat to a tool set, which is why a room refuses a
+    research seat there, so an agy reviewer keeps whatever tools agy has, its
+    web tools included, under any flags. Its record therefore says
+    `unconfined` instead of claiming a policy, and an explicit `review` is
+    refused rather than recorded as true.
+    """
+    if tools is not None and tools not in TOOLS:
+        _fail(f"--tools must be one of {', '.join(TOOLS)}, not {tools!r}")
+    if harness == "agy":
+        if tools == "review":
+            _fail(
+                "agy cannot confine a reviewer to a tool set; omit --tools, "
+                "and the run records it as unconfined"
+            )
+        return "unconfined"
+    return tools or "review"
+
+
 def command(config, mode, session_id, report_dir, *, jailed=True):
     """Return argv and stdin bytes for a review turn.
 
@@ -420,6 +447,8 @@ def command(config, mode, session_id, report_dir, *, jailed=True):
     harness, model, effort = (config[k] for k in ("harness", "model", "effort"))
     # A resumed session names the version it began on; see `_turn`.
     model = config.get("model_pinned") or model
+    # A record from before the policy existed ran with no web tools.
+    research = config.get("tools") == "research"
     if mode == "fork" and harness == "agy":
         _fail("agy exposes no native fork; resume the session or start a new run")
     if mode in ("resume", "fork") and not session_id:
@@ -445,7 +474,7 @@ def command(config, mode, session_id, report_dir, *, jailed=True):
             "-c",
             'model_verbosity="high"',
             "-c",
-            'web_search="disabled"',
+            'web_search="live"' if research else 'web_search="disabled"',
             "-c",
             "features.multi_agent=false",
             *blind.CODEX_SEAT,
@@ -484,6 +513,9 @@ def command(config, mode, session_id, report_dir, *, jailed=True):
         # driver. The repository's SessionEnd capture hook otherwise tries
         # to write into the read-only checkout after a successful review.
         settings["disableAllHooks"] = True
+        tools = "Bash,Read,Glob,Grep,Write" + (
+            ",WebSearch,WebFetch" if research else ""
+        )
         args = [
             "claude",
             "--model",
@@ -493,9 +525,9 @@ def command(config, mode, session_id, report_dir, *, jailed=True):
             # Bash is load-bearing: the delta is a git range and the reviewer
             # reads it with git. Write is scoped by the jail to the report dir.
             "--tools",
-            "Bash,Read,Glob,Grep,Write",
+            tools,
             "--allowedTools",
-            "Bash,Read,Glob,Grep,Write",
+            tools,
             "--disable-slash-commands",
             "--dangerously-skip-permissions",
             *drivers.window_flags(config),
@@ -546,8 +578,9 @@ def canary(config, label, *, jailed=True):
 
     A reviewer is a contextual audit, not a blind seat: it stands in the
     repository and is meant to read it and its guidance. What it may never
-    hold is the web, the operator's connected services or Codex's injected
-    personality, and that is what its canary proves, under this module's own
+    hold is the operator's connected services or Codex's injected
+    personality, nor the web unless its run asked for `research` or runs
+    unconfined, and that is what its canary proves, under this module's own
     command with the canary's prompt, model and effort.
 
     ``jailed`` builds the command the reviewer will actually run, since a
@@ -559,6 +592,8 @@ def canary(config, label, *, jailed=True):
     from quirework.providers import canary as canaries
 
     harness = config["harness"]
+    # A record from before the policy existed carries none: agy ran unconfined.
+    tools = config.get("tools") or review_tools(harness)
 
     def build(prompt, model, workdir, session):
         twin = {
@@ -566,11 +601,13 @@ def canary(config, label, *, jailed=True):
             "model": model,
             "effort": canaries.EFFORT,
             "max_context_window": canaries.WINDOW,
+            "tools": tools,
         }
         args, _ = command(twin, "run", None, workdir, jailed=jailed)
         return canaries.Twin(args, prompt.encode())
 
-    contract = canaries.Contract(tree=True, context=True)
+    web = tools in ("research", "unconfined")
+    contract = canaries.Contract(tree=True, context=True, web=web)
     return canaries.require(label, harness, build, contract)
 
 
@@ -1035,7 +1072,9 @@ def launch_summary(config, jailed):
     )
     return (
         f"harness={harness} model={config.get('model_pinned') or config['model']} "
-        f"effort={config['effort']} context={window or 'default'} "
+        f"effort={config['effort']} "
+        f"tools={config.get('tools') or review_tools(harness)} "
+        f"context={window or 'default'} "
         f"compaction={guard} jailed={str(bool(jailed)).lower()}"
     )
 
@@ -1055,6 +1094,7 @@ def start(
     persona="default",
     kind="consistency",
     paths=None,
+    tools=None,
 ):
     """Open a review run and take its first turn."""
     if not SCOPE.match(scope):
@@ -1073,6 +1113,7 @@ def start(
     if run.exists() and not dry_run:
         _fail(f"{run} already exists; resume it or pick another scope")
     config = drivers.resolve(harness, model, effort)
+    config = {**config, "tools": review_tools(config["harness"], tools)}
     profile = personas.resolve(persona)
     if kind not in ("consistency", "procedure"):
         _fail("review kind must be consistency or procedure")
@@ -2037,8 +2078,8 @@ Cross-model editorial review of a delta. Procedure: docs/workflows.md.
       Print the composed prompt and argv, launch nothing.
 
 Every turn, and every prompt, first prints one line naming the harness, model,
-effort, context window, whether compaction is prevented or only detected, and
-whether the reviewer is jailed.
+effort, tools, context window, whether compaction is prevented or only
+detected, and whether the reviewer is jailed.
 
 --model takes a family (opus, terra, gemini-pro), resolved to the newest the
 harness's own catalog lists, or a version that pins. Without --harness, a Claude
@@ -2052,6 +2093,12 @@ including the Reviewed-by: trailer a commit using a finding carries.
 New runs accept --persona ID (default: the configured project persona), --kind
 consistency|procedure, and --paths-file FILE for explicit target paths including
 new files. The persona is frozen; resume and fork cannot select another one.
+
+A new run also accepts --tools research, which adds the harness's web search
+and page fetch for a delta whose sources the reviewer should check. The
+policy is recorded and kept on every later turn. agy cannot confine a seat to
+a tool set, so an agy run is recorded as unconfined and --tools review is
+refused there.
 
 The reviewer must not be the model that made the edit. It runs read-only
 with the whole repository visible, and jailed by default so a Claude
@@ -2112,6 +2159,13 @@ def main(argv=None):
             p.add_argument(
                 "--paths-file",
                 help="newline-separated target paths, including new files",
+            )
+            p.add_argument(
+                "--tools",
+                choices=TOOLS,
+                default=None,
+                help="review (default): the repository and the report; "
+                "research adds web search and fetch. agy is always unconfined",
             )
         p.add_argument(
             "--effort",
@@ -2211,6 +2265,7 @@ def main(argv=None):
                 paths=Path(args.paths_file).read_text().splitlines()
                 if args.paths_file
                 else None,
+                tools=args.tools,
             )
             if args.action == "prompt":
                 print(result["prompt"])

@@ -821,6 +821,14 @@ do, the one the jail leaves open for the provider. An unjailed Codex
 reviewer keeps Codex's sandbox, with the report directory added as the
 one place outside the checkout it may write.
 
+A reviewer reaches no web by default. `--tools research` on a new run
+adds the harness's web search and page fetch, for a delta whose sources
+the reviewer should check for itself. The run records the policy, every
+later turn keeps it, and the canary proves it before launch. agy cannot
+confine a seat to a tool set, so an agy reviewer keeps agy's own web
+tools under any flags; its run records `unconfined` rather than claiming
+a policy, and `--tools review` is refused there.
+
 The checkout can hold the same kind of priors: scratch notes with
 rulings in them, or an earlier review of the same range, often in
 git-ignored directories. `sops.review_policy.hidden` lists such paths as
