@@ -549,7 +549,10 @@ already gave and accept it without reading it again.
 
 The catalog, search, metrics and the cold-read read accepted sessions
 only. `show` and the spec trail also read pending captures, so a session
-can be read before it is accepted; `show` says so in its source line.
+can be read before it is accepted; `show` says so in its source line. A
+session resumed under a new id is captured again under that id, and
+accepting both captures is safe: the metrics and the cold-read count
+their shared conversation once (see "Reading the corpus").
 `coldread triage` sorts the pending captures by whether they edited the
 work.
 
@@ -811,6 +814,23 @@ effort metrics count sub-agents, their tool calls and their words in a
 block of their own, outside the conversation's totals and its
 AI-to-human ratio, because a sub-agent's task is written by the
 assistant and its report is read by the assistant.
+
+Claude Code resumes or forks a session under a new id, and the new
+transcript opens with the whole conversation it continues, each record
+copied with its id. Both captures can be accepted, since each can hold
+something the other lacks: the copy holds what came after, and the
+original keeps its sub-agents and any turn the copy left behind. The
+effort metrics and the blind cold-read count each copied record once, in
+the capture holding most of the conversation, which for a resume is the
+copy. A capture whose whole dialogue is counted there is not a session
+of its own in the metrics, though its sub-agents still count, and the
+report says how many were folded. The cold-read skips such a capture,
+and `coldread status` names the capture that reads it. It decides this
+among one run's sources, so a session stays in a run whose question its
+copy is not asked. No render changes, so no cached report is read again.
+Search, `show`, the catalog and the trail still read each capture whole,
+as files of the corpus; the trail's backfill notes a turn captured
+twice.
 
 A spec trail reads sessions only where provenance is enabled. There,
 `spec trail add --find` also reads this project's live Claude Code and

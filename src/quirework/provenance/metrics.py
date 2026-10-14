@@ -87,6 +87,7 @@ import argparse, glob, json, re, subprocess
 from quirework.provenance import scope as SCOPE
 from quirework.provenance import ccfilter as FLT
 from quirework.provenance import codexfilter as CODEX_FLT
+from quirework.provenance import lineage as LINEAGE
 from datetime import datetime, timezone
 from pathlib import Path
 
@@ -164,6 +165,9 @@ class Acc:
         self.models = {}  # model id -> assistant-turn count
         self.times = []  # all message timestamps (datetime, tz-aware)
         self.engaged = 0.0  # seconds, summed per-session first->last
+        # Claude Code sessions resumed under a new id, whose whole dialogue is
+        # counted in the capture that continued them (see `claude_code`).
+        self.resumed = 0
 
     def human(self, text):
         self.human_turns += 1
@@ -226,6 +230,7 @@ class Acc:
             "subagent_tool_calls",
             "subagent_words",
             "engaged",
+            "resumed",
         ):
             setattr(self, k, getattr(self, k) + getattr(o, k))
         self.times += o.times
@@ -319,10 +324,24 @@ def _in_scope(fp, scope, making):
 
 
 def claude_code(acc, scope=None, making=None):
-    for fp in (str(p) for p in store.files(store.CC, "*.jsonl")):
+    """Count the accepted Claude Code sessions into ``acc``.
+
+    A session resumed or forked under a new id is captured twice, and the copy
+    repeats the conversation it continues. Each such record is counted once, in
+    the capture that owns it (`lineage`), and ownership is decided over the
+    whole corpus before the scope filter, so the two scopes' counts still add
+    up to the total. A capture whose whole dialogue is counted elsewhere is not
+    a session of its own; its sub-agents, which no copy carries, still count.
+    """
+    paths = [str(p) for p in store.files(store.CC, "*.jsonl")]
+    own = LINEAGE.owners(paths)
+    for fp in paths:
         if not _in_scope(fp, scope, making):
             continue
-        acc.sessions += 1
+        if own.held_by(fp):
+            acc.resumed += 1
+        else:
+            acc.sessions += 1
         ts = []
         # permissionMode is carried by `permission-mode` markers and user
         # records, NOT by the assistant records that hold tool_use. So track the
@@ -351,6 +370,8 @@ def claude_code(acc, scope=None, making=None):
                 continue
             if FLT.harness_flagged(o):
                 continue
+            if not own.owns(fp, o.get("uuid")):
+                continue  # a copy: counted in the capture that owns it
             ts.append(parse_ts(o.get("timestamp")))
             c = (o.get("message") or {}).get("content")
             if t == "user":
@@ -644,7 +665,9 @@ def human_turns():
                     b.get("text", "") for b in blocks if b.get("type") == "text"
                 ) or m.get("text", "")
                 out.append(("web/" + Path(fp).name[:8], txt))
-    for fp in (str(p) for p in store.files(store.CC, "*.jsonl")):
+    paths = [str(p) for p in store.files(store.CC, "*.jsonl")]
+    own = LINEAGE.owners(paths)  # a resumed session's copied turns, once
+    for fp in paths:
         for line in open(fp):
             line = line.strip()
             if not line:
@@ -657,6 +680,7 @@ def human_turns():
                 o.get("type") != "user"
                 or FLT.harness_flagged(o)
                 or o.get("isSidechain")
+                or not own.owns(fp, o.get("uuid"))
             ):
                 continue
             c = (o.get("message") or {}).get("content")
@@ -849,6 +873,12 @@ def report(accs, total, pst=None, scope=None):
     row("tool calls", lambda a: a.tool_calls)
     if total.human_turns:
         print(f"\n  human prompts / session = {total.human_turns / total.sessions:.1f}")
+    if total.resumed:
+        print(
+            f"  {total.resumed} Claude Code session(s) were resumed under a new id,"
+            " and each conversation is counted once, in the capture that"
+            " continued it."
+        )
     print()
     row("human words", lambda a: a.human_words)
     row("AI words (resp)", lambda a: a.ai_text_words)

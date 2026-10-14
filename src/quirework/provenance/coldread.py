@@ -77,6 +77,7 @@ from quirework.providers.blind import NO_MCP
 from quirework.providers.blind import confine
 from quirework.providers.blind import seat_dir
 from quirework.providers import canary
+from quirework.provenance import lineage as LINEAGE
 from quirework.provenance import scope as SCOPE
 
 
@@ -261,9 +262,10 @@ def _pending(family):
     return set(store.pending(family, "*.jsonl"))
 
 
-def iter_sources(scope=SCOPE.WORK):
-    """Yield ``(path, era)`` for every accepted source transcript.
+def sources(scope=SCOPE.WORK):
+    """``(sources, resumed)``: what a run of ``scope`` reads, and what it skips.
 
+    ``sources`` lists every accepted source transcript as ``(path, era)``.
     Only accepted sessions are evidence: a pending capture has not been read
     and kept, and an accepted version never changes, so a report on it is
     never about a log that has since grown.
@@ -271,23 +273,47 @@ def iter_sources(scope=SCOPE.WORK):
     Acceptance does not say evidence *for what*, and ``scope`` does: ``'work'``
     (the default, and every era-A web dialogue) or ``'making'`` for the
     apparatus half, listed in ``making-sessions.txt``. Pass ``None`` for the
-    whole corpus regardless of scope -- which is what ``metrics`` wants, since
-    the effort ledger that only counts the work's half understates a project that
-    was about half instruments.
+    whole corpus regardless of scope.
+
+    ``resumed`` lists, as ``(path, holders)``, each Claude Code capture left
+    out because a source in the same run holds its whole dialogue: a session
+    resumed under a new id, whose copy renders the same conversation and what
+    followed. Reading both would weigh one conversation twice. Ownership is
+    decided among this run's own sources (`lineage`), so a session stays in a
+    run whose question its copy is not asked, and no render changes, so every
+    cached report stays a hit.
     """
     making = SCOPE.making_ids()
-    for p in store.files(store.WEB, "*.md"):
-        if SCOPE.wants(p, scope, making):
-            yield p, "a-web"
-    for p in store.files(store.AGY, "*.jsonl"):
-        if SCOPE.wants(p, scope, making):
-            yield p, "b-agy"
-    for p in store.files(store.CC, "*.jsonl"):
-        if SCOPE.wants(p, scope, making):
-            yield p, "c-refinement"
-    for p in store.files(store.CODEX, "*.jsonl"):
-        if SCOPE.wants(p, scope, making):
-            yield p, "d-codex"
+    out = [
+        (p, "a-web")
+        for p in store.files(store.WEB, "*.md")
+        if SCOPE.wants(p, scope, making)
+    ]
+    out += [
+        (p, "b-agy")
+        for p in store.files(store.AGY, "*.jsonl")
+        if SCOPE.wants(p, scope, making)
+    ]
+    cc = [p for p in store.files(store.CC, "*.jsonl") if SCOPE.wants(p, scope, making)]
+    own = LINEAGE.owners(cc)
+    resumed = []
+    for p in cc:
+        holders = own.held_by(p)
+        if holders:
+            resumed.append((p, sorted(Path(h) for h in holders)))
+        else:
+            out.append((p, "c-refinement"))
+    out += [
+        (p, "d-codex")
+        for p in store.files(store.CODEX, "*.jsonl")
+        if SCOPE.wants(p, scope, making)
+    ]
+    return out, resumed
+
+
+def iter_sources(scope=SCOPE.WORK):
+    """Yield ``(path, era)`` for every source a run of ``scope`` reads (`sources`)."""
+    yield from sources(scope)[0]
 
 
 def render_source(path):
@@ -642,7 +668,8 @@ def cmd_status(_args):
     n = {"hit": 0, "MISS": 0}
     miss_tokens = 0
     rows = []
-    for path, era in iter_sources(scope):
+    read, resumed = sources(scope)
+    for path, era in read:
         state, rel, sha = classify(path, manifest, persona=persona)
         n[state] += 1
         est = 0
@@ -681,6 +708,15 @@ def cmd_status(_args):
         f"to-analyze tokens≈{miss_tokens:,}  "
         f"(≈{max(1, -(-miss_tokens // 150000))} blind sub-agent(s) @150k ctx)"
     )
+    if resumed:
+        project = current_project()
+        print(
+            f"resumed: {len(resumed)} session(s) are read once, in the capture "
+            "that continued them under a new id:"
+        )
+        for path, holders in resumed:
+            names = ", ".join(str(source_reference(h, project)) for h in holders)
+            print(f"  {source_reference(path, project)} -> {names}")
     # The other scope is a separate artifact, not a subset -- say so, or a run
     # that reports "0 misses" reads as a finished corpus when half of it was
     # never in this run's frame.
@@ -1577,7 +1613,8 @@ def cmd_discards(args):
     # Whole corpus, both scopes: this counts commits a session made and how many
     # survive, which is as true of a session that built an instrument as of one
     # that wrote a chapter. Scope decides which cold-read *reads* a session, not
-    # which tools may count it.
+    # which tools may count it. A resumed session's commits are counted once,
+    # in the capture that continued it (see `sources`).
     for path, era in iter_sources(None):
         if path.suffix != ".jsonl":
             continue
