@@ -412,6 +412,33 @@ def test_image_audit_supports_claude_copied_history(tmp_path):
     ]
 
 
+def test_image_audit_ignores_claude_request_records(tmp_path):
+    """A client that retries a cut-off stream stores the retried request's
+    messages in a blob. The turn's images then sit in the blob as well as in
+    the user row that delivered them, and the audit refused a reader shown
+    each figure once."""
+    data = b"fictional chapter figure"
+    content = [
+        {
+            "type": "image",
+            "source": {
+                "type": "base64",
+                "media_type": "image/png",
+                "data": exp.base64.b64encode(data).decode(),
+            },
+        }
+    ]
+    rows = [
+        {"type": "user", "message": {"role": "user", "content": content}},
+        {"type": "api-request-blob", "message": {"role": "user", "content": content}},
+    ]
+    rollout = tmp_path / "session.jsonl"
+    rollout.write_text("".join(json.dumps(row) + "\n" for row in rows))
+    assert exp.history_image_hashes(rollout, tmp_path) == [
+        hashlib.sha256(data).hexdigest()
+    ]
+
+
 @pytest.mark.parametrize("mode,returned", [("fork", "parent"), ("resume", "different")])
 def test_wrong_session_identity_cannot_be_banked(tmp_path, monkeypatch, mode, returned):
     experiment = make_experiment(tmp_path, monkeypatch)

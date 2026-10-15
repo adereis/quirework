@@ -5,6 +5,13 @@ import hashlib
 import json
 from pathlib import Path
 
+# Claude Code's records of the requests it sent, not turns of the dialogue.
+# A blob stores a request's messages by hash, so when the client retries a
+# stream that was cut off, the retried turn's images appear in a blob as
+# well as in the user row that delivered them. Counting both reports a
+# figure the reader was shown once as shown twice.
+REQUEST_RECORDS = frozenset({"api-request", "api-request-shape", "api-request-blob"})
+
 
 def history_image_hashes(rollout, home, seen=None):
     """Audit persisted image bytes, following Codex's native parent references.
@@ -43,7 +50,7 @@ def history_image_hashes(rollout, home, seen=None):
             for child in value:
                 visit(child)
 
-    visit(rows)
+    visit([row for row in rows if row.get("type") not in REQUEST_RECORDS])
     for row in rows:
         if row.get("type") == "session_meta":
             parent = row["payload"].get("forked_from_id")
