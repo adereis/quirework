@@ -674,6 +674,39 @@ def test_the_receipt_flags_a_seat_that_read_ahead(tmp_path, mount, monkeypatch):
     receipt = run.state("reader")["done"]["wholebook"]["receipt"]
     assert receipt["referenced_files_in_order"] is True
     assert receipt["reactions_before_next"] is False
+    # Read ahead, but each reaction written once: early, never revised.
+    assert receipt["reactions_unrevised"] is True
     assert any(
         "before the reaction to the file before it" in f for f in receipt["red_flags"]
     )
+
+
+def test_a_reaction_rewritten_after_reading_on_is_a_revision(tmp_path, mount):
+    """The order check dates a reaction by its first write, so a seat that goes
+    back and rewrites one after reading the next chapter passes it. Looking
+    at an earlier chapter or reaction again is not a revision, and neither is
+    finishing a reaction in two writes before moving on."""
+    referenced = [chapter(mount, 0), chapter(mount, 1)]
+    pairs = reads.reaction_pairs(referenced, [draft(mount, 0), draft(mount, 1)])
+
+    def session(name, calls):
+        (tmp_path / name).mkdir()
+        return reads.events(claude_session(tmp_path / name, calls))
+
+    def read(n):
+        return dict(name="Read", input={"file_path": chapter(mount, n)})
+
+    def write(n, tool="Write"):
+        return dict(name=tool, input={"file_path": "/tmp/work/" + draft(mount, n)})
+
+    looked_back = session(
+        "looked-back",
+        [read(0), write(0), write(0, "Edit"), read(1), read(0), write(1)],
+    )
+    assert reads.reactions_unrevised(looked_back, referenced, pairs) is True
+    rewrote = session(
+        "rewrote", [read(0), write(0), read(1), write(1), write(0, "Edit")]
+    )
+    assert reads.reactions_unrevised(rewrote, referenced, pairs) is False
+    unwritten = session("unwritten", [read(0), write(0), read(1)])
+    assert reads.reactions_unrevised(unwritten, referenced, pairs) is None

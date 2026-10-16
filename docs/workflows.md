@@ -769,10 +769,16 @@ after the previous file's reaction was written. It reads writes from
 Claude's `Write` and `Edit`, Codex's `apply_patch`, agy's
 `write_to_file` and shell redirection; a reaction whose write it cannot
 find is not proven, and both that and a file opened early raise a red
-flag. A policy may declare `read_root_digests`, one digest per mounted
-root: launch refuses to submit if the bytes have changed since the plan
-pinned them, and the receipt flags a change during the turn. That is how
-a mounted read's record names the bytes it read without freezing them.
+flag. That check dates each reaction by its first write, so a seat that
+goes back and rewrites one after reading on passes it. The receipt
+therefore also reports `reactions_unrevised`, which is false, and
+red-flagged, when a reaction was written again after the next file had
+opened. Opening an earlier file again to look at it is not a revision,
+and a later write the parser cannot recognize is not seen. A policy may
+declare `read_root_digests`, one digest per mounted root: launch refuses
+to submit if the bytes have changed since the plan pinned them, and the
+receipt flags a change during the turn. That is how a mounted read's
+record names the bytes it read without freezing them.
 
 A self-driven read needs its own instrument, not the printed-book one. A
 reader instrument opens by telling the seat what it has been handed, and

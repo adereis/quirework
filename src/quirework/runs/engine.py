@@ -995,6 +995,18 @@ class Run:
                         "cannot parse also lands here, so check the native "
                         "session before calling it read ahead."
                     )
+                # The order check dates each reaction by its first write, so a
+                # reaction rewritten after the seat read on passes it.
+                unrevised = reads.reactions_unrevised(
+                    recorded, turn["referenced_files"], pairs
+                )
+                receipt["reactions_unrevised"] = unrevised
+                if unrevised is False:
+                    receipt.setdefault("red_flags", []).append(
+                        "A reaction was written again after the next referenced "
+                        "file was opened, so it may record what the seat thought "
+                        "after reading on rather than at that point."
+                    )
             if unproven:
                 receipt.setdefault("red_flags", []).append(
                     f"Not proven read in full: {fully} of {total} referenced "

@@ -4,8 +4,9 @@ A seat that fetches its own material leaves no frozen copy of what it read,
 so the only evidence is the tool calls in its native session. This module
 turns those calls into an ordered list of file reads, each with the lines it
 covered, and of file writes, and checks a declared reading list against
-them: whether each file was read in full, in order, and whether each file's
-reaction was written before the next file was opened.
+them: whether each file was read in full, in order, whether each file's
+reaction was written before the next file was opened, and whether it was left
+alone once the next file was.
 
 The parsing is deliberately conservative. A read it cannot recognize, such
 as a command assembled at run time or a shell idiom not listed here, is not
@@ -293,6 +294,35 @@ def reactions_before_next(evs, referenced, pairs):
     for previous, following in zip(pairs, referenced[1:]):
         opened = first_open.get(following)
         if opened is not None and opened < first_write[previous]:
+            return False
+    return True
+
+
+def reactions_unrevised(evs, referenced, pairs):
+    """Whether no reaction was written again once the next file had opened.
+
+    A seat told not to revise a reaction can still go back and rewrite one,
+    and the order check cannot see it, because it times each reaction by its
+    first write. A later write turns the file into what the seat thought after
+    reading on. Reopening an earlier file to look at it is not a revision. The
+    last reaction has no next file, so nothing it is written after counts.
+    Returns None where `reactions_before_next` would, since a reaction whose
+    first write is missing cannot be dated. A later write the parser cannot
+    recognize is not seen, so True means none was recorded.
+    """
+    first_open, writes = {}, {}
+    for index, (kind, path, _) in enumerate(evs):
+        if kind == "read":
+            first_open.setdefault(path, index)
+            continue
+        for output in pairs:
+            if path == output or path.endswith("/" + output):
+                writes.setdefault(output, []).append(index)
+    if any(output not in writes for output in pairs):
+        return None
+    for output, following in zip(pairs, referenced[1:]):
+        opened = first_open.get(following)
+        if opened is not None and any(later > opened for later in writes[output][1:]):
             return False
     return True
 
