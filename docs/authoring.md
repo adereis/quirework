@@ -193,6 +193,23 @@ archived or declared not worth keeping. No command deletes a document
 from the library: deletion is permanent and takes the notes with it, so
 it stays with the reader.
 
+How precisely a mark is placed depends on what the export carries. A
+highlight carries its own words, so a highlight of a few words is found
+on its lines. A highlight of a word or two names a spot rather than
+quoting a passage: it is looked for in its chapter alone, named as one
+of several places where the word recurs there, and left unlocated where
+the chapter does not contain it, as with front matter no chapter heads
+or a label the book generates, such as a figure's number. A note carries
+only its own words, its page and its section, never the words it was
+written on, so it is placed through the highlight listed beside it. A
+note made on a highlighted phrase is as precise as that phrase; a note
+made at a bare point has only its page and chapter; and a note listed
+between two highlights at one place names both, since the export cannot
+say which it belongs to. The page is the Kindle's own pagination, which
+does not lead back to a line. So a reader who wants every mark placed
+highlights a phrase of a few words and writes the note on that
+highlight.
+
 A chapter's file name is its identifier. Retitling a chapter does not
 rename it, and inserting one does not renumber anything, because numbers
 are derived at render time and nothing else refers to them.
