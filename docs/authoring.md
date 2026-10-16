@@ -823,7 +823,11 @@ which repeats, and which closes; it is what makes a set of questions an
 order rather than a collection. `{{persona}}` is where the selected
 profile's prompt lands. `revision` is a string and is bumped whenever
 the questions change, because a prepared run freezes the rendered prompt
-and an old record has to keep the questions it actually asked.
+and an old record has to keep the questions it actually asked. Two
+optional fields are read only by a self-driven read, which the
+[workflow guide](workflows.md) describes: `reading_task`, what the seat
+writes for each chapter, and `orientation_ask`, an ask the seat reads
+before the book.
 
 ## 6. Derived editions
 

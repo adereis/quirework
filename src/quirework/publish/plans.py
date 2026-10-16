@@ -2,6 +2,7 @@
 
 import json
 import sys
+import textwrap
 from pathlib import Path
 from quirework.project import current_project
 
@@ -11,6 +12,8 @@ from quirework.runs.storage import write
 
 
 DELIVERIES = ("pages", "file", "self-driven")
+# What a self-driven seat writes for each chapter unless its instrument says.
+READING_TASK = "write down how each chapter felt to read"
 
 
 def _resolve_reader(seat, instrument, delivery):
@@ -240,6 +243,25 @@ def selfdriven(
         wrap, _ = _instruments.prompt(
             {"ask": wrap_ask}, questions, persona=None, first=False, scope=scope
         )
+    # The opening sentence says what the seat writes for each chapter, and an
+    # instrument asking for something other than a reaction would otherwise be
+    # misdescribed in the first line. Its orientation, when it declares one, is
+    # what the seat should know before it opens the book, so it comes before
+    # the reading order rather than among the headings each file must hold.
+    opening = textwrap.fill(
+        "You are going to read a book from files on disk, chapter by chapter, "
+        f"and {questions.get('reading_task', READING_TASK)}.",
+        width=80,
+    )
+    if questions.get("orientation_ask"):
+        orientation, _ = _instruments.prompt(
+            {"ask": questions["orientation_ask"]},
+            questions,
+            persona=_instruments.DEFERRED if chosen else None,
+            first=False,
+            scope=scope,
+        )
+        opening += "\n\n" + orientation.strip()
     if withhold_wrap and wrap is None:
         raise ValueError(
             "--withhold-wrap needs a closing question: name it with --wrap-ask "
@@ -274,8 +296,7 @@ def selfdriven(
         if withhold_wrap or wrap is None
         else f"\nAnd `drafts/wrap.md` contains exactly these headings:\n\n{wrap}\n"
     )
-    prompt = f"""You are going to read a book from files on disk, chapter by chapter, and write
-down how each chapter felt to read.
+    prompt = f"""{opening}
 
 The book is at `{mount}`. Its {len(chapters)} chapter files are in reading order:
 

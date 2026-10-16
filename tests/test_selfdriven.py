@@ -372,3 +372,85 @@ def test_a_book_without_back_matter_says_nothing_of_it(book, tmp_path):
     assert "back matter" not in prompt
     assert "reading order:\n\n  1. chapters/01-opening.md" in prompt
     assert "chapters/02-later.md\n\nIllustrations are in" in prompt
+
+
+def with_instrument(book, **fields):
+    """The fixture's instrument with top-level fields added."""
+    questions = book.parents[1] / "project" / "questions" / "reader-selfdriven.json"
+    value = json.loads(questions.read_text())
+    value.update(fields)
+    questions.write_text(json.dumps(value))
+
+
+def test_an_instrument_that_says_nothing_keeps_the_measured_opening(book, tmp_path):
+    """The opening sentence is part of what earlier reads were asked, so an
+    instrument that does not name its own task must get it to the byte."""
+    prompt = plan_for(book, tmp_path / "plan.json")["turns"][0]["prompt"]
+    assert prompt.startswith(
+        "You are going to read a book from files on disk, chapter by chapter, "
+        "and write\ndown how each chapter felt to read.\n\nThe book is at "
+    )
+
+
+def test_the_opening_says_what_the_instrument_asks_for(book, tmp_path):
+    """A seat asked for something other than a reaction would otherwise be told
+    in the first line that its job is to say how each chapter felt."""
+    with_instrument(book, reading_task="list every object each chapter mentions")
+    prompt = plan_for(book, tmp_path / "plan.json")["turns"][0]["prompt"]
+    assert prompt.startswith(
+        "You are going to read a book from files on disk, chapter by chapter, "
+        "and list\nevery object each chapter mentions.\n\nThe book is at "
+    )
+    assert "felt to read" not in prompt
+
+
+def test_the_orientation_comes_before_the_book_and_only_once(book, tmp_path):
+    """What the seat should know before reading belongs ahead of the reading
+    order, not among the headings each reaction file must hold."""
+    with_instrument(book, orientation_ask="orient")
+    questions = book.parents[1] / "project" / "questions" / "reader-selfdriven.json"
+    value = json.loads(questions.read_text())
+    value["prompts"]["orient"] = {"text": "The author keeps a cat in every chapter."}
+    questions.write_text(json.dumps(value))
+    prompt = plan_for(book, tmp_path / "plan.json")["turns"][0]["prompt"]
+    assert prompt.count("keeps a cat") == 1
+    assert prompt.index("felt to read.\n\nThe author keeps a cat") < prompt.index(
+        "The book is at"
+    )
+
+
+def test_the_orientation_can_hold_the_persona(book, tmp_path):
+    from quirework.runs import engine
+
+    with_instrument(book, orientation_ask="orient")
+    questions = book.parents[1] / "project" / "questions" / "reader-selfdriven.json"
+    value = json.loads(questions.read_text())
+    value["prompts"]["orient"] = {"text": "{{persona}} The book has a cat in it."}
+    questions.write_text(json.dumps(value))
+    with_manifest(book)
+    plan = tmp_path / "plan.json"
+    selfdriven(
+        book, plan, harness="codex", model="fixture-model", persona={"inline": PROFILE}
+    )
+    engine.prepare(plan, tmp_path / "record", resolve=False)
+    frozen = json.loads((tmp_path / "record" / "plan.json").read_text())
+    prompt = frozen["seats"][0]["turns"][0]["prompt"]
+    assert prompt.count(PROFILE["prompt"]) == 1
+    assert PROFILE["prompt"] + " The book has a cat in it." in prompt
+
+
+@pytest.mark.parametrize(
+    "fields, message",
+    [
+        ({"reading_task": "say what happened."}, "without its closing period"),
+        ({"reading_task": "say\nwhat happened"}, "one clause"),
+        ({"reading_task": " "}, "one clause"),
+        ({"orientation_ask": "missing"}, "orientation_ask references an unknown ask"),
+    ],
+)
+def test_a_task_or_orientation_that_cannot_be_composed_is_refused(
+    book, tmp_path, fields, message
+):
+    with_instrument(book, **fields)
+    with pytest.raises(ValueError, match=message):
+        plan_for(book, tmp_path / "plan.json")

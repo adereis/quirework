@@ -782,6 +782,21 @@ given and rewrites nothing: declare a reader preset whose questions
 describe a seat that opens its own material, and declare that preset's
 `delivery` so the wrong one is refused rather than composed.
 
+The plan's own opening sentence says what the seat writes for each
+chapter, and by default that is a reaction: how the chapter felt to
+read. An instrument that asks for something else, such as an editor's
+notes or a fact-check, says so in `reading_task`, the clause that
+completes "You are going to read a book from files on disk, chapter by
+chapter, and …", without its closing period. Otherwise the seat is told
+one job in the first line and handed another in the headings. An
+instrument may also name an `orientation_ask`: an ask whose text the
+seat should hold before it opens the book, such as a brief on the work
+and its audience. The plan places it after the opening sentence and
+ahead of the reading order, once, rather than among the headings each
+reaction file must hold, and it may carry the `{{persona}}` slot. An
+instrument that declares neither gets the opening it always had, to the
+byte, because that sentence is part of what earlier reads were asked.
+
 The whole book is read inside one turn, so the block the seat repeats
 per chapter has to stand on its own. That is the instrument's opening
 ask, which states the form, rather than its continuation ask, which says

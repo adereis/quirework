@@ -73,6 +73,22 @@ def load(name, *, root=None, _active=()):
     ]:
         if not isinstance(ask, str) or ask not in prompts:
             raise ValueError("sequence or followup references an unknown ask")
+    # A self-driven read opens by saying what the seat writes for each chapter,
+    # so an instrument asking for something other than a reaction says what.
+    # It is one clause inside a sentence the planner wraps, hence no newline
+    # and no closing period of its own.
+    task = data.get("reading_task")
+    if task is not None and (
+        not isinstance(task, str)
+        or not task.strip()
+        or "\n" in task
+        or task.rstrip().endswith(".")
+    ):
+        raise ValueError("reading_task is one clause, without its closing period")
+    if "orientation_ask" in data:
+        ask = data["orientation_ask"]
+        if not isinstance(ask, str) or ask not in prompts:
+            raise ValueError("orientation_ask references an unknown ask")
     variants = data.get("scope_variants", {})
     if not isinstance(variants, dict):
         raise ValueError("scope_variants must map scopes to instruments and asks")
