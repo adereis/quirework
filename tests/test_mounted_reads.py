@@ -6,11 +6,13 @@ must still be the ones the plan pinned, and the native session must show that
 each file the seat was to read was read in full and in order.
 """
 
+import hashlib
 import json
+from pathlib import Path
 
 import pytest
 
-from quirework.providers import harness, reads
+from quirework.providers import harness, images, reads
 from quirework.runs import engine
 from quirework.runs.storage import tree_digest
 
@@ -167,6 +169,142 @@ def test_opening_a_later_chapter_first_is_out_of_order(tmp_path, mount):
     assert in_order is False
 
 
+def agy_session(tmp_path, steps):
+    """An agy transcript where it keeps one: in a session directory under
+    `brain/`, beside the copies of any image the session was shown."""
+    logs = tmp_path / "brain" / "fixture-session" / ".system_generated" / "logs"
+    logs.mkdir(parents=True)
+    rows = [dict(step_index=i, source="MODEL", **s) for i, s in enumerate(steps)]
+    path = logs / "transcript_full.jsonl"
+    path.write_text("".join(json.dumps(r) + "\n" for r in rows))
+    return path
+
+
+def agy_call(name, **args):
+    return dict(
+        type="PLANNER_RESPONSE", status="DONE", tool_calls=[dict(name=name, args=args)]
+    )
+
+
+def agy_viewed(path, shown, status="DONE"):
+    """The result agy records for a view: the file, and the lines it showed."""
+    total = len(Path(path).read_text().splitlines())
+    return dict(
+        type="GENERIC",
+        status=status,
+        content=f"Created At: now\nFile Path: `file://{path}`\nTotal Lines: {total}"
+        f"\nTotal Bytes: 80\nShowing lines 1 to {shown}\n1: Mira left",
+    )
+
+
+def agy_created(path):
+    return dict(
+        type="GENERIC",
+        status="DONE",
+        content=f"Created At: now\nCreated file file://{path} with requested content.",
+    )
+
+
+def test_agy_reads_and_reactions_are_proven_from_its_results(tmp_path, mount):
+    first, second = chapter(mount, 0), chapter(mount, 1)
+    session = agy_session(
+        tmp_path,
+        [
+            agy_call("view_file", AbsolutePath=first),
+            agy_viewed(first, 3),
+            agy_call("write_to_file", TargetFile="/tmp/work/" + draft(mount, 0)),
+            agy_created("/tmp/work/" + draft(mount, 0)),
+            agy_call("view_file", AbsolutePath=second),
+            agy_viewed(second, 2),
+            agy_call("write_to_file", TargetFile="/tmp/work/" + draft(mount, 1)),
+            agy_created("/tmp/work/" + draft(mount, 1)),
+        ],
+    )
+    referenced = [first, second]
+    evs = reads.events(session)
+    assert reads.coverage(reads.file_reads(session), referenced) == (2, True, [])
+    pairs = reads.reaction_pairs(referenced, [draft(mount, 0), draft(mount, 1)])
+    assert reads.reactions_before_next(evs, referenced, pairs) is True
+
+
+def test_agy_counts_the_lines_it_showed_not_the_ones_asked_for(tmp_path, mount):
+    """A view can show less than the call asked for, so the result decides."""
+    first = chapter(mount, 0)
+    session = agy_session(
+        tmp_path,
+        [
+            agy_call("view_file", AbsolutePath=first, StartLine=1, EndLine=3),
+            agy_viewed(first, 2),
+        ],
+    )
+    assert reads.coverage(reads.file_reads(session), [first]) == (
+        0,
+        True,
+        ["01-opening.md"],
+    )
+
+
+def test_an_agy_call_without_a_completed_result_counts_for_nothing(tmp_path, mount):
+    first = chapter(mount, 0)
+    session = agy_session(
+        tmp_path,
+        [
+            agy_call("view_file", AbsolutePath=first),
+            agy_viewed(first, 3, status="INVALID"),
+            agy_call("write_to_file", TargetFile="/tmp/work/" + draft(mount, 0)),
+        ],
+    )
+    assert reads.events(session) == []
+
+
+def test_an_agy_shell_command_is_read_like_any_other(tmp_path, mount):
+    first = chapter(mount, 0)
+    session = agy_session(
+        tmp_path, [agy_call("run_command", CommandLine=f"cat {first}", Cwd="/tmp")]
+    )
+    assert reads.file_reads(session) == [(first, None)]
+
+
+def test_agy_images_are_hashed_from_the_copies_beside_its_transcript(tmp_path):
+    session = agy_session(tmp_path, [])
+    stored = session.parents[2] / ".tempmediaStorage"
+    stored.mkdir()
+    (stored / "media_1.png").write_bytes(b"a green umbrella")
+    inside = "/home/reader/.gemini/antigravity-cli/brain/fixture-session"
+    rows = [
+        dict(type="USER_INPUT", status="DONE", content="Read it."),
+        dict(
+            type="GENERIC",
+            status="DONE",
+            media=[
+                dict(
+                    mime_type="image/png", uri=f"{inside}/.tempmediaStorage/media_1.png"
+                )
+            ],
+        ),
+        dict(
+            type="GENERIC",
+            status="DONE",
+            media=[
+                dict(mime_type="image/png", uri=f"{inside}/.tempmediaStorage/gone.png")
+            ],
+        ),
+        dict(
+            type="GENERIC",
+            status="DONE",
+            media=[dict(mime_type="image/png", uri=f"{inside}/../../escape.png")],
+        ),
+    ]
+    session.write_text(
+        "".join(json.dumps(dict(step_index=i, **r)) + "\n" for i, r in enumerate(rows))
+    )
+    (tmp_path / "escape.png").write_bytes(b"outside the session")
+    # The missing copy and the one outside the session are not counted.
+    assert images.history_image_hashes(session, tmp_path) == [
+        hashlib.sha256(b"a green umbrella").hexdigest()
+    ]
+
+
 def test_a_digest_for_a_path_outside_the_mount_is_refused(tmp_path, mount):
     other = tmp_path / "elsewhere"
     other.mkdir()
@@ -262,6 +400,41 @@ def test_the_receipt_says_what_was_read_and_flags_what_was_not(
     assert receipt["referenced_files_in_order"] is False
     assert receipt["read_root_digests_held"] is True
     assert any("Not proven read in full" in f for f in receipt["red_flags"])
+
+
+def test_an_agy_receipt_counts_the_figures_its_seat_opened(
+    tmp_path, mount, monkeypatch
+):
+    path = plan_file(tmp_path, mount, filesystem="audited")
+    plan = json.loads(path.read_text())
+    plan["seats"][0]["harness"] = "agy"
+    plan["seats"][0]["turns"][0]["referenced_images"] = 2
+    path.write_text(json.dumps(plan))
+    engine.prepare(path, tmp_path / "record", resolve=False)
+    run = engine.Run(tmp_path / "record")
+    state = run.state("reader")
+    state["pending"] = dict(turn="wholebook", mode="start", parent_id="sid")
+    run.save("reader", state)
+    run.record("reader", "wholebook").mkdir(parents=True)
+    (run.workspace("reader") / "drafts").mkdir(parents=True, exist_ok=True)
+    (run.workspace("reader") / "drafts" / "notes.md").write_text("A reaction.\n")
+    session = agy_session(tmp_path, [])
+    monkeypatch.setattr(
+        harness,
+        "receipt",
+        lambda *a: dict(
+            session_id="sid",
+            model="fixture-model",
+            rollout=str(session),
+            answer="Done.",
+            forked_from=None,
+        ),
+    )
+    monkeypatch.setattr(harness, "history_image_hashes", lambda *a: ["a" * 64])
+    run.collect_turn("reader", 0)
+    receipt = run.state("reader")["done"]["wholebook"]["receipt"]
+    assert receipt["referenced_images_opened"] == "1/2"
+    assert any("Opened fewer images" in f for f in receipt["red_flags"])
 
 
 def draft(mount, n):

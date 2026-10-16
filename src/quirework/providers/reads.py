@@ -13,19 +13,24 @@ counted, so the check can say a file was not *proven* read in full but never
 that an unread file was read. Recognized forms:
 
 - Claude's `Read` tool, with its `offset` and `limit`;
-- shell commands, from Claude's `Bash` tool or any Codex call: `cat`, `nl`,
-  `sed -n 'A,Bp'` or `'Ap'`, and `head -n N` or `head -N`.
+- agy's `view_file`, taken from the result agy records for it, which names
+  the file and the lines it showed;
+- shell commands, from Claude's `Bash` tool, agy's `run_command` or any
+  Codex call: `cat`, `nl`, `sed -n 'A,Bp'` or `'Ap'`, and `head -n N` or
+  `head -N`.
 
 Writes are recognized as conservatively: Claude's `Write` and `Edit` tools,
-Codex's `apply_patch` (an added or updated file), and shell redirection or
-`tee`. A redirection target is a write and never a read, and the body of a
-heredoc is text, not commands.
+Codex's `apply_patch` (an added or updated file), agy's `write_to_file` (from
+its result, as for a view), and shell redirection or `tee`. A redirection
+target is a write and never a read, and the body of a heredoc is text, not
+commands.
 """
 
 import json
 import re
 import shlex
 from pathlib import Path
+from urllib.parse import unquote
 
 # Claude's Read tool returns this many lines when no limit is given.
 CLAUDE_READ_DEFAULT_LIMIT = 2000
@@ -40,6 +45,14 @@ _SED_RANGE = re.compile(r"^(\d+)(?:,(\d+))?p$")
 # A command string inside Codex's JavaScript exec tool: `cmd: "..."` or
 # `"cmd": "..."`, with the string's own escapes.
 _JS_CMD = re.compile(r"""["']?cmd["']?\s*:\s*("(?:[^"\\]|\\.)*")""")
+# What agy records as the result of a view and of a write. Each names its own
+# file, so neither has to be matched back to the call that asked for it, and
+# a call agy rejected leaves no such result to count.
+_AGY_VIEW = re.compile(
+    r"File Path: `file://([^`]+)`\nTotal Lines: \d+\n(?:Total Bytes: \d+\n)?"
+    r"Showing lines (\d+) to (\d+)"
+)
+_AGY_CREATED = re.compile(r"Created file file://(\S+) with requested content")
 
 
 def _rows(path):
@@ -182,13 +195,43 @@ def _codex_events(payload):
     return []
 
 
+def _agy_events(row):
+    """Ordered read and write events one step of an agy transcript carries.
+
+    A planner step lists the tools it called and each result is a step of its
+    own, so a view or a write is read from its result: the file it touched and,
+    for a view, the lines agy actually showed, which can be fewer than the call
+    asked for. A shell command is read from the call, as Claude's Bash is.
+    """
+    if row.get("type") == "PLANNER_RESPONSE":
+        found = []
+        for call in row.get("tool_calls") or []:
+            args = call.get("args") or {}
+            command = args.get("CommandLine")
+            if call.get("name") == "run_command" and isinstance(command, str):
+                found += _shell_events(command, args.get("Cwd"))
+        return found
+    if row.get("status") != "DONE":
+        return []
+    content = row.get("content") or ""
+    if view := _AGY_VIEW.search(content):
+        first, last = int(view.group(2)), int(view.group(3))
+        return [("read", unquote(view.group(1)), [(first, last)])]
+    if created := _AGY_CREATED.search(content):
+        return [("write", unquote(created.group(1)), None)]
+    return []
+
+
 def events(rollout):
     """Ordered ("read", path, ranges) and ("write", path, None) events
-    recorded in a Claude or Codex session."""
+    recorded in a Claude, Codex or agy session."""
     out = []
     for row in _rows(rollout):
         if row.get("type") == "response_item":
             out += _codex_events(row.get("payload", {}))
+            continue
+        if "step_index" in row:
+            out += _agy_events(row)
             continue
         if row.get("type") != "assistant":
             continue
@@ -209,7 +252,7 @@ def events(rollout):
 
 
 def file_reads(rollout):
-    """Ordered (path, ranges) reads recorded in a Claude or Codex session."""
+    """Ordered (path, ranges) reads recorded in a Claude, Codex or agy session."""
     return [(p, r) for kind, p, r in events(rollout) if kind == "read"]
 
 

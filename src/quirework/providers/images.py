@@ -13,12 +13,41 @@ from pathlib import Path
 REQUEST_RECORDS = frozenset({"api-request", "api-request-shape", "api-request-blob"})
 
 
+def _agy_media_hashes(transcript, rows):
+    """Hash the images an agy session was shown, from the copies agy keeps.
+
+    agy records an image it showed the model as a step's `media`, naming a
+    file it copied into the session's own directory, beside the transcript's
+    `.system_generated/logs/`. The name is the path inside the jail, so only
+    the part from `brain/` on is kept and resolved against this session's
+    directory on the host. A copy that is missing is not counted: the check
+    it feeds then reports a shortfall rather than proof.
+    """
+    if "step_index" not in (rows[0] if rows else {}):
+        return []
+    brain = transcript.parents[3]
+    hashes = []
+    for row in rows:
+        if row.get("status") != "DONE":
+            continue
+        for item in row.get("media") or []:
+            uri = str(item.get("uri", "")) if isinstance(item, dict) else ""
+            parts = Path(uri).parts
+            if "brain" not in parts:
+                continue
+            copy = brain.joinpath(*parts[parts.index("brain") + 1 :]).resolve()
+            if copy.is_file() and copy.is_relative_to(brain.resolve()):
+                hashes.append(hashlib.sha256(copy.read_bytes()).hexdigest())
+    return hashes
+
+
 def history_image_hashes(rollout, home, seen=None):
     """Audit persisted image bytes, following Codex's native parent references.
 
     Recent Codex forks store new turns plus a parent reference, whereas Claude
     copies its earlier messages into the child transcript. Neither shape may
-    be mistaken for evidence that the reader lost its earlier pages.
+    be mistaken for evidence that the reader lost its earlier pages. agy
+    stores no image in its transcript at all, only a copy beside it.
     """
     path = Path(rollout)
     seen = set() if seen is None else seen
@@ -51,6 +80,7 @@ def history_image_hashes(rollout, home, seen=None):
                 visit(child)
 
     visit([row for row in rows if row.get("type") not in REQUEST_RECORDS])
+    hashes.extend(_agy_media_hashes(path, rows))
     for row in rows:
         if row.get("type") == "session_meta":
             parent = row["payload"].get("forked_from_id")

@@ -879,7 +879,7 @@ class Run:
             receipt["additional_tool_images"] = None
             receipt["image_history_assurance"] = "not certified after compaction"
         elif (
-            spec["config"]["harness"] in ("codex", "claude")
+            spec["config"]["harness"] in ("codex", "claude", "agy")
             and not spec["policy"]["allow_compaction"]
         ):
             expected = Counter(self.expected_images(seat, index))
