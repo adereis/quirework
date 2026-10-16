@@ -594,6 +594,7 @@ _TAG = re.compile(r"<[^>]+>")
 _MARKUP = re.compile(r"(?<!\w)[*_]+|[*_]+(?!\w)|`")
 _LEAD = re.compile(r"^\s*(?:#+\s+|>\s*|[-*+]\s+|\d+\.\s+|:::.*$)")
 _FOOTNUM = re.compile(r"(?<=[.,;:!?)\]\"'])\d{1,3}(?=\s|$)")
+_HYPHEN_GAP = re.compile(r"(?<=\w)- (?=\w)")
 
 
 def _plain(line: str) -> str:
@@ -696,15 +697,20 @@ def locate(text: str, index: list[_Text], section: str | None = None) -> str | N
     # share is not blamed on the earlier one.
     ordered = [chapter] * bool(chapter) + [d for d in index if d is not chapter]
     # A footnote's number renders as digits glued to the punctuation they
-    # follow, and comes along when the reader highlights across it.
-    for candidate in dict.fromkeys((t, _FOOTNUM.sub("", t))):
+    # follow, and comes along when the reader highlights across it. And the
+    # app writes a hyphenated word it showed across a line break with a
+    # space after the hyphen ("self- model").
+    joined = _HYPHEN_GAP.sub("-", t)
+    for candidate in dict.fromkeys(
+        (t, _FOOTNUM.sub("", t), joined, _FOOTNUM.sub("", joined))
+    ):
         for doc in ordered:
             at = doc.text.find(candidate)
             if at >= 0:
                 return _span(doc, at, at + len(candidate))
     if len(t) < 60:
         return None
-    head, tail = t[:40], t[-40:]
+    head, tail = joined[:40], joined[-40:]
     for doc in ordered:
         at = doc.text.find(head)
         if at < 0:
@@ -849,7 +855,7 @@ def _entry(mark: Mark, dated: str) -> str:
             place = f"page {mark.page}" if mark.page else f"location {mark.location}"
             lines.append(f"  -> beside no highlight; find it at {place}")
         else:
-            near = " and ".join(f"{_quote(h.text)} ({h.source})" for h in mark.beside)
+            near = ", and ".join(f"{_quote(h.text)}: {h.source}" for h in mark.beside)
             how = "beside the highlight" if len(mark.beside) == 1 else "between"
             lines.append(f"  -> {how} {near}")
         return "\n".join(lines)

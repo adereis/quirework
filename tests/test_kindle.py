@@ -576,6 +576,16 @@ def test_a_footnote_number_swept_into_a_highlight_is_not_part_of_it():
     )
 
 
+def test_a_hyphen_the_app_broke_across_a_line_is_rejoined():
+    index = _files(
+        ("docs/canon/boiling.qmd", "A kettle is a self-made signal of its state.\n")
+    )
+    assert (
+        kindle.locate("a self- made signal of its state", index)
+        == "docs/canon/boiling.qmd:1"
+    )
+
+
 def test_a_long_highlight_whose_middle_differs_is_found_near():
     lines = ["A kettle boils."] * 3 + [
         "The whistle is a signal, not a thought.",
@@ -684,7 +694,7 @@ def test_the_notes_are_archived_as_the_reader_s_marks(book, tmp_path, capsys):
     assert str(day) == "2026-10-20"
     assert "note: Say what it reports." in note
     assert "-> beside the highlight “The whistle is a signal, not a thought." in note
-    assert "(docs/canon/boiling.qmd:6-7)" in note
+    assert "not a thought. It reports a state.”: docs/canon/boiling.qmd:6-7" in note
     assert "-> between “spout”" in turns[5][0]
     assert "-> beside no highlight; find it at page 7" in turns[7][0]
     assert "A margin thought,\n    on two lines." in turns[7][0]
