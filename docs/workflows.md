@@ -750,20 +750,22 @@ counting line ranges so that a chapter printed in pieces still adds up.
 agy records the result of each view, naming the file and the lines it
 showed, and the receipt counts those lines rather than the ones the call
 asked for. A read the parser cannot recognize is reported as not proven,
-never as done. Reading in order is not reading blind, since a seat can
-open every file in sequence and still open three before reacting to the
-first. So where each referenced file has a declared output of its own,
-paired by file name (`chapters/02-later.md` with `drafts/02-later.md`),
-the receipt also reports `reactions_before_next`: whether each file was
-first opened only after the previous file's reaction was written. It
-reads writes from Claude's `Write` and `Edit`, Codex's `apply_patch`,
-agy's `write_to_file` and shell redirection; a reaction whose write it
-cannot find is not proven, and both that and a file opened early raise a
-red flag. A policy may declare `read_root_digests`, one digest per
-mounted root: launch refuses to submit if the bytes have changed since
-the plan pinned them, and the receipt flags a change during the turn.
-That is how a mounted read's record names the bytes it read without
-freezing them.
+never as done, and so is the order of a file it never saw opening:
+`referenced_files_in_order` is false only when the record shows two
+files opened out of order, and null when one was never seen. Reading in
+order is not reading blind, since a seat can open every file in sequence
+and still open three before reacting to the first. So where each
+referenced file has a declared output of its own, paired by file name
+(`chapters/02-later.md` with `drafts/02-later.md`), the receipt also
+reports `reactions_before_next`: whether each file was first opened only
+after the previous file's reaction was written. It reads writes from
+Claude's `Write` and `Edit`, Codex's `apply_patch`, agy's
+`write_to_file` and shell redirection; a reaction whose write it cannot
+find is not proven, and both that and a file opened early raise a red
+flag. A policy may declare `read_root_digests`, one digest per mounted
+root: launch refuses to submit if the bytes have changed since the plan
+pinned them, and the receipt flags a change during the turn. That is how
+a mounted read's record names the bytes it read without freezing them.
 
 A self-driven read needs its own instrument, not the printed-book one. A
 reader instrument opens by telling the seat what it has been handed, and

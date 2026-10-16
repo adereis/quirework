@@ -152,7 +152,7 @@ def test_a_command_it_cannot_parse_is_unproven_not_assumed(tmp_path, mount):
     fully, in_order, unproven = reads.coverage(
         reads.file_reads(session), [chapter(mount, 0)]
     )
-    assert (fully, in_order, unproven) == (0, False, ["01-opening.md"])
+    assert (fully, in_order, unproven) == (0, None, ["01-opening.md"])
 
 
 def test_opening_a_later_chapter_first_is_out_of_order(tmp_path, mount):
@@ -397,9 +397,12 @@ def test_the_receipt_says_what_was_read_and_flags_what_was_not(
     run.collect_turn("reader", 0)
     receipt = run.state("reader")["done"]["wholebook"]["receipt"]
     assert receipt["referenced_files_read"] == "1/2"
-    assert receipt["referenced_files_in_order"] is False
+    # The second file was never seen opening, which is a gap, not a disorder.
+    assert receipt["referenced_files_in_order"] is None
     assert receipt["read_root_digests_held"] is True
     assert any("Not proven read in full" in f for f in receipt["red_flags"])
+    assert any("Not proven that referenced files" in f for f in receipt["red_flags"])
+    assert not any("not first opened" in f for f in receipt["red_flags"])
 
 
 def test_an_agy_receipt_counts_the_figures_its_seat_opened(

@@ -965,9 +965,16 @@ class Run:
                     + "). A read the record cannot parse also lands here, so "
                     "check the native session before calling it skipped."
                 )
-            if not in_order:
+            if in_order is False:
                 receipt.setdefault("red_flags", []).append(
                     "Referenced files were not first opened in the declared order."
+                )
+            elif in_order is None:
+                receipt.setdefault("red_flags", []).append(
+                    "Not proven that referenced files were opened in the declared "
+                    "order, because some were never seen opening. A read the "
+                    "record cannot parse also lands here, so check the native "
+                    "session before calling it out of order."
                 )
         answers = record / "answers"
         answers.mkdir(exist_ok=True)

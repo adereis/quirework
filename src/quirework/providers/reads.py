@@ -303,7 +303,10 @@ def coverage(reads, referenced):
     Returns ``(fully_read, in_order, unproven)``: how many of the
     ``referenced`` files had every line covered, whether each file was first
     opened after the one listed before it, and the names of the files whose
-    full reading is not proven.
+    full reading is not proven. ``in_order`` is False only when the record
+    shows two files opened out of order, and None when nothing is out of
+    order but a file was never seen opening, since a read the record cannot
+    parse leaves exactly that gap.
     """
     covered = {}
     first_seen = {}
@@ -323,6 +326,9 @@ def coverage(reads, referenced):
             fully += 1
         else:
             unproven.append(Path(path).name)
-    order = [first_seen.get(p) for p in referenced]
-    in_order = None not in order and order == sorted(order)
+    seen = [first_seen[p] for p in referenced if p in first_seen]
+    if seen != sorted(seen):
+        in_order = False
+    else:
+        in_order = len(seen) == len(referenced) or None
     return fully, in_order, unproven
