@@ -367,11 +367,26 @@ credential mechanism, not in these files.
 One file belongs to you rather than to a project:
 `$XDG_CONFIG_HOME/quirework/config.toml`, normally
 `~/.config/quirework/config.toml`. It holds what every project on the
-machine shares: `provenance.home` (see [Provenance](#provenance)), and
+machine shares: `provenance.home` (see [Provenance](#provenance)),
 `copies.log`, the file that numbers the proofs `publish copy` makes for
-one person and names whom each was for. The log names people, so
-`publish copy` refuses one inside the project, where a commit could
-carry it. A key it does not read is refused, as in a project's file.
+one person and names whom each was for, and `kindle.targets`, the
+reading devices `publish kindle` delivers a copy to. The log names
+people, so `publish copy` refuses one inside the project, where a commit
+could carry it. A key it does not read is refused, as in a project's
+file.
+
+`kindle.targets` is a list of rules, each choosing devices as the Kindle
+store lists them, by kind or by name:
+
+```toml
+[kindle]
+targets = [{ kind = "Kindle for Android" }, { kind = "Kindle Paperwhite" }]
+```
+
+A rule takes the most recently registered device it matches, so a new
+phone replaces the old one without an edit, unless it says
+`pick = "all"`. A rule that matches no device stops the plan rather than
+skip a device you expect the copy on.
 
 An explicit `--project` or `--config` selects a directory or
 configuration file. `QUIREWORK_PROJECT` supplies a project selection for
@@ -886,12 +901,14 @@ a trail can still be kept by hand and read as pointers.
 
 `provenance.redpen` names the archive of red-pen rounds that
 `publish redpen archive` writes: your marks on a rendered copy of the
-book, one file per round. Declared, each round also reads as a session
-of your turns, one per mark, named `redpen-` and its file name, so
-`show`, the trail and its backfill reach words you typed on the page as
-well as in a conversation. A round records the day of each mark and no
-time of day, so a breadcrumb names the mark by its number. Nothing joins
-by default: the archive is private, and an undeclared one stays out.
+book, one file per round. `publish kindle notes` writes a Kindle copy's
+highlights and notes there too, one file per export. Declared, each
+round also reads as a session of your turns, one per mark, named
+`redpen-` and its file name, so `show`, the trail and its backfill reach
+words you typed on the page as well as in a conversation. A round
+records the day of each mark and no time of day, so a breadcrumb names
+the mark by its number. Nothing joins by default: the archive is
+private, and an undeclared one stays out.
 
 ### Blind cold-reads
 

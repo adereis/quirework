@@ -164,6 +164,29 @@ stamp renders a copy that passes for the published book.
 needs a committed tree, gives the copy the next number in the per-user
 log of copies, and names the file by number and never by the person.
 
+A reader who reads on a Kindle needs the copy in a Kindle library, and
+the highlights and notes made there are marks on the book like any
+other. `quirework publish kindle` keeps that loop. The store's pages do
+the sending, from a browser tab already signed in:
+`publish kindle driver` names a script for that tab, which uploads the
+copy through Send to Kindle, lists the library and the reading devices,
+and delivers a document to a device or takes it off one, using the calls
+those pages make themselves. `publish kindle plan` says what to send,
+under the title the EPUB carries, and which devices to deliver it to,
+chosen by `kindle.targets` in the per-user configuration.
+`publish kindle record` logs each step beside the copy's number. The
+order matters because the store keeps a document's notes with the
+document: a new copy arrives with none, and the notes on the copy it
+replaces live only on the old one. So
+`publish kindle notes EXPORT --copy N` reads the notebook the Kindle app
+exports, finds each highlight in the manuscript (in the copy's own
+commit where the text has changed since), and archives the marks where
+`provenance.redpen` keeps red-pen rounds, where they read as the
+reader's own turns. The plan lets an earlier copy leave the devices only
+once its notes were archived or declared not worth keeping. No command
+deletes a document from the library: deletion is permanent and takes the
+notes with it, so it stays with the reader.
+
 A chapter's file name is its identifier. Retitling a chapter does not
 rename it, and inserting one does not renumber anything, because numbers
 are derived at render time and nothing else refers to them.

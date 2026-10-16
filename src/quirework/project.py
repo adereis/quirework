@@ -503,6 +503,7 @@ def private_tmp_parent() -> Path | None:
 # misspelled key would otherwise leave its default in force without a word.
 USER_KEYS = {
     "copies": frozenset({"log"}),
+    "kindle": frozenset({"targets"}),
     "provenance": frozenset({"home"}),
 }
 

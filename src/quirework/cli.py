@@ -74,6 +74,11 @@ COMMANDS = {
         "publish",
         backend="quarto",
     ),
+    ("publish", "kindle"): Command(
+        "publish.kindle",
+        "Deliver a copy to a Kindle library and read its notes back",
+        "publish",
+    ),
     ("publish", "fonts"): Command(
         "publish.fonts",
         "Inspect required typefaces",
