@@ -743,6 +743,22 @@ routes so a companion can be pointed at a procedure by name. The
 generated routes name the project's own guide, which
 `sops.operator_guide` sets.
 
+Every route also defines two start words, which decide whether the
+companion waits after presenting its plan. A request whose first word is
+`go` is carried through. `discuss`, or no start word at all, stops once
+the plan is shown and before any model run, sub-agent or commit, so a
+bare route never spends what the author has not seen. The plan is shown
+as concretely as that allows: a frozen run record that has not started,
+or an edit left uncommitted. The stop is the default because the two
+misreadings cost different amounts: taking `go` for `discuss` costs a
+round-trip, and the reverse costs a run nobody approved. A start word
+stands alone, so `/qw-tidy go: the attic notebook` starts at once, while
+`/qw-tidy go through the attic notebook` is an ordinary request and
+waits. Claude routes add an `argument-hint`, so the words show while the
+route's name is typed; portable routes carry them in their prose. A
+route open to implicit invocation keeps the words for a human's request
+and has no stop when the assistant invokes it unasked.
+
 A long procedure is often read for one of the things it covers.
 `sop show NAME --outline` lists its headings, and `--section TITLE`
 prints one section with its subsections, verbatim. The option repeats,

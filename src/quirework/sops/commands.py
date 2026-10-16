@@ -161,6 +161,11 @@ def _implicit_skills() -> set[str]:
 _DEFAULT_OPERATOR_GUIDE = 'AGENTS.md ("How work happens")'
 
 
+# Shown by Claude Code's autocomplete as the human types a route's name, so
+# the two start words are visible before the request is sent.
+_START_HINT = "[discuss|go] [target and notes]"
+
+
 def _operator_guide() -> str:
     guide = current_project().get("sops.operator_guide", _DEFAULT_OPERATOR_GUIDE)
     return f", per {guide}: " if guide else ": "
@@ -191,8 +196,15 @@ def _skill_md(
         else ""
     )
     disabled = "false" if allow_implicit else "true"
-    manual = "" if portable else f"disable-model-invocation: {disabled}\n"
     # Claude's switch lives here; Codex's equivalent lives in agents/openai.yaml.
+    # Codex has no argument hint, so its routes carry the start words as prose
+    # only, where every harness reads them.
+    manual = (
+        ""
+        if portable
+        else f"disable-model-invocation: {disabled}\n"
+        f"argument-hint: {_yaml_quote(_START_HINT)}\n"
+    )
     authorization = (
         "Use this SOP when its capability would help the current task, without\n"
         "waiting for the human to name the skill. Follow its scope and choose the\n"
@@ -202,6 +214,28 @@ def _skill_md(
         "performs. A topical match alone is not permission to start a run. Required\n"
         "reads and mechanical steps within an authorized task need no new request;\n"
         "an optional follow-up that starts another model run does.\n"
+    )
+    # A route is read before anything happens, so it is the one place that can
+    # tell the companion whether to stop after its plan. The default is the
+    # stop: misreading `go` as `discuss` costs a round-trip, and the reverse
+    # costs a model run nobody approved.
+    start = (
+        "The request's first word sets how this starts, and the first line of the\n"
+        "reply says which applies. `go` means: state the plan, then carry it\n"
+        "through. `discuss`, or no start word, means: show the plan and stop. No\n"
+        "model run or sub-agent starts and nothing is committed until the human\n"
+        "answers. Show the plan in the most concrete form that spends nothing and\n"
+        "commits nothing: a frozen but unstarted run record, or an edit left\n"
+        "uncommitted in the working tree. A start word stands alone, followed by\n"
+        'nothing, a colon, a comma or a dash; in `go through the spec`, "go" is an\n'
+        "ordinary word and the request reads as `discuss`. Neither word widens what\n"
+        "the request authorizes, and the procedure's own stops hold under both.\n"
+        + (
+            "Invoked on the assistant's own initiative, the route has no start word\n"
+            "and no stop.\n"
+            if allow_implicit
+            else ""
+        )
     )
     # Generated content must round-trip through the wrapper, as the catalog
     # does: a skill off its fixed point is named by `dev check`, and wrapping
@@ -214,6 +248,8 @@ def _skill_md(
         f"---\n"
         f"\n"
         f"{authorization}"
+        "\n"
+        f"{start}"
         "\n"
         f"Run `quirework sop show {stem}` and read its output in full. Then execute\n"
         f"it as the operator{_operator_guide()}drive the `quirework` tools, supervise\n"

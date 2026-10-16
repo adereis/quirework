@@ -178,6 +178,36 @@ def test_the_route_names_the_target_by_the_projects_own_unit(notebook):
         assert "(which post, artifact, run, or model)" in _route_words()
 
 
+def test_a_route_stops_after_its_plan_unless_told_to_go(notebook):
+    # The human typing a route's name must know before sending it whether
+    # the companion will wait. A bare request waits, because the costly
+    # misreading is a model run nobody approved, not a round-trip.
+    words = _route_words()
+    assert "`discuss`, or no start word, means: show the plan and stop." in words
+    assert "`go` means: state the plan, then carry it through." in words
+    assert "No model run or sub-agent starts and nothing is committed" in words
+    assert "no start word and no stop" not in words
+    # A route the assistant may invoke unasked has nobody to wait for.
+    implicit = " ".join(
+        commands._skill_md("tidy", "Tidy it.", allow_implicit=True).split()
+    )
+    assert (
+        "Invoked on the assistant's own initiative, the route has no start word"
+        " and no stop." in implicit
+    )
+
+
+def test_only_claude_routes_carry_the_start_word_hint(notebook):
+    # Claude Code shows `argument-hint` while the name is typed; the value is
+    # quoted because a bare `[` opens a YAML list. Codex has no such field, so
+    # its route carries the start words in the prose alone.
+    claude = commands._skill_md("tidy", "Tidy it.")
+    assert 'argument-hint: "[discuss|go] [target and notes]"\n' in claude
+    portable = commands._skill_md("tidy", "Tidy it.", portable=True)
+    assert "argument-hint" not in portable
+    assert "`discuss`, or no start word" in " ".join(portable.split())
+
+
 def test_a_generated_skill_is_at_the_wrapper_s_fixed_point(notebook):
     """A skill the project's own check names is a file nobody can keep.
 

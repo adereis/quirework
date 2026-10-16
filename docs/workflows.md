@@ -75,7 +75,9 @@ which prints it verbatim and records that it was read. A SOP that
 declares modes gets them named in its route, and
 `sop show NAME --mode MODE` prints only the part that request needs. The
 SOP remains the content owner. Project configuration selects the
-skill-name prefix.
+skill-name prefix. A route stops after presenting its plan, before any
+run starts, unless the request opens with `go`; the authoring guide
+describes the start words.
 
 Personas specify perspectives. Instruments specify questions. Panels
 specify an allocation of perspectives and models. None grants filesystem
