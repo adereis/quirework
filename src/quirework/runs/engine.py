@@ -383,9 +383,29 @@ def prepare(plan_path, destination, *, resolve=True):
                     "referenced_files",
                 }:
                     raise ValueError("unknown turn field")
+                # How many images the material references, or the image files
+                # themselves, which lets the receipt match what was opened by
+                # bytes rather than by count.
                 referenced = turn.get("referenced_images", 0)
-                if type(referenced) is not int or referenced < 0:
-                    raise ValueError("referenced_images must be a non-negative integer")
+                if isinstance(referenced, list):
+                    if any(not isinstance(r, str) for r in referenced):
+                        raise ValueError("referenced_images must list paths")
+                    referenced = [
+                        str(Path(r).expanduser().resolve(strict=True))
+                        for r in referenced
+                    ]
+                    for r in referenced:
+                        if not Path(r).is_file() or not any(
+                            Path(r).is_relative_to(root) for root in p["read_roots"]
+                        ):
+                            raise ValueError(
+                                f"referenced_images must be files under read_roots: {r}"
+                            )
+                elif type(referenced) is not int or referenced < 0:
+                    raise ValueError(
+                        "referenced_images must be a non-negative integer "
+                        "or a list of paths"
+                    )
                 # The files a seat is to read in full, in reading order. Like
                 # the image count, it turns the native record into a check: a
                 # seat that skimmed or skipped would otherwise look the same.
@@ -901,15 +921,33 @@ class Run:
             # that number into a check: a seat rating plates from their captions
             # alone would otherwise be indistinguishable from one that opened
             # every file.
-            if turn.get("referenced_images"):
-                opened = receipt["additional_tool_images"]
-                receipt["referenced_images_opened"] = (
-                    f"{opened}/{turn['referenced_images']}"
-                )
-                if opened < turn["referenced_images"]:
+            #
+            # Views are not figures: a seat that opened one figure twice and
+            # another never would match a count of views. So a declared list
+            # is matched by bytes, each figure counting once it was seen, and
+            # a bare count is compared with the distinct images opened.
+            declared = turn.get("referenced_images")
+            if declared:
+                shown = observed - expected
+                missing = []
+                if isinstance(declared, list):
+                    missing = [Path(p).name for p in declared if digest(p) not in shown]
+                    total = len(declared)
+                    opened = total - len(missing)
+                else:
+                    total, opened = declared, len(shown)
+                receipt["referenced_images_opened"] = f"{opened}/{total}"
+                if opened < total:
+                    named = (
+                        f" (never opened: {', '.join(missing[:5])}"
+                        + (", ..." if len(missing) > 5 else "")
+                        + ")"
+                        if missing
+                        else ""
+                    )
                     receipt.setdefault("red_flags", []).append(
                         "Opened fewer images than the material references: "
-                        f"{opened} of {turn['referenced_images']}; visual verdicts "
+                        f"{opened} of {total}{named}; visual verdicts "
                         "in this answer are not evidence."
                     )
         if spec["policy"]["read_root_digests"]:

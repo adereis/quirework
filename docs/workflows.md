@@ -738,9 +738,16 @@ every plate from its caption would look exactly like one that opened
 every file. So the turn declares `referenced_images`, and the receipt
 reports `referenced_images_opened` and red-flags a shortfall. Any turn
 may declare it; a turn whose material is mounted rather than attached is
-where it earns its place. agy keeps no image in its transcript, only a
-copy of each one beside it, so for an agy seat the receipt hashes those
-copies, and a copy that is missing counts as an image not opened.
+where it earns its place. It is best declared as the list of image
+files, under the read roots, which `plan selfdriven` writes: the receipt
+then matches what the seat opened to those files by their bytes and
+names any it never opened, so a figure opened twice cannot stand in for
+one never opened. Two files with identical bytes are one image to that
+match. A bare count is still accepted, and is compared with the number
+of distinct images opened, never with the number of views. agy keeps no
+image in its transcript, only a copy of each one beside it, so for an
+agy seat the receipt hashes those copies, and a copy that is missing
+counts as an image not opened.
 
 The text can fail silently too, and so can the mount. A turn may declare
 `referenced_files`, the files the seat is to read in full, in reading

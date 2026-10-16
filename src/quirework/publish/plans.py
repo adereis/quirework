@@ -315,7 +315,7 @@ Each reaction file contains exactly these headings and nothing else:
             min_bytes=200,
             outputs=outputs,
             materials=[],
-            referenced_images=len(figures),
+            referenced_images=[str(mount / "figures" / f.name) for f in figures],
             referenced_files=[str(mount / "chapters" / c.name) for c in chapters],
             metadata=dict(instrument=instrument, ask=ask),
         )

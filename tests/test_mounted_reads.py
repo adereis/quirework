@@ -440,6 +440,83 @@ def test_an_agy_receipt_counts_the_figures_its_seat_opened(
     assert any("Opened fewer images" in f for f in receipt["red_flags"])
 
 
+def collected_with_images(tmp_path, mount, monkeypatch, referenced, hashes):
+    """The receipt of a turn whose seat opened images with these hashes."""
+    path = plan_file(tmp_path, mount)
+    plan = json.loads(path.read_text())
+    plan["seats"][0]["turns"][0]["referenced_images"] = referenced
+    path.write_text(json.dumps(plan))
+    engine.prepare(path, tmp_path / "record", resolve=False)
+    run = engine.Run(tmp_path / "record")
+    state = run.state("reader")
+    state["pending"] = dict(turn="wholebook", mode="start", parent_id="sid")
+    run.save("reader", state)
+    run.record("reader", "wholebook").mkdir(parents=True)
+    (run.workspace("reader") / "drafts").mkdir(parents=True, exist_ok=True)
+    (run.workspace("reader") / "drafts" / "notes.md").write_text("A reaction.\n")
+    session = claude_session(tmp_path, [])
+    monkeypatch.setattr(
+        harness,
+        "receipt",
+        lambda *a: dict(
+            session_id="sid",
+            model="fixture-model",
+            rollout=str(session),
+            answer="Done.",
+            forked_from=None,
+        ),
+    )
+    monkeypatch.setattr(harness, "history_image_hashes", lambda *a: hashes)
+    run.collect_turn("reader", 0)
+    return run.state("reader")["done"]["wholebook"]["receipt"]
+
+
+@pytest.fixture
+def figures(mount):
+    (mount / "figures").mkdir()
+    door, chair = mount / "figures" / "door.png", mount / "figures" / "chair.png"
+    door.write_bytes(b"a door left open")
+    chair.write_bytes(b"a chair that moved")
+    return door, chair
+
+
+def test_a_figure_opened_twice_does_not_stand_in_for_one_never_opened(
+    tmp_path, mount, figures, monkeypatch
+):
+    door, chair = figures
+    seen = hashlib.sha256(door.read_bytes()).hexdigest()
+    receipt = collected_with_images(
+        tmp_path, mount, monkeypatch, [str(door), str(chair)], [seen, seen]
+    )
+    assert receipt["referenced_images_opened"] == "1/2"
+    assert any("never opened: chair.png" in f for f in receipt["red_flags"])
+
+
+def test_every_listed_figure_seen_once_is_proven(tmp_path, mount, figures, monkeypatch):
+    hashes = [hashlib.sha256(f.read_bytes()).hexdigest() for f in figures]
+    receipt = collected_with_images(
+        tmp_path, mount, monkeypatch, [str(f) for f in figures], hashes
+    )
+    assert receipt["referenced_images_opened"] == "2/2"
+    assert not any("Opened fewer images" in f for f in receipt["red_flags"])
+
+
+def test_a_bare_count_is_compared_with_distinct_images(tmp_path, mount, monkeypatch):
+    receipt = collected_with_images(tmp_path, mount, monkeypatch, 2, ["a" * 64] * 2)
+    assert receipt["referenced_images_opened"] == "1/2"
+
+
+def test_a_listed_figure_outside_the_mount_is_refused(tmp_path, mount):
+    stray = tmp_path / "stray.png"
+    stray.write_bytes(b"not part of the book")
+    path = plan_file(tmp_path, mount)
+    plan = json.loads(path.read_text())
+    plan["seats"][0]["turns"][0]["referenced_images"] = [str(stray)]
+    path.write_text(json.dumps(plan))
+    with pytest.raises(ValueError, match="referenced_images"):
+        engine.prepare(path, tmp_path / "record", resolve=False)
+
+
 def draft(mount, n):
     return "drafts/" + chapter(mount, n).rsplit("/", 1)[-1]
 

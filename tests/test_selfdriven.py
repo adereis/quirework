@@ -55,13 +55,18 @@ def plan_for(book, output, **kwargs):
     return json.loads(output.read_text())["seats"][0]
 
 
-def test_the_seat_gets_its_chapters_and_a_count_of_the_figures(book, tmp_path):
+def test_the_seat_gets_its_chapters_and_the_figures_it_must_open(book, tmp_path):
     """The reading order goes into the prompt because the seat, not the operator,
-    turns the pages; the figure count goes into the turn because the figures are
-    where this mode fails silently."""
-    seat = plan_for(book, tmp_path / "plan.json", mount=tmp_path / ".read" / "book")
+    turns the pages; the figures go into the turn because they are where this
+    mode fails silently, and as files, so the receipt can match each one it
+    opened rather than count views."""
+    mount = tmp_path / ".read" / "book"
+    seat = plan_for(book, tmp_path / "plan.json", mount=mount)
     turn = seat["turns"][0]
-    assert turn["referenced_images"] == 2
+    assert turn["referenced_images"] == [
+        str(mount / "figures" / "chair.png"),
+        str(mount / "figures" / "door.png"),
+    ]
     assert turn["outputs"] == [
         "drafts/01-opening.md",
         "drafts/02-later.md",
