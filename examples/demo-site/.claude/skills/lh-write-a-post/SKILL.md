@@ -2,12 +2,25 @@
 name: lh-write-a-post
 description: "Draft or revise one post of the Lighthouse Log against its spec."
 disable-model-invocation: true
+argument-hint: "[discuss|go] [target and notes]"
 ---
 
 Run this SOP only when the human explicitly requests it or the task it
 performs. A topical match alone is not permission to start a run.
 Required reads and mechanical steps within an authorized task need no
 new request; an optional follow-up that starts another model run does.
+
+The request's first word sets how this starts, and the first line of the
+reply says which applies. `go` means: state the plan, then carry it
+through. `discuss`, or no start word, means: show the plan and stop. No
+model run or sub-agent starts and nothing is committed until the human
+answers. Show the plan in the most concrete form that spends nothing and
+commits nothing: a frozen but unstarted run record, or an edit left
+uncommitted in the working tree. A start word stands alone, followed by
+nothing, a colon, a comma or a dash; in `go through the spec`, "go" is
+an ordinary word and the request reads as `discuss`. Neither word widens
+what the request authorizes, and the procedure's own stops hold under
+both.
 
 Run `quirework sop show write-a-post` and read its output in full. Then
 execute it as the operator, per AGENTS.md ("How work happens"): drive
