@@ -34,9 +34,14 @@ versioned data in the project, frozen with each run.
 
 `sop skills` generates thin entry points for the companions, so you can
 name a procedure in conversation and the companion opens it. The entry
-point only routes. It opens the procedure through `sop show`, which
-prints it verbatim and records that it was read, and the procedure stays
-the one place its content lives.
+point routes. It opens the procedure through `sop show`, which prints it
+verbatim and records that it was read, and the procedure stays the one
+place its content lives.
+
+The entry point also says when the work starts. By default your
+companion shows you its plan and waits, before it starts a model run or
+commits anything. Begin the request with `go` and it carries the plan
+through. The [authoring guide](repo:docs/authoring.md) has the details.
 
 ## Five that recur
 
