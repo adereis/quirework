@@ -17,6 +17,8 @@ project's format and must not import it:
 - any other shortcode: a paired one keeps its content and loses its tags, a
   link whose target is one keeps its text, and a standalone one is dropped,
   since it renders as something no Markdown reader can be handed
+- a Pandoc fenced div, such as a table float or a callout, which is paired
+  syntax too: its fence lines go and what it holds stays
 
 Anything that survives the projection and should not have is refused by name
 rather than delivered.
@@ -32,6 +34,15 @@ HTML_COMMENT = re.compile(r"<!--.*?-->", re.DOTALL)
 RAW_BLOCK = re.compile(r"^```\{=[^}]+\}\s*$.*?^```\s*$", re.MULTILINE | re.DOTALL)
 
 ATTR_BLOCK = re.compile(r"\s*\{(?=[#.])[^{}\n]*\}")
+
+# A fenced div's fence line, opening or closing: three or more colons, then
+# an attribute block or a bare class name on an opening fence, and optionally
+# trailing colons. Only the fence goes; the lines between are prose, a table
+# or a caption, and a reader of the page reads them.
+DIV_FENCE = re.compile(
+    r"^[ \t]*:{3,}[ \t]*(?:\{[^{}\n]*\}|[A-Za-z][\w-]*)?[ \t]*:*[ \t]*$",
+    re.MULTILINE,
+)
 
 _IMAGE = r"(?:svg|png|jpe?g|webp)"
 
@@ -134,6 +145,7 @@ def reader_markdown(text: str, alt: bool = True) -> tuple[str, list[dict]]:
     text = _paired(text)
     text = re.sub(r"(?m)^[ \t]*" + _SHORTCODE + r"[ \t]*$", "", text, flags=re.DOTALL)
     text = SHORTCODE.sub("", text)
+    text = DIV_FENCE.sub("", text)
     text = ATTR_BLOCK.sub("", text)
     text = re.sub(r"\n{3,}", "\n\n", text).strip() + "\n"
     leaks = []
@@ -147,6 +159,8 @@ def reader_markdown(text: str, alt: bool = True) -> tuple[str, list[dict]]:
         leaks.append("raw-format block")
     if SHORTCODE.search(text):
         leaks.append("shortcode")
+    if re.search(r"^[ \t]*:{3,}", text, re.MULTILINE):
+        leaks.append("div fence")
     if leaks:
         raise RuntimeError(f"clean Markdown still contains: {', '.join(leaks)}")
     return text, figures

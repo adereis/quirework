@@ -204,8 +204,10 @@ a draft flag or a summary the author wrote about the piece is not the
 piece. Comments go, and the marks with them. A figure is recognized as
 Pandoc writes it, as a plain Markdown image, or as Hugo's `figure`
 shortcode, and it needs alt text. Any other shortcode keeps the text it
-wraps and loses its tags. A figure given as a site-root path or a URL
-cannot travel as an image, and `prose-images` says so rather than
+wraps and loses its tags, and so does a Pandoc fenced div: a table float
+or a callout reaches the reader as its table, caption and prose, without
+the `:::` fences around them. A figure given as a site-root path or a
+URL cannot travel as an image, and `prose-images` says so rather than
 sending the page without it.
 
 ## Prose workshops

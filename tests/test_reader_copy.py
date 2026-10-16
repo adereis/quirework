@@ -85,6 +85,48 @@ def test_a_figure_with_nothing_to_say_is_refused():
         reader_markdown("![The lamp](lamp.svg){#fig-lamp}\n")
 
 
+CHAPTER_WITH_TABLE = """The lamps differ only in their period.
+
+::: {#tbl-periods tbl-align="left"}
+
+| light | period |
+|:------|:-------|
+| North Head | ten seconds |
+| Gull Rock | four seconds |
+
+A dark light is not a slow one.
+
+How long each light takes to come round.
+:::
+
+::: callout
+Count the dark as part of the period.
+:::
+
+::::: {.aside}
+The keepers timed them by hand.
+:::::
+
+That is how a ship tells them apart.
+"""
+
+
+def test_a_fenced_div_keeps_what_it_holds_and_loses_its_fences():
+    text, _ = reader_markdown(CHAPTER_WITH_TABLE)
+    assert ":::" not in text
+    assert "tbl-align" not in text and "callout" not in text
+    for kept in (
+        "| North Head | ten seconds |",
+        "A dark light is not a slow one.",
+        "How long each light takes to come round.",
+        "Count the dark as part of the period.",
+        "The keepers timed them by hand.",
+    ):
+        assert kept in text, kept
+    # The table reaches the reader as a table, set off from the prose.
+    assert "\n\n| light | period |\n|:------|:-------|\n" in text
+
+
 def test_a_mark_of_any_kind_goes_with_its_comment():
     text, _ = reader_markdown("<!-- @lighthouse(beam) keep the period -->\nIt turns.\n")
     assert text == "It turns.\n"
