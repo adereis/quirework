@@ -209,8 +209,14 @@ def redpen_directory():
     )
 
 
-_REDPEN_CMD = re.compile(r"redpen\s+(?:read|notes|archive)\b")
-_DOCX_RE = re.compile(r'"([^"]+\.docx)"|\'([^\']+\.docx)\'|(\S+\.docx)')
+# A red-pen round is read from its reviewed `.docx`; a Kindle round from the
+# notebook the Kindle app exported, an `.html` file. Either way the command
+# names the file, and the archive names it back in its header.
+_REDPEN_CMD = re.compile(r"redpen\s+(?:read|notes|archive)\b|kindle\s+notes\b")
+_SOURCE_RE = re.compile(
+    r'"([^"]+\.(?:docx|html?))"|\'([^\']+\.(?:docx|html?))\'|(\S+\.(?:docx|html?))\b'
+)
+_SOURCE_KEY = re.compile(r"source-(docx|export):\s*(.+?)\s*$")
 # The artifact opens with a provenance header in a fenced block (extraction
 # SHAs, checksums, counts). That is metadata about the extraction, not the
 # author's words, so it is not part of what the analyst reads.
@@ -236,17 +242,17 @@ def redpen_index():
         if path.name == "README.md":
             continue
         for line in path.read_text(encoding="utf-8").splitlines():
-            match = re.match(r"source-docx:\s*(.+?)\s*$", line)
+            match = _SOURCE_KEY.match(line)
             if match:
-                idx[match.group(1)] = str(path)
+                idx[match.group(2)] = str(path)
                 break
     return idx
 
 
-def docx_names(command):
-    """Every ``.docx`` basename named in a shell command."""
+def source_names(command):
+    """Every reviewed ``.docx`` or exported ``.html`` basename in a command."""
     out = []
-    for m in _DOCX_RE.finditer(command or ""):
+    for m in _SOURCE_RE.finditer(command or ""):
         hit = next((g for g in m.groups() if g), None)
         if hit:
             out.append(os.path.basename(hit))
@@ -262,7 +268,7 @@ def redpen_marks(command):
     must not be handed.
     """
     idx = redpen_index()
-    for name in docx_names(command):
+    for name in source_names(command):
         path = idx.get(name)
         if not path:
             continue
@@ -275,6 +281,18 @@ def redpen_marks(command):
         body = _BYLINE.sub("", body)
         return path, redact(body.strip())
     return None
+
+
+def round_header(path):
+    """How a spliced round says where the marks were made."""
+    try:
+        with open(path, encoding="utf-8") as fh:
+            head = fh.read(4096)
+    except OSError:
+        head = ""
+    if re.search(r"^source-export:", head, re.M):
+        return "Human (Kindle highlights and notes, read from the app's export)"
+    return "Human (red-pen marks, transcribed from the review docx)"
 
 
 def format_ask(inp):
@@ -850,13 +868,7 @@ def filter_session(path):
                             hit = redpen_marks(job[1])
                             if hit and hit[0] not in seen_rounds:
                                 seen_rounds.add(hit[0])
-                                recovered.append(
-                                    (
-                                        "Human (red-pen marks, transcribed from "
-                                        "the review docx)",
-                                        hit[1],
-                                    )
-                                )
+                                recovered.append((round_header(hit[0]), hit[1]))
                         elif job[0] == "ask":
                             answer = answer_text(b, job[1], framed=True)
                             if answer:

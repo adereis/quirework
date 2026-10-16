@@ -175,9 +175,68 @@ def test_a_failed_request_is_not_rendered_as_the_model(tmp_path):
 # --------------------------------------------------------------------------- #
 
 
-def test_docx_names_handles_quoted_paths_with_spaces():
+def test_source_names_handles_quoted_paths_with_spaces():
     cmd = 'quirework book redpen read "/home/x/Downloads/V9 - The-Book.docx" --out /tmp/o.md'
-    assert ccfilter.docx_names(cmd) == ["V9 - The-Book.docx"]
+    assert ccfilter.source_names(cmd) == ["V9 - The-Book.docx"]
+    cmd = "quirework publish kindle notes ~/tmp/Notebook.html --copy 6"
+    assert ccfilter.source_names(cmd) == ["Notebook.html"]
+
+
+def test_a_kindle_round_reaches_the_render_as_the_reader_s_marks(
+    tmp_path, redpen_archive
+):
+    (redpen_archive / "kindle-copy-06-2026-10-20.md").write_text(
+        "# Kindle notes, copy 6\n\n"
+        "```\n"
+        "source-export:  Notebook.html\n"
+        "copy-commit:    abc1234\n"
+        "```\n\n"
+        "## MARKS  (`quirework publish kindle notes`)\n\n"
+        "### docs/canon/boiling.qmd\n\n"
+        "[Kindle] 2026-10-20  (highlight, yellow, location 12)\n"
+        "  highlight: “The whistle is a signal.”\n"
+        "  note: say what it signals\n",
+        encoding="utf-8",
+    )
+    body, stats = ccfilter.filter_session(
+        _session(
+            tmp_path,
+            [
+                {
+                    "type": "assistant",
+                    "message": {
+                        "content": [
+                            {
+                                "type": "tool_use",
+                                "id": "t1",
+                                "name": "Bash",
+                                "input": {
+                                    "command": "quirework publish kindle notes "
+                                    "~/tmp/Notebook.html --copy 6"
+                                },
+                            }
+                        ]
+                    },
+                },
+                {
+                    "type": "user",
+                    "message": {
+                        "content": [
+                            {
+                                "type": "tool_result",
+                                "tool_use_id": "t1",
+                                "content": "kindle: archived",
+                            }
+                        ]
+                    },
+                },
+            ],
+        )
+    )
+    assert "### Human (Kindle highlights and notes" in body
+    assert "say what it signals" in body
+    assert "copy-commit" not in body and "[Kindle]" not in body
+    assert stats["human_turns"] == 1
 
 
 def test_redpen_marks_splices_the_archive_stripped_and_blind(redpen_archive):
