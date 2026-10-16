@@ -89,6 +89,9 @@ commands:
   record EVENT --copy N [--device NAME ...]
                          log a step done in the browser: sent, delivered,
                          removed, or notes-waived (no notes worth keeping)
+  inbox --into DIR       fetch every notebook shared into kindle.inbox,
+                         each by its own id, and say which copy each is
+                         and whether its marks are already archived
   notes EXPORT --copy N [--out PATH] [--dated YYYY-MM-DD]
                          read a notebook the Kindle app exported, find
                          each highlight in the manuscript, and archive the
@@ -100,6 +103,7 @@ options:
 The devices come from `kindle.targets` in ~/.config/quirework/config.toml,
 a list of rules such as { kind = "Kindle for Android" } or { name = "..." }.
 Each takes the most recently registered match unless it says pick = "all".
+`kindle.inbox` there is the rclone path the app's exports are shared into.
 No command deletes a document from the library: that is permanent, it takes
 the document's notes with it, and it is left to the reader.
 """
@@ -430,13 +434,15 @@ def record(
 class Mark:
     kind: str  # "highlight", "note" or "bookmark"
     heading: str  # the export's own line, kept verbatim
-    section: str
+    section: str  # the export's section, as the book's contents name it
     color: str | None = None
     page: str | None = None
     location: str | None = None
     text: str = ""
-    note: str | None = None  # a note the reader attached to this highlight
     source: str = "unlocated"
+    # For a note, the highlights listed next to it at the same place, which
+    # is all the export says about what the note was written on.
+    beside: list[Mark] = field(default_factory=list)
 
 
 @dataclass
@@ -504,7 +510,7 @@ def _clean(text: str) -> str:
 
 
 def parse(export: Path) -> Notebook:
-    """The marks in an exported Kindle notebook, a note joined to its highlight."""
+    """The marks in an exported Kindle notebook, in the export's order."""
     raw = export.read_bytes()
     parser = _Export()
     parser.feed(raw.decode("utf-8", errors="replace"))
@@ -543,34 +549,38 @@ def parse(export: Path) -> Notebook:
                 raise ValueError(f"{export.name}: text before any entry: {text[:60]!r}")
             pending.text = text
             pending = None
-    return Notebook(title, authors, _join_notes(marks))
+    _set_beside(marks)
+    return Notebook(title, authors, marks)
 
 
-def _join_notes(marks: list[Mark]) -> list[Mark]:
-    """Attach each note to the highlight it was written on.
+def _set_beside(marks: list[Mark]) -> None:
+    """Point each note at the highlights beside it, where there are any.
 
-    The app writes a note as its own entry right after the highlight it was
-    made on, at the same location. A note anywhere else stands alone.
+    The export lists a note as an entry of its own and never says which
+    highlight it was written on. The app's own notebook shows each note
+    under its highlight, and the export lists the two next to each other
+    at the same page or location, but in either order: a note on a short
+    highlight can come before it. So a note is shown beside the
+    neighbouring highlight at its place, or between the two when both
+    neighbours are there, since then the export cannot say which it was.
+    It stays a mark of its own either way.
     """
-    out: list[Mark] = []
-    for mark in marks:
-        before = out[-1] if out else None
-        if (
-            mark.kind == "note"
-            and before is not None
-            and before.kind == "highlight"
-            and before.note is None
-            and mark.location is not None
-            and mark.location == _end(before.location)
-        ):
-            before.note = mark.text
-            continue
-        out.append(mark)
-    return out
+    for i, mark in enumerate(marks):
+        if mark.kind == "note":
+            mark.beside = [
+                marks[j]
+                for j in (i - 1, i + 1)
+                if 0 <= j < len(marks) and _same_place(mark, marks[j])
+            ]
 
 
-def _end(location: str | None) -> str | None:
-    return location.split("-")[-1] if location else None
+def _same_place(note: Mark, other: Mark) -> bool:
+    if other.kind != "highlight" or other.section != note.section:
+        return False
+    if note.location and other.location:
+        lo, _, hi = other.location.partition("-")
+        return int(lo) <= int(note.location.split("-")[0]) <= int(hi or lo)
+    return bool(note.page) and note.page == other.page
 
 
 # --------------------------------------------------------------------------- #
@@ -609,6 +619,7 @@ class _Text:
     rel: str
     text: str
     spans: list[tuple[int, int, int]]  # (start, end, line number)
+    title: str = ""  # the file's first heading, as a contents entry names it
 
     def line_at(self, offset: int) -> int:
         for start, end, number in self.spans:
@@ -620,7 +631,7 @@ class _Text:
 def _index(files: list[tuple[str, str]]) -> list[_Text]:
     out = []
     for rel, body in files:
-        parts, spans, offset, comment = [], [], 0, False
+        parts, spans, offset, comment, title = [], [], 0, False, ""
         for number, line in enumerate(body.splitlines(), 1):
             # An HTML comment carries the book's marks, not its words, and
             # may run over several lines.
@@ -632,16 +643,18 @@ def _index(files: list[tuple[str, str]]) -> list[_Text]:
             line = re.sub(r"<!--.*?-->", "", line)
             if "<!--" in line:
                 line, comment = line.split("<!--", 1)[0], True
-            if line.lstrip().startswith(("```", "![")):
+            if line.lstrip().startswith("```"):
                 continue
             words = _norm(_plain(line))
             if not words:
                 continue
+            if not title and line.lstrip().startswith("#"):
+                title = words
             spans.append((offset, offset + len(words) + 1, number))
             parts.append(words)
             offset += len(words) + 1
         if parts:
-            out.append(_Text(rel, " ".join(parts), spans))
+            out.append(_Text(rel, " ".join(parts), spans, title))
     return out
 
 
@@ -650,28 +663,49 @@ def _span(t: _Text, start: int, end: int) -> str:
     return f"{t.rel}:{lo}" if lo == hi else f"{t.rel}:{lo}-{hi}"
 
 
-def locate(text: str, index: list[_Text]) -> str | None:
+def _chapter_named(index: list[_Text], section: str | None) -> _Text | None:
+    """The file whose heading is the export's section, if one is.
+
+    The export names each entry's section as the contents list it, with
+    the chapter's number ("3 Cooling"); front matter has no chapter.
+    """
+    if not section:
+        return None
+    wanted = comparable(_redpen._strip_heading_number(section))
+    return next((d for d in index if d.title and comparable(d.title) == wanted), None)
+
+
+def locate(text: str, index: list[_Text], section: str | None = None) -> str | None:
     """Where a highlight sits, as `path:line` or `path:first-last`, or None.
 
     A highlight is the words as the reader saw them, which may cross
     several of the source's one-sentence lines, so each file is searched as
     one string. Where the whole run is not found, perhaps because a
     footnote's number was swept into it, its two ends are, close together.
+    A highlight of a word or two names a place rather than quoting a
+    passage, so it is looked for as whole words in its section's chapter
+    alone, and where it occurs more than once each place is named.
     """
     t = _norm(text)
-    if len(t) < 8:
+    if not t:
         return None
+    chapter = _chapter_named(index, section)
+    if len(t.split()) < 3:
+        return _short(t, chapter) if chapter else None
+    # The section's own chapter first, so that a sentence two chapters
+    # share is not blamed on the earlier one.
+    ordered = [chapter] * bool(chapter) + [d for d in index if d is not chapter]
     # A footnote's number renders as digits glued to the punctuation they
     # follow, and comes along when the reader highlights across it.
     for candidate in dict.fromkeys((t, _FOOTNUM.sub("", t))):
-        for doc in index:
+        for doc in ordered:
             at = doc.text.find(candidate)
             if at >= 0:
                 return _span(doc, at, at + len(candidate))
     if len(t) < 60:
         return None
     head, tail = t[:40], t[-40:]
-    for doc in index:
+    for doc in ordered:
         at = doc.text.find(head)
         if at < 0:
             continue
@@ -679,6 +713,17 @@ def locate(text: str, index: list[_Text]) -> str | None:
         if 0 <= end - at <= len(t) * 2:
             return "near " + _span(doc, at, end + len(tail))
     return None
+
+
+def _short(t: str, doc: _Text) -> str | None:
+    word = re.compile(rf"(?<!\w){re.escape(t)}(?!\w)")
+    lines = list(dict.fromkeys(doc.line_at(m.start()) for m in word.finditer(doc.text)))
+    if not lines:
+        return None
+    if len(lines) == 1:
+        return f"{doc.rel}:{lines[0]}"
+    shown = ", ".join(str(n) for n in lines[:5]) + (", ..." if len(lines) > 5 else "")
+    return f"one of {len(lines)} places in {doc.rel}: lines {shown}"
 
 
 def _files_now(chapters: Path) -> list[tuple[str, str]]:
@@ -732,39 +777,52 @@ def place(marks: list[Mark], chapters: Path, commit: str | None) -> None:
     for mark in marks:
         if not mark.text or mark.kind == "note":
             continue
-        where = locate(mark.text, now)
+        where = locate(mark.text, now, mark.section)
         if where is None and commit:
             if then is None:
                 then = _index(_files_at(commit, chapters))
-            earlier = locate(mark.text, then)
+            earlier = locate(mark.text, then, mark.section)
             if earlier is not None:
                 where = f"{earlier} in copy's commit {commit[:8]}, changed since"
-        mark.source = where or "unlocated"
+        mark.source = where or "unlocated" + _why_lost(mark, now)
+
+
+def _why_lost(mark: Mark, index: list[_Text]) -> str:
+    """What an unlocated short highlight leaves the reader to go on."""
+    if len(_norm(mark.text).split()) >= 3:
+        return ""
+    if _chapter_named(index, mark.section) is None:
+        return " (a word or two, in a section that names no chapter)"
+    return " (a word or two its chapter does not contain, such as a figure's label)"
 
 
 # --------------------------------------------------------------------------- #
 # the archive
 # --------------------------------------------------------------------------- #
-def _anchor_tally(marks: list[Mark]) -> tuple[int, int, int, int]:
-    exact = near = earlier = lost = 0
+_ANCHORS = ("exact", "near", "several places", "changed since", "unlocated")
+
+
+def _anchor(mark: Mark) -> str:
+    if mark.source.startswith("unlocated"):
+        return "unlocated"
+    if "changed since" in mark.source:
+        return "changed since"
+    if mark.source.startswith("near "):
+        return "near"
+    if mark.source.startswith("one of "):
+        return "several places"
+    return "exact"
+
+
+def _anchor_tally(marks: list[Mark]) -> dict[str, int]:
+    tally = dict.fromkeys(_ANCHORS, 0)
     for m in marks:
-        if not m.text or m.kind == "note":
-            continue
-        if m.source == "unlocated":
-            lost += 1
-        elif "changed since" in m.source:
-            earlier += 1
-        elif m.source.startswith("near "):
-            near += 1
-        else:
-            exact += 1
-    return exact, near, earlier, lost
+        if m.kind == "highlight":
+            tally[_anchor(m)] += 1
+    return tally
 
 
-def _entry(mark: Mark, dated: str) -> str:
-    """One mark as one block, with no blank line inside it: a reader of the
-    archive takes each blank-line-separated block for one of the reader's
-    marks."""
+def _where(mark: Mark) -> str:
     what = [mark.kind]
     if mark.color:
         what.append(mark.color)
@@ -772,28 +830,37 @@ def _entry(mark: Mark, dated: str) -> str:
         what.append(f"location {mark.location}")
     if mark.page:
         what.append(f"page {mark.page}")
-    lines = [f"[Kindle] {dated}  ({', '.join(what)})"]
-    if mark.section:
-        lines.append(f"  section: {mark.section}")
+    return ", ".join(what)
+
+
+def _quote(text: str, limit: int = 60) -> str:
+    flat = " ".join(text.split())
+    return f"“{flat if len(flat) <= limit else flat[: limit - 1] + '…'}”"
+
+
+def _entry(mark: Mark, dated: str) -> str:
+    """One mark as one block, with no blank line inside it: a reader of the
+    archive takes each blank-line-separated block for one of the reader's
+    marks."""
+    lines = [f"[Kindle] {dated}  ({_where(mark)})"]
     if mark.kind == "note":
         lines.append(f"  note: {_indent(mark.text)}")
-        lines.append("  -> a note on no highlight; find it by its location")
+        if not mark.beside:
+            place = f"page {mark.page}" if mark.page else f"location {mark.location}"
+            lines.append(f"  -> beside no highlight; find it at {place}")
+        else:
+            near = " and ".join(f"{_quote(h.text)} ({h.source})" for h in mark.beside)
+            how = "beside the highlight" if len(mark.beside) == 1 else "between"
+            lines.append(f"  -> {how} {near}")
         return "\n".join(lines)
     if mark.text:
         lines.append(f"  highlight: “{_indent(mark.text)}”")
         lines.append(f"  -> {mark.source}")
-    if mark.note:
-        lines.append(f"  note: {_indent(mark.note)}")
     return "\n".join(lines)
 
 
 def _indent(text: str) -> str:
     return "\n    ".join(text.splitlines())
-
-
-def _chapter_of(mark: Mark) -> str:
-    match = re.match(r"(?:near )?([^:\s]+):\d", mark.source)
-    return match.group(1) if match and "changed since" not in mark.source else ""
 
 
 def _archive_dir() -> Path:
@@ -813,7 +880,13 @@ def notes(
     if number not in found:
         raise ValueError(f"the log of copies holds no copy {number}")
     entry = found[number]
+    digest = hashlib.sha256(export.read_bytes()).hexdigest()
     book = parse(export)
+    same = marks_digest(book)
+    kept = _archived()
+    if digest in kept or same in kept:
+        how = "is already archived" if digest in kept else "has the same marks as"
+        raise ValueError(f"{export.name} {how} {kept.get(digest) or kept[same]}")
     if comparable(book.title) not in known_titles(entry):
         raise ValueError(
             f"{export.name} is the notebook of {book.title!r}, which is not copy "
@@ -827,20 +900,22 @@ def notes(
     out = out or _archive_dir() / f"kindle-copy-{number:02d}-{day}.md"
     if out.exists():
         raise ValueError(f"{out} already exists; an archive is never overwritten")
-    exact, near, earlier, lost = _anchor_tally(book.marks)
+    tally = _anchor_tally(book.marks)
+    anchors = " / ".join(f"{k} {v}" for k, v in tally.items())
     counts = {
         k: sum(1 for m in book.marks if m.kind == k)
         for k in ("highlight", "note", "bookmark")
     }
-    attached = sum(1 for m in book.marks if m.note)
-    digest = hashlib.sha256(export.read_bytes()).hexdigest()
+    placed = sum(1 for m in book.marks if m.kind == "note" and m.beside)
     head = [
         f"# Kindle notes, copy {number}",
         "",
         "Durable archive of the highlights and notes the reader made on one",
         "Kindle copy, read from the notebook the Kindle app exported and mapped",
         "against the manuscript. The export itself is kept verbatim in the",
-        "sibling `.raw/` directory.",
+        "sibling `.raw/` directory. The export never says which highlight a",
+        "note was written on, so a note names the highlight listed beside it",
+        "at the same place, or the two it sits between.",
         "",
         "```",
         f"source-export:  {export.name}",
@@ -850,21 +925,22 @@ def notes(
         f"marks-dated:    {day} (the day exported; the app records no earlier date)",
         f"extracted:      {dt.date.today():%Y-%m-%d}",
         f"book revision:  {_redpen._git_short()}",
-        f"highlights:     {counts['highlight']} ({attached} with a note)",
-        f"notes alone:    {counts['note']}",
+        f"highlights:     {counts['highlight']}",
+        f"notes:          {counts['note']} ({placed} beside a highlight)",
         f"bookmarks:      {counts['bookmark']}",
-        f"anchors:        exact {exact} / near {near} / changed since {earlier} / unlocated {lost}",
+        f"anchors:        {anchors}",
         "```",
         "",
         "## MARKS  (`quirework publish kindle notes`)",
     ]
+    # Grouped under the export's own sections, which are the book's contents
+    # as the reader saw them; each mark names its file and line.
     body: list[str] = []
-    chapter = None
+    section = None
     for mark in book.marks:
-        where = _chapter_of(mark) or "(not found in the current manuscript)"
-        if where != chapter:
-            body.append(f"### {where}")
-            chapter = where
+        if mark.section != section:
+            body.append(f"### {mark.section or '(before any section)'}")
+            section = mark.section
         body.append(_entry(mark, day))
     text = "\n".join(head) + "\n\n" + "\n\n".join(body) + "\n"
 
@@ -880,6 +956,7 @@ def notes(
             "event": PREFIX + "notes",
             "archive": str(out),
             "export_sha256": digest,
+            "marks_sha256": same,
             "marks": len(book.marks),
             "at": _proof._now(),
         },
@@ -890,10 +967,125 @@ def notes(
         shown = out
     print(
         f"kindle: archived copy {number}'s notes -> {shown}  "
-        f"({counts['highlight']} highlights, {attached} with a note, "
-        f"{counts['note']} notes alone; anchors {exact}/{near}/{earlier}/{lost})"
+        f"({counts['highlight']} highlights, {counts['note']} notes, "
+        f"{placed} beside a highlight; anchors {anchors})"
     )
     return 0
+
+
+def marks_digest(book: Notebook) -> str:
+    """A fingerprint of the marks alone.
+
+    Two exports of one notebook differ in bytes when only the citation the
+    app was asked to add differs, and they hold the same marks; this is
+    what they share.
+    """
+    rows = [
+        [m.kind, m.color, m.page, m.location, m.section, m.text] for m in book.marks
+    ]
+    blob = json.dumps([book.title, rows], ensure_ascii=False)
+    return hashlib.sha256(blob.encode("utf-8")).hexdigest()
+
+
+def _archived() -> dict[str, str]:
+    """Archived exports by both fingerprints, as the log records them."""
+    kept = {}
+    for c in copies().values():
+        for e in c.events:
+            if e["event"] == PREFIX + "notes":
+                for key in ("export_sha256", "marks_sha256"):
+                    if e.get(key):
+                        kept[e[key]] = e.get("archive", "?")
+    return kept
+
+
+# --------------------------------------------------------------------------- #
+# the inbox the exports are shared into
+# --------------------------------------------------------------------------- #
+def _rclone(args: list[str]) -> str:
+    if not shutil.which("rclone"):
+        raise ValueError("kindle.inbox is read with rclone, which is not installed")
+    run = subprocess.run(["rclone", *args], capture_output=True, text=True)
+    if run.returncode:
+        detail = (run.stderr or run.stdout).strip().splitlines()
+        raise ValueError(
+            f"rclone {args[0]} failed: {detail[-1] if detail else run.returncode}"
+        )
+    return run.stdout
+
+
+def _inbox_setting() -> str:
+    where = user_settings().get("kindle", {}).get("inbox")
+    if not isinstance(where, str) or ":" not in where:
+        raise ValueError(
+            f"set kindle.inbox in {user_config_path()} to the rclone path the "
+            'notebooks are shared into, for example "gdrive:Kindle notebooks"'
+        )
+    return where
+
+
+def inbox(into: Path) -> dict:
+    """Fetch every exported notebook in the inbox, and say what each one is.
+
+    The app names an export after the book, so every export of one copy
+    has the same name, and a folder in Google Drive holds any number of
+    files with one name. Each is therefore fetched by its own id where the
+    store gives one, into a directory of its own, keeping the name the app
+    gave it.
+    """
+    remote = _inbox_setting()
+    if into.exists() and any(into.iterdir()):
+        raise ValueError(f"{into} is not empty; fetch into a new directory")
+    listing = json.loads(_rclone(["lsjson", "--files-only", remote]) or "[]")
+    exports = [r for r in listing if r["Name"].lower().endswith((".html", ".htm"))]
+    names = [r["Name"] for r in exports]
+    root = remote.split(":", 1)[0] + ":"
+    found = copies()
+    kept = _archived()
+    rows, seen = [], {}
+    for n, r in enumerate(sorted(exports, key=lambda r: r.get("ModTime", "")), 1):
+        folder = into / f"{n:02d}"
+        if r.get("ID"):
+            _rclone(["backend", "copyid", root, r["ID"], f"{folder}/"])
+        elif names.count(r["Name"]) > 1:
+            raise ValueError(
+                f"the inbox holds {names.count(r['Name'])} files named "
+                f"{r['Name']!r} and gives no id to tell them apart"
+            )
+        else:
+            _rclone(
+                ["copyto", f"{remote.rstrip('/')}/{r['Name']}", str(folder / r["Name"])]
+            )
+        path = folder / r["Name"]
+        if not path.is_file():
+            raise ValueError(
+                f"rclone reported {r['Name']!r} fetched, and it is not there"
+            )
+        row = {
+            "file": str(path),
+            "modified": r.get("ModTime"),
+            "bytes": path.stat().st_size,
+        }
+        try:
+            book = parse(path)
+        except ValueError as exc:
+            rows.append({**row, "notebook": False, "why": str(exc)})
+            continue
+        digest = hashlib.sha256(path.read_bytes()).hexdigest()
+        same = marks_digest(book)
+        key = comparable(book.title)
+        row.update(
+            notebook=True,
+            title=book.title,
+            copy=next((c for c, e in found.items() if key in known_titles(e)), None),
+            marks=len(book.marks),
+            archived=kept.get(digest) or kept.get(same),
+            same_marks_as=seen.get(same),
+        )
+        seen.setdefault(same, str(path))
+        rows.append(row)
+    ignored = [r["Name"] for r in listing if r not in exports]
+    return {"inbox": remote, "exports": rows, "ignored": ignored}
 
 
 # --------------------------------------------------------------------------- #
@@ -969,6 +1161,12 @@ def main(argv: list[str] | None = None) -> int:
                 raise ValueError("record names the copy: --copy N")
             row = record(words[0], number, opts.get("--device"), opts.get("--reason"))
             print(f"kindle: copy {number} {row['event'][len(PREFIX) :]}")
+            return 0
+        if command == "inbox":
+            words, opts = _options(rest, {"--into"})
+            if words or "--into" not in opts:
+                raise ValueError("inbox fetches into a new directory: --into DIR")
+            print(json.dumps(inbox(Path(opts["--into"])), indent=2, ensure_ascii=False))
             return 0
         if command == "notes":
             words, opts = _options(rest, {"--copy", "--out", "--dated"})

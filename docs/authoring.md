@@ -177,15 +177,21 @@ chosen by `kindle.targets` in the per-user configuration.
 `publish kindle record` logs each step beside the copy's number. The
 order matters because the store keeps a document's notes with the
 document: a new copy arrives with none, and the notes on the copy it
-replaces live only on the old one. So
-`publish kindle notes EXPORT --copy N` reads the notebook the Kindle app
-exports, finds each highlight in the manuscript (in the copy's own
-commit where the text has changed since), and archives the marks where
-`provenance.redpen` keeps red-pen rounds, where they read as the
-reader's own turns. The plan lets an earlier copy leave the devices only
-once its notes were archived or declared not worth keeping. No command
-deletes a document from the library: deletion is permanent and takes the
-notes with it, so it stays with the reader.
+replaces live only on the old one. So the reader exports the old copy's
+notebook from the app into the folder `kindle.inbox` names,
+`publish kindle inbox` fetches what is there and says which copy each
+export is and whether its marks are already kept, and
+`publish kindle notes EXPORT --copy N` finds each highlight in the
+manuscript and archives the marks where `provenance.redpen` keeps
+red-pen rounds, where they read as the reader's own turns. A highlight
+is looked for in the chapter the export's section names, and in the
+copy's own commit where the text has changed since. The export never
+says which highlight a note was written on, so a note names the
+highlight listed beside it at its place, or the two it sits between. The
+plan lets an earlier copy leave the devices only once its notes were
+archived or declared not worth keeping. No command deletes a document
+from the library: deletion is permanent and takes the notes with it, so
+it stays with the reader.
 
 A chapter's file name is its identifier. Retitling a chapter does not
 rename it, and inserting one does not renumber anything, because numbers

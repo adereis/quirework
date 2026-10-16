@@ -364,57 +364,165 @@ def test_a_step_that_did_not_happen_cannot_be_logged(book, args, says):
 # --------------------------------------------------------------------------- #
 # reading the notebook the app exports
 # --------------------------------------------------------------------------- #
-# The app's markup does not close what it opens; the reader must not care.
+# Shaped like the app's own export: every entry on lines of its own, a
+# page and no location for a personal document, a note listed before a
+# short highlight and after a long one, and markup that does not close
+# what it opens.
 _EXPORT = """\
 <?xml version="1.0" encoding="UTF-8" ?>
-<html xmlns="http://www.w3.org/1999/xhtml"><head><meta charset="UTF-8" /></head>
+<html xmlns="http://www.w3.org/TR/1999/REC-html-in-xml" xml:lang="en" lang="en">
+<head><meta charset="UTF-8"/><title></title></head>
 <body><div class="bodyContainer">
-<div class="notebookFor">Notebook for</div>
-<div class="bookTitle">{title}
+<div class="notebookFor">
+Notebook for
 </div>
-<div class="authors">Ada Kettle
+<div class="bookTitle">
+{title}
+</div>
+<div class="authors">
+Unknown
+</div>
+<div class="citation">
+{citation}
 </div>
 <hr />
-<div class="sectionHeading">Boiling</div>
-<div class="noteHeading">Highlight (<span class="highlight_yellow">yellow</span>) - Location 12</div>
-<div class="noteText">The whistle is a signal, not a thought. It reports a state.</h3>
-<div class="noteHeading">Note - Location 12</div>
-<div class="noteText">Say what it reports.</div>
-<div class="noteHeading">Highlight (<span class="highlight_blue">blue</span>) - Page 2 &middot; Location 15</div>
-<div class="noteText">Steam escapes through the spout.</div>
-<div class="noteHeading">Note - Location 20</div>
-<div class="noteText">A margin thought,<br/>on two lines.</div>
-<div class="noteHeading">Bookmark - Location 21</div>
-<div class="noteText"></div>
-<div class="sectionHeading">Cooling</div>
-<div class="noteHeading">Highlight (<span class="highlight_pink">pink</span>) - Location 30</div>
-<div class="noteText">A kettle cools by a route nobody wrote.</div>
+<div class="sectionHeading">
+Front Matter
+</div>
+<div class="noteHeading">
+Note -  Page 2
+</div>
+<div class="noteText">
+a note on the title
+</div>
+<div class="noteHeading">
+Highlight (<span class="annotation_yellow">yellow</span>) -  Page 2
+</div>
+<div class="noteText">
+Kettle
+</div>
+<div class="sectionHeading">
+1 Boiling
+</div>
+<div class="noteHeading">
+Highlight (<span class="annotation_green">green</span>) -  Page 5
+</div>
+<div class="noteText">
+The whistle is a signal, not a thought. It reports a state.</h3>
+<div class="noteHeading">
+Note -  Page 5
+</div>
+<div class="noteText">
+Say what it reports.
+</div>
+<div class="noteHeading">
+Highlight (<span class="annotation_aqua">aqua</span>) -  Page 6
+</div>
+<div class="noteText">
+spout
+</div>
+<div class="noteHeading">
+Note -  Page 6
+</div>
+<div class="noteText">
+which of the two?
+</div>
+<div class="noteHeading">
+Highlight (<span class="annotation_aqua">aqua</span>) -  Page 6
+</div>
+<div class="noteText">
+the only way out
+</div>
+<div class="noteHeading">
+Note -  Page 7
+</div>
+<div class="noteText">
+A margin thought,<br/>on two lines.
+</div>
+<div class="noteHeading">
+Bookmark -  Page 7
+</div>
+<div class="noteText">
+</div>
+<div class="sectionHeading">
+2 Cooling
+</div>
+<div class="noteHeading">
+Highlight (<span class="annotation_pink">pink</span>) - Location 30
+</div>
+<div class="noteText">
+A kettle cools by a route nobody wrote.
+</div>
 </div></body></html>
 """
 
 
-def _export(tmp_path, title=_SIX):
-    path = tmp_path / "Notebook.html"
-    path.write_text(_EXPORT.replace("{title}", title), encoding="utf-8")
+def _export(tmp_path, title=_SIX, citation="", name="Notebook.html"):
+    path = tmp_path / name
+    path.write_text(
+        _EXPORT.replace("{title}", title).replace("{citation}", citation),
+        encoding="utf-8",
+    )
     return path
 
 
-def test_a_notebook_is_read_with_each_note_on_its_highlight(tmp_path):
+def test_a_notebook_is_read_entry_by_entry_in_the_book_s_order(tmp_path):
     book = kindle.parse(_export(tmp_path))
-    assert book.title == _SIX and book.authors == "Ada Kettle"
-    first, second, alone, mark, last = book.marks
-    assert (first.kind, first.color, first.location, first.section) == (
+    assert book.title == _SIX and book.authors == "Unknown"
+    kinds = [m.kind for m in book.marks]
+    assert kinds == [
+        "note",
         "highlight",
-        "yellow",
-        "12",
-        "Boiling",
+        "highlight",
+        "note",
+        "highlight",
+        "note",
+        "highlight",
+        "note",
+        "bookmark",
+        "highlight",
+    ]
+    first = book.marks[2]
+    assert (first.color, first.page, first.location, first.section) == (
+        "green",
+        "5",
+        None,
+        "1 Boiling",
     )
-    assert first.text.startswith("The whistle is a signal")
-    assert first.note == "Say what it reports."
-    assert (second.page, second.location, second.note) == ("2", "15", None)
-    assert (alone.kind, alone.text) == ("note", "A margin thought,\non two lines.")
-    assert mark.kind == "bookmark"
-    assert (last.section, last.color) == ("Cooling", "pink")
+    assert first.text == "The whistle is a signal, not a thought. It reports a state."
+    assert book.marks[7].text == "A margin thought,\non two lines."
+    last = book.marks[-1]
+    assert (last.section, last.color, last.location, last.page) == (
+        "2 Cooling",
+        "pink",
+        "30",
+        None,
+    )
+
+
+def test_a_note_is_shown_beside_the_highlight_at_its_place_before_or_after(tmp_path):
+    marks = kindle.parse(_export(tmp_path)).marks
+    title_note, kettle, whistle, reports, spout, which, way_out, margin = marks[:8]
+    # Listed before a short highlight, as the app lists it.
+    assert title_note.beside == [kettle]
+    # Listed after a long one.
+    assert reports.beside == [whistle]
+    # Between two highlights at its place, the export cannot say which.
+    assert which.beside == [spout, way_out]
+    # Alone on its page.
+    assert margin.beside == []
+
+
+def test_the_citation_the_app_adds_changes_no_mark(tmp_path):
+    plain = kindle.parse(_export(tmp_path))
+    cited = kindle.parse(
+        _export(
+            tmp_path,
+            citation="Citation (APA): Unknown. (2026). <i>A book</i>.",
+            name="Cited.html",
+        )
+    )
+    assert kindle.marks_digest(plain) == kindle.marks_digest(cited)
 
 
 def test_a_file_that_is_no_notebook_is_refused(tmp_path):
@@ -427,7 +535,7 @@ def test_a_file_that_is_no_notebook_is_refused(tmp_path):
 def test_an_entry_the_reader_cannot_read_stops_it(tmp_path):
     path = _export(tmp_path)
     path.write_text(
-        path.read_text().replace("Bookmark - Location 21", "Lesezeichen - Position 21")
+        path.read_text().replace("Bookmark -  Page 7", "Lesezeichen - Seite 7")
     )
     with pytest.raises(ValueError, match="an entry this cannot read"):
         kindle.parse(path)
@@ -481,6 +589,53 @@ def test_a_long_highlight_whose_middle_differs_is_found_near():
     assert kindle.locate(text, index) == "near docs/canon/boiling.qmd:1-5"
 
 
+def test_a_sentence_two_chapters_share_is_found_in_the_section_s_own():
+    index = _files(
+        ("docs/canon/boiling.qmd", _BOILING),
+        (
+            "docs/canon/cooling.qmd",
+            _COOLING + "The whistle is a signal, not a thought.\n",
+        ),
+    )
+    text = "The whistle is a signal, not a thought."
+    assert kindle.locate(text, index) == "docs/canon/boiling.qmd:6"
+    assert kindle.locate(text, index, "2 Cooling") == "docs/canon/cooling.qmd:4"
+
+
+def test_a_word_or_two_is_looked_for_in_its_chapter_alone():
+    index = _files(
+        ("docs/canon/boiling.qmd", _BOILING), ("docs/canon/cooling.qmd", _COOLING)
+    )
+    assert kindle.locate("whistle", index, "1 Boiling") == "docs/canon/boiling.qmd:6"
+    assert kindle.locate("spout", index, "1 Boiling") == (
+        "one of 2 places in docs/canon/boiling.qmd: lines 9, 11"
+    )
+    assert kindle.locate("kettle", index, "Front Matter") is None
+    assert kindle.locate("spout", index, "2 Cooling") is None
+
+
+def test_a_figure_s_caption_is_found_and_its_label_is_explained(book):
+    canon = book / "docs" / "canon"
+    (canon / "cooling.qmd").write_text(
+        _COOLING + "\n![The kettle at rest](illustrations/rest.svg){#fig-rest}\n"
+    )
+    marks = [
+        kindle.Mark("highlight", "", "2 Cooling", text="The kettle at rest"),
+        kindle.Mark("highlight", "", "2 Cooling", text="Figure"),
+        kindle.Mark("highlight", "", "Front Matter", text="Kettle"),
+    ]
+    kindle.place(marks, canon, None)
+    assert marks[0].source == "docs/canon/cooling.qmd:5"
+    assert (
+        marks[1].source
+        == "unlocated (a word or two its chapter does not contain, such as a figure's label)"
+    )
+    assert (
+        marks[2].source
+        == "unlocated (a word or two, in a section that names no chapter)"
+    )
+
+
 def test_text_revised_since_the_copy_is_found_in_the_copy_s_commit(book):
     commit = _git(book, "rev-parse", "HEAD")
     canon = book / "docs" / "canon"
@@ -512,24 +667,30 @@ def test_the_notes_are_archived_as_the_reader_s_marks(book, tmp_path, capsys):
     archive = book / "private" / "redpen" / "kindle-copy-06-2026-10-20.md"
     text = archive.read_text()
     assert "copy-commit:    " + _git(book, "rev-parse", "HEAD") in text
-    assert "anchors:        exact 2 / near 0 / changed since 0 / unlocated 1" in text
+    assert "notes:          4 (3 beside a highlight)" in text
+    assert (
+        "anchors:        exact 2 / near 0 / several places 1 / changed since 0 / unlocated 2"
+        in text
+    )
+    assert "### 1 Boiling" in text and "### Front Matter" in text
     assert (
         archive.with_suffix(".raw") / "Notebook.html"
     ).read_bytes() == export.read_bytes()
     # A reader of red-pen rounds takes each mark for one of the reader's turns.
     assert show.is_redpen_round(archive)
     turns = show.redpen_marks(archive)
-    assert len(turns) == 5
-    first, day = turns[0]
+    assert len(turns) == 10
+    note, day = turns[3]
     assert str(day) == "2026-10-20"
-    assert (
-        "-> docs/canon/boiling.qmd:6-7" in first
-        and "note: Say what it reports." in first
-    )
-    assert "A margin thought,\n    on two lines." in turns[2][0]
+    assert "note: Say what it reports." in note
+    assert "-> beside the highlight “The whistle is a signal, not a thought." in note
+    assert "(docs/canon/boiling.qmd:6-7)" in note
+    assert "-> between “spout”" in turns[5][0]
+    assert "-> beside no highlight; find it at page 7" in turns[7][0]
+    assert "A margin thought,\n    on two lines." in turns[7][0]
     event = _log()[-1]
-    assert event["event"] == "kindle-notes" and event["marks"] == 5
-    assert event["archive"] == str(archive)
+    assert event["event"] == "kindle-notes" and event["marks"] == 10
+    assert event["archive"] == str(archive) and len(event["marks_sha256"]) == 64
     assert "archived copy 6's notes" in capsys.readouterr().out
 
 
@@ -540,11 +701,25 @@ def test_notes_on_another_copy_are_never_archived_under_this_one(book, tmp_path)
         kindle.notes(_export(tmp_path), 5, dated="2026-10-20")
 
 
+def test_an_export_whose_marks_are_archived_is_not_archived_again(book, tmp_path):
+    _issue(book, 6, _SIX)
+    kindle.notes(_export(tmp_path), 6, dated="2026-10-20")
+    with pytest.raises(ValueError, match="is already archived"):
+        kindle.notes(_export(tmp_path), 6, dated="2026-10-21")
+    cited = _export(tmp_path, citation="Citation (APA): A book.", name="Cited.html")
+    with pytest.raises(ValueError, match="has the same marks as"):
+        kindle.notes(cited, 6, dated="2026-10-21")
+
+
 def test_an_archive_is_never_overwritten(book, tmp_path):
     _issue(book, 6, _SIX)
     kindle.notes(_export(tmp_path), 6, dated="2026-10-20")
+    later = _export(tmp_path, name="Later.html")
+    later.write_text(
+        later.read_text().replace("Say what it reports.", "Say it plainly.")
+    )
     with pytest.raises(ValueError, match="never overwritten"):
-        kindle.notes(_export(tmp_path), 6, dated="2026-10-20")
+        kindle.notes(later, 6, dated="2026-10-20")
 
 
 def test_archived_notes_let_the_copy_leave_the_devices(book, tmp_path):
@@ -556,6 +731,74 @@ def test_archived_notes_let_the_copy_leave_the_devices(book, tmp_path):
     )
     assert made["earlier"][0]["notes"] == "kept"
     assert made["earlier"][0]["may_leave_devices"] is True
+
+
+# --------------------------------------------------------------------------- #
+# the inbox
+# --------------------------------------------------------------------------- #
+@pytest.fixture
+def drive(book, tmp_path, monkeypatch):
+    """A shared folder that, like Google Drive, holds two files of one name."""
+    config = tmp_path / "xdg" / "quirework" / "config.toml"
+    config.write_text(
+        config.read_text().replace(
+            "[kindle]\n", '[kindle]\ninbox = "drive:Notebooks"\n'
+        )
+    )
+    files = {}
+
+    def rclone(args):
+        if args[0] == "lsjson":
+            assert args[1:] == ["--files-only", "drive:Notebooks"]
+            return json.dumps(
+                [{"ID": i, "Name": n, "ModTime": t} for i, (n, t, _) in files.items()]
+            )
+        if args[0] == "backend":
+            assert args[1:3] == ["copyid", "drive:"]
+            name, _, body = files[args[3]]
+            target = Path(args[4]) / name
+            target.parent.mkdir(parents=True, exist_ok=True)
+            target.write_bytes(body)
+            return ""
+        raise AssertionError(args)
+
+    monkeypatch.setattr(kindle, "_rclone", rclone)
+    return files
+
+
+def test_the_inbox_fetches_each_export_by_its_id_and_names_its_copy(
+    book, tmp_path, drive
+):
+    _issue(book, 6, _SIX)
+    plain = _export(tmp_path).read_bytes()
+    cited = _export(
+        tmp_path, citation="Citation (APA): A book.", name="c.html"
+    ).read_bytes()
+    drive["b"] = ("A Book - Notebook.html", "2026-10-16T16:29:35Z", cited)
+    drive["a"] = ("A Book - Notebook.html", "2026-10-16T16:27:12Z", plain)
+    drive["c"] = ("Screenshot.png", "2026-10-16T16:30:30Z", b"\x89PNG")
+    seen = kindle.inbox(tmp_path / "fetched")
+    first, second = seen["exports"]
+    assert Path(first["file"]).read_bytes() == plain
+    assert Path(second["file"]).read_bytes() == cited
+    assert first["copy"] == second["copy"] == 6 and first["archived"] is None
+    assert second["same_marks_as"] == first["file"]
+    assert seen["ignored"] == ["Screenshot.png"]
+    kindle.notes(Path(first["file"]), 6, dated="2026-10-16")
+    again = kindle.inbox(tmp_path / "again")
+    assert all(row["archived"] for row in again["exports"])
+
+
+def test_the_inbox_fetches_into_a_new_directory_only(book, tmp_path, drive):
+    (tmp_path / "used").mkdir()
+    (tmp_path / "used" / "old.html").write_text("")
+    with pytest.raises(ValueError, match="is not empty"):
+        kindle.inbox(tmp_path / "used")
+
+
+def test_without_an_inbox_the_command_says_where_to_name_one(book, tmp_path):
+    with pytest.raises(ValueError, match="set kindle.inbox in"):
+        kindle.inbox(tmp_path / "fetched")
 
 
 # --------------------------------------------------------------------------- #
@@ -580,6 +823,7 @@ def test_the_driver_ships_beside_the_command(capsys):
         (["notes", "missing.html", "--copy", "6"], "no such file"),
         (["plan", "--copy", "six"], "a copy's number"),
         (["plan", "--fast"], "unknown option --fast"),
+        (["inbox"], "fetches into a new directory"),
         (["forget"], "unknown command"),
     ],
 )
