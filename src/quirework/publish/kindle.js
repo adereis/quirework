@@ -148,10 +148,18 @@
     return out;
   }
 
+  // The listing's own `success` is false on every page, a full one included,
+  // so it says nothing about the read. A refused read never reaches here:
+  // the store answers it with a page or without the activity, and both stop
+  // in `mycdPost` or `current`. What a page does carry is `numberOfItems`,
+  // the count of the whole library, the same on every page; the documents
+  // the pages hand back must come to it, or the read missed some.
   async function library() {
     if (!state.devices.size) await devices();
     state.docs.clear();
     const shown = [];
+    const listed = new Set();
+    let declared = null;
     for (let start = 0; ; start += 25) {
       const result = await current("GetContentOwnershipData", {
         contentType: "KindlePDoc",
@@ -166,7 +174,9 @@
         },
         surfaceType: "LargeDesktop",
       });
+      if (declared === null) declared = result.numberOfItems;
       for (const item of result.items || []) {
+        listed.add(item.asin);
         const title = unescape(item.title);
         if (state.docs.has(title)) {
           if (state.docs.get(title).asin === item.asin) continue;
@@ -181,6 +191,12 @@
         });
       }
       if (!result.hasMoreItems) break;
+    }
+    if (typeof declared !== "number") {
+      fail("the library listing gave no count of its documents to check it against");
+    }
+    if (listed.size !== declared) {
+      fail(`the library holds ${declared} documents and the listing returned ${listed.size}; list it again`);
     }
     for (const entry of shown) {
       if (state.docs.get(entry.title).duplicate) entry.duplicate = true;
