@@ -369,12 +369,13 @@ One file belongs to you rather than to a project:
 `~/.config/quirework/config.toml`. It holds what every project on the
 machine shares: `provenance.home` (see [Provenance](#provenance)),
 `copies.log`, the file that numbers the proofs `publish copy` makes for
-one person and names whom each was for, and `kindle.targets` and
-`kindle.inbox`, the reading devices `publish kindle` delivers a copy to
-and the folder the Kindle app's notebooks are shared into. The log names
-people, so `publish copy` refuses one inside the project, where a commit
-could carry it. A key it does not read is refused, as in a project's
-file.
+one person and names whom each was for, `copies.author`, the name your
+own copies are made for, and `kindle.targets`, `kindle.reader_targets`
+and `kindle.inbox`, the reading devices `publish kindle` delivers a copy
+to and the folder the Kindle app's notebooks are shared into. The log
+names people, and so do `copies.author` and `kindle.reader_targets`, so
+`publish copy` refuses a log inside the project, where a commit could
+carry it. A key it does not read is refused, as in a project's file.
 
 `kindle.targets` is a list of rules, each choosing devices as the Kindle
 store lists them, by kind or by name:
@@ -389,6 +390,28 @@ A rule takes the most recently registered device it matches, so a new
 phone replaces the old one without an edit, unless it says
 `pick = "all"`. A rule that matches no device stops the plan rather than
 skip a device you expect the copy on.
+
+Two readers may share one library and one device, each reading a copy
+made for them. `kindle.reader_targets` gives a reader devices of their
+own, by the name their copies are made for, matched whatever its case or
+spacing; a copy for anyone it does not name goes where `kindle.targets`
+says:
+
+```toml
+[copies]
+author = "Me"
+
+[kindle.reader_targets]
+Ada = [{ kind = "Kindle Paperwhite" }]
+```
+
+A new copy replaces only an earlier copy made for the same reader, and
+another reader's copy stays where it is. `copies.author` says whose
+notes are yours: those made on a copy for that name are archived with
+your red-pen rounds, and those made on anyone else's are a reader's,
+kept where `publish.reader_notes` says. Without it,
+`publish kindle notes` refuses rather than guess, since a wrong guess
+files someone else's words as yours.
 
 `kindle.inbox` is an rclone path: a remote `rclone config` already
 knows, and a folder in it. The app names an export after the book, so
@@ -910,14 +933,23 @@ a trail can still be kept by hand and read as pointers.
 
 `provenance.redpen` names the archive of red-pen rounds that
 `publish redpen archive` writes: your marks on a rendered copy of the
-book, one file per round. `publish kindle notes` writes a Kindle copy's
-highlights and notes there too, one file per export. Declared, each
-round also reads as a session of your turns, one per mark, named
+book, one file per round. `publish kindle notes` writes the highlights
+and notes on your own Kindle copies there too, one file per export,
+holding only the marks no earlier export of that copy held. Declared,
+each round also reads as a session of your turns, one per mark, named
 `redpen-` and its file name, so `show`, the trail and its backfill reach
 words you typed on the page as well as in a conversation. A round
 records the day of each mark and no time of day, so a breadcrumb names
 the mark by its number. Nothing joins by default: the archive is
 private, and an undeclared one stays out.
+
+`publish.reader_notes` names where `publish kindle notes` keeps the
+highlights and notes made on a copy for anyone but you, as
+`copies.author` tells: another reader's feedback, one file per export,
+in the same form as your own rounds. It must lie outside
+`provenance.redpen`, and nothing reads it as a session, so a reader's
+words never count as yours in `show`, the trail or a blind cold-read. It
+has no default; a reader's notes are refused until it is declared.
 
 `provenance.rulings` names the archive of review-sheet rulings. A review
 sheet puts items to you (proposed edits, decisions, findings), and you

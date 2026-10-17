@@ -8,6 +8,7 @@ written by hand, malformed where the app's own export is.
 
 import hashlib
 import json
+import shutil
 import subprocess
 import zipfile
 from pathlib import Path
@@ -124,7 +125,7 @@ def book(tmp_path, monkeypatch):
     (home / "quirework").mkdir(parents=True)
     log = tmp_path / "logs" / "copies.jsonl"
     (home / "quirework" / "config.toml").write_text(
-        f'[copies]\nlog = "{log}"\n\n[kindle]\n'
+        f'[copies]\nlog = "{log}"\nauthor = "Ada Kettle"\n\n[kindle]\n'
         'targets = [{ kind = "Kindle for Android" }, { kind = "Kindle Paperwhite" }]\n'
     )
     monkeypatch.setenv("XDG_CONFIG_HOME", str(home))
@@ -137,13 +138,14 @@ def book(tmp_path, monkeypatch):
                 "quarto": "docs/_quarto.yml",
             },
             "provenance": {"redpen": "private/redpen"},
+            "publish": {"reader_notes": "private/readers"},
         },
     )
     with project_scope(project):
         yield root
 
 
-def _issue(root, number, title, stem=None):
+def _issue(root, number, title, stem=None, recipient="Ada Kettle"):
     """Log copy `number` as `publish copy` would, its EPUB in build/copies."""
     stem = stem or f"a-kettle-book_PROOF_copy-{number:02d}"
     path = root / "build" / "copies" / f"{stem}.epub"
@@ -155,7 +157,7 @@ def _issue(root, number, title, stem=None):
         {
             "copy": number,
             "event": "started",
-            "recipient": "Ada Kettle",
+            "recipient": recipient,
             "commit": commit,
         },
     )
@@ -310,6 +312,71 @@ def test_an_earlier_copy_keeps_its_devices_until_its_notes_are_dealt_with(
     assert made["unrecognized"] == ["A Recipe Card"]
     kindle.record("notes-waived", 5, reason="test highlights only")
     assert kindle.plan(snapshot=snapshot)["earlier"][0]["may_leave_devices"] is True
+
+
+_SEVEN = "A Kettle Book (uncorrected proof, copy 7)"
+_PAPERWHITE = {"name": "Ada's Paperwhite", "kind": "Kindle Paperwhite"}
+
+
+def _reader_targets(tmp_path, table):
+    config = tmp_path / "xdg" / "quirework" / "config.toml"
+    config.write_text(config.read_text() + f"\n[kindle.reader_targets]\n{table}\n")
+
+
+def test_another_reader_s_copy_stays_on_the_devices_they_share(book, tmp_path):
+    _issue(book, 5, _FIVE)
+    _issue(book, 6, _SIX, recipient="Bea Kettle")
+    _issue(book, 7, _SEVEN)
+    on = [_PAPERWHITE]
+    library = [
+        {"title": _FIVE, "devices": on},
+        {"title": _SIX, "devices": on},
+        {"title": _SEVEN, "devices": on},
+    ]
+    made = kindle.plan(snapshot=_snapshot(tmp_path, library))
+    assert made["copy"] == 7
+    assert [e["copy"] for e in made["earlier"]] == [5]
+    assert made["others"] == [{"copy": 6, "title": _SIX, "on": on}]
+    # From the other reader's side, the author's copies are the others.
+    theirs = kindle.plan(6, snapshot=_snapshot(tmp_path, library))
+    assert theirs["earlier"] == []
+    assert [e["copy"] for e in theirs["others"]] == [5, 7]
+
+
+def test_a_reader_with_devices_of_their_own_gets_only_those(book, tmp_path):
+    # The name is matched however the copy's maker spaced or cased it.
+    _reader_targets(tmp_path, '"bea kettle" = [{ kind = "Kindle Paperwhite" }]')
+    _issue(book, 6, _SIX, recipient="Bea  Kettle")
+    assert kindle.plan(snapshot=_snapshot(tmp_path, []))["deliver_to"] == [_PAPERWHITE]
+    _issue(book, 7, _SEVEN)
+    assert len(kindle.plan(snapshot=_snapshot(tmp_path, []))["deliver_to"]) == 2
+
+
+@pytest.mark.parametrize(
+    ("table", "says"),
+    [
+        ("Bea = []", "kindle.reader_targets.Bea in .* must be a list of rules"),
+        (
+            'Bea = [{ kind = "Kindle Paperwhite", colour = "white" }]',
+            "kindle.reader_targets.Bea has no field 'colour'",
+        ),
+        (
+            (
+                'Bea = [{ kind = "Kindle Paperwhite" }]\n'
+                '"BEA" = [{ kind = "Kindle for Android" }]'
+            ),
+            "names one reader twice",
+        ),
+    ],
+)
+def test_every_reader_s_device_rules_are_checked_whoever_the_copy_is_for(
+    book, tmp_path, table, says
+):
+    _reader_targets(tmp_path, table)
+    recipient = "Bea" if "twice" in says else "Ada Kettle"
+    _issue(book, 6, _SIX, recipient=recipient)
+    with pytest.raises(ValueError, match=says):
+        kindle.plan()
 
 
 def test_a_delivery_already_logged_is_not_asked_for_again(book, tmp_path):
@@ -741,6 +808,102 @@ def test_archived_notes_let_the_copy_leave_the_devices(book, tmp_path):
     )
     assert made["earlier"][0]["notes"] == "kept"
     assert made["earlier"][0]["may_leave_devices"] is True
+
+
+def test_a_reader_s_notes_are_kept_apart_from_the_author_s(book, tmp_path, capsys):
+    _issue(book, 6, _SIX, recipient="Bea Kettle")
+    assert kindle.notes(_export(tmp_path), 6, dated="2026-10-20") == 0
+    archive = book / "private" / "readers" / "kindle-copy-06-2026-10-20.md"
+    text = archive.read_text()
+    assert "marks-by:       a reader, not the author" in text
+    assert "kept apart" in text and "Bea" not in text
+    assert not (book / "private" / "redpen").exists()
+    assert _log()[-1]["by"] == "reader"
+    assert "a reader's, kept apart from the author's" in capsys.readouterr().out
+
+
+def test_a_reader_s_notes_never_join_the_author_s_red_pen_rounds(book, tmp_path):
+    _issue(book, 6, _SIX, recipient="Bea Kettle")
+    among = book / "private" / "redpen" / "kindle-copy-06.md"
+    with pytest.raises(ValueError, match="among the author's red-pen rounds"):
+        kindle.notes(_export(tmp_path), 6, out=among, dated="2026-10-20")
+    bare = Project.from_settings(
+        book,
+        {
+            "manuscript": {
+                "source": "docs",
+                "chapters": "docs/canon",
+                "quarto": "docs/_quarto.yml",
+            },
+            "provenance": {"redpen": "private/redpen"},
+        },
+    )
+    with project_scope(bare), pytest.raises(ValueError, match="publish.reader_notes"):
+        kindle.notes(_export(tmp_path), 6, dated="2026-10-20")
+
+
+def test_without_an_author_named_no_notes_are_archived(book, tmp_path):
+    config = tmp_path / "xdg" / "quirework" / "config.toml"
+    config.write_text(config.read_text().replace('author = "Ada Kettle"\n', ""))
+    _issue(book, 6, _SIX)
+    with pytest.raises(ValueError, match="set copies.author in"):
+        kindle.notes(_export(tmp_path), 6, dated="2026-10-20")
+
+
+_LATER = """\
+<div class="noteHeading">
+Note -  Page 9
+</div>
+<div class="noteText">
+Why this route?
+</div>
+"""
+_BOOKMARK = """\
+<div class="noteHeading">
+Bookmark -  Page 7
+</div>
+<div class="noteText">
+</div>
+"""
+
+
+def test_a_later_export_archives_only_the_marks_the_earlier_lacked(
+    book, tmp_path, capsys
+):
+    _issue(book, 6, _SIX)
+    kindle.notes(_export(tmp_path), 6, dated="2026-10-20")
+    later = _export(tmp_path, name="Later.html")
+    later.write_text(
+        later.read_text().replace("</div></body>", _LATER + "</div></body>")
+    )
+    kindle.notes(later, 6, dated="2026-10-24")
+    archive = book / "private" / "redpen" / "kindle-copy-06-2026-10-24.md"
+    text = archive.read_text()
+    assert "repeated:       10, archived in kindle-copy-06-2026-10-20.md" in text
+    assert "Why this route?" in text and "Say what it reports." not in text
+    assert "notes:          1 (0 beside a highlight)" in text
+    assert len(show.redpen_marks(archive)) == 1
+    event = _log()[-1]
+    assert event["marks"] == 1 and event["repeated"] == 10
+    assert "10 repeated from earlier rounds" in capsys.readouterr().out
+    # An export that only drops marks holds nothing to archive.
+    fewer = _export(tmp_path, name="Fewer.html")
+    fewer.write_text(fewer.read_text().replace(_BOOKMARK, ""))
+    with pytest.raises(ValueError, match="holds no mark that copy 6's earlier"):
+        kindle.notes(fewer, 6, dated="2026-10-25")
+
+
+def test_an_earlier_round_without_its_export_stops_a_later_one(book, tmp_path):
+    _issue(book, 6, _SIX)
+    kindle.notes(_export(tmp_path), 6, dated="2026-10-20")
+    raw = book / "private" / "redpen" / "kindle-copy-06-2026-10-20.raw"
+    shutil.rmtree(raw)
+    later = _export(tmp_path, name="Later.html")
+    later.write_text(
+        later.read_text().replace("</div></body>", _LATER + "</div></body>")
+    )
+    with pytest.raises(ValueError, match="keeps no single export"):
+        kindle.notes(later, 6, dated="2026-10-24")
 
 
 # --------------------------------------------------------------------------- #

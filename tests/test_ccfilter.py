@@ -239,6 +239,64 @@ def test_a_kindle_round_reaches_the_render_as_the_reader_s_marks(
     assert stats["human_turns"] == 1
 
 
+def _kindle_round(directory, name, copy, mark, by=None):
+    """A Kindle round named as the app names every export of one book."""
+    (directory / name).write_text(
+        f"# Kindle notes, copy {copy}\n\n```\n"
+        "source-export:  A Book (uncorrected proof - Notebook.html\n"
+        f"copy:           {copy}\n"
+        + (f"marks-by:       {by}\n" if by else "")
+        + "```\n\n## MARKS  (`quirework publish kindle notes`)\n\n"
+        f"[Kindle] 2026-10-20  (note, page 5)\n  note: {mark}\n",
+        encoding="utf-8",
+    )
+
+
+_NOTES = (
+    'quirework publish kindle notes "/tmp/in/03/A Book (uncorrected proof - '
+    'Notebook.html" --copy {copy}'
+)
+
+
+def _wrote(copy, where):
+    return f"kindle: archived copy {copy}'s notes -> {where}  (1 highlights)"
+
+
+def test_a_kindle_round_is_found_by_the_archive_its_command_wrote(redpen_archive):
+    _kindle_round(redpen_archive, "kindle-copy-07-2026-10-17.md", 7, "first part")
+    _kindle_round(redpen_archive, "kindle-copy-07-2026-10-24.md", 7, "second part")
+    path, text = ccfilter.redpen_marks(
+        _NOTES.format(copy=7), _wrote(7, "private/redpen/kindle-copy-07-2026-10-17.md")
+    )
+    assert path.endswith("kindle-copy-07-2026-10-17.md") and "first part" in text
+    # Without that report, two rounds of one copy share the export's name,
+    # and neither is guessed.
+    assert ccfilter.redpen_marks(_NOTES.format(copy=7)) is None
+
+
+def test_by_name_a_kindle_round_is_told_apart_by_its_copy(redpen_archive):
+    _kindle_round(redpen_archive, "kindle-copy-06-2026-10-16.md", 6, "on six")
+    _kindle_round(redpen_archive, "kindle-copy-07-2026-10-17.md", 7, "on seven")
+    _, text = ccfilter.redpen_marks(_NOTES.format(copy=7))
+    assert "on seven" in text and "on six" not in text
+
+
+def test_a_reader_s_notes_are_never_spliced_as_the_author_s(redpen_archive):
+    _kindle_round(redpen_archive, "kindle-copy-07-2026-10-17.md", 7, "the author's")
+    wrote = _wrote(8, "private/readers/kindle-copy-08-2026-10-20.md")
+    assert ccfilter.redpen_marks(_NOTES.format(copy=8), wrote) is None
+    # One that strayed among the author's rounds is still a reader's.
+    _kindle_round(
+        redpen_archive,
+        "kindle-copy-08-2026-10-20.md",
+        8,
+        "a reader's",
+        by="a reader, not the author",
+    )
+    assert ccfilter.redpen_marks(_NOTES.format(copy=8)) is None
+    assert ccfilter.redpen_marks(_NOTES.format(copy=8), wrote) is None
+
+
 def test_redpen_marks_splices_the_archive_stripped_and_blind(redpen_archive):
     hit = ccfilter.redpen_marks(
         'quirework book redpen read "~/Downloads/V9 - The-Book.docx"'

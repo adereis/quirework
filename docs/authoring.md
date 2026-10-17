@@ -182,16 +182,22 @@ notebook from the app into the folder `kindle.inbox` names,
 `publish kindle inbox` fetches what is there and says which copy each
 export is and whether its marks are already kept, and
 `publish kindle notes EXPORT --copy N` finds each highlight in the
-manuscript and archives the marks where `provenance.redpen` keeps
-red-pen rounds, where they read as the reader's own turns. A highlight
-is looked for in the chapter the export's section names, and in the
-copy's own commit where the text has changed since. The export never
-says which highlight a note was written on, so a note names the
-highlight listed beside it at its place, or the two it sits between. The
-plan lets an earlier copy leave the devices only once its notes were
-archived or declared not worth keeping. No command deletes a document
-from the library: deletion is permanent and takes the notes with it, so
-it stays with the reader.
+manuscript and archives the marks. Marks on a copy made for you, as
+`copies.author` names you, go where `provenance.redpen` keeps red-pen
+rounds, where they read as your own turns; marks on a copy made for
+anyone else are that reader's feedback, kept apart where
+`publish.reader_notes` says, so nothing reads them as yours. A copy
+still being read may be exported again, and a later export archives only
+the marks no earlier one of that copy held. A highlight is looked for in
+the chapter the export's section names, and in the copy's own commit
+where the text has changed since. The export never says which highlight
+a note was written on, so a note names the highlight listed beside it at
+its place, or the two it sits between. The plan lets an earlier copy
+leave the devices only once its notes were archived or declared not
+worth keeping, and only a newer copy for the same reader makes a copy
+earlier: two readers sharing a library or a device each keep their own.
+No command deletes a document from the library: deletion is permanent
+and takes the notes with it, so it stays with the reader.
 
 How precisely a mark is placed depends on what the export carries. A
 highlight carries its own words, so a highlight of a few words is found

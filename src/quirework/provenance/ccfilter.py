@@ -211,8 +211,14 @@ def redpen_directory():
 
 # A red-pen round is read from its reviewed `.docx`; a Kindle round from the
 # notebook the Kindle app exported, an `.html` file. Either way the command
-# names the file, and the archive names it back in its header.
+# names the file, and the archive names it back in its header. A Kindle
+# export's name is the book's title cut short, shared by every round of every
+# copy, so a Kindle round is found first by the archive the command reports
+# writing, and by name only when that report is not in the session.
 _REDPEN_CMD = re.compile(r"redpen\s+(?:read|notes|archive)\b|kindle\s+notes\b")
+_KINDLE_WROTE = re.compile(r"kindle: archived copy \d+'s notes -> (.+?\.md)\b")
+_COPY_ARG = re.compile(r"--copy[= ](\d+)\b")
+_COPY_KEY = re.compile(r"^copy:\s*(\d+)\s*$", re.M)
 _SOURCE_RE = re.compile(
     r'"([^"]+\.(?:docx|html?))"|\'([^\']+\.(?:docx|html?))\'|(\S+\.(?:docx|html?))\b'
 )
@@ -244,7 +250,7 @@ def redpen_index():
         for line in path.read_text(encoding="utf-8").splitlines():
             match = _SOURCE_KEY.match(line)
             if match:
-                idx[match.group(2)] = str(path)
+                idx.setdefault(match.group(2), []).append(str(path))
                 break
     return idx
 
@@ -259,28 +265,59 @@ def source_names(command):
     return out
 
 
-def redpen_marks(command):
+def redpen_marks(command, result=None):
     """``(artifact_path, blind_safe_text)`` for a red-pen command, or ``None``.
 
     The text is the author's marks with the extraction header and the byline
     removed, and the usual contamination redaction applied -- the review-notes
     blocks state the book's own authorship disclosures, which a blind analyst
     must not be handed.
+
+    ``result`` is the command's output. A Kindle round names there the
+    archive it wrote, which settles the round; an archive outside the red-pen
+    rounds is a reader's notes, never the author's, and splices nothing. A
+    round found by name instead must be the only one with that name (and,
+    when the command names a copy, of that copy): rounds of one copy share
+    an export's name, and a guess would put one round's marks in another's
+    session.
     """
+    wrote = _KINDLE_WROTE.search(result or "")
+    if wrote:
+        path = redpen_directory() / os.path.basename(wrote.group(1))
+        return _author_marks(str(path)) if path.is_file() else None
     idx = redpen_index()
+    copy = _COPY_ARG.search(command or "")
     for name in source_names(command):
-        path = idx.get(name)
-        if not path:
-            continue
-        try:
-            with open(path, encoding="utf-8") as fh:
-                body = fh.read()
-        except OSError:
-            return None
-        body = _HEADER_FENCE.sub("", body, count=1)
-        body = _BYLINE.sub("", body)
-        return path, redact(body.strip())
+        paths = idx.get(name, [])
+        if copy:
+            paths = [p for p in paths if _round_copy(p) in (None, copy.group(1))]
+        if len(paths) == 1:
+            return _author_marks(paths[0])
     return None
+
+
+def _round_copy(path):
+    try:
+        with open(path, encoding="utf-8") as fh:
+            match = _COPY_KEY.search(fh.read(4096))
+    except OSError:
+        return None
+    return match.group(1) if match else None
+
+
+def _author_marks(path):
+    try:
+        with open(path, encoding="utf-8") as fh:
+            body = fh.read()
+    except OSError:
+        return None
+    # A reader's notes are archived apart; one found here anyway is still
+    # not the author's.
+    if re.search(r"^marks-by:\s*a reader\b", body[:4096], re.M):
+        return None
+    body = _HEADER_FENCE.sub("", body, count=1)
+    body = _BYLINE.sub("", body)
+    return path, redact(body.strip())
 
 
 def round_header(path):
@@ -865,7 +902,7 @@ def filter_session(path):
                         if not job or b.get("is_error"):
                             continue
                         if job[0] == "redpen":
-                            hit = redpen_marks(job[1])
+                            hit = redpen_marks(job[1], _result_text(b))
                             if hit and hit[0] not in seen_rounds:
                                 seen_rounds.add(hit[0])
                                 recovered.append((round_header(hit[0]), hit[1]))

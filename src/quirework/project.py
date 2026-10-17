@@ -503,8 +503,8 @@ def private_tmp_parent() -> Path | None:
 # exported, while every program can read a file. Strict like a project's: a
 # misspelled key would otherwise leave its default in force without a word.
 USER_KEYS = {
-    "copies": frozenset({"log"}),
-    "kindle": frozenset({"inbox", "targets"}),
+    "copies": frozenset({"log", "author"}),
+    "kindle": frozenset({"inbox", "targets", "reader_targets"}),
     "provenance": frozenset({"home"}),
 }
 

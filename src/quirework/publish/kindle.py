@@ -39,6 +39,23 @@ The devices are chosen by rules in the per-user configuration,
 project: a rule names a kind of device as the store does ("Kindle for
 Android") or one device by name, and takes the most recently registered
 match unless it says `pick = "all"`.
+
+A copy is made for one reader, and the log says whom. Two readers may
+share a library and a device, each reading a copy of their own, so a
+copy replaces only an earlier copy made for the same reader, and another
+reader's copy is left where it is. A reader named in
+`kindle.reader_targets` gets devices of their own; every other reader's
+copy goes where `kindle.targets` says.
+
+The author's marks and a reader's are kept apart. The marks on a copy
+made for the name `copies.author` gives are the author's, archived with
+the red-pen rounds, where they read as the author's own turns. The marks
+on any other reader's copy are that reader's feedback, archived where
+`publish.reader_notes` says and never among the red-pen rounds, so
+nothing reads them as the author's. A copy still being read may have
+its notebook exported more than once, and each export repeats the marks
+of the one before, so a later round archives only the marks that no
+earlier round of the copy holds.
 """
 
 from __future__ import annotations
@@ -54,6 +71,7 @@ import sys
 import unicodedata
 import xml.etree.ElementTree as ET
 import zipfile
+from collections import Counter
 from dataclasses import dataclass, field
 from html.parser import HTMLParser
 from pathlib import Path
@@ -103,7 +121,11 @@ options:
 The devices come from `kindle.targets` in ~/.config/quirework/config.toml,
 a list of rules such as { kind = "Kindle for Android" } or { name = "..." }.
 Each takes the most recently registered match unless it says pick = "all".
+`kindle.reader_targets` there gives one reader's copies devices of their own.
 `kindle.inbox` there is the rclone path the app's exports are shared into.
+`copies.author` there names whom the author's own copies are made for; the
+notes on anyone else's copy are a reader's, archived apart from the red-pen
+rounds, where the project's `publish.reader_notes` says.
 No command deletes a document from the library: that is permanent, it takes
 the document's notes with it, and it is left to the reader.
 """
@@ -116,6 +138,7 @@ the document's notes with it, and it is left to the reader.
 class Copy:
     number: int
     commit: str | None = None
+    recipient: str | None = None
     files: list[dict] = field(default_factory=list)
     events: list[dict] = field(default_factory=list)
 
@@ -151,11 +174,25 @@ def copies() -> dict[int, Copy]:
         event = record.get("event")
         if event == "started":
             entry.commit = record.get("commit")
+            entry.recipient = record.get("recipient")
         elif event == "issued":
             entry.files = list(record.get("files") or [])
         elif isinstance(event, str) and event.startswith(PREFIX):
             entry.events.append(record)
     return {n: c for n, c in found.items() if c.files}
+
+
+def same_reader(a: str | None, b: str | None) -> bool:
+    """Whether two names a copy was made for are one reader's.
+
+    `publish copy` keeps the name as it was typed, so the same reader may
+    be logged as "Ada" and "ada"; spacing and case do not make two readers.
+    """
+
+    def key(name):
+        return " ".join(name.split()).casefold() if name else None
+
+    return key(a) == key(b)
 
 
 def _copy_file(entry: Copy) -> Path:
@@ -236,30 +273,58 @@ def known_titles(entry: Copy) -> set[str]:
 # --------------------------------------------------------------------------- #
 # choosing the devices
 # --------------------------------------------------------------------------- #
-def targets() -> list[dict]:
-    """The device rules in the per-user configuration, checked."""
-    rules = user_settings().get("kindle", {}).get("targets")
+def _checked(rules, label: str) -> list[dict]:
+    """One list of device rules, refused unless every rule can be used."""
+    if not isinstance(rules, list) or not rules:
+        raise ValueError(f"{label} in {user_config_path()} must be a list of rules")
+    for rule in rules:
+        if not isinstance(rule, dict) or not {"name", "kind"} & set(rule):
+            raise ValueError(f"each rule in {label} names a kind or a name: {rule!r}")
+        unknown = set(rule) - {"name", "kind", "pick"}
+        if unknown:
+            raise ValueError(f"{label} has no field {sorted(unknown)[0]!r}")
+        if rule.get("pick", "latest") not in ("latest", "all"):
+            raise ValueError(
+                f'pick is "latest" or "all" in {label}, not {rule["pick"]!r}'
+            )
+    return rules
+
+
+def targets(recipient: str | None = None) -> list[dict]:
+    """The device rules for a copy made for `recipient`, checked.
+
+    A reader `kindle.reader_targets` names gets those devices, and every
+    other reader the ones `kindle.targets` chooses. Every reader's rules
+    are checked whoever the copy is for, so a mistyped rule stops the plan
+    before it misdirects anyone's copy.
+    """
+    kindle = user_settings().get("kindle", {})
     where = user_config_path()
+    own = kindle.get("reader_targets", {})
+    if not isinstance(own, dict):
+        raise ValueError(
+            f"kindle.reader_targets in {where} is a table of readers, each "
+            'with a list of rules, for example Ada = [{ kind = "Kindle Paperwhite" }]'
+        )
+    checked = {
+        name: _checked(rules, f"kindle.reader_targets.{name}")
+        for name, rules in own.items()
+    }
+    chosen = [rules for name, rules in checked.items() if same_reader(name, recipient)]
+    if len(chosen) > 1:
+        raise ValueError(
+            f"kindle.reader_targets in {where} names one reader twice, in "
+            "different spelling or case"
+        )
+    if chosen:
+        return chosen[0]
+    rules = kindle.get("targets")
     if rules is None:
         raise ValueError(
             f"set kindle.targets in {where} to the reading devices a copy goes "
             'to, for example [{ kind = "Kindle for Android" }]'
         )
-    if not isinstance(rules, list) or not rules:
-        raise ValueError(f"kindle.targets in {where} must be a list of rules")
-    for rule in rules:
-        if not isinstance(rule, dict) or not {"name", "kind"} & set(rule):
-            raise ValueError(
-                f"each rule in kindle.targets names a kind or a name: {rule!r}"
-            )
-        unknown = set(rule) - {"name", "kind", "pick"}
-        if unknown:
-            raise ValueError(f"kindle.targets has no field {sorted(unknown)[0]!r}")
-        if rule.get("pick", "latest") not in ("latest", "all"):
-            raise ValueError(
-                f'pick is "latest" or "all" in kindle.targets, not {rule["pick"]!r}'
-            )
-    return rules
+    return _checked(rules, "kindle.targets")
 
 
 def resolve(rules: list[dict], devices: list[dict]) -> list[dict]:
@@ -345,7 +410,7 @@ def plan(number: int | None = None, snapshot: Path | None = None) -> dict:
         "author": author,
         "notes_on_this_copy": entry.notes,
     }
-    rules = targets()
+    rules = targets(entry.recipient)
     if snapshot is None:
         result["targets"] = rules
         return result
@@ -354,7 +419,7 @@ def plan(number: int | None = None, snapshot: Path | None = None) -> dict:
     deliver_to = resolve(rules, data["devices"])
     mine = comparable(title)
     titled = {n: known_titles(c) for n, c in found.items()}
-    in_library, earlier, unrecognized = None, [], []
+    in_library, earlier, others, unrecognized = None, [], [], []
     for doc in data["library"]:
         name = doc.get("title") or ""
         key = comparable(name)
@@ -367,6 +432,11 @@ def plan(number: int | None = None, snapshot: Path | None = None) -> dict:
         owner = next((n for n, names in titled.items() if key in names), None)
         if owner is None:
             unrecognized.append(name)
+            continue
+        if not same_reader(found[owner].recipient, entry.recipient):
+            # Another reader's copy, on a device the two may share, is
+            # replaced only by a newer copy of their own.
+            others.append({"copy": owner, "title": name, "on": holders})
             continue
         notes = found[owner].notes
         earlier.append(
@@ -395,6 +465,7 @@ def plan(number: int | None = None, snapshot: Path | None = None) -> dict:
         d for d in deliver_to if d not in holding and d["name"] not in asked
     ]
     result["earlier"] = sorted(earlier, key=lambda e: e["copy"])
+    result["others"] = sorted(others, key=lambda e: e["copy"])
     result["unrecognized"] = unrecognized
     return result
 
@@ -879,6 +950,64 @@ def _archive_dir() -> Path:
     return project.path("provenance.redpen")
 
 
+def _reader_dir() -> Path:
+    project = current_project()
+    if project.get("publish.reader_notes") is None:
+        raise ValueError(
+            "the project declares no publish.reader_notes to keep a reader's "
+            "notes in, apart from the author's red-pen rounds"
+        )
+    return project.path("publish.reader_notes")
+
+
+def _author() -> str:
+    """Whom the author's own copies are made for, as `copies.author` says."""
+    author = user_settings().get("copies", {}).get("author")
+    if not isinstance(author, str) or not author.strip():
+        raise ValueError(
+            f"set copies.author in {user_config_path()} to the name the author's "
+            "own copies are made for (publish copy --for NAME), so that no "
+            "reader's notes are archived as the author's"
+        )
+    return author
+
+
+def _among_red_pen(path: Path) -> bool:
+    project = current_project()
+    if project.get("provenance.redpen") is None:
+        return False
+    return path.resolve().is_relative_to(project.path("provenance.redpen").resolve())
+
+
+def _rows(marks: list[Mark]) -> list[tuple]:
+    """What makes two marks one: the fields `marks_digest` fingerprints."""
+    return [(m.kind, m.color, m.page, m.location, m.section, m.text) for m in marks]
+
+
+def _earlier_rounds(entry: Copy) -> list[tuple[Path, Counter]]:
+    """Each round already archived from this copy, with the marks it held.
+
+    A round is compared through the export its archive keeps verbatim, not
+    through the archive's own rendering, which leaves out marks that an
+    earlier round of its own had.
+    """
+    rounds = []
+    for event in entry.events:
+        if event["event"] != PREFIX + "notes":
+            continue
+        archive = Path(event.get("archive") or "")
+        raw = archive.with_suffix(".raw")
+        kept = sorted(raw.glob("*.htm*")) if raw.is_dir() else []
+        if len(kept) != 1:
+            raise ValueError(
+                f"copy {entry.number}'s round {archive.name} keeps no single "
+                f"export in {raw}, and that export is what tells a mark it "
+                "already archived from a new one"
+            )
+        rounds.append((archive, Counter(_rows(parse(kept[0]).marks))))
+    return rounds
+
+
 def notes(
     export: Path, number: int, out: Path | None = None, dated: str | None = None
 ) -> int:
@@ -886,6 +1015,7 @@ def notes(
     if number not in found:
         raise ValueError(f"the log of copies holds no copy {number}")
     entry = found[number]
+    own = same_reader(entry.recipient, _author())
     digest = hashlib.sha256(export.read_bytes()).hexdigest()
     book = parse(export)
     same = marks_digest(book)
@@ -898,36 +1028,88 @@ def notes(
             f"{export.name} is the notebook of {book.title!r}, which is not copy "
             f"{number}; read it against the copy it was made on"
         )
+    # A later export of a copy still being read holds every mark the earlier
+    # ones did. Those are archived already, and archived again they would
+    # read as marks made twice; the most any one round held is what is kept.
+    rounds = _earlier_rounds(entry)
+    left = Counter()
+    for _, held in rounds:
+        left |= held
+    new = []
+    for mark, row in zip(book.marks, _rows(book.marks)):
+        if left[row]:
+            left[row] -= 1
+        else:
+            new.append(mark)
+    repeated = len(book.marks) - len(new)
+    earlier = ", ".join(archive.name for archive, _ in rounds)
+    if not new:
+        raise ValueError(
+            f"{export.name} holds no mark that copy {number}'s earlier rounds "
+            f"({earlier}) do not"
+        )
     day = dated or dt.date.fromtimestamp(export.stat().st_mtime).isoformat()
     dt.date.fromisoformat(day)
     chapters = current_project().path("manuscript.chapters")
+    # Every mark is placed, a repeated one too: a new note may sit beside a
+    # highlight an earlier round archived, and it names that highlight's line.
     place(book.marks, chapters, entry.commit)
 
-    out = out or _archive_dir() / f"kindle-copy-{number:02d}-{day}.md"
+    out = out or (_archive_dir() if own else _reader_dir()) / (
+        f"kindle-copy-{number:02d}-{day}.md"
+    )
+    if not own and _among_red_pen(out):
+        raise ValueError(
+            f"{out} is among the author's red-pen rounds, where copy {number}'s "
+            "notes would read as the author's own; they are a reader's, kept "
+            "where publish.reader_notes says"
+        )
     if out.exists():
         raise ValueError(f"{out} already exists; an archive is never overwritten")
-    tally = _anchor_tally(book.marks)
+    tally = _anchor_tally(new)
     anchors = " / ".join(f"{k} {v}" for k, v in tally.items())
     counts = {
-        k: sum(1 for m in book.marks if m.kind == k)
-        for k in ("highlight", "note", "bookmark")
+        k: sum(1 for m in new if m.kind == k) for k in ("highlight", "note", "bookmark")
     }
-    placed = sum(1 for m in book.marks if m.kind == "note" and m.beside)
+    placed = sum(1 for m in new if m.kind == "note" and m.beside)
+    whose = (
+        [
+            "Durable archive of the highlights and notes the reader made on one",
+            "Kindle copy, read from the notebook the Kindle app exported and mapped",
+            "against the manuscript.",
+        ]
+        if own
+        else [
+            "Durable archive of the highlights and notes a reader other than the",
+            "author made on one Kindle copy: that reader's feedback, kept apart",
+            "from the author's red-pen rounds so that nothing reads it as the",
+            "author's own. It is read from the notebook the Kindle app exported",
+            "and mapped against the manuscript.",
+        ]
+    )
     head = [
         f"# Kindle notes, copy {number}",
         "",
-        "Durable archive of the highlights and notes the reader made on one",
-        "Kindle copy, read from the notebook the Kindle app exported and mapped",
-        "against the manuscript. The export itself is kept verbatim in the",
-        "sibling `.raw/` directory. The export never says which highlight a",
-        "note was written on, so a note names the highlight listed beside it",
-        "at the same place, or the two it sits between.",
+        *whose,
+        "The export itself is kept verbatim in the sibling `.raw/` directory.",
+        "The export never says which highlight a note was written on, so a",
+        "note names the highlight listed beside it at the same place, or the",
+        "two it sits between.",
+        *(
+            [
+                "Marks an earlier round of this copy archived are not repeated",
+                "here, though the export in `.raw/` still holds them.",
+            ]
+            if repeated
+            else []
+        ),
         "",
         "```",
         f"source-export:  {export.name}",
         f"export-sha256:  {digest}",
         f"copy:           {number}",
         f"copy-commit:    {entry.commit or '?'}",
+        f"marks-by:       {'the author' if own else 'a reader, not the author'}",
         f"marks-dated:    {day} (the day exported; the app records no earlier date)",
         f"extracted:      {dt.date.today():%Y-%m-%d}",
         f"book revision:  {_redpen._git_short()}",
@@ -935,6 +1117,7 @@ def notes(
         f"notes:          {counts['note']} ({placed} beside a highlight)",
         f"bookmarks:      {counts['bookmark']}",
         f"anchors:        {anchors}",
+        *([f"repeated:       {repeated}, archived in {earlier}"] if repeated else []),
         "```",
         "",
         "## MARKS  (`quirework publish kindle notes`)",
@@ -943,7 +1126,7 @@ def notes(
     # as the reader saw them; each mark names its file and line.
     body: list[str] = []
     section = None
-    for mark in book.marks:
+    for mark in new:
         if mark.section != section:
             body.append(f"### {mark.section or '(before any section)'}")
             section = mark.section
@@ -963,7 +1146,9 @@ def notes(
             "archive": str(out),
             "export_sha256": digest,
             "marks_sha256": same,
-            "marks": len(book.marks),
+            "marks": len(new),
+            "repeated": repeated,
+            "by": "author" if own else "reader",
             "at": _proof._now(),
         },
     )
@@ -971,10 +1156,20 @@ def notes(
         shown = out.relative_to(current_project().root)
     except ValueError:
         shown = out
+    # The line names the archive it wrote, which is how a reading of this
+    # session finds the round: an export's name is the book's title cut
+    # short, the same for every round of every copy.
     print(
-        f"kindle: archived copy {number}'s notes -> {shown}  "
-        f"({counts['highlight']} highlights, {counts['note']} notes, "
-        f"{placed} beside a highlight; anchors {anchors})"
+        f"kindle: archived copy {number}'s notes -> {shown}  ("
+        + ("" if own else "a reader's, kept apart from the author's; ")
+        + f"{counts['highlight']} highlights, {counts['note']} notes, "
+        f"{placed} beside a highlight; anchors {anchors}"
+        + (
+            f"; {repeated} repeated from earlier rounds, not archived again"
+            if repeated
+            else ""
+        )
+        + ")"
     )
     return 0
 

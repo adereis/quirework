@@ -109,6 +109,9 @@ SETTINGS: tuple[str, ...] = (
     "providers.codex.catalog",
     "providers.isolation_policy",
     *(f"publish.{key}" for key in _PUBLISH),
+    # Where a reader's Kindle notes are kept; one place for the whole
+    # project, so no publish target overlays it.
+    "publish.reader_notes",
     "publish.targets.*.copy",
     "publish.targets.*.needs",
     *(f"publish.targets.*.{key}" for key in _PUBLISH),
