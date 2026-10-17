@@ -290,7 +290,40 @@ def _consume_frontmatter(lines: list[str], out: list[str]) -> list[str]:
     return lines
 
 
-_FENCE_RE = re.compile(r"^\s*(```|~~~)")
+_FENCE_OPEN = re.compile(r"^\s*(`{3,}|~{3,})")
+
+
+class _Fences:
+    """Whether a line is in fenced code, decided as CommonMark decides it.
+
+    A fence opens on three or more backticks or tildes and closes only on a
+    run of the same character at least as long, with nothing after it but
+    space. A fence quoted inside a longer one is therefore text, not a close:
+    toggling on every fence-like line lost track there and reflowed the code
+    that followed as prose.
+    """
+
+    def __init__(self):
+        self.open = None  # (character, length) of the open fence
+
+    def step(self, line):
+        """Whether ``line`` opens or closes a fence, updating the state."""
+        found = _FENCE_OPEN.match(line)
+        if not found:
+            return False
+        run = found.group(1)
+        if self.open is None:
+            self.open = (run[0], len(run))
+            return True
+        char, length = self.open
+        if run[0] == char and len(run) >= length and not line[found.end() :].strip():
+            self.open = None
+            return True
+        return False
+
+    @property
+    def inside(self):
+        return self.open is not None
 
 
 def _find_open(s: str) -> int:
@@ -325,14 +358,13 @@ def _split_comment_lines(lines: list[str]) -> list[str]:
     untouched, and an unterminated `<!--` keeps the rest of the input verbatim.
     """
     out: list[str] = []
-    in_fence = False
+    fences = _Fences()
     in_comment = False
     for line in lines:
-        if _FENCE_RE.match(line):
-            in_fence = not in_fence
+        if fences.step(line):
             out.append(line)
             continue
-        if in_fence or not line.strip():
+        if fences.inside or not line.strip():
             out.append(line)
             continue
 
@@ -367,8 +399,7 @@ def rewrap(text: str) -> str:
     lines = text.split("\n")
     out: list[str] = []
     para: list[str] = []
-    in_fence = False
-    fence_re = _FENCE_RE
+    fences = _Fences()
     in_comment = False
     comment_acc: list[str] = []
 
@@ -397,12 +428,11 @@ def rewrap(text: str) -> str:
 
     for line in lines:
         # Fenced code blocks: copy verbatim.
-        if fence_re.match(line):
+        if fences.step(line):
             flush()
-            in_fence = not in_fence
             out.append(line)
             continue
-        if in_fence:
+        if fences.inside:
             out.append(line)
             continue
 
@@ -590,22 +620,20 @@ def reflow_columns(text: str, width: int = DEFAULT_WIDTH) -> str:
         cont_prefix = ""
         in_list = False
 
-    in_fence = False
-    fence_re = _FENCE_RE
+    fences = _Fences()
     in_comment = False
     comment_acc: list[str] = []
 
     lines = _split_comment_lines(_consume_frontmatter(lines, out))
 
     for line in lines:
-        if fence_re.match(line):
+        if fences.step(line):
             flush()
             if not line[:1].isspace():  # a column-0 fence ends any list
                 list_indent = ""
-            in_fence = not in_fence
             out.append(line)
             continue
-        if in_fence:
+        if fences.inside:
             out.append(line)
             continue
 

@@ -28,6 +28,22 @@ def test_fenced_code_is_verbatim():
     assert mdwrap.rewrap(src) == src
 
 
+def test_a_fence_quoted_inside_a_longer_one_does_not_close_it():
+    """CommonMark closes a fence only on the same character, at least as long.
+
+    A shorter fence inside is text. Toggling on every fence-like line closed the
+    block there and reflowed the code after it, and everything after that.
+    """
+    code = "````\n```text\nit cools.\nslowly.\n```\n````"
+    tail = "```\nkeep. these. lines.\n```"
+    src = f"{code}\n\n{tail}\n\nA paragraph that is plain prose. It reflows."
+    assert mdwrap.rewrap(src).startswith(f"{code}\n\n{tail}\n")
+    columns = mdwrap.reflow_columns(src)
+    assert columns.startswith(f"{code}\n\n{tail}\n")
+    tilde = "~~~\n```\nnot a close.\nstill code.\n~~~"
+    assert mdwrap.reflow_columns(tilde) == tilde, "a backtick run cannot close tildes"
+
+
 def test_html_comment_is_verbatim_if_not_annotation():
     # standard HTML comments (like the _map.md header) survive a rewrap intact
     src = "<!-- this is a long standard comment that should not be wrapped at all even if it is very very very long -->"
