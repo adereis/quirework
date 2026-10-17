@@ -89,6 +89,19 @@ _SHAPES = {
     "TYPED": "typed",
 }
 
+# A review-sheet ruling is read like a session too, and its parts need the
+# same telling: which words the author wrote and which were written for them.
+RULINGS_NOTE = """
+This is not a conversation. It is a review sheet's ruling: items an agent put
+to the author (a proposed edit, a decision between options, a finding), and
+the author's ruling on each, one item per turn. The reply above a turn is what
+the sheet presented, written by an agent. A turn opens with the item's label
+and the option the author chose; that option's wording was written for the
+author to choose, not by the author. Only a comment after it, and the closing
+notes, are the author's own words. A choice still shows what the author
+accepted or refused.
+"""
+
 # A red-pen round is read like a session, but it is not a conversation, and
 # the reader is told what its parts are before it reads one.
 REDPEN_NOTE = """
@@ -406,6 +419,8 @@ def packet(sid, family, path, span=None):
         ]
     if family == "redpen":
         lines += ["", REDPEN_NOTE.strip(), *held_note]
+    if family == "rulings":
+        lines += ["", RULINGS_NOTE.strip()]
     for number, logged, text, reply in rows:
         shape = _SHAPES.get(humaninput.classify(text), "typed")
         lines += [

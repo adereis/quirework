@@ -100,6 +100,7 @@ PROVENANCE_KEYS = frozenset(
         "metrics_policy",
         "human_input",
         "redpen",
+        "rulings",
         "redaction_policy",
         "redaction_markers",
         "rendered",

@@ -25,8 +25,9 @@ user's home, or in the web conversation, with or without Quirework. The
 author's turn number is derived from it on every read. The number is
 Quirework's own count, and it would move if the wrapper filter learned to drop
 one more kind of harness message. A pre-rendered Gemini review logs no times,
-and a red-pen round records only the day of each mark, so there, and only
-there, the breadcrumb names the turn.
+a red-pen round records only the day of each mark, and a review-sheet ruling
+records one time for all its items, so there, and only there, the breadcrumb
+names the turn.
 
 The note is the agent's reading of the turn. The excerpt is optional: a
 highlight for a long turn whose relevant words would otherwise be buried, and
@@ -85,12 +86,14 @@ HARNESSES = {
     "claude.ai": "web",
     "gemini": "gemini",
     "redpen": "redpen",
+    "rulings": "rulings",
 }
 _HARNESS_OF = {family: name for name, family in HARNESSES.items()}
 # Sources that log no time for a turn, so a breadcrumb names the turn: a
-# pre-rendered Gemini review, and a red-pen round, whose marks carry a day.
-_TIMELESS = {"gemini", "redpen"}
-_NAMED = ("gemini-", "redpen-")
+# pre-rendered Gemini review; a red-pen round, whose marks carry a day; and a
+# review-sheet ruling, whose items share the one time it was marked final.
+_TIMELESS = {"gemini", "redpen", "rulings"}
+_NAMED = ("gemini-", "redpen-", "rulings-")
 
 _STAMP = re.compile(r"\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.(\d{1,6}))?Z")
 _SESSION = re.compile(r"[A-Za-z0-9][\w.-]*")
@@ -387,9 +390,9 @@ def _banner():
 def _days(crumbs):
     """``{session: day}`` for each breadcrumb that points by turn, not by time.
 
-    A red-pen round and a Gemini review log no times but record their date,
-    so their breadcrumbs take their place in the story by that day, as the
-    backfill worklist places them. Without provenance, or for a session the
+    A red-pen round, a review-sheet ruling and a Gemini review log no times
+    per turn but record their date, so their breadcrumbs take their place in
+    the story by that day, as the backfill worklist places them. Without provenance, or for a session the
     corpus does not hold, a breadcrumb stays undated.
     """
     wanted = {c.session for c in crumbs if c.instant is None}

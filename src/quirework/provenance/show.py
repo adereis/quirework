@@ -24,8 +24,11 @@ pending captures included, so a session can be read before it is accepted; the
 source line says when it has not been:
 local CLI sessions (Claude Code, Antigravity, and Codex), claude.ai
 ``*.raw.json`` web dialogues, the already-rendered ``gemini-*.md`` reviews,
-and, where ``provenance.redpen`` declares the archive, red-pen rounds, read as
-the author's marks one turn each and named ``redpen-`` plus the file's name.
+where ``provenance.redpen`` declares the archive, red-pen rounds, read as
+the author's marks one turn each and named ``redpen-`` plus the file's name,
+and, where ``provenance.rulings`` declares one, review-sheet rulings, read as
+the author's ruling on each item one turn each, with what the sheet presented
+as the text the turn answered, and named ``rulings-`` plus the file's name.
 
 Every turn carries the timestamp the raw log recorded for it (already present in
 the stored transcripts — cc ``timestamp``, agy/web ``created_at`` — so nothing
@@ -79,6 +82,7 @@ from pathlib import Path
 
 from quirework.project import current_project
 from quirework.provenance import ccfilter as FLT
+from quirework.provenance import rulings as RULINGS
 from quirework.provenance import store
 from quirework.provenance import codexfilter as CODEX_FLT
 from quirework.provenance import catalog as CAT
@@ -409,6 +413,11 @@ def exchanges(kind, path):
         return [
             (n, None, text, "") for n, (text, _) in enumerate(redpen_marks(path), 1)
         ]
+    if kind == "rulings":
+        return [
+            (n, None, text, presented)
+            for n, (text, presented) in enumerate(RULINGS.read(path).turns(), 1)
+        ]
     if kind == "gemini":
         lines = Path(path).read_text(encoding="utf-8", errors="replace").splitlines()
         starts = [i for i, line in enumerate(lines) if _GEMINI_SPEAKER.match(line)]
@@ -480,6 +489,9 @@ def _candidates(idarg):
             redpen = _redpen_directory()
             if redpen and p.resolve().parent == redpen.resolve():
                 return [("redpen", p)]
+            rulings = RULINGS.directory()
+            if rulings and p.resolve().parent == rulings.resolve():
+                return [("rulings", p)]
             return [("gemini", p)]
     return [
         (kind, path)
@@ -519,6 +531,7 @@ def sessions(pending=False):
         found += [
             ("redpen", f) for f in sorted(redpen.glob("*.md")) if is_redpen_round(f)
         ]
+    found += [("rulings", f) for f in RULINGS.rounds()]
     return found
 
 
@@ -541,14 +554,17 @@ def session_id(kind, path):
     """The full id a session is known by: its file name without the suffix.
 
     A red-pen round is named for its archive file with a ``redpen-`` prefix,
-    as a gemini review's file already carries ``gemini-``, so the id says
-    what it names wherever it is printed.
+    and a review-sheet ruling with ``rulings-``, as a gemini review's file
+    already carries ``gemini-``, so the id says what it names wherever it is
+    printed.
     """
     name = Path(path).name
     if kind == "web":
         return name[: -len(".raw.json")]
     if kind == "redpen":
         return REDPEN_PREFIX + Path(path).stem
+    if kind == "rulings":
+        return RULINGS.session_id(path)
     return Path(path).stem
 
 
@@ -601,6 +617,14 @@ def _header(kind, path):
             _redpen_title(path),
             day.isoformat() if day else "?",
             "red-pen round",
+        )
+    if kind == "rulings":
+        day = session_date(kind, path)
+        return (
+            session_id(kind, path),
+            RULINGS.read(path).title,
+            day.isoformat() if day else "?",
+            "review-sheet ruling",
         )
     meta = (
         CAT._web_scan(path)
@@ -662,6 +686,8 @@ def session_date(kind, path):
     if kind == "redpen":
         days = [day for _, day in redpen_marks(path) if day]
         return min(days) if days else None
+    if kind == "rulings":
+        return RULINGS.read(path).day()
     if kind == "gemini":
         written = CAT._web_scan(Path(path)).get("date") or ""
         try:
@@ -965,6 +991,38 @@ def render(
                 if first <= n <= last:
                     stamp = f" · {day.isoformat()}" if day else ""
                     lines += [f"## {ROLE_LABEL['human']} {n}{stamp}", "", text, ""]
+        return "\n".join(lines).rstrip() + "\n"
+
+    if kind == "rulings":
+        if frm or to:
+            raise LookupError(
+                "--from/--to need per-turn timestamps; a review-sheet ruling "
+                "records one time, when it was marked final"
+            )
+        ruling = RULINGS.read(path)
+        rows = exchanges(kind, path)
+        first, last = _turn_range(turn, len(rows)) if turn else (1, len(rows))
+        head = f"# {sid} — {title}  ({date})" + (f" · {scope}" if turn else "")
+        moment = ruling.instant()
+        ruled = (
+            f"ruled {_local(moment, timezone.utc if utc else None):%Y-%m-%d %H:%M %Z}"
+            if moment
+            else "ruled at an unrecorded time"
+        )
+        lines = [head, f"{model} · {ruled} · {len(rows)} turns", _source(path), ""]
+        labels = [item.label for item in ruling.items] + ["notes"]
+        for n, _logged, text, presented in rows:
+            if not first <= n <= last:
+                continue
+            if presented and role in ("all", "assistant"):
+                lines += [f"## Sheet · {labels[n - 1]}", "", presented, ""]
+            if role in ("all", "human"):
+                lines += [
+                    f"## {ROLE_LABEL['human']} {n} · {labels[n - 1]}",
+                    "",
+                    text,
+                    "",
+                ]
         return "\n".join(lines).rstrip() + "\n"
 
     # Each turn carries the number of the author's latest turn at or before

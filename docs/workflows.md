@@ -48,16 +48,20 @@ A spec trail records where that center came from. It is kept in two
 ways, and they are separate tasks. While the spec is being edited, the
 companion that heard the author adds a breadcrumb for each turn that
 changed a section, because it is the one reader that knows which words
-did it. Backfill is the other task: walking a spec that grew before it
-had a trail and deciding which turns shaped each section. For a small
-corpus that is `spec trail suggest SLUG` and provenance search, section
-by section. For a large one, `spec trail backfill` has cheap readers
-flag every session once and leaves the decision, section by section, to
-a strong model. That decision needs the judgment of a strong model, so a
-project gives backfill a procedure of its own. Capturing and curating
-sessions is different work, mechanical enough for a small model, and a
-project's ingest procedure may name backfill as a follow-up without ever
-running it.
+did it. A ruling made on a review sheet is one of those turns too, once
+`quirework provenance rulings archive` has kept it: the breadcrumb then
+points at the item, as `--session rulings-NAME --turn N` or by words
+from the author's comment. Backfill is the other task: walking a spec
+that grew before it had a trail and deciding which turns shaped each
+section. For a small corpus that is `spec trail suggest SLUG` and
+provenance search, section by section. For a large one,
+`spec trail backfill` has cheap readers flag every session once and
+leaves the decision, section by section, to a strong model. That
+decision needs the judgment of a strong model, so a project gives
+backfill a procedure of its own. Capturing and curating sessions is
+different work, mechanical enough for a small model, and a project's
+ingest procedure may name backfill as a follow-up without ever running
+it.
 
 ## Procedures and skills
 

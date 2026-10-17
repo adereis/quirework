@@ -919,6 +919,27 @@ records the day of each mark and no time of day, so a breadcrumb names
 the mark by its number. Nothing joins by default: the archive is
 private, and an undeclared one stays out.
 
+`provenance.rulings` names the archive of review-sheet rulings. A review
+sheet puts items to you (proposed edits, decisions, findings), and you
+choose an option for each and may comment beside it. The page keeps
+those choices in its own storage, so nothing else holds them.
+`quirework provenance rulings archive RECORD.json --name NAME` writes
+one round's ruling as `NAME.md` in this directory, and never overwrites
+one. RECORD is JSON written by whatever built the sheet: `title`,
+`round`, `sheet`, `ruled_at` (an ISO-8601 time), `notes`, and `items`,
+each with a unique `label`, the `presented` text, the option `ruled` and
+your `comment`. Declared, each round reads as a session named `rulings-`
+and its file name, one author turn per item with what the sheet
+presented as the text it answered, and your notes as a last turn. So
+`show`, the trail and its backfill reach your rulings as they reach your
+marks. The sheet records one time for the whole ruling, so a breadcrumb
+names an item by its turn number; the round takes its place in date
+order by the day it was ruled. Text is kept as you wrote it, except that
+line endings become `\n` and space ending a line is dropped, so a
+project that formats its Markdown leaves the file alone. Nothing joins
+by default, and keyword search does not read rulings, as it does not
+read red-pen marks.
+
 ### Blind cold-reads
 
 `quirework provenance coldread` puts accepted sessions in front of blind

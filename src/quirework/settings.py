@@ -92,6 +92,7 @@ SETTINGS: tuple[str, ...] = (
             "redaction_policy",
             "redpen",
             "rendered",
+            "rulings",
             "reports",
             "root",
             "store",

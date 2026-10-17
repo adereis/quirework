@@ -167,6 +167,11 @@ COMMANDS = {
     ("provenance", "ingest"): Command(
         "provenance.ingest", "Capture local sessions for later curation", "provenance"
     ),
+    ("provenance", "rulings"): Command(
+        "provenance.rulings",
+        "Archive a review sheet's rulings as the author's turns",
+        "provenance",
+    ),
     ("sop", "list"): Command(
         "sops.commands", "List available procedures", prefix=("list",)
     ),
