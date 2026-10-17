@@ -46,6 +46,7 @@ from pathlib import Path
 
 from quirework.core import usage as usage_records
 from quirework.providers import blind
+from quirework.providers import claude_login
 from quirework.sops import personas
 from quirework.providers import quota
 from quirework.providers import replies
@@ -662,17 +663,9 @@ def launch_context(
     if missing:
         raise RuntimeError("missing harness prerequisites: " + "; ".join(missing))
     if harness == "claude" and not probe:
-        oauth = read_json(Path.home() / ".claude/.credentials.json").get(
-            "claudeAiOauth", {}
-        )
-        if (
-            not oauth.get("accessToken")
-            or oauth.get("expiresAt", 0) / 1000 < time.time() + 300
-        ):
-            raise RuntimeError(
-                "Claude access token missing or expiring; renew it before launching"
-            )
-        env["CLAUDE_CODE_OAUTH_TOKEN"] = oauth["accessToken"]
+        # The access token alone, with LAUNCH_MARGIN of life left, so the host
+        # does not renew the login out from under the reviewer (``claude_login``).
+        env["CLAUDE_CODE_OAUTH_TOKEN"], _ = claude_login.host_login()
 
     # The private homes hang off the RUN's record directory, never a turn's:
     # `codex exec resume` looks for the session under ~/.codex/sessions, so a
@@ -1328,8 +1321,12 @@ def _turn(
             # No brief, no delta, no persona frame: all three are already in the
             # session. Re-sending them is how a continuation turns back into a
             # restart, which is the thing this path exists to avoid.
+            stopped = next(
+                (t for t in state.get("turns", []) if t.get("turn") == parent), {}
+            )
             prompt = quota.continuation(
-                CONTINUE_NOTE.format(report=report_path / "report.md")
+                CONTINUE_NOTE.format(report=report_path / "report.md"),
+                cause="auth" if stopped.get("quota_scope") == "auth" else "quota",
             )
         else:
             prompt = compose(
@@ -1448,7 +1445,13 @@ def _collect(
 
     events = turn_dir / "events.jsonl"
     rows = drivers.json_rows(events) if events.exists() else []
-    stop = quota.classify(harness, turn_dir) if rows else None
+    # A quota stop, or a Claude login renewed under the reviewer mid-turn,
+    # which `continue` carries on the same way once the host's login has room.
+    stop = (
+        (quota.classify(harness, turn_dir) or quota.auth_stop(harness, turn_dir))
+        if rows
+        else None
+    )
     try:
         receipt = _answer(harness, config, rows, private)
         status = "completed"
@@ -1474,8 +1477,17 @@ def _collect(
         if recovered:
             receipt["session_id"] = recovered
         if stop:
-            status = "quota-refused" if stop["phase"] == "refused" else "quota-stopped"
+            cause = "login" if stop["scope"] == "auth" else "quota"
+            status = (
+                f"{cause}-refused" if stop["phase"] == "refused" else f"{cause}-stopped"
+            )
             error = f"{stop['scope']}: {stop['detail']}".strip(": ")
+            if stop["scope"] == "auth":
+                error += (
+                    "; the host's Claude login was renewed or lapsed under the "
+                    f"reviewer. Once `claude` on the host is signed in, "
+                    f"`quirework sop review continue {name}` carries the turn on"
+                )
     # A resume that silently opened a new conversation would look identical to
     # one that continued the old, and every later turn would then branch off
     # evidence nobody read. A FORK is the one mode where a different session is
@@ -1779,6 +1791,18 @@ def handoff(entry, name, harness, record):
             if entry.get("quota_resets_at")
             else ""
         )
+    elif status == "login-stopped" and entry.get("session_id"):
+        step = (
+            "The host's Claude login was renewed or lapsed under the reviewer. "
+            f"Once `claude` on the host is signed in, `quirework sop review "
+            f"continue {name}` carries the turn on in its own session"
+        )
+    elif status == "login-refused":
+        step = (
+            "The Claude login failed before the reviewer ran, so nothing was "
+            "generated; once `claude` on the host is signed in, launch a "
+            "replacement run."
+        )
     elif status == "quota-refused":
         step = (
             "Nothing was generated, so there is nothing to continue; launch a "
@@ -2056,12 +2080,13 @@ Cross-model editorial review of a delta. Procedure: docs/workflows.md.
       its findings are closed. Do NOT hand it the argument for why it was
       wrong: a reversal after that is not evidence.
   quirework sop review continue RUN [--from TURN]
-      Continue a turn a provider quota limit cut in half. It resumes that
-      turn's own session with a short notice and no brief, and the reviewer
-      keeps writing the SAME report: a quota stop costs the wall-clock wait,
-      never the reading and reasoning already banked in the session. Use it
-      whenever `status` shows a turn with quota_stop: interrupted; a restart
-      pays for that work twice.
+      Continue a turn a provider quota limit cut in half, or one a Claude
+      login renewed under the reviewer stopped (quota_scope: auth). It
+      resumes that turn's own session with a short notice and no brief, and
+      the reviewer keeps writing the SAME report: a quota stop costs the
+      wall-clock wait, never the reading and reasoning already banked in the
+      session. Use it whenever `status` shows a turn with quota_stop:
+      interrupted; a restart pays for that work twice.
   quirework sop review fork RUN --brief FILE
       Branch the session to press a disagreement, leaving the first answer
       intact and quotable. A fork is a side branch: later resumes stay on

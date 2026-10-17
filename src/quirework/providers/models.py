@@ -12,11 +12,10 @@ import re
 import shutil
 import subprocess
 import sys
-import time
 from pathlib import Path
 
 from quirework.project import current_project
-from quirework.providers import blind, quota, replies
+from quirework.providers import blind, claude_login, quota, replies
 
 HARNESSES = ("codex", "claude", "agy")
 
@@ -603,17 +602,9 @@ def launch_context(config, workspace, bus=None, canary=None):
         DISABLE_COMPACT="1",
     )
     if harness == "claude":
-        oauth = read_json(Path.home() / ".claude/.credentials.json").get(
-            "claudeAiOauth", {}
-        )
-        if (
-            not oauth.get("accessToken")
-            or oauth.get("expiresAt", 0) / 1000 < time.time() + 300
-        ):
-            raise RuntimeError(
-                "Claude access token missing or expiring; renew outside the writer"
-            )
-        env["CLAUDE_CODE_OAUTH_TOKEN"] = oauth["accessToken"]
+        # The access token alone, with LAUNCH_MARGIN of life left, so the host
+        # does not renew the login out from under the writer (``claude_login``).
+        env["CLAUDE_CODE_OAUTH_TOKEN"], _ = claude_login.host_login()
     jail = blind.jail_argv(
         workspace,
         runners=[harness],

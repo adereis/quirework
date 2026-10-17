@@ -5,10 +5,10 @@ import json
 import mimetypes
 import os
 import re
-import time
 from pathlib import Path
 
 from quirework.providers import blind
+from quirework.providers import claude_login
 from quirework.providers import quota
 from quirework.providers import replies
 from quirework.providers import models as workshop_drivers
@@ -94,16 +94,21 @@ def environment(harness):
         DISABLE_COMPACT="1",
     )
     if harness == "claude":
-        oauth = read(Path.home() / ".claude/.credentials.json").get("claudeAiOauth", {})
-        if (
-            not oauth.get("accessToken")
-            or oauth.get("expiresAt", 0) / 1000 < time.time() + 300
-        ):
-            raise RuntimeError(
-                "Claude access token unavailable/expiring; renew outside the run"
-            )
-        env["CLAUDE_CODE_OAUTH_TOKEN"] = oauth["accessToken"]
+        # Only the access token crosses, never the refresh token; and only one
+        # with LAUNCH_MARGIN of life left, so the host does not renew it, and
+        # revoke this copy, minutes into the seat (``claude_login``).
+        env["CLAUDE_CODE_OAUTH_TOKEN"], _ = claude_login.host_login()
     return env
+
+
+def token_fingerprint(env):
+    """Which borrowed Claude token a launch carried, without storing it.
+
+    Recorded with each submission so that, after the seat stops on a 401, the
+    runner can tell a renewed host login (continue the turn with it) from a
+    login that is simply gone (only the operator can sign in again).
+    """
+    return claude_login.fingerprint(env.get("CLAUDE_CODE_OAUTH_TOKEN"))
 
 
 def command(config, policy, mode, sid, prompt, images, files):
@@ -746,6 +751,15 @@ def quota_stop(name, record):
     one module for harness facts.
     """
     return quota.classify(name, record)
+
+
+def auth_stop(name, record):
+    """A Claude seat's borrowed login revoked or expired mid-turn, else None.
+
+    Not a quota stop and not an unknown one: ``quota.auth_stop`` owns the
+    detection, and the runner recovers it once the host's login is renewed.
+    """
+    return quota.auth_stop(name, record)
 
 
 def quota_rejection(name, record):

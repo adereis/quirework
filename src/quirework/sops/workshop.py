@@ -21,6 +21,7 @@ from pathlib import Path
 
 from quirework.core import usage as usage_records
 from quirework.providers import blind
+from quirework.providers import claude_login
 from quirework.sops import personas
 from quirework.providers import quota
 from quirework.providers import models as drivers
@@ -729,7 +730,8 @@ def run_writer(root, writer, *, manual=False, timeout=None, resume=None):
             # which is the expensive thing this path exists to avoid.
             prompt = quota.continuation(
                 f"Your draft is where you left it, under {work / 'drafts'}. "
-                "Continue writing there."
+                "Continue writing there.",
+                cause="auth" if state.get("quota_scope") == "auth" else "quota",
             )
         else:
             prompt = (
@@ -913,10 +915,13 @@ def resume(root, writer, *, timeout=None):
     4.5 percent on cached context reads, so a restart pays the expensive half
     again to recover what the session still holds.
 
-    Refuses on anything that is not a quota stop. A timeout, a crash or a
-    model that simply gave up are all ambiguous about what actually ran, and
-    resuming one of those would ask a writer to continue from a state nobody
-    has established.
+    A Claude writer whose borrowed login was renewed under it mid-turn is
+    resumed the same way, once the host's login has room for another launch
+    (``claude_login``): that stop says exactly what ran, as a quota stop does.
+
+    Refuses on anything else. A timeout, a crash or a model that simply gave
+    up are all ambiguous about what actually ran, and resuming one of those
+    would ask a writer to continue from a state nobody has established.
     """
     root, _plan, record, work, state = load(root, writer)
     with lock(record / "operator.lock"):
@@ -929,13 +934,21 @@ def resume(root, writer, *, timeout=None):
                 f"{writer} is {state['status']}; only a stopped writer is resumed"
             )
         harness = state["config"]["harness"]
-        stop = quota.classify(harness, record)
+        stop = quota.classify(harness, record) or quota.auth_stop(harness, record)
         if not stop:
             raise RuntimeError(
-                f"{writer} does not carry a provider quota stop in its event "
-                "stream; inspect the record, and use `retry` if the work has "
-                "to start over"
+                f"{writer} does not carry a provider quota stop or a renewed "
+                "login in its event stream; inspect the record, and use `retry` "
+                "if the work has to start over"
             )
+        if stop["scope"] == "auth":
+            try:
+                claude_login.host_login()
+            except claude_login.LoginError as exc:
+                raise RuntimeError(
+                    f"{writer} stopped on a revoked or expired Claude login, and "
+                    f"{exc}; then resume it again"
+                ) from None
         session = stop["session_id"]
         if stop["phase"] == "interrupted" and not session:
             raise RuntimeError(
@@ -952,7 +965,8 @@ def resume(root, writer, *, timeout=None):
             # Before the stopped attempt is archived, so a refusal leaves the
             # writer exactly as it was.
             blind.require_session(work, harness, resumed)
-        _archive_attempt(record, state, f"quota {stop['phase']}: {stop['scope']}")
+        cause = "login" if stop["scope"] == "auth" else "quota"
+        _archive_attempt(record, state, f"{cause} {stop['phase']}: {stop['scope']}")
         state.update(
             status="prepared",
             resumed_from=resumed,
@@ -1081,11 +1095,15 @@ def inspect(root, *, full=False):
         # Named outright, because the recovery differs from every other
         # failure: this writer is resumed, not retried.
         if s.get("status") == "failed" and not s.get("attempts"):
-            stop = quota.classify(
-                s["config"]["harness"], root / "records" / p.parent.name
+            stopped = root / "records" / p.parent.name
+            stop = quota.classify(s["config"]["harness"], stopped) or quota.auth_stop(
+                s["config"]["harness"], stopped
             )
             if stop:
                 item["quota_stop"] = stop["phase"]
+                # "auth" for a login renewed under the writer, which `resume`
+                # continues like a quota stop once the host's login has room.
+                item["stop_scope"] = stop["scope"]
                 # Not `bool(session_id)`: a refusal records a session too, so
                 # that test called every refused writer resumable and put it in
                 # the bucket the SOP uses to choose between continue and

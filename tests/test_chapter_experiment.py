@@ -493,7 +493,7 @@ def test_claude_child_receives_no_refresh_credential(tmp_path, monkeypatch):
     oauth = exp.read_json(credential)
     oauth["claudeAiOauth"]["expiresAt"] = 0
     exp.write_json(credential, oauth)
-    with pytest.raises(RuntimeError, match="expiring"):
+    with pytest.raises(RuntimeError, match="has expired"):
         exp.claude_environment()
 
 

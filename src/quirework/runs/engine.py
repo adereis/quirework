@@ -20,6 +20,7 @@ from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 
 from quirework.providers import blind
+from quirework.providers import claude_login
 from quirework.providers import quota
 from quirework.providers.quota import rewind_sessions, session_marks
 from quirework.providers import models as workshop_drivers
@@ -50,6 +51,12 @@ WAIT_QUOTA_DEFAULT = 21600
 # The continuation scope of a turn the operator chose to continue after a stop
 # the runner could not classify, as against a provider's own limit scope.
 OPERATOR_CONTINUATION = "operator"
+# The continuation scope of a turn the runner continued itself after the seat's
+# borrowed Claude login was renewed under it (``claude_login``), and how many
+# times one turn may be continued that way before the runner stops and leaves
+# it to the operator: a login that keeps failing is not a renewal.
+AUTH_CONTINUATION = "auth"
+AUTH_CONTINUATION_CAP = 2
 POLICY = dict(
     tools="none",
     system_prompt=None,
@@ -1079,6 +1086,15 @@ class Run:
                     f"could not classify ({continued['reason']}); the answer "
                     "spans two submissions in one session."
                 )
+            elif continued["scope"] == AUTH_CONTINUATION:
+                receipt["auth_continuation"] = (
+                    state.get("auth_continuations") or {}
+                ).get(turn["id"], 1)
+                flag = (
+                    "Turn continued after the host's Claude login was renewed, "
+                    "which revoked the token the seat had been given; the answer "
+                    "spans more than one submission in one session."
+                )
             else:
                 receipt["quota_continuation"] = continued["scope"]
                 flag = (
@@ -1155,6 +1171,77 @@ class Run:
             f"({scope})",
         )
 
+    def recover_auth(self, seat, turn_id, detail):
+        """Carry a turn past a Claude login renewed under it, or say why not.
+
+        A seat borrows a copy of the host's access token, and the host renews
+        its login near the token's expiry, revoking that copy (``claude_login``).
+        The turn is recoverable exactly when the host now holds a different,
+        usable token: nothing ran, and the identical turn goes again; or the
+        model ran, and the turn is continued in its own session. When the host
+        still holds the same token, the login is gone rather than renewed, and
+        no retry can help until someone signs in. A small cap keeps a login
+        that keeps failing from being retried in a loop. Every refusal leaves
+        the turn pending with its session intact.
+        """
+        state = self.state(seat)
+        pending = state.get("pending") or {}
+        if pending.get("turn") != turn_id:
+            raise RuntimeError("login recovery needs the pending turn")
+        later = (
+            f"then `quirework sop runs continue {self.root} {seat} {turn_id} "
+            "--reason TEXT` and start again; the stopped turn keeps its session"
+        )
+        done = (state.get("auth_continuations") or {}).get(turn_id, 0)
+        if done >= AUTH_CONTINUATION_CAP:
+            raise RuntimeError(
+                f"the seat's Claude login failed again after {done} automatic "
+                "recoveries in this turn; check the host's login with `claude`, "
+                + later
+            )
+        try:
+            _, current = claude_login.host_login()
+        except claude_login.LoginError as exc:
+            raise RuntimeError(
+                f"the seat stopped on a revoked or expired Claude login, and {exc}; "
+                + later
+            ) from None
+        if current == pending.get("auth_fingerprint"):
+            raise RuntimeError(
+                "the seat stopped on a revoked or expired Claude login, and the "
+                "host still holds the same token, so it was not renewed: sign in "
+                "again with `claude` on the host, " + later
+            )
+        if detail.get("phase") == "refused":
+            rewind_sessions(pending.get("resume_point"))
+            retire_attempt(
+                self,
+                seat,
+                turn_id,
+                "refused by a revoked or expired Claude login before the model "
+                "ran; session rewound and the turn resubmitted with the host's "
+                "renewed login",
+            )
+        else:
+            if not detail.get("session_id"):
+                raise RuntimeError(
+                    "a revoked Claude login interrupted this turn after the model "
+                    "ran, but its event stream names no single session to "
+                    "continue; inspect the record rather than restarting the turn"
+                )
+            self.continue_in_session(
+                seat,
+                turn_id,
+                detail["session_id"],
+                dict(scope=AUTH_CONTINUATION),
+                "interrupted when the host's Claude login was renewed, revoking "
+                "the token this attempt held; continued in its own session with "
+                "the renewed login",
+            )
+        state = self.state(seat)
+        state.setdefault("auth_continuations", {})[turn_id] = done + 1
+        self.save(seat, state)
+
     def continue_in_session(self, seat, turn_id, session, cause, reason):
         """Retire the stopped attempt and make the next submission resume it.
 
@@ -1196,6 +1283,11 @@ class Run:
         while True:
             try:
                 return self.attempt_turn(seat, index, timeout)
+            except AuthStopped as stopped:
+                # No wait: either the host already holds a renewed login and
+                # the turn goes on at once, or recovery refuses and says why.
+                turn_id = self.seats[seat]["turns"][index]["id"]
+                self.recover_auth(seat, turn_id, stopped.detail)
             except QuotaPaused as paused:
                 turn_id = self.seats[seat]["turns"][index]["id"]
                 if paused.detail.get("phase") == "interrupted":
@@ -1227,6 +1319,11 @@ class Run:
                 # Which recovery depends on whether the model ran, and `turn`
                 # reads the phase to decide.
                 raise QuotaPaused(stop)
+            stop = harness.auth_stop(spec["config"]["harness"], record)
+            if stop:
+                # Stalled by a login that was renewed under it, perhaps while
+                # nobody was running the seat; `turn` checks the host now.
+                raise AuthStopped(stop)
             if state["pending"].get("phase") == "not-submitted" or (
                 state["pending"].get("phase") == "launch-intent"
                 and not (record / "launch.json").exists()
@@ -1256,8 +1353,14 @@ class Run:
         continuation = state.get("continuation") or {}
         resuming = continuation.get("turn") == turn["id"]
         if resuming:
-            after_error = continuation.get("scope") == OPERATOR_CONTINUATION
-            prompt = quota.continuation(cause="error" if after_error else "quota")
+            scope = continuation.get("scope")
+            prompt = quota.continuation(
+                cause="error"
+                if scope == OPERATOR_CONTINUATION
+                else "auth"
+                if scope == AUTH_CONTINUATION
+                else "quota"
+            )
             images, files = [], []
         else:
             prompt, images, files = self.stage(seat, index)
@@ -1343,6 +1446,10 @@ class Run:
                     )
                 ),
                 quota_continuation=continuation.get("scope") if resuming else None,
+                # Which borrowed login this submission carried, as a fingerprint
+                # and never the token: after a 401 it tells a renewed host login
+                # from one that is gone (``recover_auth``).
+                auth_fingerprint=harness.token_fingerprint(env),
                 outputs_before=continuation["outputs_before"]
                 if resuming
                 else {
@@ -1409,6 +1516,9 @@ class Run:
         stop = harness.quota_stop(spec["config"]["harness"], record)
         if stop:
             raise QuotaPaused(stop)
+        stop = harness.auth_stop(spec["config"]["harness"], record)
+        if stop:
+            raise AuthStopped(stop)
         # A client can exit before its final receipt flush. Re-read existing
         # evidence, never issue a second first impression.
         for attempt in range(10):
@@ -1816,6 +1926,20 @@ class QuotaPaused(RuntimeError):
 
     def __init__(self, detail):
         super().__init__(detail.get("detail") or "refused for quota")
+        self.detail = detail
+
+
+class AuthStopped(RuntimeError):
+    """A Claude seat's borrowed login was revoked or expired mid-turn.
+
+    Neither a quota stop, which is waited out, nor an unknown one, which is
+    left to the operator: the host renews its login on its own, so the turn
+    is recoverable as soon as a newer token exists, and `Run.recover_auth`
+    decides whether one does. ``detail["phase"]`` reads as for a quota stop.
+    """
+
+    def __init__(self, detail):
+        super().__init__(detail.get("detail") or "Claude login revoked or expired")
         self.detail = detail
 
 

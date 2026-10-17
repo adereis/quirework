@@ -976,11 +976,31 @@ Earlier answers and rejected attempts remain immutable.
 A turn that stops is never discarded. A provider quota limit the runner
 recognises is recovered by `start` itself: rewound and resubmitted when
 the provider declined before the model ran, continued in its own session
-when the limit arrived partway. Any other stop, such as a dropped
-connection, an API error or a limit worded in a way no classifier knows,
-leaves the turn pending with its session intact, and the `stopped:` line
-says so. Whether to keep that session is the operator's decision, made
-after reading the record:
+when the limit arrived partway.
+
+A Claude seat stopped by its login is the other stop `start` recovers.
+The seat is lent a copy of the host's access token and nothing that
+could renew it, so the launch refuses a token within 15 minutes of
+expiry: Claude Code on the host renews its login shortly before then,
+and the renewal revokes the copy a seat holds. A run longer than that
+can still meet a renewal and stop on a 401. Each submission records
+which token it carried, as a fingerprint and never the token itself. On
+that stop `start` reads the host's login again: a different token with
+room left carries the turn on at once, continued in its own session, or
+resubmitted when nothing had run, and the receipt flags that the answer
+spans submissions. The same token means the login is gone rather than
+renewed, so the turn stays pending and the `stopped:` line says to sign
+in with `claude` on the host, then `continue` it. Two automatic
+recoveries per turn is the limit, because a login that keeps failing is
+not being renewed. The workshop's `resume` and the review driver's
+`continue` take a login stop as they take a quota stop, once the host's
+login has room; the chapter experiment never continues a turn and says
+so.
+
+Any other stop, such as a dropped connection, an API error or a limit
+worded in a way no classifier knows, leaves the turn pending with its
+session intact, and the `stopped:` line says so. Whether to keep that
+session is the operator's decision, made after reading the record:
 `sop runs continue RECORD SEAT TURN --reason TEXT` records it, and the
 next `start` resumes the same session with a short notice that an error
 cut the turn off, without re-sending the turn's material. The receipt

@@ -25,6 +25,8 @@ import uuid
 
 from quirework.core import usage as usage_records
 from quirework.providers import blind
+from quirework.providers import claude_login
+from quirework.providers import quota
 from quirework.providers import replies
 
 # Above every published ceiling on purpose; Codex clamps it down.
@@ -259,6 +261,13 @@ def parse_claude(rows, home, model, effort, established):
     if len(results) != 1:
         raise RuntimeError("Claude turn has no unique result")
     result = results[0]
+    if quota.claude_auth(rows):
+        raise RuntimeError(
+            "the reader's Claude login was revoked or expired mid-turn, because "
+            "the host renewed it or it lapsed. This adapter never continues a "
+            "turn: once `claude` on the host is signed in, prepare a distinct "
+            "experiment rather than rerunning this one"
+        )
     if result.get("is_error") or result.get("subtype") != "success":
         raise RuntimeError(
             f"Claude result is {result.get('subtype')}: "
@@ -404,16 +413,9 @@ def claude_environment():
             "this experiment adapter requires direct claude.ai authentication"
         )
     if not env.get("CLAUDE_CODE_OAUTH_TOKEN"):
-        path = Path.home() / ".claude" / ".credentials.json"
-        oauth = read_json(path).get("claudeAiOauth", {})
-        if (
-            not oauth.get("accessToken")
-            or oauth.get("expiresAt", 0) / 1000 < time.time() + 300
-        ):
-            raise RuntimeError(
-                "Claude login is missing or expiring; refresh it outside the blind reader"
-            )
-        env["CLAUDE_CODE_OAUTH_TOKEN"] = oauth["accessToken"]
+        # With LAUNCH_MARGIN of life left, so the host does not renew the
+        # login out from under the reader (``claude_login``).
+        env["CLAUDE_CODE_OAUTH_TOKEN"], _ = claude_login.host_login()
     return env
 
 

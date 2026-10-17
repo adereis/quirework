@@ -27,7 +27,11 @@ Two shapes, and they need different recoveries:
 
 This module owns the detection, the session-id recovery and the resume
 argv for all three harnesses, so no driver has to recognize a quota stop
-on its own. Deliberately stdlib-only and free of project imports: the
+on its own. It also recognizes the one stop that is neither a limit nor a
+fault: a Claude seat whose borrowed login was revoked or expired mid-turn
+(``auth_stop``). That stop is kept apart from ``classify`` on purpose,
+because its recovery is not a wait: the host renews its login on its own,
+and the turn goes on as soon as a newer token exists (``claude_login``). Deliberately stdlib-only and free of project imports: the
 run engine's frozen executor, the workshop and the review driver all
 reach it, and two of those must not pull the engine in behind them.
 """
@@ -99,6 +103,17 @@ LIMIT_TEXT = re.compile(
 
 CODEX_LIMIT_CODES = ("rate_limit_exceeded", "insufficient_quota")
 
+# What Claude Code says when the token it was handed stops working. The 401
+# status, the assistant record's ``authentication_failed`` and the retry
+# records' ``error_status`` are the structured signals; this wording is the
+# fallback for a release that drops them. Observed verbatim: "Failed to
+# authenticate: OAuth token revoked. Please log in again or contact your
+# administrator."
+AUTH_TEXT = re.compile(
+    r"failed to authenticate|oauth (?:access )?token (?:has been )?(?:revoked|expired)",
+    re.I,
+)
+
 # A provider declining because the model itself is busy, which is not a usage
 # limit: there is no allowance to wait out and no reset time to wait for. The
 # recovery is the same as a refusal's, because nothing ran either way, and the
@@ -140,14 +155,32 @@ ERROR_CONTINUATION = (
 )
 
 
+# The same prompt for a turn continued after the seat's borrowed login was
+# renewed under it. Honest about the cause and no more: the agent needs to
+# know only that the interruption was the connection's, not its own doing.
+AUTH_CONTINUATION = (
+    "The connection's login was renewed and your previous turn was cut off "
+    "partway through. Nothing about the assignment has changed and nothing "
+    "you already did has been lost.\n\n"
+    "Continue from where you were. Re-read what you have already written, "
+    "do not redo work you have already completed, do not start over, and "
+    "finish the task you were given."
+)
+
+_CONTINUATIONS = dict(
+    quota=CONTINUATION, error=ERROR_CONTINUATION, auth=AUTH_CONTINUATION
+)
+
+
 def continuation(note=None, *, cause="quota"):
     """The resume prompt, plus one caller line naming where its work is.
 
-    `cause` is "quota" for a provider limit and "error" for any other stop.
+    `cause` is "quota" for a provider limit, "auth" for a seat whose borrowed
+    login was renewed mid-turn, and "error" for any other stop.
     """
-    if cause not in ("quota", "error"):
+    if cause not in _CONTINUATIONS:
         raise ValueError(f"unknown continuation cause: {cause}")
-    text = CONTINUATION if cause == "quota" else ERROR_CONTINUATION
+    text = _CONTINUATIONS[cause]
     return text if not note else f"{text}\n\n{note.strip()}\n"
 
 
@@ -241,6 +274,73 @@ def _claude(stream):
         detail=said[:200],
         output_tokens=produced,
     )
+
+
+def claude_auth(stream):
+    """The login-stop detail in a Claude event stream already read, or None.
+
+    The stream-level half of ``auth_stop``, for a driver that has the rows in
+    hand and no record directory to point at.
+    """
+    results = [r for r in stream if r.get("type") == "result"]
+    if len(results) != 1 or not results[0].get("is_error"):
+        return None
+    result = results[0]
+    said = str(result.get("result") or "")
+    structured = (
+        result.get("api_error_status") == 401
+        or any(
+            r.get("type") == "assistant" and r.get("error") == "authentication_failed"
+            for r in stream
+        )
+        or any(
+            r.get("type") == "system"
+            and r.get("subtype") == "api_retry"
+            and (
+                str(r.get("error_status")) == "401"
+                or r.get("error") == "authentication_failed"
+            )
+            for r in stream
+        )
+    )
+    if not structured and not AUTH_TEXT.search(said):
+        return None
+    produced = sum(
+        v.get("outputTokens", 0) or 0 for v in (result.get("modelUsage") or {}).values()
+    )
+    return dict(
+        phase="refused" if not produced else "interrupted",
+        scope="auth",
+        resets_at=None,
+        detail=said[:200],
+        output_tokens=produced,
+    )
+
+
+def auth_stop(harness, record):
+    """A Claude login revoked or expired mid-turn in this record, or None.
+
+    Only a Claude seat borrows a token it cannot renew, so only Claude is
+    read; the other harnesses keep their own credentials. ``phase`` follows
+    ``classify``'s meaning: ``refused`` when nothing ran, so the identical
+    turn is delivered again, and ``interrupted`` when the model ran, so the
+    session is continued. Whether to do either now is the caller's question,
+    and ``claude_login`` answers it: only once the host holds a newer token.
+    """
+    if harness not in HARNESSES:
+        raise ValueError(f"unknown harness: {harness}")
+    if harness != "claude":
+        return None
+    record = Path(record)
+    stream = rows(record if record.is_file() else record / "events.jsonl")
+    if not stream:
+        return None
+    detail = claude_auth(stream)
+    if detail is None:
+        return None
+    detail["harness"] = harness
+    detail["session_id"] = session_id(harness, stream)
+    return detail
 
 
 def _codex_limit(error):
