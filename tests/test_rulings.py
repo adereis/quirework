@@ -303,3 +303,14 @@ def test_metrics_count_each_item_ruled_as_a_turn(tmp_path):
         metrics.words(t) for t in (COMMENT, item[2]["comment"], RECORD["notes"])
     )
     assert [str(t.date()) for t in acc.times] == ["2031-05-07"]
+
+
+def test_the_input_stats_list_rulings_as_a_source(tmp_path):
+    from quirework.provenance import humaninput
+
+    project = _rulings_book(tmp_path)
+    _archived(project)
+    with project_scope(project):
+        turns = humaninput.all_turns()
+        lines = humaninput._stats_lines(turns, humaninput._sessions(turns))
+    assert any(line.lstrip().startswith("review-sheet ruling") for line in lines)

@@ -540,7 +540,7 @@ def _stats_lines(turns, sess):
     L.append(f"Human words (total)    : {tot_words:,}")
     L.append("")
     L.append("By source:")
-    for src in ("web", "cc", "agy", "codex", "gemini"):
+    for src in SOURCE_LABEL:
         if src in by_src:
             d = by_src[src]
             L.append(
