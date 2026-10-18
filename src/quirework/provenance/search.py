@@ -42,6 +42,7 @@ import sys
 from quirework.project import current_project
 from quirework.provenance import humaninput as HI
 from quirework.provenance import catalog as CAT
+from quirework.provenance import rulings as RULINGS
 from quirework.provenance import show as SHOW
 from quirework.provenance import store
 
@@ -98,6 +99,9 @@ def _resolve(source, file):
     if source == "gemini":
         sid = file[: -len(".md")] if file.endswith(".md") else file
         return sid, store.path_of(store.WEB, file), "a-web"
+    if source == "rulings":
+        path = RULINGS.directory() / file
+        return RULINGS.session_id(path), path, "e-rulings"
     base = file
     for suf in (".raw.json", ".md"):
         if base.endswith(suf):
@@ -109,6 +113,13 @@ def _resolve(source, file):
 def _title_date(source, path):
     if path is None or not path.exists():
         return {"title": "(unknown)", "date": "?"}
+    if source == "rulings":
+        found = RULINGS.read(path)
+        day = found.day()
+        return {
+            "title": found.title or "(untitled ruling)",
+            "date": str(day) if day else "?",
+        }
     if source == "cc":
         return CAT._cc_scan(path)
     if source == "agy":

@@ -16,6 +16,10 @@ It reuses the same parsing/cleaning substrate as the rest of the toolchain:
   - local Claude Code sessions: cc-sessions/*.jsonl        (timestamps)
   - local Codex sessions      : codex-sessions/*.jsonl     (timestamps)
   - cross-model Gemini reviews: conversations/gemini-*.md  (turn ordinals only)
+  - review-sheet rulings      : the declared provenance.rulings archive (one
+                                time per round); only the author's comments and
+                                notes, since an option's wording was written for
+                                him and is his decision, not his words
 
 Two design points worth noting:
   * harness noise (system-reminders, slash-command plumbing, shell I/O, a
@@ -59,6 +63,7 @@ from quirework.project import current_project
 from quirework.provenance import store
 from quirework.provenance import ccfilter as FLT
 from quirework.provenance import codexfilter as CODEX_FLT
+from quirework.provenance import rulings as RULINGS
 from quirework.provenance.metrics import words
 from quirework.provenance.metrics import parse_ts
 from quirework.provenance.metrics import _features
@@ -68,7 +73,8 @@ from quirework.provenance.metrics import HARNESS
 # built from these turns knows its windows are not the ones it would cut now.
 # 2: a background subagent's report and a compacted session's summary are no
 #    longer the human's turns.
-EXTRACTION_VERSION = 2
+# 3: a review sheet's rulings join: the comment on each item and the notes.
+EXTRACTION_VERSION = 3
 
 # A turn this short (or a bare slash-command / one-word ack) is procedural, not
 # authored thought: "yes", "go on", "/clear", "perfect, commit it". Marked
@@ -362,8 +368,52 @@ def _codex_turns():
     return out
 
 
+def _rulings_turns():
+    """The author's own words on a review sheet: each comment, then the notes.
+
+    A ruling is the author's turn, but only what he wrote is his words. The
+    option an item records was worded for him by whoever built the sheet, so it
+    stays out of this stream, which is the evidence of his language; an item he
+    ruled without a comment adds no turn here. Each turn keeps the number
+    ``show`` gives it, items first and the notes last, so a hit opens with
+    ``--turn``. A round records one time, the moment it was ruled.
+    """
+    out = []
+    for path in RULINGS.rounds():
+        found = RULINGS.read(path)
+        written = [(n, item.comment) for n, item in enumerate(found.items, 1)]
+        if found.notes:
+            written.append((len(found.items) + 1, found.notes))
+        for n, raw in written:
+            txt = _clean(raw)
+            if not txt:
+                continue
+            cls, w, authored = _classify_turn(txt)
+            out.append(
+                {
+                    "ts": found.instant(),
+                    "source": "rulings",
+                    "sid": RULINGS.session_id(path),
+                    "file": path.name,
+                    "ordinal": n,
+                    "text": txt,
+                    "cls": cls,
+                    "words": w,
+                    "authored": authored,
+                }
+            )
+    return out
+
+
 def all_turns():
-    return _web_turns() + _cc_turns() + _agy_turns() + _codex_turns() + _gemini_turns()
+    return (
+        _web_turns()
+        + _cc_turns()
+        + _agy_turns()
+        + _codex_turns()
+        + _gemini_turns()
+        + _rulings_turns()
+    )
 
 
 # --------------------------------------------------------------------------- #
@@ -375,6 +425,7 @@ SOURCE_LABEL = {
     "agy": "Antigravity (Gemini) session",
     "codex": "Codex session",
     "gemini": "Gemini cross-model review",
+    "rulings": "review-sheet ruling",
 }
 
 

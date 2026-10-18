@@ -78,6 +78,7 @@ from quirework.providers.blind import confine
 from quirework.providers.blind import seat_dir
 from quirework.providers import canary
 from quirework.provenance import lineage as LINEAGE
+from quirework.provenance import rulings as RULINGS
 from quirework.provenance import scope as SCOPE
 
 
@@ -308,6 +309,11 @@ def sources(scope=SCOPE.WORK):
         for p in store.files(store.CODEX, "*.jsonl")
         if SCOPE.wants(p, scope, making)
     ]
+    # A review sheet's ruling is the author deciding, item by item, what the
+    # assistant put to him, with his reasons in his own words: evidence of who
+    # directed the work as much as any conversation. It is read only where the
+    # project declares its archive, and it is never a pending capture.
+    out += [(p, "e-rulings") for p in RULINGS.rounds() if SCOPE.wants(p, scope, making)]
     return out, resumed
 
 
@@ -323,6 +329,12 @@ def render_source(path):
     of the project framing, so a marker there is usually the human coining it
     live (evidence) — verify-blind flags them REVIEW, never FAIL."""
     family = store.family_of(path)
+    if RULINGS.holds(path):
+        # The archive is written for the operator and names the project as
+        # freely as a Claude Code session does, so it takes the same
+        # redaction before an analyst reads it.
+        text = FLT.redact(path.read_text(encoding="utf-8", errors="replace"))
+        return text, {"chars": len(text)}
     if path.suffix == ".jsonl":
         if family == store.CODEX:
             from quirework.provenance import codexfilter as CODEX_FLT
@@ -583,7 +595,7 @@ def is_hit(manifest, relpath, sha, path=None, persona=None):
     # label the work's scope once had. The prompt version is then checked
     # against *that scope's* brief, so an edit to one brief never invalidates
     # the other's.
-    scope = SCOPE.scope_of_id(Path(relpath).stem)
+    scope = SCOPE.scope_of_path(relpath)
     if SCOPE.normalize(e.get("scope", SCOPE.WORK)) != scope:
         return False
     if e.get("prompt_version") != PROMPT_VERSIONS[scope]:
@@ -641,6 +653,8 @@ def classify(path, manifest, persona=None):
 
 
 def _era_for_rel(rel):
+    if RULINGS.holds(rel):
+        return "e-rulings"
     family = store.family_of_reference(rel)
     if family == store.CODEX:
         return "d-codex"

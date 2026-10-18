@@ -218,3 +218,88 @@ def test_a_ruling_packet_says_which_words_are_the_authors(tmp_path, monkeypatch)
     assert "It is a review sheet's ruling" in flat
     assert "Only a comment after it, and the closing notes, are the author's" in flat
     assert "Two wordings for the cooling line." in text
+
+
+# --------------------------------------------------------------------------- #
+# the author's input, wherever the corpus counts it
+# --------------------------------------------------------------------------- #
+def test_a_comment_is_the_authors_words_and_an_option_is_not(tmp_path):
+    """The human-input stream keeps comments and notes, numbered as show does."""
+    from quirework.provenance import humaninput
+
+    project = _rulings_book(tmp_path)
+    _archived(project)
+    with project_scope(project):
+        turns = [t for t in humaninput.all_turns() if t["source"] == "rulings"]
+    assert [t["ordinal"] for t in turns] == [2, 3, 4], "E1 has no comment"
+    assert turns[0]["text"].startswith("Route, yes.")
+    assert turns[-1]["text"] == "The cooling chapter can wait a week."
+    assert {t["sid"] for t in turns} == {"rulings-round-two"}
+    assert str(turns[0]["ts"].date()) == "2031-05-07"
+    assert not any("Approve the editor's text" in t["text"] for t in turns)
+
+
+def test_search_finds_a_ruling_by_the_authors_words_only(tmp_path):
+    from quirework.provenance import search
+
+    project = _rulings_book(tmp_path)
+    _archived(project)
+    with project_scope(project):
+        hits, _ = search.search(["slowly"], highlights="")
+        assert [(h["id"], h["date"], h["title"]) for h in hits] == [
+            ("rulings-round-two", "2031-05-07", "The kettle book, round two")
+        ]
+        from quirework.provenance import catalog
+
+        assert catalog._short_id(hits[0]["id"]) == "rulings-round-two", (
+            "the printed id must resolve in show"
+        )
+        assert search.search(["repeat"], highlights="")[0] == [], (
+            "what the sheet presented is not the author's"
+        )
+
+
+def test_the_semantic_index_notices_a_new_ruling(tmp_path):
+    from quirework.provenance import semantic
+
+    project = _rulings_book(tmp_path)
+    with project_scope(project):
+        before = semantic.corpus_fingerprint()
+        _archived(project)
+        assert semantic.corpus_fingerprint() != before
+        assert semantic._path("rulings", "round-two.md").name == "round-two.md"
+
+
+def test_the_cold_read_reads_a_ruling_as_its_own_era(tmp_path):
+    from quirework.provenance import coldread, scope
+
+    project = _rulings_book(tmp_path)
+    path = _archived(project)
+    with project_scope(project):
+        found = [(p.name, era) for p, era in coldread.sources(scope=None)[0]]
+        assert found == [("round-two.md", "e-rulings")]
+        text, _ = coldread.render_source(path)
+        assert "Route, yes." in text and "The cooling chapter can wait a week." in text
+        state, rel, _ = coldread.classify(path, {"sources": {}})
+        assert (state, rel) == ("MISS", "private/rulings/round-two.md")
+        assert coldread._era_for_rel(rel) == "e-rulings"
+        assert scope.scope_of_path(path, {}) == scope.WORK
+        listed = {"rulings-round-two": "the apparatus"}
+        assert scope.scope_of_path(path, listed) == scope.MAKING
+        assert scope.scope_of_path(rel, listed) == scope.MAKING
+
+
+def test_metrics_count_each_item_ruled_as_a_turn(tmp_path):
+    from quirework.provenance import metrics
+
+    project = _rulings_book(tmp_path)
+    _archived(project)
+    acc = metrics.Acc("rulings")
+    with project_scope(project):
+        metrics.rulings_rounds(acc)
+    item = RECORD["items"]
+    assert (acc.sessions, acc.human_turns, acc.ai_turns) == (1, 4, 2)
+    assert acc.human_words == sum(
+        metrics.words(t) for t in (COMMENT, item[2]["comment"], RECORD["notes"])
+    )
+    assert [str(t.date()) for t in acc.times] == ["2031-05-07"]

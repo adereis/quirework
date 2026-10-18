@@ -52,6 +52,7 @@ import sys
 import numpy as np
 
 from quirework.project import current_project
+from quirework.provenance import rulings as RULINGS
 from quirework.provenance import store
 
 
@@ -243,6 +244,8 @@ def corpus_fingerprint():
     ):
         for p in store.files(family, pattern):
             h.update(f"{p.name}:{p.stat().st_size}\n".encode())
+    for p in RULINGS.rounds():
+        h.update(f"rulings/{p.name}:{p.stat().st_size}\n".encode())
     return h.hexdigest()
 
 
@@ -252,6 +255,9 @@ _FAMILY = {"cc": store.CC, "agy": store.AGY, "codex": store.CODEX}
 
 def _path(source, file):
     """The accepted file for a turn's (source, file), or ``None``."""
+    if source == "rulings":
+        found = RULINGS.directory()
+        return found / file if found is not None and (found / file).is_file() else None
     return store.path_of(_FAMILY.get(source, store.WEB), file)
 
 

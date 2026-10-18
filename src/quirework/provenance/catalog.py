@@ -86,8 +86,10 @@ def _short_model(m):
 
 
 def _short_id(sid):
-    """Compact id for the rendered table: 8 hex for uuids, full for gemini."""
-    return sid if sid.startswith("gemini-") else sid[:8]
+    """Compact id for the rendered table: 8 hex for a uuid, and in full for a
+    session named by its source (a gemini review, a red-pen round, a ruling),
+    whose first eight characters are the prefix alone and resolve nothing."""
+    return sid if sid.startswith(("gemini-", "redpen-", "rulings-")) else sid[:8]
 
 
 # --------------------------------------------------------------------------- #

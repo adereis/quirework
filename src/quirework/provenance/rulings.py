@@ -152,6 +152,21 @@ def session_id(path):
     return PREFIX + Path(path).stem
 
 
+def holds(path):
+    """Whether ``path`` lies in the declared rulings archive.
+
+    A path relative to the project, as a cold-read report records it, is read
+    from the project root. Only the location is asked, never the contents.
+    """
+    found = directory()
+    if found is None:
+        return False
+    p = Path(path)
+    if not p.is_absolute():
+        p = current_project().root / p
+    return p.resolve().parent == found.resolve()
+
+
 # --------------------------------------------------------------------------- #
 # reading
 # --------------------------------------------------------------------------- #

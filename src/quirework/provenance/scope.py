@@ -55,10 +55,17 @@ def scope_of_id(sid, making=None):
 
 
 def scope_of_path(path, making=None):
-    """``'making'`` or ``'work'`` for a source path (web sources are always work)."""
+    """``'making'`` or ``'work'`` for a source path (web sources are always work).
+
+    A review-sheet ruling is scoped by its session id, ``rulings-`` and its
+    file's stem, which is the name it is listed under, never the bare stem.
+    """
     from pathlib import Path
 
-    return scope_of_id(Path(path).stem, making)
+    from quirework.provenance import rulings
+
+    sid = rulings.session_id(path) if rulings.holds(path) else Path(path).stem
+    return scope_of_id(sid, making)
 
 
 def wants(path, scope, making=None):

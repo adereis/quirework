@@ -6,6 +6,9 @@ Reads the configured provenance sources and reports human-vs-AI effort:
   - local Claude Code sessions: cc-sessions/*.jsonl        (structured, timestamps)
   - local Codex sessions      : codex-sessions/*.jsonl     (structured, timestamps)
   - cross-model Gemini reviews: conversations/gemini-*.md  (rendered; no timestamps)
+  - review-sheet rulings      : the declared provenance.rulings archive (one time
+                                per round; each item ruled is a human turn, and its
+                                human words are only the author's comment and notes)
 
 MODEL METADATA IS NOT TRUSTWORTHY, IN ANY SOURCE. Read this before using
 any model id from this report for attribution. Three independent ways the
@@ -512,6 +515,33 @@ def gemini(acc):
             acc.ai(chunk)
 
 
+def rulings_rounds(acc, scope=None, making=None):
+    """Review-sheet rulings, where the project declares the archive.
+
+    Each item ruled is one human turn, because choosing is the author's act
+    even when he writes nothing; its human words are only his comment, since
+    the option he chose was worded for him. The round's notes are one more
+    turn. What the sheet presented is the assistant's prose. A round records
+    one time, so it adds a date to the span and nothing to engaged time.
+    """
+    from quirework.provenance import rulings as RULINGS
+
+    for path in RULINGS.rounds():
+        if scope is not None and SCOPE.scope_of_path(path, making) != scope:
+            continue
+        found = RULINGS.read(path)
+        acc.sessions += 1
+        for item in found.items:
+            acc.human(item.comment)
+            if item.presented:
+                acc.ai(item.presented)
+        if found.notes:
+            acc.human(found.notes)
+        moment = found.instant()
+        if moment is not None:
+            acc.times.append(moment)
+
+
 def _segments(lines):
     """Re-split a speaker's accumulated lines back into its individual turns is
     not possible without the headers we consumed; count it as one blob per file
@@ -874,11 +904,10 @@ def report(accs, total, pst=None, scope=None):
     print()
     print(f"Calendar span (timestamped sources): {span}")
     print("  (Gemini reviews carry no timestamps; author-dated 2026-04-04/05.)")
+    print("  (Rulings: one human prompt per item ruled on a review sheet; their")
+    print("   human words are only the author's comments and notes.)")
     print()
-    hdr = (
-        f"{'':22}{'web':>10}{'code':>10}{'agy':>10}{'codex':>10}"
-        f"{'gemini':>10}{'TOTAL':>11}"
-    )
+    hdr = f"{'':22}" + "".join(f"{a.name:>10}" for a in accs) + f"{'TOTAL':>11}"
     print(hdr)
     print("-" * len(hdr))
 
@@ -1073,22 +1102,24 @@ def report_repo(g, o, total):
 
 def run_metrics(pst, scope=None):
     making = SCOPE.making_ids()
-    web, code, agy, codex, gem = (
+    web, code, agy, codex, gem, ruled = (
         Acc("web"),
         Acc("code"),
         Acc("agy"),
         Acc("codex"),
         Acc("gemini"),
+        Acc("rulings"),
     )
     claude_web(web)
     claude_code(code, scope, making)
     agy_sessions(agy, scope, making)
     codex_sessions(codex, scope, making)
     gemini(gem)
+    rulings_rounds(ruled, scope, making)
     total = Acc("TOTAL")
-    for a in (web, code, agy, codex, gem):
+    for a in (web, code, agy, codex, gem, ruled):
         total.merge(a)
-    report((web, code, agy, codex, gem), total, pst, scope)
+    report((web, code, agy, codex, gem, ruled), total, pst, scope)
     report_repo(git_metrics(), output_metrics(), total)
 
 

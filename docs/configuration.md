@@ -969,8 +969,17 @@ names an item by its turn number; the round takes its place in date
 order by the day it was ruled. Text is kept as you wrote it, except that
 line endings become `\n` and space ending a line is dropped, so a
 project that formats its Markdown leaves the file alone. Nothing joins
-by default, and keyword search does not read rulings, as it does not
-read red-pen marks.
+by default.
+
+Declared, a ruling also counts as your input wherever the corpus counts
+it. Keyword and semantic search and `provenance input` read your
+comments and notes as your own words, numbered as `show` numbers them,
+and leave out the option you chose, which was worded for you. The blind
+cold-read reads each round as a source of its own era, `e-rulings`,
+redacted like a local session, in the work scope, since the making list
+names only captured sessions. `provenance metrics` counts each item
+ruled as one of your turns, with only your comment and notes as your
+words. Red-pen marks still join only `show` and the trail.
 
 ### Blind cold-reads
 
