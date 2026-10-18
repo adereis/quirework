@@ -352,9 +352,17 @@ def claude_code(acc, scope=None, making=None):
     whole corpus before the scope filter, so the two scopes' counts still add
     up to the total. A capture whose whole dialogue is counted elsewhere is not
     a session of its own; its sub-agents, which no copy carries, still count.
+
+    The author's turns include a prompt typed while the model was working,
+    logged only as a queue operation, and an answer to a question the model
+    asked, logged as a tool result; an answer's human words are only what he
+    typed (``ccfilter.answer_words``). A queue operation has no id for
+    ownership to match, so such a prompt is counted once corpus-wide by its
+    text and the moment it was queued.
     """
     paths = [str(p) for p in store.files(store.CC, "*.jsonl")]
     own = LINEAGE.owners(paths)
+    prompts = set()  # (queued at, text) of each mid-turn prompt counted
     for fp in paths:
         if not _in_scope(fp, scope, making):
             continue
@@ -368,6 +376,7 @@ def claude_code(acc, scope=None, making=None):
         # mode as running state and attribute each tool_use to the mode in force.
         mode = "default"
         agents = set()  # the session's sub-agents, by their agentId
+        asks, queued = {}, {}
         for line in open(fp):
             line = line.strip()
             if not line:
@@ -377,6 +386,13 @@ def claude_code(acc, scope=None, making=None):
             except json.JSONDecodeError:
                 continue  # a torn line (the mirror can copy a live session mid-write)
             t = o.get("type")
+            prompt = FLT.queued_prompt(o, queued)
+            if prompt:
+                if (prompt[1], prompt[0]) not in prompts:
+                    prompts.add((prompt[1], prompt[0]))
+                    acc.human(prompt[0])
+                    ts.append(parse_ts(prompt[1]))
+                continue
             if "permissionMode" in o:
                 mode = o["permissionMode"]
             if t not in ("user", "assistant"):
@@ -398,7 +414,15 @@ def claude_code(acc, scope=None, making=None):
                 if isinstance(c, str):
                     if not c.lstrip().startswith(HARNESS):
                         acc.human(c)
-                # list-content user lines are tool_result echoes -> skip
+                    continue
+                # list content is a tool_result echo: tool output, except the
+                # answer to a question the model asked the author
+                for b in c if isinstance(c, list) else ():
+                    if not isinstance(b, dict) or b.get("type") != "tool_result":
+                        continue
+                    ask = asks.get(b.get("tool_use_id"), False)
+                    if ask is not False and FLT.answer_text(b, ask):
+                        acc.human(FLT.answer_words(b, ask))
             else:
                 # Recent Claude Code releases stamp the effort asked for on
                 # each assistant record; older ones recorded none. The run
@@ -419,6 +443,8 @@ def claude_code(acc, scope=None, making=None):
                         elif bt == "thinking":
                             acc.think(b.get("thinking", ""))
                         elif bt == "tool_use":
+                            if b.get("name") == FLT.ASK_TOOL:
+                                asks[b.get("id")] = b.get("input")
                             acc.tool_calls += 1
                             if gated:
                                 acc.gated_tools += 1
@@ -717,7 +743,10 @@ def human_turns():
                 out.append(("web/" + Path(fp).name[:8], txt))
     paths = [str(p) for p in store.files(store.CC, "*.jsonl")]
     own = LINEAGE.owners(paths)  # a resumed session's copied turns, once
+    prompts = set()  # mid-turn prompts, once corpus-wide, as `claude_code`
     for fp in paths:
+        asks, queued = {}, {}
+        tag = "cc/" + Path(fp).name[:8]
         for line in open(fp):
             line = line.strip()
             if not line:
@@ -726,16 +755,33 @@ def human_turns():
                 o = json.loads(line)
             except json.JSONDecodeError:
                 continue  # a torn line; every other corpus reader shrugs too
+            prompt = FLT.queued_prompt(o, queued)
+            if prompt:
+                if (prompt[1], prompt[0]) not in prompts:
+                    prompts.add((prompt[1], prompt[0]))
+                    out.append((tag, prompt[0]))
+                continue
             if (
-                o.get("type") != "user"
-                or FLT.harness_flagged(o)
+                FLT.harness_flagged(o)
                 or o.get("isSidechain")
                 or not own.owns(fp, o.get("uuid"))
             ):
                 continue
             c = (o.get("message") or {}).get("content")
+            if o.get("type") == "assistant":
+                for b in c if isinstance(c, list) else ():
+                    if isinstance(b, dict) and b.get("name") == FLT.ASK_TOOL:
+                        asks[b.get("id")] = b.get("input")
+                continue
+            if o.get("type") != "user":
+                continue
             if isinstance(c, str) and not c.lstrip().startswith(HARNESS):
-                out.append(("cc/" + Path(fp).name[:8], c))
+                out.append((tag, c))
+            for b in c if isinstance(c, list) else ():
+                if isinstance(b, dict) and b.get("tool_use_id") in asks:
+                    words = FLT.answer_words(b, asks[b.get("tool_use_id")])
+                    if words.strip():
+                        out.append((tag, words))
     for fp in (str(p) for p in store.files(store.AGY, "*.jsonl")):
         for line in open(fp):
             try:
@@ -768,6 +814,13 @@ def human_turns():
                 cur.append(line)
         if who == "You" and cur:
             out.append(("gem/" + Path(fp).name[7:15], "".join(cur)))
+    from quirework.provenance import rulings as RULINGS
+
+    for path in RULINGS.rounds():
+        found = RULINGS.read(path)
+        for text in [item.comment for item in found.items] + [found.notes]:
+            if text.strip():
+                out.append(("rulings/" + path.stem, text))
     return out
 
 

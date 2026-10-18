@@ -161,9 +161,13 @@ def cc_records(path, *, thinking=False, raw=False):
     them: a flagged record is ``harness``, a side-thread's prompt is
     ``agent``, the task the parent handed its subagent, and what the subagent
     wrote back, its prose and the report it hands back, is ``subagent``.
+    A prompt the author typed while the model was working is a human turn
+    too, though the harness logs it only as a queue operation, at the time
+    he typed it (``ccfilter.queued_prompt``).
     """
     out = []
     asks = {}  # each question the model asked the author: id -> its input
+    queued = {}  # queued text -> when it was enqueued
     with open(path, encoding="utf-8", errors="replace") as fh:
         for line in fh:
             line = line.strip()
@@ -174,6 +178,10 @@ def cc_records(path, *, thinking=False, raw=False):
             except json.JSONDecodeError:
                 continue
             typ = o.get("type")
+            prompt = FLT.queued_prompt(o, queued)
+            if prompt:
+                out.append(("human", prompt[0], prompt[1]))
+                continue
             if typ not in ("user", "assistant"):
                 continue
             if not raw and (FLT.harness_flagged(o) or o.get("isSidechain")):

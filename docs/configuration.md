@@ -874,6 +874,18 @@ build and names the directories where its accepted sessions started.
 Search reads human-authored turns; provider metadata is not proof of
 which model authored a historical turn.
 
+Claude Code logs two kinds of author turn outside its user records, and
+every reader counts both. A prompt typed while the model is working is
+delivered into the running turn and logged only as queue operations; it
+counts at the moment it was typed, and a queued sub-agent report, a task
+notice or a prompt pulled back into the input box does not. An answer to
+a question the model asked is logged as a tool result; `show`, the trail
+and the blind cold-read keep it whole, while search, `provenance input`
+and the effort metrics take only what the author typed, an answer of his
+own or his notes, since an option's label was worded for him. Each turn
+keeps the same number everywhere, so a search hit opens with
+`show --turn`.
+
 A harness logs its own text in the human's slot too, and none of it
 counts as a turn of the author's: slash-command and system-reminder
 wrappers, the report a background subagent sends back, and the summary a

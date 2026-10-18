@@ -68,7 +68,15 @@ import sys
 #     blind analyst read it under "Human (answer to AskUserQuestion)" as the
 #     author's words. The harness's framing sentence stays, so an answer with
 #     no preview renders byte for byte as before and its report revalidates.
-FILTER_VERSION = 6
+# v7: recover the author's prompts typed while the model was working. The
+#     harness delivers one into the running turn and logs it only as a
+#     `queue-operation` (operation `remove`, reason `absorbed_mid_turn`, or no
+#     reason in releases before mid-October 2026), never as a `user` record,
+#     so it never rendered: 188 such prompts across 109 sessions, the author
+#     correcting or redirecting the model mid-task. A queued sub-agent report
+#     or task notice travels the same way inside its own wrapper and stays
+#     out. A session with none renders byte for byte as before.
+FILTER_VERSION = 7
 
 # Human-turn *content* the harness wrote, not the human (mirrors
 # metrics.HARNESS; duplicated because this module stays import-free so the
@@ -432,6 +440,88 @@ def answer_text(block, ask=None, raw=False, framed=False):
         body = body.replace(f" selected preview:\n{preview}", "")
     body = _ASK_PREVIEW.sub("", body)
     return f"{head}{body}{tail}" if framed else body.strip()
+
+
+# A queue operation that delivered a queued prompt into the running turn: the
+# reason the harness has recorded since mid-October 2026, and no reason at all
+# before it. `popAll` is not one: it pulls the queue back into the input box,
+# and whatever the author then sends arrives as an ordinary `user` record.
+_ABSORBED = (None, "absorbed_mid_turn")
+# Wrappers in which a sub-agent's report and a background task's notice queue
+# the same way as a prompt; neither is the author's.
+_QUEUED_WRAPPERS = ("<agent-message", "<task-notification")
+
+
+def queued_prompt(obj, queued):
+    """``(text, timestamp)`` for a prompt the author typed mid-turn, or ``None``.
+
+    A prompt sent while the model is working is queued, and the harness hands
+    it to the model inside the running turn. It is logged only as queue
+    operations, never as a ``user`` record, so a reader that looks for user
+    records loses it. Call this on every record in order: ``queued`` is the
+    reader's state, the time each queued text was enqueued, because that is
+    when the author typed it, and the ``remove`` that delivered it can come
+    much later. A sub-agent's report and a task notice queue the same way
+    inside their own wrappers, and a prompt withdrawn or popped back into the
+    input box was never delivered; none of them is returned.
+    """
+    if not isinstance(obj, dict) or obj.get("type") != "queue-operation":
+        return None
+    content = obj.get("content")
+    op = obj.get("operation")
+    if not isinstance(content, str) or not content.strip():
+        return None
+    if op == "enqueue":
+        queued.setdefault(content, []).append(obj.get("timestamp"))
+        return None
+    if op != "remove" or obj.get("reason") not in _ABSORBED:
+        return None
+    stamps = queued.get(content) or []
+    stamp = stamps.pop(0) if stamps else None
+    if content.lstrip().startswith(_QUEUED_WRAPPERS):
+        return None
+    text = strip_wrappers(content)
+    if not text or text.lstrip().startswith(_HARNESS_PREFIXES):
+        return None
+    return text, stamp or obj.get("timestamp")
+
+
+def answer_words(block, ask=None):
+    """The author's own words in an ``ASK_TOOL`` answer, or ``""``.
+
+    An answer names, for each question, the option picked, and the author may
+    type an answer of his own instead or add notes. The question and an
+    option's label were worded for him by the model, so picking one is his
+    choice but not his words; a typed answer and his notes are. The answer is
+    split on the questions the call asked (``ask``, its input), since the
+    harness quotes them without escaping. Without the call, nothing can be
+    told apart, and the whole answer is returned, as ``answer_text`` gives it.
+    """
+    body = answer_text(block, ask)
+    questions = [q for q in ((ask or {}).get("questions") or []) if isinstance(q, dict)]
+    if not body or not questions:
+        return body
+    found = []
+    for q in questions:
+        marker = f'"{q.get("question", "")}"="'
+        at = body.find(marker)
+        if at >= 0:
+            found.append((at, at + len(marker), q))
+    found.sort(key=lambda f: f[0])
+    words = []
+    for i, (_, start, q) in enumerate(found):
+        end = found[i + 1][0] if i + 1 < len(found) else len(body)
+        span = body[start:end].rstrip().removesuffix(",").rstrip()
+        cut = span.rfind('" notes: ')
+        answer, notes = (span[:cut], span[cut + 9 :]) if cut >= 0 else (span, "")
+        answer = answer.removesuffix('"')
+        labels = {o.get("label") for o in q.get("options") or () if isinstance(o, dict)}
+        picked = answer in labels or all(part in labels for part in answer.split(", "))
+        if answer and not picked:
+            words.append(answer)
+        if notes.strip():
+            words.append(notes.strip())
+    return "\n\n".join(words)
 
 
 def tool_marker(block):
@@ -869,6 +959,7 @@ def filter_session(path):
     # transcribe human authorship into a session rather than producing tool
     # output; their results are recovered below instead of being dropped.
     pending = {}
+    queued = {}  # text -> when it was enqueued, for `queued_prompt`
     seen_rounds = set()  # a round is spliced once, however often it is re-read
     with open(path, encoding="utf-8") as fh:
         for line in fh:
@@ -880,6 +971,11 @@ def filter_session(path):
             except json.JSONDecodeError:
                 continue
             kind = obj.get("type")
+            prompt = queued_prompt(obj, queued)
+            if prompt:
+                human += 1
+                out.append("### Human\n\n" + redact(prompt[0]))
+                continue
             if kind not in ("user", "assistant"):
                 continue  # mode/attachment/file-history-snapshot/... = bookkeeping
             if harness_flagged(obj) or obj.get("isSidechain"):

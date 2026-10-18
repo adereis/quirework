@@ -74,7 +74,10 @@ from quirework.provenance.metrics import HARNESS
 # 2: a background subagent's report and a compacted session's summary are no
 #    longer the human's turns.
 # 3: a review sheet's rulings join: the comment on each item and the notes.
-EXTRACTION_VERSION = 3
+# 4: a Claude Code prompt typed mid-turn joins, and so does the author's own
+#    text in an answer to a question the model asked; turns are numbered as
+#    `show` numbers them.
+EXTRACTION_VERSION = 4
 
 # A turn this short (or a bare slash-command / one-word ack) is procedural, not
 # authored thought: "yes", "go on", "/clear", "perfect, commit it". Marked
@@ -218,35 +221,28 @@ def _web_turns():
 
 
 def _cc_turns():
+    """The author's turns in each Claude Code session, numbered as ``show`` does.
+
+    Three kinds of record hold them: a prompt sent between turns (a ``user``
+    record with text), a prompt typed while the model was working (logged only
+    as a queue operation, ``ccfilter.queued_prompt``), and an answer to a
+    question the model asked (a tool result). Each takes the turn number
+    ``show`` gives it, so a hit opens with ``--turn``. Of an answer, only a
+    typed answer and the notes are the author's words (``ccfilter.
+    answer_words``); one that picked an option holds none and adds no turn
+    here, though it keeps its number.
+    """
     out = []
     for fp in (str(p) for p in store.files(store.CC, "*.jsonl")):
         sid = Path(fp).stem[:8]
         n = 0
-        for line in open(fp):
-            line = line.strip()
-            if not line:
-                continue
-            try:
-                o = json.loads(line)
-            except json.JSONDecodeError:
-                continue
-            if (
-                o.get("type") != "user"
-                or FLT.harness_flagged(o)
-                or o.get("isSidechain")
-            ):
-                continue
-            c = (o.get("message") or {}).get("content")
-            if not isinstance(c, str):  # list content = tool_result echoes
-                continue
-            txt = _clean(c)
-            if not txt:
-                continue
-            n += 1
+        asks, queued = {}, {}
+
+        def keep(txt, stamp):
             cls, w, authored = _classify_turn(txt)
             out.append(
                 {
-                    "ts": parse_ts(o.get("timestamp")),
+                    "ts": parse_ts(stamp),
                     "source": "cc",
                     "sid": sid,
                     "file": str(Path(fp).name),
@@ -257,6 +253,53 @@ def _cc_turns():
                     "authored": authored,
                 }
             )
+
+        for line in open(fp):
+            line = line.strip()
+            if not line:
+                continue
+            try:
+                o = json.loads(line)
+            except json.JSONDecodeError:
+                continue
+            prompt = FLT.queued_prompt(o, queued)
+            if prompt:
+                n += 1
+                keep(prompt[0], prompt[1])
+                continue
+            if FLT.harness_flagged(o) or o.get("isSidechain"):
+                continue
+            c = (o.get("message") or {}).get("content")
+            if o.get("type") == "assistant":
+                for b in c if isinstance(c, list) else ():
+                    if (
+                        isinstance(b, dict)
+                        and b.get("type") == "tool_use"
+                        and b.get("name") == FLT.ASK_TOOL
+                    ):
+                        asks[b.get("id")] = b.get("input")
+                continue
+            if o.get("type") != "user":
+                continue
+            if not isinstance(c, str):  # a tool result: the author only if answering
+                for b in c if isinstance(c, list) else ():
+                    if not isinstance(b, dict) or b.get("type") != "tool_result":
+                        continue
+                    if b.get("tool_use_id") not in asks:
+                        continue
+                    ask = asks[b.get("tool_use_id")]
+                    if not FLT.answer_text(b, ask):
+                        continue
+                    n += 1
+                    txt = _clean(FLT.answer_words(b, ask))
+                    if txt:
+                        keep(txt, o.get("timestamp"))
+                continue
+            txt = _clean(c)
+            if not txt:
+                continue
+            n += 1
+            keep(txt, o.get("timestamp"))
     return out
 
 
