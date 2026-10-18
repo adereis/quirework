@@ -280,7 +280,11 @@ def turn_prompt(root, plan, seat, n, *, cold=False):
     it every round would buy nothing and cost tokens on every seat.
     """
     phase = phase_for(plan, n)
-    words = phase.get("words", plan["post_words"])
+    # A phase states the work's length, or `"words": null` (or false) to
+    # state none: a figure is an instruction, and a plan that wants the work
+    # to find its own length must be able to say nothing. A phase that does
+    # not mention words keeps the post's length, as it always has.
+    words = phase.get("words", plan["post_words"]) or None
     extra = phase.get("instruction", "").strip()
     # Relative to the seat's workspace, as in the standing assignment: this
     # line is sent on every round, so an absolute path is the operator's home
@@ -344,12 +348,13 @@ def turn_prompt(root, plan, seat, n, *, cold=False):
         # Two files because they are two things, and the word count belongs to
         # the work rather than to the note about it. Afterwards the work is a
         # file, not a passage somebody has to find inside a conversation.
+        length = f", about {words} words" if words else ""
         text += (
             f" Write the work itself to outbox/{made}, as finished text and"
-            f" nothing else, about {words} words. Your post is your note to the"
+            f" nothing else{length}. Your post is your note to the"
             f" room about it, about {plan['post_words']} words."
         )
-    elif words != plan["post_words"]:
+    elif words and words != plan["post_words"]:
         text += f" About {words} words this time."
     text = f"{text}{(' ' + extra) if extra else ''}"
     note = chair_note(root, n)
@@ -392,6 +397,20 @@ def prepare(plan_path, destination, *, resolve_models=True):
                 raise ValueError(f"phase {phase.get('name')!r} seats nobody")
             if "deliverable" in phase:
                 safe_name(phase["deliverable"])
+            length = phase.get("words")
+            if not (
+                length is None
+                or length is False
+                or (
+                    isinstance(length, int)
+                    and not isinstance(length, bool)
+                    and length > 0
+                )
+            ):
+                raise ValueError(
+                    f"phase {phase.get('name')!r}: words is a positive integer,"
+                    " or null to state no length"
+                )
 
     fields = ("harness", "model", "effort")
     config = {k: supplied[k] for k in fields}

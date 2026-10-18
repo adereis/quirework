@@ -1180,6 +1180,43 @@ def test_a_drafting_seat_is_asked_for_the_work_as_a_file(making):
     assert "about 900 words" in text and "about 100 words" in text
 
 
+@pytest.mark.parametrize("unstated", [None, False])
+def test_a_phase_can_ask_for_the_work_without_a_length(tmp_path, plan, unstated):
+    supplied = json.loads(plan.read_text())
+    supplied["phases"] = [
+        {"name": "discuss", "rounds": 1},
+        {
+            "name": "draft",
+            "rounds": 1,
+            "seats": ["ana-pell"],
+            "words": unstated,
+            "deliverable": "chapter-one.md",
+        },
+        {"name": "read", "rounds": 1, "words": unstated},
+    ]
+    write(plan, supplied)
+    room.prepare(plan, tmp_path / "unsized", resolve_models=False)
+    _, frozen = room.load(tmp_path / "unsized")
+    seat = next(s for s in frozen["seats"] if s["id"] == "ana-pell")
+    text = room.turn_prompt(tmp_path / "unsized", frozen, seat, 2)
+    assert "outbox/chapter-one.md, as finished text and nothing else." in text
+    assert "about 100 words" in text, "the note keeps its length"
+    assert text.count(" words") == 1
+    later = room.turn_prompt(tmp_path / "unsized", frozen, seat, 3)
+    assert "this time" not in later
+
+
+def test_a_phase_length_is_a_positive_number_or_none(tmp_path, plan):
+    supplied = json.loads(plan.read_text())
+    supplied["phases"] = [
+        {"name": "discuss", "rounds": 2, "words": 0},
+        {"name": "read", "rounds": 1},
+    ]
+    write(plan, supplied)
+    with pytest.raises(ValueError, match="positive integer, or null"):
+        room.prepare(plan, tmp_path / "zero", resolve_models=False)
+
+
 def test_the_work_is_kept_as_a_file_and_still_reaches_the_room(making):
     post(making, "ana-pell", "Opening position.")
     post(making, "bo-larke", "A rival position.")

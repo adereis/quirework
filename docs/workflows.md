@@ -380,7 +380,10 @@ post, which is the note to the room, and the work itself. A drafting
 phase produces both whether or not the plan says so. Without a name, the
 work and the note arrive welded into one post. The operator must then
 split them using whatever separator the room improvised. The phase's
-`words` describes the work. Its `post_words` describes the note.
+`words` describes the work. Its `post_words` describes the note. A phase
+can set `"words": null` to state no length for the work at all, where a
+plan wants the writers to find the length themselves rather than aim at
+a figure; leaving `words` out keeps the post's length.
 
 ```json
 {"name": "draft", "rounds": 1, "seats": ["wren"], "words": 1400,
