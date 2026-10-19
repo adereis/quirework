@@ -41,6 +41,7 @@ from __future__ import annotations
 import hashlib
 import json
 import re
+from datetime import datetime, timedelta
 from pathlib import Path
 
 HARNESSES = ("codex", "claude", "agy")
@@ -102,6 +103,50 @@ LIMIT_TEXT = re.compile(
 )
 
 CODEX_LIMIT_CODES = ("rate_limit_exceeded", "insufficient_quota")
+
+# Codex names a plan's reset as a time on the clock and nothing more: "...
+# or try again at 1:18 PM." No date and no zone, because the CLI formats it
+# for whoever is at the terminal. It is read as local time, at the next such
+# time at or after the stop. A stop filed with no reset tells the operator
+# nothing about when to come back, and the sentence was right there.
+CODEX_RESET = re.compile(
+    r"try again (?:at|after)\s+(\d{1,2}):(\d{2})(?:\s*([ap])\.?\s*m\b\.?)?",
+    re.I,
+)
+
+# A reset named a few minutes before the stop was recorded is the same
+# reset, reached late (the file is stamped when the harness finishes
+# writing), and not one a whole day away.
+RESET_GRACE = timedelta(minutes=10)
+
+
+def codex_reset(message, stopped_at):
+    """Epoch seconds of the reset a Codex limit message names, or None.
+
+    ``stopped_at`` is when the stop was recorded, in epoch seconds; the
+    clock time in the message is taken as the next one at or after it, in
+    local time. A message naming no time, or an impossible one, gives None
+    rather than a guess.
+    """
+    found = CODEX_RESET.search(str(message or ""))
+    if not found or stopped_at is None:
+        return None
+    hour, minute = int(found[1]), int(found[2])
+    half = (found[3] or "").lower()
+    if minute > 59:
+        return None
+    if half:
+        if not 1 <= hour <= 12:
+            return None
+        hour = hour % 12 + (12 if half == "p" else 0)
+    elif hour > 23:
+        return None
+    stop = datetime.fromtimestamp(stopped_at)
+    reset = stop.replace(hour=hour, minute=minute, second=0, microsecond=0)
+    if reset < stop - RESET_GRACE:
+        reset += timedelta(days=1)
+    return int(reset.timestamp())
+
 
 # What Claude Code says when the token it was handed stops working. The 401
 # status, the assistant record's ``authentication_failed`` and the retry
@@ -359,7 +404,7 @@ def _codex_limit(error):
     return bool(LIMIT_TEXT.search(str(error.get("message", ""))))
 
 
-def _codex(stream):
+def _codex(stream, stopped_at=None):
     stopped = [r for r in stream if r.get("type") == "turn.failed"]
     failed = [r for r in stopped if _codex_limit(r.get("error") or {})]
     if not failed:
@@ -383,7 +428,8 @@ def _codex(stream):
     return dict(
         phase="interrupted" if produced else "refused",
         scope=error.get("code") or "quota",
-        resets_at=error.get("resets_at"),
+        resets_at=error.get("resets_at")
+        or codex_reset(error.get("message"), stopped_at),
         detail=str(error.get("message", ""))[:200],
         output_tokens=None,
     )
@@ -426,10 +472,17 @@ def classify(harness, record):
     if harness not in HARNESSES:
         raise ValueError(f"unknown harness: {harness}")
     record = Path(record)
-    stream = rows(record if record.is_file() else record / "events.jsonl")
+    path = record if record.is_file() else record / "events.jsonl"
+    stream = rows(path)
     if not stream:
         return None
-    detail = {"codex": _codex, "claude": _claude, "agy": _agy}[harness](stream)
+    if harness == "codex":
+        # Codex's reset is a clock time with no date, so it is read against
+        # when the stream was last written: the stop's own moment, give or
+        # take the harness finishing its file.
+        detail = _codex(stream, stopped_at=path.stat().st_mtime)
+    else:
+        detail = {"claude": _claude, "agy": _agy}[harness](stream)
     if detail is None:
         return None
     detail["harness"] = harness

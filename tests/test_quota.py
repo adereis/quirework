@@ -14,6 +14,8 @@ that was most of the way done and pays the whole bill again.
 """
 
 import json
+import os
+from datetime import datetime
 
 import pytest
 
@@ -197,6 +199,83 @@ def test_a_codeless_codex_usage_limit_is_still_a_limit(tmp_path):
 
     refused = codex_failed(tmp_path / "refused", dict(message=notice), produced=False)
     assert quota.classify("codex", refused)["phase"] == "refused"
+
+
+def stopped_at(folder, when):
+    """Stamp a stream as written at a local wall-clock time."""
+    stamp = when.timestamp()
+    os.utime(folder / "events.jsonl", (stamp, stamp))
+    return folder
+
+
+def test_a_codex_limit_says_when_it_resets(tmp_path):
+    """The message names a clock time and nothing else, and an operator
+    deciding whether to wait needs that time on the receipt, not buried in
+    the stream."""
+    notice = (
+        "You've hit your usage limit. Visit the settings page to purchase "
+        "more credits or try again at 1:18 PM."
+    )
+    cut = stopped_at(
+        codex_failed(tmp_path / "cut", dict(message=notice)),
+        datetime(2031, 3, 12, 9, 33),
+    )
+    detail = quota.classify("codex", cut)
+    assert detail["resets_at"] == int(datetime(2031, 3, 12, 13, 18).timestamp())
+
+
+def test_a_codex_reset_past_midnight_is_the_next_day(tmp_path):
+    cut = stopped_at(
+        codex_failed(
+            tmp_path / "cut",
+            dict(message="Usage limit reached. Try again at 12:05 AM."),
+        ),
+        datetime(2031, 3, 12, 23, 50),
+    )
+    assert quota.classify("codex", cut)["resets_at"] == int(
+        datetime(2031, 3, 13, 0, 5).timestamp()
+    )
+
+
+def test_a_codex_reset_written_just_before_the_stop_is_the_same_reset(tmp_path):
+    """The stream is stamped when the harness finishes writing it, which can
+    be a little after the clock time it names; that is not a day away."""
+    cut = stopped_at(
+        codex_failed(
+            tmp_path / "cut", dict(message="Usage limit reached. Try again at 13:18.")
+        ),
+        datetime(2031, 3, 12, 13, 21),
+    )
+    assert quota.classify("codex", cut)["resets_at"] == int(
+        datetime(2031, 3, 12, 13, 18).timestamp()
+    )
+
+
+@pytest.mark.parametrize(
+    "notice",
+    [
+        "You have hit your usage limit.",
+        "Usage limit reached. Try again at 25:10.",
+        "Usage limit reached. Try again at 13:05 PM.",
+    ],
+)
+def test_a_codex_limit_without_a_readable_reset_names_none(tmp_path, notice):
+    """No time, or an impossible one, is no reset rather than a guess."""
+    cut = codex_failed(tmp_path / "cut", dict(message=notice))
+    assert quota.classify("codex", cut)["resets_at"] is None
+
+
+def test_a_reset_codex_states_itself_is_kept(tmp_path):
+    """A structured reset wins over the sentence wherever Codex sends one."""
+    cut = codex_failed(
+        tmp_path / "cut",
+        dict(
+            code="rate_limit_exceeded",
+            message="Rate limited. Try again at 1:18 PM.",
+            resets_at=4_000_000_000,
+        ),
+    )
+    assert quota.classify("codex", cut)["resets_at"] == 4_000_000_000
 
 
 def test_a_codex_fault_is_not_read_as_a_limit(tmp_path):
