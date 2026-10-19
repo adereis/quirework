@@ -1832,3 +1832,181 @@ def test_a_round_tells_its_progress_on_stderr_as_it_runs(prepared, monkeypatch, 
     assert "wrote    outbox/post.md" in captured.err
     assert "Tern" not in captured.err
     assert "ana-pell: answered" in captured.out
+
+
+# --------------------------------------------------------------------------- #
+# a provider limit pauses the round
+# --------------------------------------------------------------------------- #
+@pytest.fixture
+def trio(plan, tmp_path):
+    """Three seats in plan order, so one can stop between two others."""
+    source = plan.parent
+    (source / "profiles" / "cy-moss.json").write_text(
+        json.dumps(profile("cy-moss", "Cy Moss"))
+    )
+    spec = read(plan)
+    spec["seats"].append({"id": "cy-moss", "persona": "cy-moss", "files": []})
+    write(plan, spec)
+    room.prepare(plan, tmp_path / "trio", resolve_models=False)
+    return tmp_path / "trio"
+
+
+def scripted(monkeypatch, outcomes):
+    """Seats that end their turns as scripted, banking each as a turn would.
+
+    A seat that already has the round answers from its record, as the real
+    turn does, so running a held round again launches only what is owed.
+    """
+    launched = []
+
+    def run_seat(root, plan, seat, n, *, timeout=None):
+        name = seat["id"]
+        state = read(room.state_path(root, name))
+        if str(n) in state["rounds"]:
+            return state["rounds"][str(n)]["status"]
+        room.event(root, round=n, seat=name, event="launching")
+        launched.append(name)
+        outcome = outcomes[name]
+        if isinstance(outcome, Exception):
+            raise outcome
+        state["rounds"][str(n)] = {"status": outcome}
+        write(room.state_path(root, name), state)
+        if outcome == "answered":
+            post(root, name, f"{name} on the lighthouse, round {n}.")
+        return outcome
+
+    monkeypatch.setattr(room, "run_seat", run_seat)
+    return launched
+
+
+def continued(root, name, n=1):
+    """What a successful `continue` leaves: the turn answered and posted."""
+    state = read(room.state_path(root, name))
+    state["rounds"][str(n)] = {"status": "answered"}
+    write(room.state_path(root, name), state)
+    post(root, name, f"{name}, continued after the limit.")
+
+
+def held_steps(root, n=1):
+    return [r for r in room.trail(root) if r.get("round") == n]
+
+
+def test_a_seat_stopped_on_its_limit_pauses_the_round(trio, monkeypatch):
+    """What to do after a limit is the operator's call, and the seats after
+    it would have spent their own allowance before anyone made it."""
+    launched = scripted(
+        monkeypatch,
+        {"ana-pell": "answered", "bo-larke": "quota", "cy-moss": "answered"},
+    )
+    result = room.run_round(trio, 1)
+    assert launched == ["ana-pell", "bo-larke"]
+    assert result["cy-moss"] == "held back"
+    assert result["_board"] == {"held": ["bo-larke"], "held_back": ["cy-moss"]}
+    assert not (trio / "board" / "rounds" / "r001").exists()
+    steps = held_steps(trio)
+    assert {"seat": "cy-moss", "event": "held-back"}.items() <= next(
+        r for r in steps if r.get("seat") == "cy-moss"
+    ).items()
+    held = next(r for r in steps if r.get("event") == "round-held")
+    assert held["waiting_on"] == ["bo-larke"]
+    assert held["held_back"] == ["cy-moss"]
+
+
+def test_promote_will_not_file_a_held_back_seat_absent(trio, monkeypatch):
+    """It never took its turn, so an empty outbox is not its silence, and a
+    board that says so is never rewritten."""
+    scripted(
+        monkeypatch,
+        {"ana-pell": "answered", "bo-larke": "quota", "cy-moss": "answered"},
+    )
+    room.run_round(trio, 1)
+    continued(trio, "bo-larke")
+    with pytest.raises(RuntimeError, match=r"held back cy-moss.*run `round 1`"):
+        room.promote(trio, 1)
+    assert not (trio / "board" / "rounds" / "r001").exists()
+    assert (trio / "seats" / "ana-pell" / "outbox" / "post.md").exists()
+
+
+def test_running_a_held_round_again_takes_only_the_turns_still_owed(trio, monkeypatch):
+    launched = scripted(
+        monkeypatch,
+        {"ana-pell": "answered", "bo-larke": "quota", "cy-moss": "answered"},
+    )
+    room.run_round(trio, 1)
+    continued(trio, "bo-larke")
+    result = room.run_round(trio, 1)
+    assert launched == ["ana-pell", "bo-larke", "cy-moss"]
+    assert result["_board"]["posted"] == ["ana-pell", "bo-larke", "cy-moss"]
+    assert result["_board"]["absent"] == []
+    steps = [r["event"] for r in held_steps(trio) if "seat" not in r]
+    assert steps.count("round-opened") == 1
+    assert "round-resumed" in steps
+    assert room.status(trio)["held"] is None
+
+
+def test_a_seat_still_stopped_holds_the_round_again(trio, monkeypatch):
+    """Running the round before the window resets launches nobody."""
+    launched = scripted(
+        monkeypatch,
+        {"ana-pell": "answered", "bo-larke": "quota", "cy-moss": "answered"},
+    )
+    room.run_round(trio, 1)
+    result = room.run_round(trio, 1)
+    assert launched == ["ana-pell", "bo-larke"]
+    assert result["_board"] == {"held": ["bo-larke"], "held_back": ["cy-moss"]}
+
+
+def test_going_on_past_a_stopped_seat_files_it_absent_at_promote(trio, monkeypatch):
+    """A seat whose wall is days away is withdrawn by the operator: the
+    others take their turns, and the absence is the operator's to record."""
+    launched = scripted(
+        monkeypatch,
+        {"ana-pell": "answered", "bo-larke": "quota", "cy-moss": "answered"},
+    )
+    room.run_round(trio, 1)
+    result = room.run_round(trio, 1, past=["bo-larke"])
+    assert launched == ["ana-pell", "bo-larke", "cy-moss"]
+    assert result["_board"] == {"held": ["bo-larke"], "held_back": []}
+    assert room.next_step(room.status(trio)).startswith("quirework sop room promote")
+    assert room.promote(trio, 1)["absent"] == ["bo-larke"]
+
+
+def test_a_failed_seat_does_not_pause_the_round(trio, monkeypatch):
+    """Only a classified limit is the operator's to wait out; a crash is
+    filed as it always was, and the others still speak."""
+    launched = scripted(
+        monkeypatch,
+        {
+            "ana-pell": RuntimeError("the harness died"),
+            "bo-larke": "failed",
+            "cy-moss": "answered",
+        },
+    )
+    result = room.run_round(trio, 1)
+    assert launched == ["ana-pell", "bo-larke", "cy-moss"]
+    assert result["ana-pell"].startswith("stopped:")
+    assert result["_board"]["posted"] == ["cy-moss"]
+    assert sorted(result["_board"]["absent"]) == ["ana-pell", "bo-larke"]
+
+
+def test_status_names_the_held_back_seats_and_how_to_take_their_turns(
+    trio, monkeypatch
+):
+    scripted(
+        monkeypatch,
+        {"ana-pell": "answered", "bo-larke": "quota", "cy-moss": "answered"},
+    )
+    room.run_round(trio, 1)
+    value = room.status(trio)
+    assert value["held"]["held_back"] == ["cy-moss"]
+    assert "held back: cy-moss" in room._render(value)
+    step = room.next_step(value)
+    assert "continue" in step and "bo-larke" in step
+    assert step.endswith(
+        "round " + shown(trio) + " 1 to take the held-back seats' turns and close it"
+    )
+
+
+def test_a_reset_time_is_shown_on_the_clock(trio):
+    assert room.reset_text(4_000_000_000).startswith("2096-")
+    assert room.reset_text("14:20Z") == "14:20Z"

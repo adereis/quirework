@@ -327,9 +327,25 @@ on inside its session. It sends a refused one again into the session it
 was continuing, first cutting away what the refused attempt appended, so
 the seat keeps every round it has had. Only a seat's very first turn, if
 refused, goes again in a fresh session, because there is nothing yet to
-keep. A roundtable's `continue` does the same. The first round has no
-board. A round listed in `silent_rounds` has one and is deliberately not
-shown it, which keeps opening positions independent.
+keep. A roundtable's `continue` does the same.
+
+A seat that stops on a provider limit pauses its round. No seat after it
+is launched, because what happens next is the operator's call and the
+held-back seats would otherwise spend their allowance before it is made.
+The round is held, never published with the stopped seat filed absent,
+and `status` names the stopped seats, the held-back ones and the
+provider's reset time where the harness gives one. Wait the provider
+out, then `continue ROOM ROUND SEAT`, then `round ROOM ROUND` again: it
+resumes the held round, launches no seat that already answered, takes
+the held-back seats' turns in plan order, and closes the round. When
+nothing was held back, `promote ROOM ROUND` closes it instead, and
+`promote` refuses while a held-back seat is still owed its turn. To go
+on without a stopped seat, run the round with `--past SEAT`: the others
+take their turns, and `promote` then files that seat absent.
+
+The first round has no board. A round listed in `silent_rounds` has one
+and is deliberately not shown it, which keeps opening positions
+independent.
 
 The digest concatenates a round's posts whole, attributed, in an order
 rotated by round number. It never summarizes. The staged packet and the
@@ -343,11 +359,11 @@ and counts the red flags marked `!` below it. Each seat then reports how
 many of the rounds its phase lets it speak in it has answered. A seat
 resting through a drafting phase is therefore not reported as behind.
 The last line names the command to run next: `rounds` while the budget
-lasts, `continue` and `promote` for a round held on a provider quota,
-and `board` once the room is done. An assistant driving the room reports
-that line rather than deriving its own, and does not run it unasked,
-because `rounds` and `continue` spend the user's provider quota.
-`status --help` reads a worked example line by line.
+lasts, `continue` and then `round` or `promote` for a round held on a
+provider quota, and `board` once the room is done. An assistant driving
+the room reports that line rather than deriving its own, and does not
+run it unasked, because `rounds` and `continue` spend the user's
+provider quota. `status --help` reads a worked example line by line.
 
 A round takes minutes, because every seat answers in turn. Start
 `rounds` in the background rather than in the foreground, and follow it

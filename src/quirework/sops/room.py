@@ -30,7 +30,7 @@ import textwrap
 import time
 from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
-from threading import Lock
+from threading import Event, Lock
 
 from quirework.project import current_project, submit
 from quirework.core import usage as usage_records
@@ -894,6 +894,57 @@ def compose_digest(root, plan, n):
     return text, included, absent
 
 
+def trail(root):
+    """The room's log rows, oldest first. A partly written last line is
+    skipped rather than treated as corruption, because the writer may be
+    mid-append."""
+    rows = []
+    log = Path(root) / "room.log"
+    if log.exists():
+        for line in log.read_text().splitlines():
+            try:
+                rows.append(json.loads(line))
+            except json.JSONDecodeError:
+                continue
+    return rows
+
+
+def held_round(root, n, rows=None):
+    """The latest ``round-held`` row for round ``n``, while it is unpublished."""
+    if (Path(root) / "board" / "rounds" / f"r{n:03d}").exists():
+        return None
+    rows = trail(root) if rows is None else rows
+    return next(
+        (
+            r
+            for r in reversed(rows)
+            if r.get("event") == "round-held" and r.get("round") == n
+        ),
+        None,
+    )
+
+
+def held_back(root, n, rows=None):
+    """Seats round ``n`` held back that have not yet taken their turn.
+
+    A seat is held back when another stopped on a provider limit first, and
+    it stays held back until a later run of the round launches it. Any step
+    of its own in the round after the hold counts as taking the turn, a
+    failed launch included, since that failure is then the seat's own fact.
+    """
+    rows = trail(root) if rows is None else rows
+    held = held_round(root, n, rows)
+    if not held:
+        return []
+    since = rows[rows.index(held) + 1 :]
+    took = {
+        r.get("seat")
+        for r in since
+        if r.get("round") == n and r.get("event") in ("launching", "stopped")
+    }
+    return [name for name in held.get("held_back") or [] if name not in took]
+
+
 def promote(root, n):
     """Move every outbox onto the board, then publish the round's digest.
 
@@ -903,6 +954,17 @@ def promote(root, n):
     for the round, which is a fact about the round and not a failure.
     """
     root, plan = load(root)
+    # A seat held back when another stopped on a provider limit never took
+    # its turn, so its outbox is empty for a reason that is not its own.
+    # Filing it absent would put a false fact on a board that is never
+    # rewritten; it takes its turn when the round is run again.
+    waiting = held_back(root, n)
+    if waiting:
+        raise RuntimeError(
+            f"round {n} held back {', '.join(waiting)} when a seat stopped on "
+            f"a provider limit; run `round {n}` to take their turns and close "
+            "the round"
+        )
     speaking = acting(plan, n)
     for seat in plan["seats"]:
         if seat["id"] not in speaking:
@@ -1385,7 +1447,7 @@ def recovery(record, work, harness, stop):
     return session, prompt, True
 
 
-def run_round(root, n, *, jobs=1, timeout=None):
+def run_round(root, n, *, jobs=1, timeout=None, past=()):
     """Open the round, run every seat, then close it by promoting the outboxes.
 
     Seats run one at a time unless ``jobs`` says otherwise, and the account
@@ -1395,12 +1457,25 @@ def run_round(root, n, *, jobs=1, timeout=None):
     preserves whatever spend order the plan recorded. The round closes once
     every seat has stopped, so the board changes at exactly one instant and no
     seat reads a partial one.
+
+    A seat that stops on a provider limit pauses the round: no seat after it
+    is launched, because what to do next is the operator's decision (wait the
+    window out, or go on without that seat), and launching the rest first
+    spends their allowance before it is made. The round is held with the
+    stopped seats and the held-back seats named. Running the same round
+    again resumes it: a seat that already answered is not launched again, a
+    seat still stopped holds it again, and the held-back seats take their
+    turns in plan order. ``past`` names stopped seats the operator has chosen
+    not to wait for; they no longer hold the others back, and the round stays
+    held on them until ``promote`` files them absent.
     """
     root, plan = load(root)
     with lock(root / "room.lock"):
         allowed = budget(root, plan)
         if n < 1 or n > allowed:
             raise ValueError(f"round must be 1..{allowed}; extend the room first")
+        names = {s["id"] for s in plan["seats"]}
+        past = {seat_named(plan, name) for name in past}
         # Every seat resumes its session each round. One whose private home
         # has gone would fail after the round opened and the board went out
         # to the others, so the round is refused before either happens.
@@ -1413,8 +1488,15 @@ def run_round(root, n, *, jobs=1, timeout=None):
                         seat_config(plan, seat)["harness"],
                         state["session_id"],
                     )
-        event(root, round=n, event="round-opened", jobs=jobs)
-        open_round(root, n)
+        resumed = held_round(root, n)
+        if resumed:
+            # The board this round shows was published when it first opened,
+            # and every seat that already spoke read that one; publishing it
+            # again would only repeat the trail.
+            event(root, round=n, event="round-resumed", jobs=jobs)
+        else:
+            event(root, round=n, event="round-opened", jobs=jobs)
+            open_round(root, n)
         results = {}
 
         speaking = acting(plan, n)
@@ -1422,12 +1504,20 @@ def run_round(root, n, *, jobs=1, timeout=None):
             if seat["id"] not in speaking:
                 event(root, round=n, seat=seat["id"], event="resting")
 
+        halted = Event()
+
         def task(seat):
+            if halted.is_set():
+                event(root, round=n, seat=seat["id"], event="held-back")
+                return seat["id"], "held back"
             try:
-                return seat["id"], run_seat(root, plan, seat, n, timeout=timeout)
+                outcome = run_seat(root, plan, seat, n, timeout=timeout)
             except (RuntimeError, ValueError, OSError, subprocess.SubprocessError) as e:
                 event(root, round=n, seat=seat["id"], event="stopped", error=str(e))
                 return seat["id"], f"stopped: {e}"
+            if outcome == "quota" and seat["id"] not in past:
+                halted.set()
+            return seat["id"], outcome
 
         # `submit` carries the caller's project context into each thread.
         # A bare pool.map would let a worker re-resolve the project from disk,
@@ -1441,11 +1531,20 @@ def run_round(root, n, *, jobs=1, timeout=None):
         # of what the room was shown. Publishing one that files a seat as
         # silent would put a false fact beyond reach, because a published
         # board is never rewritten. So the round stays open, the operator
-        # waits the provider out, continues that seat, and promotes then.
+        # waits the provider out, continues that seat, and runs the round
+        # again to take the held-back seats' turns and close it.
         stopped = sorted(k for k, v in results.items() if v == "quota")
-        if stopped:
-            event(root, round=n, event="round-held", waiting_on=stopped)
-            results["_board"] = {"held": stopped}
+        back = [s["id"] for s in speakers if results.get(s["id"]) == "held back"]
+        if stopped or back:
+            event(
+                root,
+                round=n,
+                event="round-held",
+                waiting_on=stopped,
+                held_back=back,
+                past=sorted(past & names & set(stopped)),
+            )
+            results["_board"] = {"held": stopped, "held_back": back}
             return results
         results["_board"] = promote(root, n)
     return results
@@ -1501,14 +1600,7 @@ def status(root):
     than treated as corruption, because the writer may be mid-append.
     """
     root, plan = load(root, verify=False)
-    rows = []
-    log = root / "room.log"
-    if log.exists():
-        for line in log.read_text().splitlines():
-            try:
-                rows.append(json.loads(line))
-            except json.JSONDecodeError:
-                continue
+    rows = trail(root)
     allowed = budget(root, plan)
     seats = {}
     for seat in plan["seats"]:
@@ -1578,10 +1670,14 @@ def status(root):
     converged = bool(signal and signal["converged"] and not plan.get("phases"))
     held = [r for r in rows if r.get("event") == "round-held"]
     still_held = (
-        held[-1]
+        dict(held[-1])
         if held and f"r{held[-1].get('round', 0):03d}" not in published
         else None
     )
+    if still_held:
+        # Recorded as held back when the round paused; still owed a turn
+        # only until a later run of the round launches it.
+        still_held["held_back"] = held_back(root, still_held.get("round"), rows)
     # An operator writes `chair/r<NNN>.md` before opening round NNN and has
     # nothing else to confirm it will be picked up, or to notice one left over
     # from a round that has already run.
@@ -1618,6 +1714,18 @@ def status(root):
     return value
 
 
+def reset_text(when):
+    """A provider's reset as an operator reads it.
+
+    Harnesses report it as epoch seconds or as their own text; a number is
+    shown in local time, because the operator sets a timer by it, and
+    anything else is shown as the provider gave it.
+    """
+    if isinstance(when, (int, float)) and not isinstance(when, bool):
+        return time.strftime("%Y-%m-%d %H:%M %Z", time.localtime(when))
+    return str(when)
+
+
 def next_step(value):
     """The one command to type next.
 
@@ -1631,11 +1739,24 @@ def next_step(value):
     held = value["held"]
     if held:
         number, waiting = held.get("round"), held.get("waiting_on") or []
-        first = waiting[0] if waiting else "SEAT"
-        more = f" (and {len(waiting) - 1} more)" if len(waiting) > 1 else ""
+        back = held.get("held_back") or []
+        waited = [w for w in waiting if w not in (held.get("past") or [])]
+        # Seats the operator chose not to wait for are filed absent by
+        # promote; held-back seats are owed their turns first, and running
+        # the round again is what takes them.
+        close = (
+            f"{command} round {room} {number} to take the held-back seats' "
+            "turns and close it"
+            if back
+            else f"{command} promote {room} {number}"
+        )
+        if not waited:
+            return close
+        first = waited[0]
+        more = f" (and {len(waited) - 1} more)" if len(waited) > 1 else ""
         return (
             f"{command} continue {room} {number} {first}{more} once the window "
-            f"resets, then {command} promote {room} {number}"
+            f"resets, then {close}"
         )
     published = value["published_rounds"]
     if len(published) < value["rounds"] and not value["converged"]:
@@ -1805,8 +1926,11 @@ def _render(value):
         )
         lines.append(
             f"  HELD: round {number} waiting on {', '.join(waiting)} "
-            f"(provider quota{f'; resets {resets[0]}' if resets else ''})"
+            f"(provider quota{f'; resets {reset_text(resets[0])}' if resets else ''})"
         )
+        back = value["held"].get("held_back") or []
+        if back:
+            lines.append(f"  held back: {', '.join(back)}, not yet launched this round")
     lines.append("")
     width = max(len(v["label"]) for v in value["seats"].values())
     served = max(len(v["served"]) for v in value["seats"].values())
@@ -2128,10 +2252,23 @@ class Feed:
 
     def on_round_held(self, row):
         waiting = ", ".join(self.labels.get(s, s) for s in row.get("waiting_on") or [])
+        back = ", ".join(self.labels.get(s, s) for s in row.get("held_back") or [])
+        held = f"; held back, not launched: {back}" if back else ""
         return self.page.event(
             row["t"],
-            f"round {row['round']} held on a provider limit, waiting on {waiting}; "
-            f"`status` names the command that continues it",
+            f"round {row['round']} held on a provider limit, waiting on {waiting}"
+            f"{held}; `status` names the command that continues it",
+        )
+
+    def on_round_resumed(self, row):
+        return self.page.event(
+            row["t"], f"round {row['round']} resumed after a provider limit"
+        )
+
+    def on_held_back(self, row):
+        return self.page.event(
+            row["t"],
+            f"{self.who(row)} held back: a seat before it stopped on a provider limit",
         )
 
     def on_budget_extended(self, row):
@@ -2428,11 +2565,21 @@ def main(argv=None):
     made.add_argument("plan")
     made.add_argument("destination")
 
-    turn = sub.add_parser("round", help="open, run and close one round")
+    turn = sub.add_parser(
+        "round", help="open, run and close one round, or resume a held one"
+    )
     turn.add_argument("root")
     turn.add_argument("number", type=int)
     turn.add_argument("--jobs", type=int, default=1)
     turn.add_argument("--timeout", type=float, default=None)
+    turn.add_argument(
+        "--past",
+        action="append",
+        default=[],
+        metavar="SEAT",
+        help="a seat stopped on a provider limit that the round should not "
+        "wait for; promote then files it absent (repeatable)",
+    )
 
     for name, help_text in (
         ("open", "republish a round's board"),
@@ -2522,10 +2669,18 @@ def main(argv=None):
     root = room_root(args.root)
     if args.command == "round":
         with narrating(root):
-            played = run_round(root, args.number, jobs=args.jobs, timeout=args.timeout)
+            played = run_round(
+                root,
+                args.number,
+                jobs=args.jobs,
+                timeout=args.timeout,
+                past=args.past,
+            )
         for name, outcome in played.items():
             detail = json.dumps(outcome) if isinstance(outcome, dict) else outcome
             print(f"{name}: {detail}")
+        if played["_board"].get("held"):
+            print(f"next: {next_step(status(root))}")
     elif args.command == "continue":
         # Not `status`: that name is a function in this module, and binding it
         # here makes it local to `main` for the whole body, so every other
@@ -2534,9 +2689,16 @@ def main(argv=None):
             outcome = continue_seat(root, args.number, args.seat, timeout=args.timeout)
         print(f"{args.seat}: {outcome}")
         if outcome == "answered":
-            print(
-                f"now close the round: quirework sop room promote {shown(root)} {args.number}"
-            )
+            if held_back(root, args.number):
+                print(
+                    "now take the held-back seats' turns and close the round: "
+                    f"quirework sop room round {shown(root)} {args.number}"
+                )
+            else:
+                print(
+                    "now close the round: quirework sop room promote "
+                    f"{shown(root)} {args.number}"
+                )
     elif args.command == "open":
         print(open_round(root, args.number) or "silent round; no board")
     elif args.command == "rounds":
@@ -2547,10 +2709,16 @@ def main(argv=None):
         for number, outcome in played:
             held = outcome["_board"].get("held")
             if held:
+                back = outcome["_board"].get("held_back") or []
+                close = (
+                    f"round {number} again to take {', '.join(back)}'s turns"
+                    if back
+                    else f"promote {number}"
+                )
                 print(
                     f"round {number}: held, waiting on {', '.join(held)}; "
                     f"continue each with: quirework sop room continue "
-                    f"{shown(root)} {number} SEAT, then promote {number}"
+                    f"{shown(root)} {number} SEAT, then {close}"
                 )
                 continue
             signal = outcome["_board"]["convergence"]
