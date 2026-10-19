@@ -27,6 +27,8 @@ from quirework.providers import quota
 from quirework.providers import models as drivers
 from quirework.providers.harness import bus_flags
 from quirework.project import ConfigurationError, current_project, submit
+from quirework.runs import feed
+from quirework.runs.storage import shown
 
 SCHEMA = 1
 # `quota` owns the tier vocabulary and the order it implies, because the
@@ -1315,6 +1317,117 @@ def report_table(data):
     return "\n".join(lines)
 
 
+# The writers' words and how much they wrote, withheld until asked for. A
+# draft compared blind is identified by either before the seal, which is why
+# `report` withholds byte counts, and what a writer says while it works is
+# the draft's own voice.
+WITHHELD = feed.Show(words=False, sizes=False)
+# A running command's own log, under the same rule.
+NARRATION = feed.Show(words=False, actions=False, sizes=False)
+
+
+class Feed:
+    """A workshop told as it runs: each writer's start, actions and finish.
+
+    The writers keep no trail, so progress is read from each writer's state,
+    which names when its launch began and how it ended, and from its stream.
+    The feed names the files a writer read and wrote and nothing they
+    contain, unless the words are asked for deliberately (``WITHHELD``).
+    """
+
+    def __init__(self, root, *, history="all", show=WITHHELD, width=None):
+        self.root, self.plan = load(root)
+        self.show = show
+        self.started, self.active, self.first = {}, {}, True
+        names = [p.parent.name for p in self._states()]
+        self.page = feed.Page(width, who=max(map(len, names), default=0))
+        if history == "none":
+            for path in self._states():
+                self.started[path.parent.name] = read_json(path).get("started_at")
+
+    def _states(self):
+        return sorted((self.root / "records").glob("*/state.json"))
+
+    def header(self):
+        lines = [
+            f"following the workshop at {shown(self.root)}",
+            "  (interrupt to stop)",
+        ]
+        if self.show == WITHHELD:
+            lines.append(
+                "  the writers' words and draft sizes are withheld; --words shows them"
+            )
+        return lines
+
+    def poll(self):
+        catching_up, self.first = self.first, False
+        stamp = None if catching_up else time.time()
+        lines = []
+        for follower in self.active.values():
+            lines += follower.poll(stamp) if follower else []
+        for path in self._states():
+            writer, state = path.parent.name, read_json(path)
+            began = state.get("started_at")
+            if began and self.started.get(writer) != began:
+                self.started[writer] = began
+                if self.active.get(writer):
+                    lines += self.active[writer].finish(stamp)
+                lines += self._start(writer, state)
+                if self.active[writer]:
+                    lines += self.active[writer].poll(None if catching_up else stamp)
+            if writer in self.active and state.get("status") in ("completed", "failed"):
+                follower = self.active.pop(writer)
+                lines += (follower.finish(stamp) if follower else []) + self._ended(
+                    writer, state
+                )
+        return lines
+
+    def _start(self, writer, state):
+        config = state["config"]
+        served = f"{config['harness']}/{drivers.model_text(config)}"
+        again = (
+            f", attempt {len(state['attempts']) + 1}" if state.get("attempts") else ""
+        )
+        if state.get("manual"):
+            self.active[writer] = None
+            return self.page.event(
+                state["started_at"],
+                f"{writer} [{served}] starts writing by hand{again}",
+            )
+        work = self.root / "writers" / writer
+        self.active[writer] = feed.Turn(
+            self.page,
+            writer,
+            config["harness"],
+            self.root / "records" / writer / "events.jsonl",
+            places=[(work, "", work)],
+            private=blind.state_root(work) / config["harness"],
+            show=self.show,
+        )
+        return self.page.event(
+            state["started_at"], f"{writer} [{served}] starts writing{again}"
+        )
+
+    def _ended(self, writer, state):
+        took = (
+            feed.duration(state["ended_at"] - state["started_at"])
+            if state.get("ended_at") and state.get("started_at")
+            else None
+        )
+        if state["status"] == "completed":
+            text = f"{writer} finished" + (f" in {took}" if took else "")
+        else:
+            stop = state.get("quota_stop")
+            text = (
+                f"{writer} "
+                + ("stopped on a provider limit" if stop else "failed")
+                + (f" after {took}" if took else "")
+            )
+            if state.get("error") and not stop:
+                text += f": {state['error']}"
+        return self.page.event(state.get("ended_at") or state.get("collected_at"), text)
+
+
 def main(argv=None):
     parser = argparse.ArgumentParser(description=__doc__)
     sub = parser.add_subparsers(dest="action", required=True)
@@ -1410,6 +1523,22 @@ def main(argv=None):
     p.add_argument("experiment")
     p.add_argument("writer")
     p.add_argument("--timeout", type=float, default=None)
+    p = sub.add_parser(
+        "watch",
+        help="follow the writers as they work, without their words",
+        description="Follow the writers as they work: who started and "
+        "finished, and which files each read and wrote. Their words and draft "
+        "sizes are withheld, because either identifies a draft before the "
+        "drafts are sealed.",
+    )
+    p.add_argument("experiment")
+    p.add_argument(
+        "--words",
+        action="store_true",
+        help="show what the writers say and how much they wrote, deliberately",
+    )
+    p.add_argument("--poll", type=float, default=1.0)
+    p.add_argument("--width", type=int, default=None)
     p = sub.add_parser("retry", help="stage a fresh writer in place of a failed one")
     p.add_argument("experiment")
     p.add_argument("writer")
@@ -1424,9 +1553,24 @@ def main(argv=None):
                 "supplied_bytes": p["supplied_bytes"],
             }
         elif args.action == "run":
-            result = run(args.experiment, args.writers, args.jobs, args.timeout)
+            # Each writer's progress goes to stderr as it happens, so the
+            # command's own log is not silent until the last writer finishes.
+            with feed.narrating(Feed(args.experiment, history="none", show=NARRATION)):
+                result = run(args.experiment, args.writers, args.jobs, args.timeout)
             print(json.dumps(result, indent=2))
             return int(any(v != "completed" for v in result.values()))
+        elif args.action == "watch":
+            following = Feed(
+                args.experiment,
+                show=feed.Show() if args.words else WITHHELD,
+                width=args.width,
+            )
+            print("\n".join(following.header()), file=sys.stderr)
+            try:
+                feed.watch(following, poll=args.poll)
+            except KeyboardInterrupt:
+                pass
+            return 0
         elif args.action == "roster":
             result = roster(check=args.check, plan=args.plan)
             print(json.dumps(result, indent=2, ensure_ascii=False))
@@ -1453,7 +1597,8 @@ def main(argv=None):
         elif args.action == "manual":
             result = run_writer(args.experiment, args.writer, manual=True)
         elif args.action == "resume":
-            result = resume(args.experiment, args.writer, timeout=args.timeout)
+            with feed.narrating(Feed(args.experiment, history="none", show=NARRATION)):
+                result = resume(args.experiment, args.writer, timeout=args.timeout)
         else:
             result = retry(args.experiment, args.writer, args.new_id)
         print(json.dumps(result, indent=2, ensure_ascii=False))

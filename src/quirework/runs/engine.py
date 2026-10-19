@@ -1875,6 +1875,12 @@ def pinned_config(config, served):
     return {**config, "model_pinned": served}
 
 
+def inside_executor(root):
+    """Whether this process is the record's own frozen executor."""
+    executor = Path(root).expanduser().resolve() / "executor"
+    return Path(__file__).resolve().is_relative_to(executor)
+
+
 def frozen_dispatch(root, args):
     # The bootstrap must not interpret mutable run-state semantics. That job
     # belongs to the preserved executor, including when its schema predates us.
@@ -1885,7 +1891,7 @@ def frozen_dispatch(root, args):
     executor = root / "executor"
     if hashes(executor) != plan["executor_hashes"]:
         raise RuntimeError("frozen executor changed")
-    if Path(__file__).resolve().is_relative_to(executor):
+    if inside_executor(root):
         return None
     env = os.environ.copy()
     env["PYTHONPATH"] = str(executor / "src")

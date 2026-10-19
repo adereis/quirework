@@ -11,9 +11,9 @@ Rounds exist because a CLI harness answers once and exits. A round is a resume
 of the session a seat already holds, not a fresh run of the same assignment:
 the seat keeps its reading and its reasoning, and is handed only what changed.
 
-The controller appends to ``room.log`` as it goes. An operator can follow a
-running room by reading that file and the per-seat records beside it, without
-taking a lock or touching a session.
+The controller appends to ``room.log`` as it goes. `watch` follows a running
+room by reading that file and the per-seat records beside it, without taking a
+lock or touching a session.
 """
 
 from __future__ import annotations
@@ -37,6 +37,7 @@ from quirework.core import usage as usage_records
 from quirework.providers import blind
 from quirework.providers import quota
 from quirework.providers import models as drivers
+from quirework.runs import feed
 from quirework.runs import observe
 from quirework.runs.storage import (
     digest,
@@ -1854,32 +1855,308 @@ def _render(value):
     return "\n".join(lines)
 
 
-def watch(root, *, poll=1.0):
-    """Follow the room's trail. Read-only: no lock, no session, no writes."""
-    root = room_root(root)
-    log, offset = root / "room.log", 0
-    print(f"following {shown(log)} -- interrupt to stop", file=sys.stderr)
-    while True:
-        if log.exists():
-            with log.open("rb") as stream:
-                stream.seek(offset)
-                data = stream.read()
-                # Stop at the last complete line; the writer may be mid-append.
-                cut = data.rfind(b"\n") + 1
-                offset += cut
-                for line in data[:cut].decode().splitlines():
-                    try:
-                        row = json.loads(line)
-                    except json.JSONDecodeError:
-                        continue
-                    when = time.strftime("%H:%M:%S", time.localtime(row["t"]))
-                    rest = {k: v for k, v in row.items() if k not in ("t", "event")}
-                    print(
-                        f"{when}  {row.get('event', '?'):<16} "
-                        f"{json.dumps(rest, ensure_ascii=False)}",
-                        flush=True,
-                    )
-        time.sleep(poll)
+class Feed:
+    """A room told as it runs, for the person following it.
+
+    Read-only, like `status`: no lock, no session, no writes, so following
+    cannot perturb what it follows. The trail gives the room's own steps,
+    each seat's stream what it does inside its turn, and a post is printed
+    whole once its turn is collected: from the outbox while the round is
+    open and from the board once promoted, so a round read back later shows
+    the same words it showed live.
+
+    ``history`` is how much to tell before following: ``round`` from the
+    latest round's opening, ``all`` from the room's preparation, and
+    ``none`` nothing, which is what a running command's own log wants.
+    """
+
+    def __init__(self, root, *, history="round", show=feed.FULL, width=None):
+        self.root, self.plan = self.opened(root)
+        self.history, self.show = history, show
+        self.seats = {s["id"]: s for s in self.plan["seats"]}
+        self.labels = self.names()
+        self.page = feed.Page(width, who=max(map(len, self.labels.values()), default=0))
+        self.trails = self.sources(at_end=history == "none")
+        self.turns, self.exits = {}, {}
+        self.first, self.stamp = True, None
+
+    def opened(self, root):
+        return load(root, verify=False)
+
+    def names(self):
+        return feed.short_names({name: label(s) for name, s in self.seats.items()})
+
+    def described(self, name):
+        """A seat as the header lists it: its column name, then its label."""
+        full = label(self.seats[name])
+        return full if full == self.labels[name] else f"{self.labels[name]}  {full}"
+
+    def sources(self, *, at_end):
+        return [("event", feed.Tail(self.root / "room.log", at_end=at_end))]
+
+    def tails(self):
+        return self.trails
+
+    def served(self, name):
+        config = seat_config(self.plan, self.seats[name])
+        return f"{config['harness']}/{drivers.model_text(config)}"
+
+    def header(self):
+        lines = [
+            f"following {self.plan.get('title') or self.root.name}",
+            f"  {shown(self.root)}  (interrupt to stop)",
+        ]
+        for number, name in enumerate(self.seats, 1):
+            lines.append(f"  {number}. {self.described(name)}  {self.served(name)}")
+        return lines
+
+    def poll(self):
+        catching_up, self.stamp = self.first, None if self.first else time.time()
+        rows = sorted(
+            (
+                (0 if row is feed.UNREADABLE else row.get("t") or 0, kind, row)
+                for kind, tail in self.tails()
+                for row in tail.rows()
+            ),
+            key=lambda item: item[0],
+        )
+        if catching_up and self.history == "round":
+            opened = [
+                t
+                for t, kind, row in rows
+                if kind == "event"
+                and row is not feed.UNREADABLE
+                and row.get("event") == "round-opened"
+            ]
+            if opened:
+                rows = [item for item in rows if item[0] >= opened[-1]]
+        lines = []
+        for follower in self.turns.values():
+            lines += follower.poll(self.stamp)
+        for _, kind, row in rows:
+            lines += self.handle(kind, row)
+        if catching_up:
+            # A turn still running when following began shows what it has
+            # done so far, then carries on live.
+            for follower in self.turns.values():
+                lines += follower.poll(None)
+            self.first = False
+        return lines
+
+    def handle(self, kind, row):
+        if row is feed.UNREADABLE:
+            return self.page.event(
+                self.stamp, f"an unreadable line in the {kind} record"
+            )
+        name = (row.get("event") or "") if kind == "event" else kind
+        handler = getattr(self, "on_" + name.replace("-", "_"), None)
+        if handler is not None:
+            return handler(row) or []
+        if kind != "event":
+            return []
+        # A step this version does not know is still a step: shown as the
+        # trail has it rather than dropped.
+        rest = {k: v for k, v in row.items() if k not in ("t", "event")}
+        return self.page.event(
+            row.get("t"),
+            f"{name or 'an unnamed step'} {json.dumps(rest, ensure_ascii=False)}",
+        )
+
+    def who(self, row):
+        return self.labels.get(row.get("seat"), row.get("seat") or "a seat")
+
+    def record(self, seat, n):
+        return self.root / "records" / seat / f"r{n:03d}"
+
+    def follower(self, seat, n):
+        config = seat_config(self.plan, self.seats[seat])
+        work = self.root / "seats" / seat
+        return feed.Turn(
+            self.page,
+            self.labels[seat],
+            config["harness"],
+            self.record(seat, n) / "events.jsonl",
+            places=[(work, "", work)],
+            private=blind.state_root(work) / config["harness"],
+            show=self.show,
+        )
+
+    def post(self, seat, n):
+        """The post this turn left: in the outbox, or on the board once promoted."""
+        for path in (
+            self.root / "seats" / seat / "outbox" / "post.md",
+            self.root / "board" / "posts" / seat / f"r{n:03d}.md",
+        ):
+            if path.is_file() and path.read_text().strip():
+                return path.read_text()
+        return None
+
+    def on_prepared(self, row):
+        return self.page.event(
+            row["t"],
+            f"prepared: {len(row.get('seats') or [])} seats, {row.get('rounds')} rounds",
+        )
+
+    def on_round_opened(self, row):
+        n = row["round"]
+        phase = phase_for(self.plan, n).get("name") if self.plan.get("phases") else None
+        speaking = ", ".join(self.labels[s] for s in acting(self.plan, n))
+        jobs = row.get("jobs") or 1
+        pace = "one at a time" if jobs == 1 else f"{jobs} at a time"
+        lines = self.page.event(
+            row["t"],
+            f"round {n} opened"
+            + (f" ({phase})" if phase else "")
+            + f" \u00b7 speaking: {speaking} \u00b7 {pace}",
+        )
+        note = chair_note(self.root, n)
+        if note and self.show.words:
+            lines += self.page.block(f"from the chair, before round {n}", note)
+        return lines
+
+    def on_board_published(self, row):
+        n = row["round"]
+        return self.page.event(
+            row["t"], f"every seat now has board/round-{n - 1:03d}/digest.md to read"
+        )
+
+    def on_resting(self, row):
+        return self.page.event(row["t"], f"{self.who(row)} listens this round")
+
+    def on_launching(self, row):
+        seat, n = row["seat"], row["round"]
+        self.turns[(seat, n)] = self.follower(seat, n)
+        session = "resuming its session" if row.get("resumed") else "in a new session"
+        return self.page.event(
+            row["t"],
+            f"{self.who(row)} [{self.served(seat)}] starts round {n}, {session}",
+        )
+
+    def on_running(self, row):
+        return []
+
+    def on_exited(self, row):
+        follower = self.turns.pop((row.get("seat"), row.get("round")), None)
+        self.exits[(row.get("seat"), row.get("round"))] = row
+        return follower.finish(self.stamp) if follower else []
+
+    def on_compacted(self, row):
+        return self.page.event(
+            row["t"],
+            f"{self.who(row)}'s session was compacted during the turn: a red flag, "
+            "and `status` lists it",
+        )
+
+    def on_collected(self, row):
+        seat, n = row["seat"], row["round"]
+        exited = self.exits.pop((seat, n), {})
+        took = feed.duration(exited.get("seconds")) if "seconds" in exited else None
+        timed = " (timed out)" if exited.get("timed_out") else ""
+        status = row.get("status")
+        if status == "answered":
+            text = f"{self.who(row)} answered" + (f" in {took}" if took else "")
+        elif status == "quota":
+            text = f"{self.who(row)} stopped on a provider limit" + (
+                f" after {took}" if took else ""
+            )
+        else:
+            text = f"{self.who(row)}'s turn failed" + (f" after {took}" if took else "")
+            text += timed + (f": {row['error']}" if row.get("error") else "")
+        lines = self.page.event(row["t"], text)
+        if status == "answered" and self.show.words:
+            lines += self.posted(seat, n)
+        return lines
+
+    def posted(self, seat, n):
+        words = self.post(seat, n)
+        if not words:
+            return self.page.event(None, "no post")
+        return self.page.block(f"{self.labels[seat]}, round {n}", words)
+
+    def on_stopped(self, row):
+        return self.page.event(row["t"], f"{self.who(row)} stopped: {row.get('error')}")
+
+    def on_continuing(self, row):
+        how = "in the same session" if row.get("resumed") else "in a fresh session"
+        attempt = f" (attempt {row['attempt']})" if row.get("attempt") else ""
+        return self.page.event(
+            row["t"],
+            f"{self.who(row)} takes round {row['round']} again after a provider "
+            f"limit, {how}{attempt}",
+        )
+
+    def on_absent(self, row):
+        return self.page.event(row["t"], f"{self.who(row)} left no post this round")
+
+    def on_promoted(self, row):
+        return []
+
+    def on_made(self, row):
+        return self.page.event(
+            row["t"],
+            f"{self.who(row)}'s {row.get('file')} is on the board "
+            f"({feed.size(row.get('bytes') or 0)})",
+        )
+
+    def on_revised(self, row):
+        return self.page.event(
+            row["t"], f"{self.who(row)} revised {row.get('file')}, now on the board"
+        )
+
+    def on_unmade(self, row):
+        return self.page.event(
+            row["t"],
+            f"{self.who(row)} did not write {row.get('file')}, which this phase asks for",
+        )
+
+    def on_round_closed(self, row):
+        posted = row.get("posted") or 0
+        absent = f", {row['absent']} absent" if row.get("absent") else ""
+        return self.page.event(
+            row["t"],
+            f"round {row['round']} closed: {posted} post{'' if posted == 1 else 's'}"
+            f"{absent}",
+        )
+
+    def on_convergence(self, row):
+        text = f"novelty {row.get('novelty')}%, closing {row.get('closing')}"
+        if row.get("converged"):
+            text += f"; converged on {row.get('reason')}"
+            if self.plan.get("phases"):
+                text += ", which a phased room notes and does not stop for"
+        return self.page.event(row["t"], text)
+
+    def on_round_held(self, row):
+        waiting = ", ".join(self.labels.get(s, s) for s in row.get("waiting_on") or [])
+        return self.page.event(
+            row["t"],
+            f"round {row['round']} held on a provider limit, waiting on {waiting}; "
+            f"`status` names the command that continues it",
+        )
+
+    def on_budget_extended(self, row):
+        return self.page.event(
+            row["t"],
+            f"the room may now run {row.get('rounds')} rounds (was {row.get('was')})",
+        )
+
+
+def narrating(root):
+    """A turn-taking command's own progress, on stderr, while it runs.
+
+    Brief, for the log an assistant reads: the round's steps and the files
+    each seat writes, and none of the posts, which `watch` shows.
+    """
+    return feed.narrating(Feed(root, history="none", show=feed.BRIEF))
+
+
+def watch(root, *, history="round", thinking=False, poll=1.0, width=None):
+    """Follow a room in plain lines until interrupted. Read-only, like `status`."""
+    following = Feed(
+        room_root(root), history=history, show=feed.Show(thinking=thinking), width=width
+    )
+    print("\n".join(following.header()), file=sys.stderr)
+    feed.watch(following, poll=poll)
 
 
 def seat_named(plan, value):
@@ -2200,9 +2477,20 @@ def main(argv=None):
     spend.add_argument("root")
     spend.add_argument("--json", action="store_true")
 
-    trail = sub.add_parser("watch", help="follow the room's trail live")
+    trail = sub.add_parser(
+        "watch", help="follow the room as it runs: turns, files and posts"
+    )
     trail.add_argument("root")
+    trail.add_argument(
+        "--all",
+        action="store_true",
+        help="tell the whole room, not only its latest round",
+    )
+    trail.add_argument(
+        "--thinking", action="store_true", help="show the seats' reasoning"
+    )
     trail.add_argument("--poll", type=float, default=1.0)
+    trail.add_argument("--width", type=int, default=None)
 
     voice = sub.add_parser("follow", help="follow one seat's side of the room")
     voice.add_argument("root")
@@ -2233,16 +2521,17 @@ def main(argv=None):
         return 0
     root = room_root(args.root)
     if args.command == "round":
-        for name, outcome in run_round(
-            root, args.number, jobs=args.jobs, timeout=args.timeout
-        ).items():
+        with narrating(root):
+            played = run_round(root, args.number, jobs=args.jobs, timeout=args.timeout)
+        for name, outcome in played.items():
             detail = json.dumps(outcome) if isinstance(outcome, dict) else outcome
             print(f"{name}: {detail}")
     elif args.command == "continue":
         # Not `status`: that name is a function in this module, and binding it
         # here makes it local to `main` for the whole body, so every other
         # command's call to it raises UnboundLocalError.
-        outcome = continue_seat(root, args.number, args.seat, timeout=args.timeout)
+        with narrating(root):
+            outcome = continue_seat(root, args.number, args.seat, timeout=args.timeout)
         print(f"{args.seat}: {outcome}")
         if outcome == "answered":
             print(
@@ -2251,9 +2540,10 @@ def main(argv=None):
     elif args.command == "open":
         print(open_round(root, args.number) or "silent round; no board")
     elif args.command == "rounds":
-        played, why = run_until(
-            root, limit=args.to, jobs=args.jobs, timeout=args.timeout
-        )
+        with narrating(root):
+            played, why = run_until(
+                root, limit=args.to, jobs=args.jobs, timeout=args.timeout
+            )
         for number, outcome in played:
             held = outcome["_board"].get("held")
             if held:
@@ -2287,7 +2577,13 @@ def main(argv=None):
         print(attributed(digest_file.read_text(), plan))
     elif args.command == "watch":
         try:
-            watch(root, poll=args.poll)
+            watch(
+                root,
+                history="all" if args.all else "round",
+                thinking=args.thinking,
+                poll=args.poll,
+                width=args.width,
+            )
         except KeyboardInterrupt:
             return 0
     elif args.command == "follow":

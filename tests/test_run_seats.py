@@ -139,3 +139,37 @@ def test_a_partial_export_names_the_seats_that_never_ran(
     receipt = json.loads((out / "receipt.json").read_text())
     assert receipt["not_started"] == ["second", "third"]
     assert receipt["seats"]["second"]["_completeness"]["status"] == "not started"
+
+
+def bank_trial(panel):
+    """What a seat's banked turn leaves, as the executor writes it."""
+    record = panel.record("trial", "read")
+    (record / "answers").mkdir(parents=True, exist_ok=True)
+    (record / "launch.json").write_text("{}\n")
+    (record / "answers" / "answer.md").write_text("Mira forgot the umbrella.\n")
+    state = panel.state("trial")
+    state["done"]["read"] = {"attempt": 0}
+    panel.save("trial", state)
+
+
+def test_start_tells_its_progress_on_stderr(panel, monkeypatch, capsys):
+    """Its own output said nothing until every seat had finished."""
+    monkeypatch.setattr(
+        engine, "frozen_dispatch", lambda root, args: bank_trial(panel) or 0
+    )
+    assert run_commands.main(["start", str(panel.root), "trial"]) == 0
+    err = capsys.readouterr().err
+    assert "trial answered read" in err
+    assert "Mira forgot" not in err, "the words are for `watch`, not this log"
+
+
+def test_the_frozen_executor_leaves_the_telling_to_its_bootstrap(
+    panel, monkeypatch, capsys
+):
+    """Both run the same command, and the run would be told twice."""
+    monkeypatch.setattr(engine, "inside_executor", lambda root: True)
+    monkeypatch.setattr(
+        engine, "frozen_dispatch", lambda root, args: bank_trial(panel) or 0
+    )
+    assert run_commands.main(["start", str(panel.root), "trial"]) == 0
+    assert "answered" not in capsys.readouterr().err

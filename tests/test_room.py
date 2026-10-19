@@ -1711,3 +1711,124 @@ def test_a_round_runs_one_seat_at_a_time_unless_asked(prepared):
 
     assert inspect.signature(room.run_round).parameters["jobs"].default == 1
     assert inspect.signature(room.run_until).parameters["jobs"].default == 1
+
+
+# -- Following a room as it runs ------------------------------------------------
+
+
+def stream(root, seat, n, rows):
+    path = root / "records" / seat / f"r{n:03d}" / "events.jsonl"
+    path.parent.mkdir(parents=True, exist_ok=True)
+    with path.open("a") as out:
+        out.writelines(json.dumps(row) + "\n" for row in rows)
+
+
+def wrote(root, seat, name):
+    info = {
+        "name": "write_to_file",
+        "parameters": {"TargetFile": str(root / "seats" / seat / name)},
+    }
+    step = {
+        "step_type": "tool",
+        "state": "DONE",
+        "tool_name": "write_to_file",
+        "tool_info": info,
+    }
+    return {"event": "step_update", "step_update": step}
+
+
+def take_turn(root, seat, n, text):
+    """What `launch_turn` records about a turn, without launching anything."""
+    room.event(root, round=n, seat=seat, event="launching", resumed=None)
+    stream(root, seat, n, [wrote(root, seat, "outbox/post.md")])
+    post(root, seat, text)
+    room.event(root, round=n, seat=seat, event="exited", code=0, seconds=123)
+    room.event(
+        root, round=n, seat=seat, event="collected", status="answered", error=None
+    )
+
+
+def told(following):
+    return "\n".join(following.poll())
+
+
+def test_a_room_followed_live_tells_each_turn_its_files_and_its_post(prepared):
+    following = room.Feed(prepared, history="none", width=100)
+    assert told(following) == ""
+    room.event(prepared, round=1, event="round-opened", jobs=1)
+    room.event(prepared, round=1, seat="ana-pell", event="launching", resumed=None)
+    text = told(following)
+    assert "round 1 opened · speaking: Ana Pell, Bo Larke · one at a time" in text
+    assert "Ana Pell [agy/test-model] starts round 1, in a new session" in text
+    stream(prepared, "ana-pell", 1, [wrote(prepared, "ana-pell", "outbox/post.md")])
+    post(prepared, "ana-pell", "Call the keeper's cat Tern.")
+    assert "Ana Pell  wrote    outbox/post.md (27 B)" in told(following)
+    room.event(prepared, round=1, seat="ana-pell", event="exited", code=0, seconds=123)
+    room.event(
+        prepared,
+        round=1,
+        seat="ana-pell",
+        event="collected",
+        status="answered",
+        error=None,
+    )
+    text = told(following)
+    assert "Ana Pell answered in 2m03s" in text
+    assert "Call the keeper's cat Tern." in text
+    room.promote(prepared, 1)
+    text = told(following)
+    assert "Bo Larke left no post this round" in text
+    assert "round 1 closed: 1 post, 1 absent" in text
+
+
+def test_a_room_read_back_shows_the_posts_from_the_board(prepared):
+    """Promotion empties the outbox; the board keeps the same words."""
+    room.event(prepared, round=1, event="round-opened", jobs=1)
+    take_turn(prepared, "ana-pell", 1, "Call the keeper's cat Tern.")
+    room.promote(prepared, 1)
+    text = told(room.Feed(prepared, width=100))
+    assert "wrote    outbox/post.md" in text
+    assert "Call the keeper's cat Tern." in text
+
+
+def test_a_room_is_told_from_its_latest_round_unless_asked_for_all(prepared):
+    for n, words in ((1, "First, Tern."), (2, "Second, still Tern.")):
+        room.event(prepared, round=n, event="round-opened", jobs=1)
+        take_turn(prepared, "ana-pell", n, words)
+        room.promote(prepared, n)
+    latest = told(room.Feed(prepared, width=100))
+    assert "Second, still Tern." in latest and "First, Tern." not in latest
+    assert "First, Tern." in told(room.Feed(prepared, history="all", width=100))
+
+
+def test_a_rooms_own_log_keeps_the_files_and_leaves_the_words(prepared):
+    following = room.Feed(prepared, history="none", show=room.feed.BRIEF, width=100)
+    room.event(prepared, round=1, event="round-opened", jobs=1)
+    take_turn(prepared, "ana-pell", 1, "Call the keeper's cat Tern.")
+    text = told(following)
+    assert "wrote    outbox/post.md" in text
+    assert "Ana Pell answered in 2m03s" in text
+    assert "Tern" not in text
+
+
+def test_a_step_the_feed_does_not_know_is_shown_as_recorded(prepared):
+    following = room.Feed(prepared, history="none", width=100)
+    room.event(prepared, round=1, event="something-new", detail="kept")
+    assert 'something-new {"round": 1, "detail": "kept"}' in told(following)
+
+
+def test_a_round_tells_its_progress_on_stderr_as_it_runs(prepared, monkeypatch, capsys):
+    """The round's own log was empty until the round ended."""
+
+    def run_round(root, n, **kw):
+        room.event(root, round=n, event="round-opened", jobs=1)
+        take_turn(root, "ana-pell", n, "Call the keeper's cat Tern.")
+        return {"ana-pell": "answered", "_board": {"posted": ["ana-pell"]}}
+
+    monkeypatch.setattr(room, "run_round", run_round)
+    assert room.main(["round", str(prepared), "1"]) == 0
+    captured = capsys.readouterr()
+    assert "Ana Pell [agy/test-model] starts round 1" in captured.err
+    assert "wrote    outbox/post.md" in captured.err
+    assert "Tern" not in captured.err
+    assert "ana-pell: answered" in captured.out

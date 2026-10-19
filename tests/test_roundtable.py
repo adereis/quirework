@@ -1237,3 +1237,32 @@ def test_a_packet_names_the_commit_it_was_read_against(plan, tmp_path):
     assert source["git"]["tracked"] and source["git"]["matches_commit"]
     (repo / "notes.md").write_text(NOTES + "\nAn edit.\n")
     assert roundtable.git_state(repo / "notes.md")["matches_commit"] is False
+
+
+def test_a_table_followed_live_tells_its_turns_posts_and_mail(table, monkeypatch):
+    """Followed from now, as `run` narrates it, and from the start, as `watch`."""
+    seats = Seats(monkeypatch)
+    first, second = order(table, 1)[:2]
+    _, plan = roundtable.load(table)
+    name = roundtable.names(plan)
+
+    def speak(work):
+        tool(work, "post", "-", stdin="I propose Barnacle.")
+        tool(work, "message", second, "Do you like Barnacle?")
+
+    seats.script[(first, 1)] = speak
+    brief = roundtable.Feed(
+        table, history="none", show=roundtable.feed.BRIEF, width=100
+    )
+    roundtable.run_turn(table)
+    text = "\n".join(brief.poll())
+    assert "round 1 opened" in text
+    assert f"round 1 order: {name[first]}, then {name[second]}" in text
+    assert f"{name[first]}'s turn is delivered: wrote to {name[second]}" in text
+    assert "Barnacle" not in text
+    full = "\n".join(roundtable.Feed(table, history="all", width=100).poll())
+    assert "I propose Barnacle." in full
+    assert f"{name[first]} to {name[second]}, round 1" in full
+    assert "Do you like Barnacle?" in full
+    # Once on the board, not again from the outbox it was delivered from.
+    assert full.count("I propose Barnacle.") == 1

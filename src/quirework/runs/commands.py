@@ -4,6 +4,7 @@ import argparse
 import json
 import subprocess
 import sys
+from contextlib import nullcontext
 from pathlib import Path
 
 from quirework.providers import harness
@@ -85,6 +86,13 @@ def main(argv=None):
     p = sub.add_parser("observe", help="report red flags and policy violations")
     p.add_argument("record")
     p = sub.add_parser(
+        "watch", help="follow the run as it goes: turns, files and answers"
+    )
+    p.add_argument("record")
+    p.add_argument("--thinking", action="store_true", help="show the seats' reasoning")
+    p.add_argument("--poll", type=float, default=1.0)
+    p.add_argument("--width", type=int, default=None)
+    p = sub.add_parser(
         "check-coverage", help="check a ledger against the population it covers"
     )
     p.add_argument("population")
@@ -106,6 +114,20 @@ def main(argv=None):
                     for s in result["seats"].values()
                 )
             )
+        if args.action == "watch":
+            # Read-only, from the installed package rather than the record's
+            # frozen executor, like `observe`: following a run changes nothing.
+            from quirework.runs import feed
+
+            following = feed.RunFeed(
+                args.record, show=feed.Show(thinking=args.thinking), width=args.width
+            )
+            print("\n".join(following.header()), file=sys.stderr)
+            try:
+                feed.watch(following, poll=args.poll)
+            except KeyboardInterrupt:
+                pass
+            return 0
         if args.action == "check-coverage":
             from quirework.runs.coverage import check
 
@@ -163,7 +185,19 @@ def main(argv=None):
                     "--provenance",
                     args.provenance,
                 ]
-            code = engine.frozen_dispatch(args.record, forwarded)
+            # `start` tells its progress on stderr as it happens. Only the
+            # bootstrap does: the frozen executor it hands the run to may be
+            # this same code, and the run would then be told twice.
+            if args.action == "start" and not engine.inside_executor(args.record):
+                from quirework.runs import feed
+
+                narrating = feed.narrating(
+                    feed.RunFeed(args.record, history="none", show=feed.BRIEF)
+                )
+            else:
+                narrating = nullcontext()
+            with narrating:
+                code = engine.frozen_dispatch(args.record, forwarded)
             if code is not None:
                 return code
             run = engine.Run(args.record)

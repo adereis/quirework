@@ -273,6 +273,7 @@ quirework sop list
 quirework sop explain review
 quirework sop runs prepare plan.json /path/to/private/run
 quirework sop runs start /path/to/private/run --timeout 60 --wait-quota 0
+quirework sop runs watch /path/to/private/run
 ```
 
 Starting from nothing? The [authoring guide](docs/authoring.md) is the

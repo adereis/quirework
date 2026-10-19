@@ -51,6 +51,7 @@ from quirework.project import current_project
 from quirework.providers import blind
 from quirework.providers import models as drivers
 from quirework.providers import quota
+from quirework.runs import feed
 from quirework.runs.storage import (
     digest,
     hashes,
@@ -2237,6 +2238,174 @@ def _print_taken(taken, where, root, labels):
         print(_next_text(where, labels, root))
 
 
+class Feed(room.Feed):
+    """A roundtable told as it runs: each turn, the board and the mail.
+
+    The room's feed with the roundtable's own record beside its trail. A
+    post is printed from the board entry the controller wrote rather than
+    from the outbox, because the board holds what the table was shown: a
+    post refused over its word limit never reached it. Direct messages are
+    printed too, since the supervisor may read every one of them.
+    """
+
+    def opened(self, root):
+        return load(root, verify=False)
+
+    def names(self):
+        return feed.short_names(names(self.plan))
+
+    def described(self, name):
+        return self.labels[name]
+
+    def served(self, name):
+        if is_human(self.seats[name]):
+            return "a person"
+        return super().served(name)
+
+    def sources(self, *, at_end):
+        self.mail, self.mail_at_end = {}, at_end
+        entries = feed.Tail(self.root / "board" / "entries.jsonl", at_end=at_end)
+        return super().sources(at_end=at_end) + [("entry", entries)]
+
+    def tails(self):
+        for path in sorted((self.root / "mail").glob("*.jsonl")):
+            if path not in self.mail:
+                # Begun from its end only if it was already there when
+                # following began without history; a mailbox that appears
+                # later is all new.
+                self.mail[path] = feed.Tail(
+                    path, at_end=self.first and self.mail_at_end
+                )
+        return self.trails + [("mail", tail) for tail in self.mail.values()]
+
+    def name_of(self, seat):
+        return self.labels.get(seat, "the supervisor")
+
+    def posted(self, seat, n):
+        return []
+
+    def on_round_opened(self, row):
+        return self.page.event(row["t"], f"round {row['round']} opened")
+
+    def on_entry(self, row):
+        kind, who = row.get("kind"), self.name_of(row.get("seat"))
+        if kind == "round":
+            order = ", then ".join(self.name_of(s) for s in row.get("order") or [])
+            text = f"round {row['round']} order: {order}"
+            if row.get("reason"):
+                text += f"; the supervisor set it: {row['reason'].strip()}"
+            if row.get("final"):
+                text += "; this is the final round"
+            return self.page.event(row["t"], text)
+        if kind == "post":
+            if not self.show.words:
+                return []
+            return self.page.block(
+                f"{who}, round {row['round']}, turn {row['turn']}", row.get("text", "")
+            )
+        if kind == "silence":
+            why = {
+                "passed": "passed",
+                "incomplete": "did not complete its turn",
+                "refused": f"posted nothing the board could take: {row.get('detail')}",
+            }.get(row.get("why"), row.get("why"))
+            return self.page.event(row["t"], f"{who} {why}")
+        if kind == "files":
+            parts = [
+                f"{key} {', '.join(row[key])}"
+                for key in ("added", "changed", "removed")
+                if row.get(key)
+            ]
+            return self.page.event(row["t"], f"{who} {'; '.join(parts)} in shared/")
+        if kind == "supervisor":
+            if not self.show.words:
+                return self.page.event(row["t"], "the supervisor posted to the board")
+            return self.page.block("the supervisor, on the board", row.get("text", ""))
+        if kind == "retired":
+            return []  # the trail's own step says it, with the numbers
+        return self.page.event(
+            row["t"], f"a board entry of a kind unknown here: {kind}"
+        )
+
+    def on_mail(self, row):
+        if not self.show.words:
+            return []  # the delivered step names who a seat wrote to
+        return self.page.block(
+            f"{self.name_of(row.get('from'))} to {self.name_of(row.get('to'))}, "
+            f"round {row.get('round')}",
+            row.get("text", ""),
+        )
+
+    def on_awaiting(self, row):
+        return self.page.event(
+            row["t"],
+            f"{self.who(row)}'s turn: the table waits for their words "
+            "(`quirework sop roundtable speak`)",
+        )
+
+    def on_held(self, row):
+        return self.page.event(
+            row["t"],
+            "the table waits out the provider limit; `continue` takes the turn",
+        )
+
+    def on_delivered(self, row):
+        parts = []
+        if row.get("messages"):
+            parts.append(
+                "wrote to " + ", ".join(self.name_of(m) for m in row["messages"])
+            )
+        parts += [f"refused {item}" for item in row.get("refused") or []]
+        tokens = (row.get("context") or {}).get("tokens")
+        if tokens is not None:
+            parts.append(f"context {tokens:,} tokens")
+        return self.page.event(
+            row["t"],
+            f"{self.who(row)}'s turn is delivered"
+            + (": " + "; ".join(parts) if parts else ""),
+        )
+
+    def on_retired(self, row):
+        tokens = row.get("tokens")
+        return self.page.event(
+            row["t"],
+            f"{self.who(row)} has used its context budget"
+            + (f" ({tokens:,} tokens)" if tokens is not None else "")
+            + " and takes no more turns",
+        )
+
+    def on_spoke(self, row):
+        return self.page.event(row["t"], f"{self.who(row)} spoke")
+
+    def on_announced(self, row):
+        return (
+            []
+            if self.show.words
+            else self.page.event(row["t"], "the supervisor posted to the board")
+        )
+
+    def on_replied(self, row):
+        return (
+            []
+            if self.show.words
+            else self.page.event(row["t"], f"the supervisor wrote to {self.who(row)}")
+        )
+
+    def on_decided(self, row):
+        text = (
+            "the supervisor closed the table"
+            if row.get("kind") == "close"
+            else (f"the supervisor extended the table to round {row.get('end')}")
+        )
+        return self.page.event(row["t"], text)
+
+    def on_reordered(self, row):
+        order = ", then ".join(self.name_of(s) for s in row.get("order") or [])
+        return self.page.event(
+            row["t"], f"round {row.get('round')}'s order is set: {order}"
+        )
+
+
 def main(argv=None):
     parser = argparse.ArgumentParser(
         prog="quirework sop roundtable",
@@ -2260,6 +2429,21 @@ def main(argv=None):
             step.add_argument(
                 "--to", type=int, default=None, help="stop after this round"
             )
+
+    trail = sub.add_parser(
+        "watch", help="follow the table as it runs: turns, files, board and mail"
+    )
+    trail.add_argument("root")
+    trail.add_argument(
+        "--all",
+        action="store_true",
+        help="tell the whole table, not only its latest round",
+    )
+    trail.add_argument(
+        "--thinking", action="store_true", help="show the seats' reasoning"
+    )
+    trail.add_argument("--poll", type=float, default=1.0)
+    trail.add_argument("--width", type=int, default=None)
 
     view = sub.add_parser("status", help="read a roundtable without disturbing it")
     view.add_argument("root")
@@ -2326,15 +2510,34 @@ def main(argv=None):
             print(f"  {seat['name']}: {what}")
         return 0
     root = table_root(args.root)
+    if args.command == "watch":
+        following = Feed(
+            root,
+            history="all" if args.all else "round",
+            show=feed.Show(thinking=args.thinking),
+            width=args.width,
+        )
+        print("\n".join(following.header()), file=sys.stderr)
+        try:
+            feed.watch(following, poll=args.poll)
+        except KeyboardInterrupt:
+            pass
+        return 0
     labels = names(load(root)[1])
+    # The commands that take turns tell their progress on stderr as it
+    # happens, so their own log is not silent until the table stops. Brief:
+    # the board and the mail are for `watch`.
     if args.command == "turn":
-        result = run_turn(root, timeout=args.timeout)
+        with feed.narrating(Feed(root, history="none", show=feed.BRIEF)):
+            result = run_turn(root, timeout=args.timeout)
         _print_taken([result], position(root, load(root)[1]), root, labels)
     elif args.command == "run":
-        taken, where = run(root, to=args.to, timeout=args.timeout)
+        with feed.narrating(Feed(root, history="none", show=feed.BRIEF)):
+            taken, where = run(root, to=args.to, timeout=args.timeout)
         _print_taken(taken, where, root, labels)
     elif args.command == "continue":
-        result = continue_turn(root, timeout=args.timeout)
+        with feed.narrating(Feed(root, history="none", show=feed.BRIEF)):
+            result = continue_turn(root, timeout=args.timeout)
         _print_taken([result], position(root, load(root)[1]), root, labels)
     elif args.command == "status":
         value = status(root)

@@ -134,6 +134,60 @@ The useful workflows differ mainly in who may see what:
 | Learn what the page tells a reader | Blind reader panel | Only the selected reader-facing material | Reports tied to personas, questions, and receipts |
 | Test an edit against the whole work | Consistency review | The project guide, spec, marks, brief, and Git delta | An independent findings report |
 
+### Following a run as it happens
+
+Every procedure that seats a model can be followed from a second
+terminal while it runs. `watch` takes the name the procedure's other
+commands take: `sop room watch ROOM`, `sop roundtable watch TABLE`,
+`sop review watch RUN`, `sop workshop watch EXPERIMENT` and
+`sop runs watch RECORD`. It prints a line for each thing that happens,
+beside the time and the seat. A seat starting its turn gets one, and so
+does each file it reads or writes, each command it runs, what it says
+between actions, and how its turn ended and how long it took. What a
+seat contributes is printed whole as it lands: a room's post when its
+turn is collected, a roundtable's board turns and direct messages as
+they are delivered, a review's report as the reviewer writes it, and a
+reader's answer once it is banked. A path inside a seat's workspace is
+shown relative to it, so a post is `outbox/post.md`.
+
+```text
+08:15:26  round 3 opened · speaking: Ana Pell, Bo Larke · one at a time
+08:15:26  Ana Pell [claude/opus] starts round 3, resuming its session
+08:15:41  Ana Pell  read     board/round-002/digest.md
+08:17:58  Ana Pell  wrote    outbox/post.md (13.7 kB)
+08:18:09  Ana Pell answered in 2m43s
+          ┌─ Ana Pell, round 3
+          │ The keeper's cat should be called Tern.
+          └─
+```
+
+Watching reads the records and writes nothing. It takes no lock and
+opens no session, so it cannot change the run, and it follows a run that
+began before it did, or one prepared by an older Quirework. A room or a
+roundtable is told from the opening of its latest round, and `--all`
+tells it from the start; a review, a workshop and a run record are told
+from their start. An action with no time beside it was read back from
+the record rather than seen as it happened. Reasoning is left out unless
+`--thinking` asks for it. When a seat's label is longer than twenty
+characters, every seat goes by its id, and the opening lines list the
+labels.
+
+A workshop's `watch` names the files each writer read and wrote and
+withholds the rest. What a writer says while it works is in the draft's
+own voice, and a draft's size is near-unique per writer, so either one
+tells the editor which sealed draft is whose. `--words` shows both,
+deliberately.
+
+The commands that take turns report their own progress on stderr as they
+run: a room's `round`, `rounds` and `continue`, a roundtable's `turn`,
+`run` and `continue`, a review's `run`, `resume`, `fork` and `continue`,
+a workshop's `run` and `resume`, and `sop runs start`. That report is
+brief. It says who started and finished and which files they wrote, and
+it leaves the words to `watch`, because the assistant that launched the
+command reads its output too, and a round's posts would fill that
+assistant's context. A command whose output goes to a log file therefore
+shows its progress there from the first turn on.
+
 ## Run plans
 
 A minimal plan contains explicit seats and ordered turns:
@@ -240,7 +294,8 @@ Seal the drafts before comparing them.
 letters and writes the identity key without printing it. The reporting
 commands withhold near-unique draft sizes until that seal exists. Read
 the prose first. Open model identities and usage only after the
-editorial judgment has been recorded.
+editorial judgment has been recorded. `watch` follows the writers under
+the same rule, without their words or their draft sizes.
 
 A useful workshop SOP therefore separates four jobs. The companion
 prepares the shared packet. Independent writers make alternatives. A
@@ -296,8 +351,9 @@ because `rounds` and `continue` spend the user's provider quota.
 
 A round takes minutes, because every seat answers in turn. Start
 `rounds` in the background rather than in the foreground, and follow it
-with `watch` or `follow`. The operator can then report progress and
-write a chair note for the next round while this one runs. A seat's
+with `watch`, which shows every seat in one terminal, or `follow`, which
+shows one seat with its reasoning. The operator can then report progress
+and write a chair note for the next round while this one runs. A seat's
 persona names a profile in the plan's `profiles` directory. Read the
 names there rather than guessing one: `prepare` refuses a missing one
 and lists the profiles that exist.
@@ -652,7 +708,8 @@ table waits for, each seat's served model, turns and context, anything
 refused or failed, and the novelty and closing signals a room uses to
 notice it has run dry. The seats never see those signals. `board` prints
 the board as the seats read it. A held provider stop is taken again with
-`continue`, under the same rules as a room's. The room's `follow` and
+`continue`, under the same rules as a room's. `watch TABLE` follows the
+table, its board and its mail as they happen. The room's `follow` and
 `usage` do not read a roundtable yet.
 
 ## Blind reader panels
@@ -902,7 +959,9 @@ streams. It lists any compaction events, found by event type because the
 word itself turns up in whatever the reviewer read. It gives the last
 request's size against the window, and says why when the harness does
 not report one. So a compaction halfway through shows at the next poll
-rather than when the turn is collected.
+rather than when the turn is collected. `review watch RUN` follows the
+turn itself: what the reviewer reads and runs, and each finding as it
+reaches the report.
 
 The reviewer must not be the model that made the edit. That requirement
 makes a cross-harness check straightforward: a Codex edit can go to
@@ -948,9 +1007,10 @@ and the human decides whether the commitment or the prose should move.
 ## Execution and recovery
 
 Use `sop runs prepare`, `start`, `inspect`, `observe`, `collect`,
-`verify`, and `export`. Preparation freezes inputs, settings, questions,
-and the generic executor. Each run has separate seats, ordered turns,
-attempts, and checkpoints.
+`verify`, and `export`, and `watch` to follow a run as it goes.
+Preparation freezes inputs, settings, questions, and the generic
+executor. Each run has separate seats, ordered turns, attempts, and
+checkpoints.
 
 An operator holds a seat, never the whole record, so a later `start` can
 launch seats while an earlier one still runs. That is how the spend

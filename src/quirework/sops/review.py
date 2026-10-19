@@ -42,6 +42,7 @@ import re
 import subprocess
 import sys
 import time
+from contextlib import nullcontext
 from pathlib import Path
 
 from quirework.core import usage as usage_records
@@ -52,7 +53,9 @@ from quirework.providers import quota
 from quirework.providers import replies
 from quirework.providers import models as drivers
 from quirework.project import current_project
+from quirework.runs import feed
 from quirework.runs import storage
+from quirework.runs.storage import shown
 
 # Records split the way a panel seat's do: the reviewer's own words are
 # evidence and are tracked; the runner's log wrapped around them is not.
@@ -1109,7 +1112,7 @@ def start(
             f"scope must not repeat the kind: use {scope[len('review-') :]!r}, "
             f"not {scope!r}; the run is named <date>-review-<scope>"
         )
-    name = f"{datetime.date.today().isoformat()}-review-{scope}"
+    name = run_name(scope)
     run = run_dir_for(name)
     if run.exists() and not dry_run:
         _fail(f"{run} already exists; resume it or pick another scope")
@@ -2075,8 +2078,157 @@ def status(name=None, store=None):
     }
 
 
+# What each kind of review turn is doing, as a feed says it.
+TURN_MODES = {
+    "run": "a first reading",
+    "resume": "resuming turn {parent} with the new commits",
+    "fork": "a fork of turn {parent}",
+    "continue": "continuing turn {parent} after a provider limit",
+}
+
+
+class Feed:
+    """A review told as it runs: each turn's reading, and its report as written.
+
+    A review keeps no trail, so its progress is read from what it already
+    writes: a turn has started once its record holds a launch, and has ended
+    once the run's own record lists it. The report is the review's side of
+    the conversation. The reviewer writes it as it goes, and each change is
+    printed as what that change added, so a side terminal reads the findings
+    as they are found rather than when the turn is banked.
+    """
+
+    def __init__(self, name, store=None, *, history="all", show=None, width=None):
+        self.name = name
+        self.record = store_dir_for(name, store)
+        self.repository = current_project().root
+        self.history, self.show = history, show or feed.Show()
+        self.page = feed.Page(width, who=len("reviewer"))
+        self.active, self.seen, self.first, self.reports = {}, set(), True, {}
+        if history == "none":
+            # Taken now, not at the first poll: `run` creates the record after
+            # following begins, and its first turn is not history.
+            self.seen = {
+                folder.name
+                for folder in (self.record / "turns").glob("[0-9][0-9]")
+                if (folder / "launch.json").is_file()
+            }
+
+    def header(self):
+        return [
+            f"following review {self.name}",
+            f"  {shown(self.record)}  (interrupt to stop)",
+        ]
+
+    @staticmethod
+    def _settled(path):
+        """A record file's value, or None while it is missing or mid-write.
+
+        A review writes its records by rename, but one run by a Quirework
+        from before that rewrote them in place, and a poll can land between
+        the truncation and the write. The next poll reads the whole file,
+        as `room status` does a half-written line.
+        """
+        try:
+            return read_json(path)
+        except (FileNotFoundError, json.JSONDecodeError):
+            return None
+
+    def poll(self):
+        # None until `run` writes the record: it names the review first.
+        state = self._settled(self.record / "run.json")
+        if state is None:
+            return []
+        catching_up, self.first = self.first, False
+        stamp = None if catching_up else time.time()
+        done = {entry["turn"]: entry for entry in state.get("turns", [])}
+        lines = []
+        for follower, report in self.active.values():
+            lines += follower.poll(stamp) + self._report(report)
+        for folder in sorted((self.record / "turns").glob("[0-9][0-9]")):
+            number = folder.name
+            launch = (
+                None if number in self.seen else self._settled(folder / "launch.json")
+            )
+            if launch is None:
+                continue
+            self.seen.add(number)
+            lines += self._start(state, folder, launch)
+            follower, report = self.active[number]
+            lines += follower.poll(None if catching_up else stamp) + self._report(
+                report
+            )
+        for number in [n for n in self.active if n in done]:
+            follower, report = self.active.pop(number)
+            lines += follower.finish(stamp) + self._report(report)
+            lines += self._finished(done[number])
+        return lines
+
+    def _start(self, state, folder, launch):
+        config = state["config"]
+        mode, parent = launch.get("mode", "run"), launch.get("parent_turn")
+        owner = parent if mode == "continue" and parent else folder.name
+        reports = self.record / "turns" / owner / "report"
+        follower = feed.Turn(
+            self.page,
+            "reviewer",
+            config["harness"],
+            folder / "events.jsonl",
+            places=[
+                (JAILED_REPORT, "report/", reports),
+                (reports, "report/", reports),
+                (self.repository, "", self.repository),
+            ],
+            private=launch.get("private_runtime"),
+            show=self.show,
+        )
+        # A continuation writes on into the report its stopped turn began, so
+        # it carries on from what that turn showed. A stopped turn this feed
+        # never followed has shown nothing here, and its report is where the
+        # continuation starts.
+        path = reports / "report.md"
+        if path not in self.reports:
+            self.reports[path] = feed.Growing(path, at_end=mode == "continue")
+        report = self.reports[path]
+        self.active[folder.name] = (follower, report)
+        doing = TURN_MODES.get(mode, mode).format(parent=parent)
+        persona = (state.get("persona") or {}).get("profile", {}).get("label")
+        who = f"reviewer ({persona})" if persona else "reviewer"
+        return self.page.event(
+            (folder / "launch.json").stat().st_mtime,
+            f"{who} [{config['harness']}/{config.get('model')}] starts turn "
+            f"{folder.name}: {doing}",
+        )
+
+    def _report(self, report):
+        added = report.poll()
+        if not added or not self.show.words:
+            return []
+        return self.page.block("reviewer, report.md", "\n".join(added))
+
+    def _finished(self, entry):
+        took = feed.duration(entry.get("seconds"))
+        text = (
+            f"reviewer finished turn {entry['turn']}: {entry.get('status')} in {took}"
+        )
+        if entry.get("findings") is not None:
+            text += f", {entry['findings']} findings"
+        if entry.get("report_status"):
+            text += f", report says {entry['report_status']}"
+        if entry.get("quota_stop"):
+            text += f"; stopped on a provider limit ({entry['quota_stop']})"
+        if entry.get("error"):
+            text += f"; {entry['error']}"
+        return self.page.event(None, text)
+
+
+def run_name(scope):
+    """The run a scope opens today, as `start` names it."""
+    return f"{datetime.date.today().isoformat()}-review-{scope}"
+
+
 HELP = """\
-usage: quirework sop review [run | resume | continue | fork | status | audit | prompt] ...
+usage: quirework sop review [run | resume | continue | fork | status | watch | audit | prompt] ...
 
 Cross-model editorial review of a delta. Procedure: docs/workflows.md.
 
@@ -2103,6 +2255,10 @@ Cross-model editorial review of a delta. Procedure: docs/workflows.md.
       Show collected turns and saved progress from uncollected turns.
       An uncollected turn may still be running; do not launch a duplicate.
       --short keeps only turn states, progress and what can be continued.
+  quirework sop review watch RUN [--thinking]
+      Follow a turn as it runs, from a second terminal: what the reviewer
+      reads and runs, and each part of the report as it is written. Reads
+      the record and changes nothing.
   quirework sop review audit [--since REF]
       Commits touching the configured reviewable paths since the last commit
       carrying a Reviewed-by: trailer that carry none themselves. Advisory:
@@ -2258,6 +2414,16 @@ def main(argv=None):
         action="store_true",
         help="only turn states, progress and what can be continued",
     )
+    p = sub.add_parser(
+        "watch", help="follow a review as it runs: turns, files and the report"
+    )
+    p.add_argument("run")
+    p.add_argument("--store", default=None)
+    p.add_argument(
+        "--thinking", action="store_true", help="show the reviewer's reasoning"
+    )
+    p.add_argument("--poll", type=float, default=1.0)
+    p.add_argument("--width", type=int, default=None)
     p = sub.add_parser("audit", help="reviewable commits that carry no review")
     p.add_argument(
         "--since",
@@ -2282,24 +2448,39 @@ def main(argv=None):
                     "--model is required: the reviewer must not be the model "
                     "that made the edit, so there is no safe default"
                 )
-            result = start(
-                args.scope,
-                range_spec=args.range_spec,
-                brief=args.brief,
-                harness=args.harness or drivers.harness_for(args.model),
-                model=args.model,
-                effort=args.effort,
-                store=args.store,
-                jailed=args.jailed,
-                timeout=args.timeout,
-                dry_run=args.action == "prompt",
-                persona=args.persona,
-                kind=args.kind,
-                paths=Path(args.paths_file).read_text().splitlines()
-                if args.paths_file
-                else None,
-                tools=args.tools,
+            # A turn tells its progress on stderr as it happens, so the
+            # command's own log is not silent until the reviewer finishes.
+            narrating = (
+                feed.narrating(
+                    Feed(
+                        run_name(args.scope),
+                        args.store,
+                        history="none",
+                        show=feed.BRIEF,
+                    )
+                )
+                if args.action == "run"
+                else nullcontext()
             )
+            with narrating:
+                result = start(
+                    args.scope,
+                    range_spec=args.range_spec,
+                    brief=args.brief,
+                    harness=args.harness or drivers.harness_for(args.model),
+                    model=args.model,
+                    effort=args.effort,
+                    store=args.store,
+                    jailed=args.jailed,
+                    timeout=args.timeout,
+                    dry_run=args.action == "prompt",
+                    persona=args.persona,
+                    kind=args.kind,
+                    paths=Path(args.paths_file).read_text().splitlines()
+                    if args.paths_file
+                    else None,
+                    tools=args.tools,
+                )
             if args.action == "prompt":
                 print(result["prompt"])
                 print("\n--- argv ---")
@@ -2311,27 +2492,46 @@ def main(argv=None):
         elif args.action in ("resume", "fork"):
             name = resolve_run(args.run, args.store)
             delta = resolve_range(args.range_spec) if args.range_spec else None
-            result = _turn(
-                name,
-                args.action,
-                Path(args.brief).read_text(),
-                store=args.store,
-                jailed=args.jailed,
-                timeout=args.timeout,
-                delta=delta,
-                from_turn=args.from_turn,
-            )
+            with feed.narrating(
+                Feed(name, args.store, history="none", show=feed.BRIEF)
+            ):
+                result = _turn(
+                    name,
+                    args.action,
+                    Path(args.brief).read_text(),
+                    store=args.store,
+                    jailed=args.jailed,
+                    timeout=args.timeout,
+                    delta=delta,
+                    from_turn=args.from_turn,
+                )
         elif args.action == "continue":
             name = resolve_run(args.run, args.store)
-            result = _turn(
-                name,
-                "continue",
-                "",
-                store=args.store,
-                jailed=args.jailed,
-                timeout=args.timeout,
-                from_turn=args.from_turn,
+            with feed.narrating(
+                Feed(name, args.store, history="none", show=feed.BRIEF)
+            ):
+                result = _turn(
+                    name,
+                    "continue",
+                    "",
+                    store=args.store,
+                    jailed=args.jailed,
+                    timeout=args.timeout,
+                    from_turn=args.from_turn,
+                )
+        elif args.action == "watch":
+            following = Feed(
+                resolve_run(args.run, args.store),
+                args.store,
+                show=feed.Show(thinking=args.thinking),
+                width=args.width,
             )
+            print("\n".join(following.header()), file=sys.stderr)
+            try:
+                feed.watch(following, poll=args.poll)
+            except KeyboardInterrupt:
+                pass
+            return 0
         elif args.action == "status":
             result = status(args.run, args.store)
             if args.short:
