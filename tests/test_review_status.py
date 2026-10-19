@@ -156,3 +156,19 @@ def test_a_continued_turn_shows_the_report_it_is_still_writing(record):
     assert turn["turn"] == "02"
     assert turn["progress"] == "PROGRESS: commits 4/9"
     assert turn["report_path"].endswith("turns/01/report/report.md")
+
+
+def test_a_record_is_replaced_whole_and_never_rewritten_in_place(tmp_path):
+    """`status` reads a running turn's records, and must never find one half
+    written. Rewritten in place, a file keeps its inode and is truncated
+    before it is filled; replaced by rename, it appears whole or not at all.
+    """
+    path = tmp_path / "run.json"
+    review.write_json(path, {"turns": []})
+    before = path.stat().st_ino
+    value = {"turns": [{"turn": "01", "progress": "PROGRESS: café scene read"}]}
+    review.write_json(path, value)
+    assert path.stat().st_ino != before
+    # The same bytes as before the change: only how they land differs.
+    assert path.read_text() == json.dumps(value, indent=2, ensure_ascii=False) + "\n"
+    assert [p.name for p in tmp_path.iterdir()] == ["run.json"]

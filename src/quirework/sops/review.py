@@ -52,6 +52,7 @@ from quirework.providers import quota
 from quirework.providers import replies
 from quirework.providers import models as drivers
 from quirework.project import current_project
+from quirework.runs import storage
 
 # Records split the way a panel seat's do: the reviewer's own words are
 # evidence and are tracked; the runner's log wrapped around them is not.
@@ -132,7 +133,14 @@ def read_json(path):
 
 
 def write_json(path, value):
-    Path(path).write_text(json.dumps(value, indent=2, ensure_ascii=False) + "\n")
+    """Write a record by rename, never in place.
+
+    `status` reads these records while a turn runs. A file rewritten in place
+    is empty and then partial between the truncation and the last write, and
+    a reader that lands there finds a record that is not JSON. A rename
+    replaces it whole, as every other procedure's records are written.
+    """
+    storage.write(path, value)
 
 
 def git(*args, check=True):
