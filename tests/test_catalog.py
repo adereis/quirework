@@ -169,6 +169,25 @@ def test_removed_parses_kind_id_and_reason(tmp_path):
     ]
 
 
+def test_agy_edits_are_counted_under_either_set_of_tool_names(tmp_path, monkeypatch):
+    """agy 1.4.3 writes with `write_file` and `edit_file`, naming `Path`."""
+    monkeypatch.setattr(
+        catalog.CR, "_classify_edit", lambda fp: "doc" if "/sections/" in fp else "meta"
+    )
+    calls = [
+        {
+            "name": "write_file",
+            "args": {"Path": "/repo/sections/a.qmd", "Content": "x"},
+        },
+        {"name": "edit_file", "args": {"Path": "/repo/notes/plan.md"}},
+        {"name": "write_to_file", "args": {"TargetFile": "/repo/sections/a.qmd"}},
+        {"name": "read_file", "args": {"Path": "/repo/sections/b.qmd"}},
+    ]
+    path = tmp_path / "s.jsonl"
+    path.write_text(json.dumps({"type": "PLANNER_RESPONSE", "tool_calls": calls}))
+    assert catalog._agy_edit_targets(path) == (2, 1, {"a.qmd": 2, "plan.md": 1})
+
+
 def test_merge_editorial_preserves_human_fields():
     entries = {"p": {"id": "p", "note": "", "tags": []}}
     existing = {"p": {"note": "the whistle", "tags": ["relational"], "tokens": 999}}

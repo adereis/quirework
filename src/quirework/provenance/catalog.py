@@ -210,10 +210,14 @@ def _agy_scan(path):
     }
 
 
+# agy's newer file tools, seen from 1.4.3, name the file `Path` rather than
+# `TargetFile`.
 _AGY_EDIT_TOOLS = {
     "write_to_file",
     "replace_file_content",
     "multi_replace_file_content",
+    "write_file",
+    "edit_file",
 }
 
 
@@ -233,7 +237,8 @@ def _agy_edit_targets(path):
             for tc in obj.get("tool_calls") or []:
                 if tc.get("name") not in _AGY_EDIT_TOOLS:
                     continue
-                fp = (tc.get("args") or {}).get("TargetFile") or ""
+                args = tc.get("args") or {}
+                fp = args.get("TargetFile") or args.get("Path") or ""
                 if isinstance(fp, str) and fp.startswith('"'):
                     fp = fp.strip('"')
                 if not fp:
