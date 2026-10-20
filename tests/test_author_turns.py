@@ -1,10 +1,11 @@
-"""The author's turns a Claude Code session logs outside its user records.
+"""The author's turns a Claude Code session logs in shapes a reader can miss.
 
 A prompt typed while the model is working reaches the model inside the running
 turn and is logged only as queue operations. An answer to a question the model
-asked is logged as a tool result. Every reader that counts the author's turns
-must find both, agree on their numbers, and take from an answer only the
-words the author typed.
+asked is logged as a tool result. A prompt sent with a pasted image is logged
+as a list of blocks, the shape of a tool result. Every reader that counts the
+author's turns must find all three, agree on their numbers, and take from an
+answer only the words the author typed.
 """
 
 import json
@@ -40,6 +41,7 @@ ANSWER = (
     "You can now continue with these answers in mind."
 )
 NOTICE = "<task-notification>\n<task-id>b1</task-id>\n</task-notification>"
+INTERRUPT = "[Request interrupted by user]"
 
 
 def _queue(op, at, content=None, **extra):
@@ -111,6 +113,38 @@ SESSION = [
         "timestamp": "2031-04-03T10:06:00Z",
         "message": {"content": [{"type": "text", "text": "A blue copper kettle."}]},
     },
+    # Sent with a pasted image, whose bytes the capture drops, and followed by
+    # the harness's own note of where it saved the picture.
+    {
+        "type": "user",
+        "uuid": "u4",
+        "timestamp": "2031-04-03T10:07:00Z",
+        "message": {
+            "content": [
+                {"type": "text", "text": "[Image #1] The spout looks bent here."},
+                {
+                    "type": "image",
+                    "source": {"type": "base64", "media_type": "image/png"},
+                },
+            ]
+        },
+    },
+    {
+        "type": "user",
+        "uuid": "u5",
+        "isMeta": True,
+        "timestamp": "2031-04-03T10:07:00Z",
+        "message": {
+            "content": [{"type": "text", "text": "[Image: source: kettle.png]"}]
+        },
+    },
+    # The harness's note of an interrupt, logged as a list too.
+    {
+        "type": "user",
+        "uuid": "u6",
+        "timestamp": "2031-04-03T10:07:30Z",
+        "message": {"content": [{"type": "text", "text": INTERRUPT}]},
+    },
 ]
 NAME = "0badc0de-0000-4000-8000-0000000000aa.jsonl"
 TURNS = [
@@ -120,6 +154,7 @@ TURNS = [
     " notes: and keep it short",
     "Actually, make the kettle blue.",
     "And a lid.",
+    "[Image #1] The spout looks bent here.",
 ]
 
 
@@ -139,7 +174,25 @@ def test_show_numbers_every_author_turn(session):
     turns = show.author_turns("cc", session)
     assert [text for _, _, text in turns] == TURNS
     stamps = [logged.strftime("%H:%M:%S") for _, logged, _ in turns]
-    assert stamps[3:] == ["10:03:00", "10:05:00"], "when he typed, not delivery"
+    assert stamps[3:5] == ["10:03:00", "10:05:00"], "when he typed, not delivery"
+
+
+def test_raw_shows_a_listed_notice_as_the_harness(session):
+    records = [(role, text) for role, text, _ in show.cc_records(session, raw=True)]
+    assert ("harness", INTERRUPT) in records
+    assert ("human", TURNS[5]) in records
+
+
+def test_typed_text_reads_each_block_on_its_own():
+    content = [
+        {"type": "text", "text": INTERRUPT},
+        {"type": "text", "text": "Make it whistle."},
+        {"type": "tool_result", "tool_use_id": ASK, "content": "boiled"},
+    ]
+    assert ccfilter.typed_text(content) == "Make it whistle."
+    assert ccfilter.typed_text(content, raw=True) == f"{INTERRUPT}\n\nMake it whistle."
+    assert ccfilter.typed_text("A kettle boils.") == "A kettle boils."
+    assert ccfilter.typed_text(None) == ""
 
 
 def test_an_answer_gives_only_the_words_the_author_typed():
@@ -164,6 +217,7 @@ def test_the_human_input_stream_numbers_turns_as_show_does(session):
         (3, "Loud enough to wake the cat\n\nand keep it short"),
         (4, TURNS[3]),
         (5, TURNS[4]),
+        (6, TURNS[5]),
     ]
 
 
@@ -171,20 +225,23 @@ def test_the_cold_read_render_shows_mid_turn_prompts(session):
     text, stats = ccfilter.filter_session(session)
     assert "### Human\n\nActually, make the kettle blue." in text
     assert "### Human\n\nAnd a lid." in text
+    assert f"### Human\n\n{TURNS[5]}" in text
     assert "task-id" not in text and "taken back" not in text
-    assert stats["human_turns"] == 5
+    assert INTERRUPT not in text and "kettle.png" not in text
+    assert stats["human_turns"] == 6
 
 
 def test_metrics_count_every_author_turn_once(session):
     acc = metrics.Acc("cc")
     metrics.claude_code(acc)
-    assert acc.human_turns == 5
+    assert acc.human_turns == 6
     typed = [
         TURNS[0],
         TURNS[1],
         "Loud enough to wake the cat\n\nand keep it short",
         TURNS[3],
         TURNS[4],
+        TURNS[5],
     ]
     assert acc.human_words == sum(metrics.words(t) for t in typed)
     audit = [text for tag, text in metrics.human_turns() if tag.startswith("cc/")]

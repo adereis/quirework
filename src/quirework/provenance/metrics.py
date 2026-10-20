@@ -415,8 +415,11 @@ def claude_code(acc, scope=None, making=None):
                     if not c.lstrip().startswith(HARNESS):
                         acc.human(c)
                     continue
-                # list content is a tool_result echo: tool output, except the
-                # answer to a question the model asked the author
+                # list content is a prompt sent with a pasted image, or a
+                # tool_result echo: tool output, except the answer to a
+                # question the model asked the author
+                if typed := FLT.typed_text(c):
+                    acc.human(typed)
                 for b in c if isinstance(c, list) else ():
                     if not isinstance(b, dict) or b.get("type") != "tool_result":
                         continue
@@ -777,6 +780,8 @@ def human_turns():
                 continue
             if isinstance(c, str) and not c.lstrip().startswith(HARNESS):
                 out.append((tag, c))
+            elif isinstance(c, list) and (typed := FLT.typed_text(c)):
+                out.append((tag, typed))  # a prompt sent with a pasted image
             for b in c if isinstance(c, list) else ():
                 if isinstance(b, dict) and b.get("tool_use_id") in asks:
                     words = FLT.answer_words(b, asks[b.get("tool_use_id")])

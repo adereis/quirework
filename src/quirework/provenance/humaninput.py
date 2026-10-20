@@ -77,7 +77,9 @@ from quirework.provenance.metrics import HARNESS
 # 4: a Claude Code prompt typed mid-turn joins, and so does the author's own
 #    text in an answer to a question the model asked; turns are numbered as
 #    `show` numbers them.
-EXTRACTION_VERSION = 4
+# 5: a Claude Code prompt sent with a pasted image joins. The harness logs it
+#    as a list of blocks, which was read as a tool result and dropped.
+EXTRACTION_VERSION = 5
 
 # A turn this short (or a bare slash-command / one-word ack) is procedural, not
 # authored thought: "yes", "go on", "/clear", "perfect, commit it". Marked
@@ -224,7 +226,9 @@ def _cc_turns():
     """The author's turns in each Claude Code session, numbered as ``show`` does.
 
     Three kinds of record hold them: a prompt sent between turns (a ``user``
-    record with text), a prompt typed while the model was working (logged only
+    record with text, which a prompt sent with a pasted image carries as the
+    text blocks of a list, ``ccfilter.typed_text``), a prompt typed while the
+    model was working (logged only
     as a queue operation, ``ccfilter.queued_prompt``), and an answer to a
     question the model asked (a tool result). Each takes the turn number
     ``show`` gives it, so a hit opens with ``--turn``. Of an answer, only a
@@ -281,25 +285,22 @@ def _cc_turns():
                 continue
             if o.get("type") != "user":
                 continue
-            if not isinstance(c, str):  # a tool result: the author only if answering
-                for b in c if isinstance(c, list) else ():
-                    if not isinstance(b, dict) or b.get("type") != "tool_result":
-                        continue
-                    if b.get("tool_use_id") not in asks:
-                        continue
-                    ask = asks[b.get("tool_use_id")]
-                    if not FLT.answer_text(b, ask):
-                        continue
-                    n += 1
-                    txt = _clean(FLT.answer_words(b, ask))
-                    if txt:
-                        keep(txt, o.get("timestamp"))
-                continue
-            txt = _clean(c)
-            if not txt:
-                continue
-            n += 1
-            keep(txt, o.get("timestamp"))
+            txt = _clean(FLT.typed_text(c))
+            if txt:
+                n += 1
+                keep(txt, o.get("timestamp"))
+            for b in c if isinstance(c, list) else ():  # the author only if answering
+                if not isinstance(b, dict) or b.get("type") != "tool_result":
+                    continue
+                if b.get("tool_use_id") not in asks:
+                    continue
+                ask = asks[b.get("tool_use_id")]
+                if not FLT.answer_text(b, ask):
+                    continue
+                n += 1
+                txt = _clean(FLT.answer_words(b, ask))
+                if txt:
+                    keep(txt, o.get("timestamp"))
     return out
 
 

@@ -194,6 +194,35 @@ def harness_flagged(obj):
     )
 
 
+def typed_text(content, raw=False):
+    """The text a ``user`` record's ``content`` carries, as one string.
+
+    The harness logs a typed prompt as a string, but one sent with a pasted
+    image as a list of blocks: the text, with ``[Image #1]`` where the picture
+    was, beside the image itself. That is the shape of a tool result, and the
+    readers that took every list for one dropped those prompts. Their text
+    blocks are the author's words as much as a string is, so they are joined
+    here, one block at a time as ``filter_session`` reads them: a block the
+    harness wrote on its own (``[Request interrupted by user]``) stays out
+    unless ``raw``. A tool result is never typed text; the answer to a
+    question the model asked arrives in one, and its readers recover that
+    with ``answer_text``.
+    """
+    if isinstance(content, str):
+        return content
+    parts = []
+    for b in content if isinstance(content, list) else ():
+        if not isinstance(b, dict) or b.get("type") != "text":
+            continue
+        text = b.get("text") or ""
+        if not raw:
+            cleaned = strip_wrappers(text)
+            if not cleaned or cleaned.startswith(_HARNESS_PREFIXES):
+                continue
+        parts.append(text)
+    return "\n\n".join(parts)
+
+
 def snippet(s, n=110):
     """One-line, whitespace-collapsed, truncated preview of ``s``."""
     s = re.sub(r"\s+", " ", (s or "")).strip()

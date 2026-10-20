@@ -148,12 +148,14 @@ def cc_records(path, *, thinking=False, raw=False):
     ``ts`` is the record's ISO-8601 ``timestamp`` (or ``None`` if absent).
     Assistant messages collapse their content blocks into one turn: ``text``
     blocks as prose, ``thinking`` blocks (only with ``thinking``) prefixed and
-    set off, ``tool_use`` blocks dropped. Human turns are the string-content
-    messages; list content is a tool-result echo and is skipped, except the
-    result of a question the model asked with ``AskUserQuestion``, which is
-    the author's pick and so a human turn, as the capture and the Codex
-    reader already treat it, with the option previews the model wrote cut
-    from it (``ccfilter.answer_text``). Records the
+    set off, ``tool_use`` blocks dropped. Human turns are the messages the
+    author typed: a string, or the text blocks of a prompt sent with a
+    pasted image, which the harness logs as a list (``ccfilter.typed_text``).
+    A list is otherwise a tool-result echo and is skipped, except the result
+    of a question the model asked with ``AskUserQuestion``, which is the
+    author's pick and so a human turn, as the capture and the Codex reader
+    already treat it, with the option previews the model wrote cut from it
+    (``ccfilter.answer_text``). Records the
     harness flags as its own (a meta injection, the summary a compacted
     session resumes from, or the notice of a failed request written in the
     model's slot) and ``isSidechain`` (subagent side-threads) records are
@@ -189,8 +191,12 @@ def cc_records(path, *, thinking=False, raw=False):
             ts = o.get("timestamp")
             content = (o.get("message") or {}).get("content")
             if typ == "user":
-                if not isinstance(content, str):  # list content = tool_result echo
+                if not isinstance(content, str):
+                    # A tool-result echo, or a prompt sent with a pasted image.
                     if not (o.get("isSidechain") or FLT.harness_flagged(o)):
+                        turn = _human_slot(FLT.typed_text(content, raw), raw)
+                        if turn:
+                            out.append((*turn, ts))
                         out.extend(_answers(content, asks, raw, ts))
                     continue
                 if o.get("isSidechain") or FLT.harness_flagged(o):
