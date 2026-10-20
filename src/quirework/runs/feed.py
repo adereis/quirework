@@ -33,6 +33,7 @@ from dataclasses import dataclass
 from pathlib import Path
 
 from quirework.providers import blind
+from quirework.providers.harness import VIRTUAL
 from quirework.runs.storage import identifier, read, shown
 
 # A complete line that is not JSON. Said, not skipped: a damaged stream is
@@ -732,7 +733,9 @@ class RunFeed:
             name,
             harness,
             self._record(name, turn, attempt) / "events.jsonl",
-            places=[(work, "", work)],
+            # The jail mounts the seat's workspace at VIRTUAL, so that is the
+            # path its stream names.
+            places=[(VIRTUAL, "", work), (work, "", work)],
             private=blind.state_root(work) / harness,
             show=self.show,
             at_end=at_end,

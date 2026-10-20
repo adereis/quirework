@@ -486,6 +486,21 @@ def test_a_run_is_told_turn_by_turn_with_each_answer(tmp_path):
     assert "reader has taken all its turns" in text
 
 
+def test_a_run_names_a_file_where_it_is_not_where_the_seat_saw_it(tmp_path):
+    """A seat works in a jail that mounts its workspace at /tmp/work."""
+    root = engine_record(tmp_path)
+    following = feed.RunFeed(root, width=100)
+    record = submit(root, "opening", time.time())
+    drafts = root / "work" / "reader" / "seat" / "drafts"
+    drafts.mkdir(parents=True)
+    (drafts / "notes.md").write_text("The cat stayed in.\n")
+    append(
+        record / "events.jsonl",
+        [claude_tool("Write", file_path="/tmp/work/drafts/notes.md")],
+    )
+    assert "wrote    drafts/notes.md (19 B)" in told(following.poll())
+
+
 def test_a_run_read_back_tells_each_banked_turn_in_order(tmp_path):
     root = engine_record(tmp_path)
     record = submit(root, "opening", 1.0)
