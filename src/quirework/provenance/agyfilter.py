@@ -103,6 +103,13 @@ FILE_BODY_ARGS = (
     "TargetContent",
     "ReplacementChunks",
 )
+# The same, for one tool at a time. agy's newer file tools, seen from 1.4.3,
+# carry a write's body as `Content` and an edit's text as `Target` and
+# `Replacement`, names too plain to cut from every tool.
+TOOL_BODY_ARGS = {
+    "write_file": ("Content",),
+    "edit_file": ("Target", "Replacement"),
+}
 
 
 def _prune_tool_calls(calls, dropped):
@@ -115,13 +122,17 @@ def _prune_tool_calls(calls, dropped):
             out.append(call)
             continue
         args = call.get("args")
-        if not isinstance(args, dict) or not any(k in args for k in FILE_BODY_ARGS):
+        name = call.get("name")
+        bodies = FILE_BODY_ARGS + (
+            TOOL_BODY_ARGS.get(name, ()) if isinstance(name, str) else ()
+        )
+        if not isinstance(args, dict) or not any(k in args for k in bodies):
             out.append(call)
             continue
         pruned = dict(call)
         pruned["args"] = {}
         for key, value in args.items():
-            if key not in FILE_BODY_ARGS:
+            if key not in bodies:
                 pruned["args"][key] = value
                 continue
             dropped[f"args.{key}"] += 1

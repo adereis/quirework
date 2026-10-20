@@ -174,6 +174,37 @@ def test_a_file_body_is_cut_back_but_a_parameter_is_not(tmp_path):
     }
 
 
+def test_the_newer_file_tools_have_their_bodies_cut_back_too(tmp_path):
+    """agy 1.4.3's `write_file` carries its body as `Content`, and its
+    `edit_file` the text it replaces and its replacement."""
+    body = "\n".join(f"    line {i} of a rewritten chapter" for i in range(400))
+    path = "/repo/manuscript/sections/the-sidecar.qmd"
+    _, kept = _capture(
+        tmp_path,
+        [
+            _row(
+                "PLANNER_RESPONSE",
+                "writing",
+                tool_calls=[
+                    {"name": "write_file", "args": {"Path": path, "Content": body}},
+                    {
+                        "name": "edit_file",
+                        "args": {"Path": path, "Target": body, "Replacement": body},
+                    },
+                    {"name": "leave_note", "args": {"Content": "Back at five."}},
+                ],
+            )
+        ],
+    )
+    wrote, edited, noted = (call["args"] for call in kept[0]["tool_calls"])
+    assert wrote["Path"] == edited["Path"] == path
+    for cut in (wrote["Content"], edited["Target"], edited["Replacement"]):
+        assert body.startswith(cut)
+        assert len(cut) < len(body) // 4
+    # `Content` is a body only where the tool says so.
+    assert noted == {"Content": "Back at five."}
+
+
 def test_a_capture_is_told_from_a_transcript_and_is_deterministic(tmp_path):
     raw = _session(tmp_path, [_row("USER_INPUT", "go")])
     assert agy.capture_header(raw) is None
