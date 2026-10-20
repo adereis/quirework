@@ -378,16 +378,36 @@ def codex(row):
     return [m for m in found if m[1].strip() or m[2]]
 
 
+# Each tool's verb, and the arguments that can name what it acted on. agy's
+# file tools go by two sets of names: the one it recorded through 1.4.2,
+# which names a file by `AbsolutePath` or `TargetFile`, and the one seen from
+# 1.4.3, which names it by `Path`. A record keeps the names it was made with,
+# so both are read.
 AGY_TOOLS = {
-    "view_file": ("read", "AbsolutePath"),
-    "write_to_file": ("wrote", "TargetFile"),
-    "replace_file_content": ("edited", "TargetFile"),
-    "multi_replace_file_content": ("edited", "TargetFile"),
-    "list_dir": ("listed", "DirectoryPath"),
-    "run_command": ("ran", "CommandLine"),
-    "search_web": ("searched", "query"),
-    "read_url_content": ("fetched", "Url"),
+    "view_file": ("read", ("AbsolutePath",)),
+    "write_to_file": ("wrote", ("TargetFile",)),
+    "replace_file_content": ("edited", ("TargetFile",)),
+    "multi_replace_file_content": ("edited", ("TargetFile",)),
+    "list_dir": ("listed", ("DirectoryPath",)),
+    "read_file": ("read", ("Path",)),
+    "write_file": ("wrote", ("Path",)),
+    "edit_file": ("edited", ("Path", "TargetFile")),
+    "run_command": ("ran", ("CommandLine",)),
+    "search_web": ("searched", ("query",)),
+    "read_url_content": ("fetched", ("Url",)),
 }
+AGY_PATHS = tuple(
+    dict.fromkeys(
+        key for verb, keys in AGY_TOOLS.values() if verb in FILES for key in keys
+    )
+)
+
+
+def agy_names(name, given):
+    """A tool by its name and the file its arguments name, for a tool this
+    table does not know: a bare `used read_file` says nothing of which file."""
+    where = next((given[k] for k in AGY_PATHS if isinstance(given.get(k), str)), "")
+    return f"{name} {where}".strip()
 
 
 def agy(row):
@@ -403,11 +423,13 @@ def agy(row):
     if step.get("state") == "ERROR":
         error = info.get("error") if isinstance(info.get("error"), dict) else {}
         return [("error", f"{name}: {error.get('message') or 'failed'}", None)]
-    verb, key = AGY_TOOLS.get(name, ("used", None))
-    value = str(given.get(key) or "") if key else name
+    verb, keys = AGY_TOOLS.get(name, ("used", ()))
+    value = next((str(given[k]) for k in keys if given.get(k)), "")
+    if not value:
+        return [("used", agy_names(name, given), None)]
     if verb in FILES:
-        return [(verb, "", value)] if value else []
-    return [(verb, value, None)] if value else []
+        return [(verb, "", value)]
+    return [(verb, value, None)]
 
 
 READERS = {"claude": claude, "codex": codex, "agy": agy}

@@ -321,6 +321,28 @@ def test_an_agy_transcript_that_is_not_there_is_said_once(tmp_path):
     assert "error    search_web: failed" in text
 
 
+def test_agy_newer_file_tools_are_told_by_the_file(tmp_path):
+    """agy 1.4.3 records its file tools as `read_file` and `write_file`."""
+    work, turn = follower(tmp_path, "agy")
+    (work / "outbox").mkdir()
+    (work / "outbox" / "post.md").write_text("Mira's umbrella stayed.\n")
+    append(
+        tmp_path / "events.jsonl",
+        [
+            agy_tool(5, "read_file", Path=str(work / "input" / "brief.md")),
+            agy_tool(7, "write_file", Path=str(work / "outbox" / "post.md")),
+            agy_tool(9, "sketch_file", Path="/srv/atlas/map.png"),
+            agy_tool(11, "run_command"),
+        ],
+    )
+    text = told(turn.poll(None))
+    assert "read     input/brief.md" in text
+    assert "wrote    outbox/post.md (24 B)" in text
+    # A tool the feed does not know still says which file it named.
+    assert "used     sketch_file /srv/atlas/map.png" in text
+    assert "used     run_command" in text
+
+
 def test_a_harness_without_a_reader_is_said_once(tmp_path):
     _, turn = follower(tmp_path, "invented-harness")
     append(tmp_path / "events.jsonl", [{"a": 1}])

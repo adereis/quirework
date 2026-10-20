@@ -371,6 +371,16 @@ def test_an_action_reads_as_one_line_in_plain_words():
     assert render(row) == ["  →  Read brief"]
 
 
+def test_an_action_without_a_summary_names_its_file():
+    """agy's newer file tools carry no summary, only the file."""
+    row = {
+        "type": "PLANNER_RESPONSE",
+        "status": "DONE",
+        "tool_calls": [{"name": "read_file", "args": {"Path": "/seat/brief.md"}}],
+    }
+    assert render(row) == ["  →  read_file /seat/brief.md"]
+
+
 def test_reasoning_can_be_turned_off():
     row = {"type": "PLANNER_RESPONSE", "status": "DONE", "thinking": "Weighing it up."}
     assert render(row, thinking=True)

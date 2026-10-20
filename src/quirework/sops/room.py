@@ -2376,7 +2376,12 @@ def _agy_lines(row, *, thinking, width):
             out.append(f"  ·  {line}")
     for call in row.get("tool_calls") or []:
         args = call.get("args") or {}
-        what = args.get("toolSummary") or args.get("toolAction") or call.get("name")
+        # agy's newer file tools carry no summary of their own.
+        what = (
+            args.get("toolSummary")
+            or args.get("toolAction")
+            or feed.agy_names(call.get("name") or "a tool", args)
+        )
         out.append(f"  \u2192  {what}")
     if content:
         out.append("")
