@@ -381,6 +381,43 @@ def test_agy_results_that_do_not_line_up_with_their_calls_prove_nothing(
     assert reads.events(session) == []
 
 
+def test_an_agy_edit_after_reading_on_is_a_revision(tmp_path, mount):
+    """agy 1.4.3's `edit_file` result names the file it changed."""
+    first, second = chapter(mount, 0), chapter(mount, 1)
+    reaction, later = ("/tmp/work/" + draft(mount, n) for n in (0, 1))
+    made = f"Made 1 replacement in {reaction} starting at line 1 (+1/-1 lines)."
+    session = agy_session(
+        tmp_path,
+        [
+            agy_call("read_file", Path=first),
+            agy_answer("Showing lines 1-3 of 3", *agy_lines(first, 1, 3)),
+            agy_call("write_file", Path=reaction, Content="…"),
+            agy_answer("Created file."),
+            agy_call("read_file", Path=second),
+            agy_answer("Showing lines 1-2 of 2", *agy_lines(second, 1, 2)),
+            agy_call("edit_file", Path=reaction, Target="…", Replacement="…"),
+            agy_answer(made),
+            # A result that names another file is not this call's edit.
+            agy_call("edit_file", Path=later, Target="…", Replacement="…"),
+            agy_answer(made),
+            agy_call("write_file", Path=later, Content="…", Overwrite=True),
+            agy_answer("Created file."),
+        ],
+    )
+    evs = reads.events(session)
+    assert [(kind, path) for kind, path, _ in evs] == [
+        ("read", first),
+        ("write", reaction),
+        ("read", second),
+        ("write", reaction),
+        ("write", later),
+    ]
+    referenced = [first, second]
+    pairs = reads.reaction_pairs(referenced, [draft(mount, 0), draft(mount, 1)])
+    assert reads.reactions_before_next(evs, referenced, pairs) is True
+    assert reads.reactions_unrevised(evs, referenced, pairs) is False
+
+
 def test_a_failed_agy_call_leaves_the_rest_of_its_response_proven(tmp_path, mount):
     """A call that failed is answered in its place by an error."""
     first, second = chapter(mount, 0), chapter(mount, 1)

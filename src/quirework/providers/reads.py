@@ -23,9 +23,9 @@ that an unread file was read. Recognized forms:
 
 Writes are recognized as conservatively: Claude's `Write` and `Edit` tools,
 Codex's `apply_patch` (an added or updated file), agy's `write_to_file` and
-`write_file` (from the result, as for a view), and shell redirection or
-`tee`. A redirection target is a write and never a read, and the body of a
-heredoc is text, not commands.
+its newer `write_file` and `edit_file` (from the result, as for a view), and
+shell redirection or `tee`. A redirection target is a write and never a
+read, and the body of a heredoc is text, not commands.
 """
 
 import json
@@ -65,10 +65,14 @@ _AGY_PARTIAL = re.compile(
     r"Showing bytes (\d+)-(\d+) of (\d+) in this line range\."
 )
 _AGY_LINE = re.compile(r"(\d+):(?: |$)")
-# The newer file tools, which name their file only in the call, and the steps
-# that answer a call in agy's command-line transcripts: its result, or the
-# error it failed with.
-_AGY_PAIRED = ("read_file", "write_file")
+# What its `edit_file` records when it changed something: how many
+# replacements it made, in which file. `write_file` says `Created file.`
+# whether it created the file or wrote over it.
+_AGY_EDITED = re.compile(r"Made [1-9]\d* replacements? in ")
+# The newer file tools, which are read with their call, and the steps that
+# answer a call in agy's command-line transcripts: its result, or the error
+# it failed with.
+_AGY_PAIRED = ("read_file", "write_file", "edit_file")
 _AGY_ANSWERS = ("GENERIC", "ERROR_MESSAGE")
 
 
@@ -279,6 +283,11 @@ def _agy_paired(name, path, result):
     head, body = (lines[0], lines[1:]) if lines else ("", [])
     if name == "write_file":
         return [("write", path, None)] if head.startswith("Created file.") else []
+    if name == "edit_file":
+        # Its result names the file too, and it must be the call's.
+        made = _AGY_EDITED.match(head)
+        named = made and head[made.end() :].startswith(path + " ")
+        return [("write", path, None)] if named else []
     if shown := _AGY_SHOWN.fullmatch(head):
         return [("read", path, [(int(shown.group(1)), int(shown.group(2)))])]
     if (partial := _AGY_PARTIAL.fullmatch(head)) and (
@@ -296,7 +305,8 @@ def _agy_events(row, steps):
     names the file it touched and, for a view, the lines agy actually showed,
     which can be fewer than the call asked for. The newer `read_file` and
     `write_file` results name no file, so each is read with the call it
-    answers (see `_agy_results`). A shell command is read from the call, as
+    answers (see `_agy_results`), and so is an `edit_file`, whose result
+    must name the call's file. A shell command is read from the call, as
     Claude's Bash is.
     """
     if row.get("type") == "PLANNER_RESPONSE":

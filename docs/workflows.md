@@ -851,11 +851,11 @@ name (`chapters/02-later.md` with `drafts/02-later.md`), the receipt
 also reports `reactions_before_next`: whether each file was first opened
 only after the previous file's reaction was written. It reads writes
 from Claude's `Write` and `Edit`, Codex's `apply_patch`, agy's
-`write_to_file` and `write_file`, and shell redirection; a reaction
-whose write it cannot find is not proven, and both that and a file
-opened early raise a red flag. That check dates each reaction by its
-first write, so a seat that goes back and rewrites one after reading on
-passes it. The receipt therefore also reports `reactions_unrevised`,
+`write_to_file`, `write_file` and `edit_file`, and shell redirection; a
+reaction whose write it cannot find is not proven, and both that and a
+file opened early raise a red flag. That check dates each reaction by
+its first write, so a seat that goes back and rewrites one after reading
+on passes it. The receipt therefore also reports `reactions_unrevised`,
 which is false, and red-flagged, when a reaction was written again after
 the next file had opened. Opening an earlier file again to look at it is
 not a revision, and a later write the parser cannot recognize is not
