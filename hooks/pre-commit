@@ -37,6 +37,16 @@ refuse() {
 command -v ruff >/dev/null 2>&1 ||
 	refuse "ruff is not on PATH, so formatting drift would go unchecked"
 
+# Advice, never a gate. A harness that updated itself since its last live
+# test may record its work in a shape Quirework no longer reads, which is
+# worth knowing before trusting a receipt, but nothing in this commit
+# depends on it. tests/live_drivers.py says what is checked.
+if [ -x "$root/.venv/bin/python" ]; then
+	"$root/.venv/bin/python" "$root/tests/live_drivers.py" --warn || true
+else
+	echo "pre-commit: no .venv, so the live drivers were not checked" >&2
+fi
+
 for candidate in "$root/.venv/bin/quirework" quirework; do
 	if [ -x "$candidate" ] || command -v "$candidate" >/dev/null 2>&1; then
 		exec "$candidate" dev check --staged

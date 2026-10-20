@@ -29,7 +29,7 @@ addopts = "-q"
 # A passing test's directory goes as soon as it passes; tests/conftest.py
 # removes the rest of a passing session's run.
 tmp_path_retention_policy = "failed"
-markers = ["live: invokes a paid provider; requires explicit authorization"]
+markers = ["live: reaches a real provider; skipped unless QUIREWORK_LIVE=1"]
 
 [tool.setuptools.package-data]
 quirework = ["templates/*.toml", "templates/*.conf", "publish/*.js"]

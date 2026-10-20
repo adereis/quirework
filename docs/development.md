@@ -117,7 +117,7 @@ the hook then runs that instead.
 ## Tests
 
 ```bash
-.venv/bin/python -m pytest -m 'not live'
+.venv/bin/python -m pytest
 ```
 
 The suite refuses to run against any Quirework but this checkout's. A
@@ -160,6 +160,32 @@ synthetic assignments, no automatic quota retries, and a hard wall-clock
 limit. Development smoke tests must not receive book content or large
 writing assignments. Count the provider's own prompt overhead as well as
 the supplied material.
+
+The suite holds one live test, marked `live`, and it skips itself unless
+asked for:
+
+```bash
+QUIREWORK_LIVE=1 .venv/bin/python -m pytest -m live
+```
+
+It runs one seat per harness through the run engine, each on its
+cheapest model at its lowest effort: agy's Flash, Claude's Haiku and
+Codex's Luna. They are named as families, so the next release of each is
+tested as itself. The seat reads a synthetic book of two short chapters
+and a figure, writes a reaction to each, and edits one. The test then
+checks that the receipt proves the reading and that the run's feed names
+every file the seat touched. A harness release can break that without
+breaking any unit test, because the unit tests' fixtures are written
+from the records of the release before. agy 1.4.3 did so by renaming its
+file tools. A turn stops at ten minutes, and a quota limit stops the
+test rather than being waited out.
+
+Each result is kept per machine, for the exact version it ran on, in the
+clone's git directory, so every worktree shares it and no commit carries
+it. The pre-commit hook warns, without blocking the commit, of each
+installed harness whose version has not passed.
+`.venv/bin/python tests/live_drivers.py` prints every harness's
+standing.
 
 Codex and Claude support explicit replacement system instructions. Codex
 uses `model_instructions_file`; an unknown configuration key can be
