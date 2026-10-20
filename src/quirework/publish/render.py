@@ -85,6 +85,7 @@ def _options():
         BUILD_BOOK=BUILD_BOOK,
         PRINT_DROPS=set(policy.get("print_drops", set())),
         NOPARTS_DROPS=set(policy.get("noparts_drops", set())),
+        FOLIO_SIDES=policy.get("folio_sides", False),
     )
 
 
@@ -901,10 +902,29 @@ def render(
         from quirework.publish import epubcheck as _epubcheck
 
         rc_epub = _epubcheck.verify(_options().BUILD_BOOK / SITE)
+    # Which side of the spread each odd folio falls on, read from the PDF's
+    # page labels. Opt-in, because a PDF made for screens has no sides; a book
+    # meant for print declares `folio_sides` and gets a failed build instead of
+    # a proof with every odd page on the left. `folios` owns the reasoning.
+    # A quoted "true" would leave the check off without a word, so a value that
+    # is not a boolean stops the render, as `revision_metadata` does.
+    rc_folios = 0
+    sides = _options().FOLIO_SIDES
+    if not isinstance(sides, bool):
+        print(
+            f"render: folio_sides in the render policy is {sides!r}; "
+            "it takes true or false",
+            file=sys.stderr,
+        )
+        rc_folios = 1
+    elif printed and sides:
+        from quirework.publish import folios as _folios
+
+        rc_folios = _folios.verify(_options().BUILD_BOOK / SITE)
     # Last, because it reads what every check above may have rewritten: a
     # proof says what it is on every page, or the build stops.
     rc_proof = _proof.verify(_options().BUILD_BOOK / SITE, rendered)
-    return rc or rc_epub or rc_proof
+    return rc or rc_epub or rc_folios or rc_proof
 
 
 if __name__ == "__main__":

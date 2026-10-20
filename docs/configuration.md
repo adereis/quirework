@@ -1222,12 +1222,12 @@ and visual choices out of Quirework's implementation:
   `spec units --check` reads.
 - `publish.layout_policy`: `typst_prologues` and `typst_epilogues`.
 - `publish.render_policy`: `print_drops`, `noparts_drops`,
-  `epub_style_headers` requiring CSS-comment cleanup in staged EPUB
-  headers, and `reader_metadata`, the metadata a reader instrument's
-  render sets. A book that renders differently until it is published,
-  such as a copyright page that reserves every right until then, names
-  here what its published state sets: `[reader_metadata]` with
-  `draft-copy = false`, in a book whose `_quarto.yml` declares
+  `folio_sides`, `epub_style_headers` requiring CSS-comment cleanup in
+  staged EPUB headers, and `reader_metadata`, the metadata a reader
+  instrument's render sets. A book that renders differently until it is
+  published, such as a copyright page that reserves every right until
+  then, names here what its published state sets: `[reader_metadata]`
+  with `draft-copy = false`, in a book whose `_quarto.yml` declares
   `draft-copy: true`. Each key is set at the top level of the reader
   packet's staged `_quarto.yml`, so a seat meets the book a reader will
   hold, not a copy that tells it it holds a draft. Values are strings,
@@ -1259,6 +1259,14 @@ and visual choices out of Quirework's implementation:
   the marker's heading and everything after it up to the next chapter
   heading; it runs that late because Quarto would otherwise synthesize
   the heading it was given.
+
+  `folio_sides = true` makes a render that produced a PDF read the PDF's
+  page labels back and fail when an arabic folio sits on the wrong side:
+  an odd number on a left-hand page, counting the file's first page as a
+  right-hand one. A viewer shows one page at a time and cannot show
+  this, and one page gained or lost before the body flips every folio
+  after it. Leave it unset for a PDF made only for screens. A value
+  other than true or false stops the render.
 
   `proof_switch` names the top-level metadata key that says the book is
   not yet published, `draft-copy` in the example above. Until that key
