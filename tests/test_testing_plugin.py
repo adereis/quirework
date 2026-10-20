@@ -24,6 +24,7 @@ def consumer(pytester, tmp_path, monkeypatch):
     # This suite is isolated too; the consumer's session is a fresh one.
     monkeypatch.delenv("QUIREWORK_TEST_SANDBOX", raising=False)
     monkeypatch.delenv("QUIREWORK_TEST_GUARDED", raising=False)
+    monkeypatch.delenv("QUIREWORK_TEST_REAL_ENVIRONMENT", raising=False)
     monkeypatch.setenv("QUIREWORK_PROVENANCE_HOME", str(real / "provenance"))
     monkeypatch.setenv("CODEX_HOME", str(real / "codex"))
     monkeypatch.setenv("QUIREWORK_USAGE", "1")
@@ -65,6 +66,36 @@ def test_one_line_moves_every_per_user_location(consumer):
                 assert not seat_home.is_relative_to(REAL)
                 assert not store.find_home().path.is_relative_to(REAL)
                 assert not user_config_path().is_relative_to(REAL)
+        """
+    )
+    result = pytester.runpytest_subprocess()
+    result.assert_outcomes(passed=1)
+    assert sorted(p.name for p in real.iterdir()) == []
+
+
+def test_a_live_test_can_hand_a_subprocess_the_real_home(consumer):
+    """A live test launches a real harness, which needs the person's logins.
+    The session itself stays isolated, and so does the usage record."""
+    pytester, real = consumer
+    pytester.makepyfile(
+        """
+        import os
+
+        from quirework.testing import real_environment
+
+        REAL = os.environ["REAL_HOME"]
+
+
+        def test_the_replaced_variables_come_back():
+            given = real_environment()
+            assert given["HOME"] == REAL
+            assert given["CODEX_HOME"] == REAL + "/codex"
+            assert given["QUIREWORK_PROVENANCE_HOME"] == REAL + "/provenance"
+            assert "XDG_CACHE_HOME" not in given
+            assert "QUIREWORK_CANARY" not in given
+            assert given["QUIREWORK_USAGE"] == "0"
+            assert not any(name.startswith("QUIREWORK_TEST_") for name in given)
+            assert os.environ["HOME"] != REAL
         """
     )
     result = pytester.runpytest_subprocess()

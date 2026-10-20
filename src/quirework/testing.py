@@ -35,6 +35,10 @@ and a proxy's socket path must fit in 107 bytes, which a sandbox path
 would not; what Quirework puts there is a socket that lives as long as
 one launch.
 
+A live test, which launches a real harness on purpose, needs the person's
+own logins, and ``real_environment()`` gives it the environment the session
+replaced, for a subprocess. Usage recording stays off in it.
+
 A write that still reaches a real location is a leak, and leaks fail.
 Before redirecting, the plugin notes the real XDG trees, the harnesses'
 homes and the real provenance home. An audit hook then refuses any write
@@ -52,6 +56,7 @@ Nothing here is imported at run time: only pytest loads this module.
 
 from __future__ import annotations
 
+import json
 import os
 import shutil
 import site
@@ -73,6 +78,10 @@ _TREES = {
 }
 _DROPPED = ("QUIREWORK_PROVENANCE_HOME", "CODEX_HOME")
 _SWITCHED_OFF = {"QUIREWORK_USAGE": "0", "QUIREWORK_CANARY": "0"}
+# What the replaced variables were, kept for `real_environment` and passed
+# to a nested session the same way as the sandbox itself.
+_REAL = "QUIREWORK_TEST_REAL_ENVIRONMENT"
+_REPLACED = ("HOME", *_TREES, *_DROPPED, *_SWITCHED_OFF)
 
 _SANDBOX = pytest.StashKey[Path]()
 _OWNED = pytest.StashKey[bool]()
@@ -221,6 +230,32 @@ def _link_fonts(real_home: Path, real_data: Path, home: Path, data: Path) -> Non
             link.symlink_to(source, target_is_directory=True)
 
 
+def real_environment() -> dict[str, str]:
+    """This process's environment with the person's own home put back.
+
+    For a live test: a real harness needs the person's logins, which live
+    under the home this session replaced. Every replaced variable is restored
+    except ``QUIREWORK_USAGE``, because a test's commands are not the
+    person's use of the tool. A subprocess given this writes where the
+    person's own commands would, and the write guard sees only this process,
+    so only a test that means to reach a real provider asks for it.
+    """
+    saved = json.loads(os.environ[_REAL])
+    environment = {
+        name: value
+        for name, value in os.environ.items()
+        if name not in (_REAL, _ACTIVE, _GUARDED)
+    }
+    for name, value in saved.items():
+        if name == "QUIREWORK_USAGE":
+            continue
+        if value is None:
+            environment.pop(name, None)
+        else:
+            environment[name] = value
+    return environment
+
+
 def native_session(run_dir, runner: str, session_id: str) -> Path:
     """Leave a session in a seat's private home, as its harness would.
 
@@ -265,6 +300,7 @@ def pytest_configure(config):
     config.stash[_OWNED] = True
     home = sandbox / "home"
     home.mkdir(mode=0o700)
+    os.environ[_REAL] = json.dumps({name: os.environ.get(name) for name in _REPLACED})
     os.environ["HOME"] = str(home)
     for variable in _TREES:
         tree = sandbox / variable.removeprefix("XDG_").removesuffix("_HOME").lower()
