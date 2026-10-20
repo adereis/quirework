@@ -15,16 +15,17 @@ that an unread file was read. Recognized forms:
 
 - Claude's `Read` tool, with its `offset` and `limit`;
 - agy's `view_file`, taken from the result agy records for it, which names
-  the file and the lines it showed;
+  the file and the lines it showed, and its newer `read_file`, whose result
+  names only the lines, so the file comes from the call it answers;
 - shell commands, from Claude's `Bash` tool, agy's `run_command` or any
   Codex call: `cat`, `nl`, `sed -n 'A,Bp'` or `'Ap'`, and `head -n N` or
   `head -N`.
 
 Writes are recognized as conservatively: Claude's `Write` and `Edit` tools,
-Codex's `apply_patch` (an added or updated file), agy's `write_to_file` (from
-its result, as for a view), and shell redirection or `tee`. A redirection
-target is a write and never a read, and the body of a heredoc is text, not
-commands.
+Codex's `apply_patch` (an added or updated file), agy's `write_to_file` and
+`write_file` (from the result, as for a view), and shell redirection or
+`tee`. A redirection target is a write and never a read, and the body of a
+heredoc is text, not commands.
 """
 
 import json
@@ -54,6 +55,21 @@ _AGY_VIEW = re.compile(
     r"Showing lines (\d+) to (\d+)"
 )
 _AGY_CREATED = re.compile(r"Created file file://(\S+) with requested content")
+# What agy's newer `read_file` records: the whole lines A to B, or, for a read
+# cut to agy's size limit, which bytes of the line range it showed. A cut
+# read's body can begin and end inside a line, and those lines were not shown
+# whole. Each shown line is numbered `n: `.
+_AGY_SHOWN = re.compile(r"Showing lines (\d+)-(\d+) of \d+")
+_AGY_PARTIAL = re.compile(
+    r"Partial read \(lines (\d+)-(\d+) of \d+\)\. "
+    r"Showing bytes (\d+)-(\d+) of (\d+) in this line range\."
+)
+_AGY_LINE = re.compile(r"(\d+):(?: |$)")
+# The newer file tools, which name their file only in the call, and the steps
+# that answer a call in agy's command-line transcripts: its result, or the
+# error it failed with.
+_AGY_PAIRED = ("read_file", "write_file")
+_AGY_ANSWERS = ("GENERIC", "ERROR_MESSAGE")
 
 
 def _rows(path):
@@ -196,21 +212,103 @@ def _codex_events(payload):
     return []
 
 
-def _agy_events(row):
+def _agy_results(row, steps):
+    """The step that answers each of a response's calls, or None for each.
+
+    agy records a response and then one step per call it made, in the order
+    of the calls, so call i is answered by the step i + 1 places after the
+    response. A call that failed is answered in its place by an error. When
+    the steps that follow are not exactly that many answers, which one
+    answers which call would be a guess, and none is matched.
+    """
+    calls = row.get("tool_calls") or []
+    index = row.get("step_index")
+    if not isinstance(index, int):
+        return [None] * len(calls)
+    results = [steps.get(index + 1 + n) for n in range(len(calls))]
+    after = steps.get(index + 1 + len(calls))
+    if any(r is None or r.get("type") not in _AGY_ANSWERS for r in results) or (
+        after is not None and after.get("type") in _AGY_ANSWERS
+    ):
+        return [None] * len(calls)
+    return results
+
+
+def _agy_whole_lines(partial, body):
+    """(first, last) of the lines a cut read showed whole, or None.
+
+    The numbered lines must run on without a gap to the end of the body, after
+    at most one line cut at its start, so text that only looks numbered is
+    never taken for a line. A read that starts past its range's first byte
+    may also begin with a cut line that happens to look numbered, and one
+    that stops short of the range's last byte ends inside a line, so each
+    such edge line is left out.
+    """
+    first, last, start, end, size = (int(g) for g in partial.groups())
+    if body and not body[-1]:
+        body = body[:-1]
+    numbers = []
+    for line in reversed(body):
+        found = _AGY_LINE.match(line)
+        if not found or (numbers and int(found.group(1)) != numbers[-1] - 1):
+            break
+        numbers.append(int(found.group(1)))
+    lead = len(body) - len(numbers)
+    if not numbers or lead > 1 or (lead == 1 and start == 1):
+        return None
+    low, high = numbers[-1], numbers[0]
+    if start > 1 and lead == 0:
+        low += 1
+    if end < size:
+        high -= 1
+    return (low, high) if first <= low <= high <= last else None
+
+
+def _agy_paired(name, path, result):
+    """What a call to one of agy's newer file tools did, from the step that
+    answers it: the file is the call's, the lines are the result's."""
+    if result is None or result.get("type") != "GENERIC":
+        return []
+    if result.get("status") != "DONE":
+        return []
+    if not isinstance(path, str) or not path.startswith("/"):
+        return []
+    lines = (result.get("content") or "").split("\n")
+    while lines and lines[0].startswith(("Created At:", "Completed At:")):
+        lines.pop(0)
+    head, body = (lines[0], lines[1:]) if lines else ("", [])
+    if name == "write_file":
+        return [("write", path, None)] if head.startswith("Created file.") else []
+    if shown := _AGY_SHOWN.fullmatch(head):
+        return [("read", path, [(int(shown.group(1)), int(shown.group(2)))])]
+    if (partial := _AGY_PARTIAL.fullmatch(head)) and (
+        span := _agy_whole_lines(partial, body)
+    ):
+        return [("read", path, [span])]
+    return []
+
+
+def _agy_events(row, steps):
     """Ordered read and write events one step of an agy transcript carries.
 
     A planner step lists the tools it called and each result is a step of its
-    own, so a view or a write is read from its result: the file it touched and,
-    for a view, the lines agy actually showed, which can be fewer than the call
-    asked for. A shell command is read from the call, as Claude's Bash is.
+    own. A view or a write by the older tools is read from its result, which
+    names the file it touched and, for a view, the lines agy actually showed,
+    which can be fewer than the call asked for. The newer `read_file` and
+    `write_file` results name no file, so each is read with the call it
+    answers (see `_agy_results`). A shell command is read from the call, as
+    Claude's Bash is.
     """
     if row.get("type") == "PLANNER_RESPONSE":
         found = []
-        for call in row.get("tool_calls") or []:
+        calls = row.get("tool_calls") or []
+        for call, result in zip(calls, _agy_results(row, steps)):
             args = call.get("args") or {}
             command = args.get("CommandLine")
             if call.get("name") == "run_command" and isinstance(command, str):
                 found += _shell_events(command, args.get("Cwd"))
+            elif call.get("name") in _AGY_PAIRED:
+                found += _agy_paired(call["name"], args.get("Path"), result)
         return found
     if row.get("status") != "DONE":
         return []
@@ -227,12 +325,14 @@ def events(rollout):
     """Ordered ("read", path, ranges) and ("write", path, None) events
     recorded in a Claude, Codex or agy session."""
     out = []
-    for row in _rows(rollout):
+    rows = _rows(rollout)
+    steps = {r["step_index"]: r for r in rows if isinstance(r.get("step_index"), int)}
+    for row in rows:
         if row.get("type") == "response_item":
             out += _codex_events(row.get("payload", {}))
             continue
         if "step_index" in row:
-            out += _agy_events(row)
+            out += _agy_events(row, steps)
             continue
         if row.get("type") != "assistant":
             continue

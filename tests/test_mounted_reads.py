@@ -257,6 +257,146 @@ def test_an_agy_call_without_a_completed_result_counts_for_nothing(tmp_path, mou
     assert reads.events(session) == []
 
 
+def agy_calls(*calls):
+    """One response making several calls, each a (name, args) pair."""
+    return dict(
+        type="PLANNER_RESPONSE",
+        status="DONE",
+        tool_calls=[dict(name=name, args=args) for name, args in calls],
+    )
+
+
+def agy_answer(head, *body, status="DONE"):
+    """A result as agy's newer file tools record it: no file, only what
+    happened, under the two timestamps agy puts on every result."""
+    return dict(
+        type="GENERIC",
+        status=status,
+        content="\n".join(["Created At: now", "Completed At: now", head, *body]),
+    )
+
+
+def agy_lines(path, first, last):
+    text = Path(path).read_text().splitlines()
+    return [f"{n}: {text[n - 1]}" for n in range(first, last + 1)]
+
+
+def test_agy_newer_tools_are_proven_with_the_call_each_result_answers(tmp_path, mount):
+    """From 1.4.3, `read_file` and `write_file` name the file only in the call."""
+    first, second = chapter(mount, 0), chapter(mount, 1)
+    session = agy_session(
+        tmp_path,
+        [
+            agy_call("read_file", Path=first),
+            agy_answer("Showing lines 1-3 of 3", *agy_lines(first, 1, 3)),
+            agy_call("write_file", Path="/tmp/work/" + draft(mount, 0), Content="…"),
+            agy_answer("Created file."),
+            agy_call("read_file", Path=second),
+            agy_answer("Showing lines 1-2 of 2", *agy_lines(second, 1, 2)),
+            agy_call("write_file", Path="/tmp/work/" + draft(mount, 1), Content="…"),
+            agy_answer("Created file."),
+        ],
+    )
+    referenced = [first, second]
+    evs = reads.events(session)
+    assert reads.coverage(reads.file_reads(session), referenced) == (2, True, [])
+    pairs = reads.reaction_pairs(referenced, [draft(mount, 0), draft(mount, 1)])
+    assert reads.reactions_before_next(evs, referenced, pairs) is True
+
+
+def test_a_cut_agy_read_counts_only_the_lines_it_showed_whole(tmp_path, mount):
+    """A read cut to agy's size limit can begin and end inside a line."""
+    first = chapter(mount, 0)
+    session = agy_session(
+        tmp_path,
+        [
+            agy_call("read_file", Path=first, EndLine=1),
+            agy_answer("Showing lines 1-1 of 3", *agy_lines(first, 1, 1)),
+            # From byte 13, inside line 1, to the end: lines 2 and 3 whole.
+            agy_call("read_file", Path=first, ByteOffset=13),
+            agy_answer(
+                "Partial read (lines 1-3 of 3). Showing bytes 13-68 of 68 in "
+                "this line range.",
+                "green umbrella.",
+                *agy_lines(first, 2, 3),
+            ),
+            # Stopping at byte 40, inside line 2: only line 1 whole.
+            agy_call("read_file", Path=first),
+            agy_answer(
+                "Partial read (lines 1-3 of 3). Showing bytes 1-40 of 68 in "
+                "this line range.",
+                *agy_lines(first, 1, 1),
+                "2: The door sta",
+            ),
+        ],
+    )
+    assert reads.file_reads(session) == [
+        (first, [(1, 1)]),
+        (first, [(2, 3)]),
+        (first, [(1, 1)]),
+    ]
+
+
+def test_a_cut_line_that_looks_numbered_is_not_taken_for_a_whole_one(tmp_path, mount):
+    score = mount / "chapters" / "03-score.md"
+    score.write_text("The score at noon was 1: nil.\nThe rain held off.\nThey left.\n")
+    session = agy_session(
+        tmp_path,
+        [
+            # From byte 23, the tail of line 1 reads like line 1 itself.
+            agy_call("read_file", Path=str(score), ByteOffset=23),
+            agy_answer(
+                "Partial read (lines 1-3 of 3). Showing bytes 23-60 of 60 in "
+                "this line range.",
+                "1: nil.",
+                *agy_lines(score, 2, 3),
+            ),
+        ],
+    )
+    assert reads.file_reads(session) == [(str(score), [(2, 3)])]
+
+
+def test_agy_results_that_do_not_line_up_with_their_calls_prove_nothing(
+    tmp_path, mount
+):
+    """With a result missing or one too many, which answers which is a guess."""
+    first, second = chapter(mount, 0), chapter(mount, 1)
+    shown = agy_answer("Showing lines 1-2 of 2", *agy_lines(second, 1, 2))
+    session = agy_session(
+        tmp_path,
+        [
+            agy_calls(
+                ("read_file", dict(Path=first)), ("read_file", dict(Path=second))
+            ),
+            shown,
+            agy_call("read_file", Path=first),
+            shown,
+            shown,
+            agy_call("write_file", Path="/tmp/work/" + draft(mount, 0)),
+            agy_answer("Created file.", status="ERROR"),
+            agy_call("write_file", Path="/tmp/work/" + draft(mount, 1)),
+            agy_answer("File already exists."),
+        ],
+    )
+    assert reads.events(session) == []
+
+
+def test_a_failed_agy_call_leaves_the_rest_of_its_response_proven(tmp_path, mount):
+    """A call that failed is answered in its place by an error."""
+    first, second = chapter(mount, 0), chapter(mount, 1)
+    session = agy_session(
+        tmp_path,
+        [
+            agy_calls(
+                ("read_file", dict(Path=first)), ("read_file", dict(Path=second))
+            ),
+            dict(type="ERROR_MESSAGE", status="DONE", content="read_file: busy"),
+            agy_answer("Showing lines 1-2 of 2", *agy_lines(second, 1, 2)),
+        ],
+    )
+    assert reads.file_reads(session) == [(second, [(1, 2)])]
+
+
 def test_an_agy_shell_command_is_read_like_any_other(tmp_path, mount):
     first = chapter(mount, 0)
     session = agy_session(

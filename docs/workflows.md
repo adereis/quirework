@@ -836,29 +836,33 @@ order, and the receipt reports `referenced_files_read` and
 counting line ranges so that a chapter printed in pieces still adds up.
 agy records the result of each view, naming the file and the lines it
 showed, and the receipt counts those lines rather than the ones the call
-asked for. A read the parser cannot recognize is reported as not proven,
-never as done, and so is the order of a file it never saw opening:
-`referenced_files_in_order` is false only when the record shows two
-files opened out of order, and null when one was never seen. Reading in
-order is not reading blind, since a seat can open every file in sequence
-and still open three before reacting to the first. So where each
-referenced file has a declared output of its own, paired by file name
-(`chapters/02-later.md` with `drafts/02-later.md`), the receipt also
-reports `reactions_before_next`: whether each file was first opened only
-after the previous file's reaction was written. It reads writes from
-Claude's `Write` and `Edit`, Codex's `apply_patch`, agy's
-`write_to_file` and shell redirection; a reaction whose write it cannot
-find is not proven, and both that and a file opened early raise a red
-flag. That check dates each reaction by its first write, so a seat that
-goes back and rewrites one after reading on passes it. The receipt
-therefore also reports `reactions_unrevised`, which is false, and
-red-flagged, when a reaction was written again after the next file had
-opened. Opening an earlier file again to look at it is not a revision,
-and a later write the parser cannot recognize is not seen. A policy may
-declare `read_root_digests`, one digest per mounted root: launch refuses
-to submit if the bytes have changed since the plan pinned them, and the
-receipt flags a change during the turn. That is how a mounted read's
-record names the bytes it read without freezing them.
+asked for. From 1.4.3 its `read_file` result names only the lines, and
+each result follows the call it answers in turn. So the file comes from
+that call, and only while the results after a response match its calls
+one for one. A read cut to agy's size limit counts only the lines it
+showed whole. A read the parser cannot recognize is reported as not
+proven, never as done, and so is the order of a file it never saw
+opening: `referenced_files_in_order` is false only when the record shows
+two files opened out of order, and null when one was never seen. Reading
+in order is not reading blind, since a seat can open every file in
+sequence and still open three before reacting to the first. So where
+each referenced file has a declared output of its own, paired by file
+name (`chapters/02-later.md` with `drafts/02-later.md`), the receipt
+also reports `reactions_before_next`: whether each file was first opened
+only after the previous file's reaction was written. It reads writes
+from Claude's `Write` and `Edit`, Codex's `apply_patch`, agy's
+`write_to_file` and `write_file`, and shell redirection; a reaction
+whose write it cannot find is not proven, and both that and a file
+opened early raise a red flag. That check dates each reaction by its
+first write, so a seat that goes back and rewrites one after reading on
+passes it. The receipt therefore also reports `reactions_unrevised`,
+which is false, and red-flagged, when a reaction was written again after
+the next file had opened. Opening an earlier file again to look at it is
+not a revision, and a later write the parser cannot recognize is not
+seen. A policy may declare `read_root_digests`, one digest per mounted
+root: launch refuses to submit if the bytes have changed since the plan
+pinned them, and the receipt flags a change during the turn. That is how
+a mounted read's record names the bytes it read without freezing them.
 
 A self-driven read needs its own instrument, not the printed-book one. A
 reader instrument opens by telling the seat what it has been handed, and
