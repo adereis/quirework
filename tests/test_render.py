@@ -231,6 +231,8 @@ def test_stage_book_noparts_flattens_and_unnumbers(tmp_path, monkeypatch):
     )  # skip figure I/O
 
     assert render.stage_book_noparts() == 0
+    # print_drops is the print stage's alone; this stage keeps the landing.
+    assert (stage / "index.qmd").read_text() == "# Welcome\n"
     cfg = (stage / "_quarto.yml").read_text()
     assert "part:" not in cfg  # every part flattened
     assert "- canon/part-two.qmd" in cfg  # opener promoted, in place
@@ -239,6 +241,34 @@ def test_stage_book_noparts_flattens_and_unnumbers(tmp_path, monkeypatch):
     styles = (stage / "epub-styles.html").read_text()
     assert "banner" not in styles and "why" not in styles  # comments never ship
     assert "p { margin: 0; }" in styles  # the rules do
+
+
+def test_stage_book_noparts_empties_its_own_drops(tmp_path, monkeypatch):
+    """A screen-only landing leaves EPUB and DOCX the way print_drops takes it out
+    of print: the entry stays (Quarto needs its home page) and the staged file
+    becomes the omit marker, which the book's EPUB and DOCX filter removes."""
+    (tmp_path / "render.toml").write_text(
+        'noparts_drops = ["index.qmd"]\nepub_style_headers = ["epub-styles.html"]\n'
+    )
+    docs = tmp_path / "docs"
+    (docs / "canon").mkdir(parents=True)
+    (docs / "_quarto.yml").write_text(_QUARTO, encoding="utf-8")
+    (docs / "index.qmd").write_text("# Welcome\n\nTwo sentences for the web.\n")
+    (docs / "canon" / "01.qmd").write_text("# One {#sec-one}\n")
+    (docs / "canon" / "08.qmd").write_text("# Weight {#sec-weight}\n")
+    (docs / "canon" / "part-two.qmd").write_text("# Part Two: What we pay them\n")
+    (docs / "epub-styles.html").write_text("<style>p { margin: 0; }</style>\n")
+
+    stage = tmp_path / "build" / "book-noparts"
+    monkeypatch.setattr(render, "current_project", lambda: project_at(tmp_path))
+    patch_setting(monkeypatch, render, "_settings", "BUILD_BOOK_NOPARTS", stage)
+    monkeypatch.setattr(render._figures, "build", lambda stage=None, gray=False: 0)
+
+    assert render.stage_book_noparts() == 0
+    staged = (stage / "index.qmd").read_text()
+    assert render._bookstage.OMIT_MARKER in staged and "web" not in staged
+    assert "- index.qmd" in (stage / "_quarto.yml").read_text()  # entry kept
+    assert "Two sentences" in (docs / "index.qmd").read_text()  # source untouched
 
 
 # --------------------------------------------------------------------------- #

@@ -157,6 +157,7 @@ POLICIES: dict[str, tuple[str, ...]] = {
     "publish.render_policy": (
         "cover_source",
         "epub_style_headers",
+        "noparts_drops",
         "print_drops",
         "proof_name",
         "proof_switch",

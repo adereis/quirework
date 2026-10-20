@@ -80,10 +80,12 @@ def _options():
     from types import SimpleNamespace
 
     BUILD_BOOK = _figures._settings().BUILD_BOOK
-    PRINT_DROPS = set(
-        current_project().data("publish.render_policy", {}).get("print_drops", set())
+    policy = current_project().data("publish.render_policy", {})
+    return SimpleNamespace(
+        BUILD_BOOK=BUILD_BOOK,
+        PRINT_DROPS=set(policy.get("print_drops", set())),
+        NOPARTS_DROPS=set(policy.get("noparts_drops", set())),
     )
-    return SimpleNamespace(BUILD_BOOK=BUILD_BOOK, PRINT_DROPS=PRINT_DROPS)
 
 
 def _settings():
@@ -389,6 +391,16 @@ def stage_book_noparts() -> int:
     mirror_sources(
         current_project().path("manuscript.source"), _settings().BUILD_BOOK_NOPARTS
     )
+    # Pages the parts-less formats do not carry, emptied exactly as the print
+    # stage empties its own (`bookstage.blank_chapters` owns why the entry stays
+    # and the file becomes a marker). A screen-only landing is the usual case:
+    # an e-reader that opens on a web page's welcome has opened on the wrong
+    # book.
+    blanked = _bookstage.blank_chapters(
+        _settings().BUILD_BOOK_NOPARTS, _options().NOPARTS_DROPS
+    )
+    if blanked:
+        print(f"render: EPUB/DOCX omit {', '.join(blanked)} (noparts_drops)")
     # Before flatten (it wants real parts), and with anchor links: Quarto rewrites
     # a `chapter.qmd` link to the output file for HTML only.
     _bookstage.render_contents(_settings().BUILD_BOOK_NOPARTS, anchors=True)

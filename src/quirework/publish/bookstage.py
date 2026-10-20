@@ -843,9 +843,11 @@ def inject_typst_prologues(
     return touched
 
 
-# The title a staged chapter is reduced to when a format should not print it.
-# The configured Typst template matches this exact string and renders nothing.
-PRINT_OMIT_MARKER = "quirework-omit-from-this-format"
+# The title a staged chapter is reduced to when a format should not carry it.
+# Each format the stage renders must drop it: the configured Typst template
+# matches this exact string and renders nothing, and a Pandoc writer (EPUB,
+# DOCX) needs a post-render filter that removes the marker's unit.
+OMIT_MARKER = "quirework-omit-from-this-format"
 
 
 def blank_chapters(stage: Path, rels: set[str]) -> list[str]:
@@ -874,10 +876,15 @@ def blank_chapters(stage: Path, rels: set[str]) -> list[str]:
       every real chapter shifted up by one.
 
     So the entry stays, and the file is replaced by an unnumbered, unlisted
-    heading carrying `PRINT_OMIT_MARKER`. Unnumbered keeps it out of the
-    chapter count and unlisted keeps it out of the contents; the marker is what
-    the configured Typst template matches to render nothing at all, so no page is
-    emitted. The marker only ever exists in a staged copy.
+    heading carrying `OMIT_MARKER`. Unnumbered keeps it out of the chapter
+    count and unlisted keeps it out of the contents. The marker is what the
+    configured Typst template matches to render nothing at all, so no page is
+    emitted. The parts-less stage blanks its own list the same way, and there the
+    book's EPUB and DOCX formats drop the marker with a filter run at
+    `post-render`: earlier, Quarto has not yet seen the heading it would
+    otherwise synthesize for a file without one, and a filter that removed the
+    marker before that would get the synthesized heading back. The marker only
+    ever exists in a staged copy.
 
     Returns the chapters actually emptied. A plain Quarto project renders
     each document on its own, with no front matter to drop, so nothing in
@@ -894,9 +901,7 @@ def blank_chapters(stage: Path, rels: set[str]) -> list[str]:
         f = stage / rel
         if not f.is_file():
             continue
-        f.write_text(
-            f"# {PRINT_OMIT_MARKER} {{.unnumbered .unlisted}}\n", encoding="utf-8"
-        )
+        f.write_text(f"# {OMIT_MARKER} {{.unnumbered .unlisted}}\n", encoding="utf-8")
         blanked.append(rel)
     return blanked
 

@@ -1221,21 +1221,22 @@ and visual choices out of Quirework's implementation:
   with `manuscript.notes.mask_fences()`, so it reads exactly what
   `spec units --check` reads.
 - `publish.layout_policy`: `typst_prologues` and `typst_epilogues`.
-- `publish.render_policy`: `print_drops`, `epub_style_headers` requiring
-  CSS-comment cleanup in staged EPUB headers, and `reader_metadata`, the
-  metadata a reader instrument's render sets. A book that renders
-  differently until it is published, such as a copyright page that
-  reserves every right until then, names here what its published state
-  sets: `[reader_metadata]` with `draft-copy = false`, in a book whose
-  `_quarto.yml` declares `draft-copy: true`. Each key is set at the top
-  level of the reader packet's staged `_quarto.yml`, so a seat meets the
-  book a reader will hold, not a copy that tells it it holds a draft.
-  Values are strings, numbers or booleans, and a boolean stays one. Only
-  the packet's own stage applies them. `publish build`, `publish redpen`
-  and every copy made for a person keep the book's own metadata, and
-  nothing else switches it. `revision_metadata = true` has every stage
-  record the source it was copied from, so a copy handed to a reviewer
-  can say which revision it is: `source-commit` (the full hash),
+- `publish.render_policy`: `print_drops`, `noparts_drops`,
+  `epub_style_headers` requiring CSS-comment cleanup in staged EPUB
+  headers, and `reader_metadata`, the metadata a reader instrument's
+  render sets. A book that renders differently until it is published,
+  such as a copyright page that reserves every right until then, names
+  here what its published state sets: `[reader_metadata]` with
+  `draft-copy = false`, in a book whose `_quarto.yml` declares
+  `draft-copy: true`. Each key is set at the top level of the reader
+  packet's staged `_quarto.yml`, so a seat meets the book a reader will
+  hold, not a copy that tells it it holds a draft. Values are strings,
+  numbers or booleans, and a boolean stays one. Only the packet's own
+  stage applies them. `publish build`, `publish redpen` and every copy
+  made for a person keep the book's own metadata, and nothing else
+  switches it. `revision_metadata = true` has every stage record the
+  source it was copied from, so a copy handed to a reviewer can say
+  which revision it is: `source-commit` (the full hash),
   `source-commit-short`, `source-date` (the commit's date, YYYY-MM-DD)
   and `source-modified`, at the top of the staged `_quarto.yml`. A book
   prints them where it chooses, or nowhere. `source-modified` is true
@@ -1244,6 +1245,20 @@ and visual choices out of Quirework's implementation:
   is copied at its own moment, so each records its own revision. Outside
   a git checkout no stage records one, and a value that is not a boolean
   stops the render.
+
+  `print_drops` and `noparts_drops` name chapters a stage empties
+  because its formats do not carry them: the print stage, and the
+  parts-less stage that renders EPUB and DOCX. A screen-only landing is
+  the usual case. Quarto will not render a book without its home page,
+  and it synthesizes a numbered heading for a file without one, so a
+  dropped chapter keeps its entry and becomes a single unnumbered,
+  unlisted heading carrying the marker `quirework-omit-from-this-format`
+  (`bookstage.OMIT_MARKER`). Every format the stage renders must then
+  drop the marker. A Typst template renders nothing for that heading. An
+  EPUB or DOCX format runs a Lua filter at `post-render` that removes
+  the marker's heading and everything after it up to the next chapter
+  heading; it runs that late because Quarto would otherwise synthesize
+  the heading it was given.
 
   `proof_switch` names the top-level metadata key that says the book is
   not yet published, `draft-copy` in the example above. Until that key

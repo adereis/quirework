@@ -468,7 +468,7 @@ def test_blank_chapters_leaves_the_entry_and_marks_the_file(tmp_path):
     assert bookstage.blank_chapters(tmp_path, {"index.qmd"}) == ["index.qmd"]
     assert (tmp_path / "_quarto.yml").read_text() == _QUARTO_DROP
     body = (tmp_path / "index.qmd").read_text()
-    assert bookstage.PRINT_OMIT_MARKER in body
+    assert bookstage.OMIT_MARKER in body
     assert ".unnumbered" in body and ".unlisted" in body
     assert "Body." not in body
     assert (tmp_path / "copyright.qmd").read_text() == "# H\n\nBody.\n"
