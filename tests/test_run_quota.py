@@ -159,7 +159,7 @@ def test_rewind_is_a_no_op_when_nothing_was_appended(tmp_path):
 
 def test_delay_follows_the_provider_reset(monkeypatch):
     now = RESET - 120
-    assert engine.quota_delay(dict(resets_at=RESET), now=now) == 150
+    assert engine.quota_delay(dict(resets_at=RESET), now=now) == 240
     # A reset already past, or absent, still waits rather than hammering.
     assert engine.quota_delay(dict(resets_at=RESET), now=RESET + 5) == 300
     assert engine.quota_delay({}, now=now) == 300

@@ -1954,7 +1954,10 @@ def quota_delay(detail, now=None):
     now = time.time() if now is None else now
     resets = detail.get("resets_at")
     if isinstance(resets, (int, float)) and resets > now:
-        return min(resets - now + 30, 6 * 3600)
+        # Two minutes past the stated reset: the provider's clock need not
+        # agree with this one, and a resubmission that lands early is only
+        # refused again.
+        return min(resets - now + 120, 6 * 3600)
     return 300
 
 
