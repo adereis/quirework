@@ -243,6 +243,23 @@ def test_stage_book_noparts_flattens_and_unnumbers(tmp_path, monkeypatch):
     assert "p { margin: 0; }" in styles  # the rules do
 
 
+def test_docx_chapters_leave_out_the_stage_drops(tmp_path, monkeypatch):
+    """A dropped chapter has no heading in the DOCX, so the heading match must
+    not look for it, or every DOCX of a book with a drop is refused."""
+    (tmp_path / "render.toml").write_text('noparts_drops = ["index.qmd"]\n')
+    docs = tmp_path / "docs"
+    (docs / "canon").mkdir(parents=True)
+    (docs / "_quarto.yml").write_text(_QUARTO, encoding="utf-8")
+    (docs / "index.qmd").write_text("# Welcome {.unnumbered .unlisted}\n")
+    (docs / "canon" / "01.qmd").write_text("# One {#sec-one}\n")
+    (docs / "canon" / "08.qmd").write_text("# Weight {#sec-weight}\n")
+    (docs / "canon" / "part-two.qmd").write_text("# Part Two: What we pay them\n")
+    monkeypatch.setattr(render, "current_project", lambda: project_at(tmp_path))
+    rels = [row.rel for row in render.docx_chapters()]
+    assert "index.qmd" not in rels
+    assert "canon/01.qmd" in rels and "canon/08.qmd" in rels
+
+
 def test_stage_book_noparts_empties_its_own_drops(tmp_path, monkeypatch):
     """A screen-only landing leaves EPUB and DOCX the way print_drops takes it out
     of print: the entry stays (Quarto needs its home page) and the staged file
