@@ -8,6 +8,7 @@ imports one goes through a real prepared record, never a hand-built stand-in.
 
 import json
 import subprocess
+from datetime import datetime, timezone
 from pathlib import Path
 
 import pytest
@@ -251,9 +252,10 @@ def test_a_session_longer_than_a_seat_is_read_in_parts(book, tmp_path):
     )
     plan = json.loads((tmp_path / "packets" / "plan.json").read_text())
     reads = [s["metadata"]["trail_read"] for s in plan["seats"]]
-    assert [r.get("parts") for r in reads] == [{MORNING: [1, 2]}, {MORNING: [3, 3]}]
+    assert [r.get("parts") for r in reads] == [{MORNING: [1, 2]}, {MORNING: [3]}]
     assert reads[1]["sessions"] == [MORNING, EVENING], "a part shares a seat"
-    assert done["split"] == [(MORNING, 3, [(1, 2), (3, 3)])]
+    assert [len(keys) for keys in reads[1]["seen"].values()] == [1, 1]
+    assert done["split"] == [(MORNING, 3, [[1, 2], [3]])]
     lines = "\n".join(backfill.plan_lines(done))
     assert "0badc0de turns 1-2, 3-3 of 3" in lines
     part = (tmp_path / "packets" / "packets" / f"{MORNING}.turns-3-3.md").read_text()
@@ -262,9 +264,13 @@ def test_a_session_longer_than_a_seat_is_read_in_parts(book, tmp_path):
 
 
 def test_parts_cut_evenly_and_never_leave_a_stub():
-    assert backfill._parts(1, 52, 26) == [(1, 26), (27, 52)]
-    assert backfill._parts(1, 147, 80) == [(1, 74), (75, 147)]
-    assert backfill._parts(5, 7, 80) == [(5, 7)]
+    def runs(numbers, size):
+        return [(c[0], c[-1]) for c in backfill._chunks(list(numbers), size)]
+
+    assert runs(range(1, 53), 26) == [(1, 26), (27, 52)]
+    assert runs(range(1, 148), 80) == [(1, 74), (75, 147)]
+    assert runs(range(5, 8), 80) == [(5, 7)]
+    assert backfill._chunks([2, 9, 30], 2) == [[2, 9], [30]]
 
 
 def test_a_session_read_in_part_hands_out_only_its_unread_turns(book, tmp_path):
@@ -277,15 +283,259 @@ def test_a_session_read_in_part_hands_out_only_its_unread_turns(book, tmp_path):
     [row, _] = _read(tmp_path, [first], turns=2)
     assert row["read"] == 1 and row["dropped"][0]["why"] == "no such author turn"
     read = backfill._reads()[0]
-    assert read["part"] == {"first": 1, "last": 2} and read["turns"] == 2
+    assert read["turns"] == 2 and len(read["seen"]) == 2 and "part" not in read
     assert [c["turn"] for c in read["candidates"]] == [1]
-    assert backfill._coverage() == {MORNING: {1, 2}}
     backfill.plan(tmp_path / "next", harness="codex", model="luna", effort="low")
     plan = json.loads((tmp_path / "next" / "plan.json").read_text())
     [seat] = plan["seats"]
-    assert seat["metadata"]["trail_read"]["parts"] == {MORNING: [3, 3]}
+    assert seat["metadata"]["trail_read"]["parts"] == {MORNING: [3]}
     assert "1 of    2 read" not in "\n".join(backfill.status())
     assert "1 read only in part" in "\n".join(backfill.status())
+
+
+ASK = "toolu_kettle_route"
+
+
+def _answered(project):
+    """The morning session as a reader that counts answers lists it.
+
+    Between the first two turns the model asks a question with options, and
+    the author's pick, logged as the question tool's result, becomes Human 2.
+    """
+    day = "2031-04-02"
+    records = [
+        {"type": "user", "message": {"content": MORNING_TURNS[0][1]}},
+        {
+            "type": "assistant",
+            "message": {"content": [{"type": "text", "text": MORNING_TURNS[1][1]}]},
+        },
+        {
+            "type": "assistant",
+            "message": {
+                "content": [
+                    {
+                        "type": "tool_use",
+                        "id": ASK,
+                        "name": "AskUserQuestion",
+                        "input": {
+                            "questions": [
+                                {
+                                    "question": "Which route?",
+                                    "options": [
+                                        {"label": "Cooling", "description": ""}
+                                    ],
+                                }
+                            ]
+                        },
+                    }
+                ]
+            },
+        },
+        {
+            "type": "user",
+            "message": {
+                "content": [
+                    {
+                        "type": "tool_result",
+                        "tool_use_id": ASK,
+                        "content": 'Your questions have been answered: "Which route?"='
+                        '"Cooling". You can now continue with these answers in mind.',
+                    }
+                ]
+            },
+        },
+        {"type": "user", "message": {"content": MORNING_TURNS[2][1]}},
+        {
+            "type": "assistant",
+            "message": {"content": [{"type": "text", "text": MORNING_TURNS[3][1]}]},
+        },
+        {"type": "user", "message": {"content": MORNING_TURNS[4][1]}},
+    ]
+    clocks = [
+        "10:00:05.120",
+        "10:01:00",
+        "10:01:30",
+        "10:02:00",
+        "10:05:30",
+        "10:06:00",
+        "10:09:12.500",
+    ]
+    for record, clock in zip(records, clocks):
+        record["timestamp"] = f"{day}T{clock}Z"
+    keep_session(
+        project,
+        f"cc-sessions/{MORNING}.jsonl",
+        "\n".join(json.dumps(r) for r in records) + "\n",
+    )
+
+
+def _old_read(project, sid, turns, flags=(), part=None):
+    """A read as the ledger kept one before reads recorded their turns' keys."""
+    read = {
+        "session": sid,
+        "harness": "Claude Code",
+        "turns": turns,
+        "about": None,
+        "candidates": [
+            {
+                "turn": number,
+                "logged": logged,
+                "sections": [
+                    {
+                        "slug": "cooling-asymmetry",
+                        "kind": "correct",
+                        "confidence": "high",
+                        "reason": "A route.",
+                    }
+                ],
+            }
+            for number, logged in flags
+        ],
+        **({"part": {"first": part[0], "last": part[1]}} if part else {}),
+        "packet_version": backfill.PACKET_VERSION,
+        "slugs": ["kettle-signal", "cooling-asymmetry"],
+    }
+    target = project.path("manuscript.spec_trail_leads") / "reads" / sid
+    target.mkdir(parents=True, exist_ok=True)
+    (target / f"old-{len(list(target.iterdir())) + 1:03d}.json").write_text(
+        json.dumps(read)
+    )
+
+
+def _handed(out):
+    """``{sid: parts}`` of the plan in ``out``, or ``None`` for a whole session."""
+    plan = json.loads((out / "plan.json").read_text())
+    handed = {}
+    for seat in plan["seats"]:
+        meta = seat["metadata"]["trail_read"]
+        for sid in meta["sessions"]:
+            handed[sid] = meta.get("parts", {}).get(sid)
+    return handed
+
+
+def test_a_turn_is_known_by_its_instant_or_else_by_its_words():
+    at = datetime(2031, 4, 2, 10, 0, tzinfo=timezone.utc)
+    later = at.replace(minute=1)
+    keys = backfill._keys(
+        [
+            (at, "Copper."),
+            (at, "Steel."),
+            (later, "Yes."),
+            (None, "Yes."),
+            (None, "Yes."),
+        ]
+    )
+    assert keys[2] == "2031-04-02T10:01:00.000000+00:00"
+    assert keys[0] != keys[1] and keys[0].startswith("2031-04-02T10:00:00")
+    assert keys[3].startswith("untimed/") and keys[4] == keys[3] + "#2"
+    assert len(set(keys)) == 5
+
+
+def test_a_turn_a_session_gains_after_its_read_is_handed_out_alone(book, tmp_path):
+    done = _lines(
+        {"session": MORNING, "done": True}, {"session": EVENING, "done": True}
+    )
+    _read(tmp_path, [done])
+    _answered(book)
+    out = tmp_path / "gained"
+    summary = backfill.plan(out, harness="codex", model="luna", effort="low")
+    assert _handed(out) == {MORNING: [2]}, "only the answer, at its new number"
+    assert summary["partial"] == [(MORNING, 1, 4)] and summary["stale"] == []
+    lines = "\n".join(backfill.plan_lines(summary))
+    assert "1 session(s) read before hand out only the 1 turn(s) no reader saw" in lines
+    packet = (out / "packets" / f"{MORNING}.turns-2-2.md").read_text()
+    assert "only turns 2 to 2 of the session's 4" in packet
+    assert "## Turn 2 " in packet and "## Turn 3 " not in packet
+    assert '"Which route?"="Cooling"' in packet
+
+
+def test_a_flag_is_kept_at_the_turn_its_packet_held(book, tmp_path):
+    _read(
+        tmp_path / "first",
+        [
+            _lines(
+                {"session": MORNING, "done": True}, {"session": EVENING, "done": True}
+            )
+        ],
+    )
+    _answered(book)
+    flag = {"slug": "cooling-asymmetry", "kind": "accept", "confidence": "high"}
+    [row] = _read(
+        tmp_path,
+        [
+            _lines(
+                {"session": MORNING, "turn": 2, "sections": [flag]},
+                {"session": MORNING, "turn": 3, "sections": [flag]},
+                {"session": MORNING, "done": True},
+            )
+        ],
+    )
+    assert [d["why"] for d in row["dropped"]] == ["no such author turn"]
+    [read] = [
+        r for r in backfill._reads() if r["session"] == MORNING and r["turns"] == 1
+    ]
+    [candidate] = read["candidates"]
+    assert candidate["turn"] == 2
+    assert candidate["logged"] == "2031-04-02T10:02:00.000000+00:00"
+    with pytest.raises(LookupError, match="no session is left"):
+        backfill.plan(tmp_path / "none", harness="codex", model="luna", effort="low")
+
+
+def test_an_older_read_is_matched_to_the_reader_it_ran_on(book, tmp_path):
+    _answered(book)
+    # Read when answers were not turns: three of them, the last at 10:09:12.
+    _old_read(book, MORNING, 3, flags=[(3, "2031-04-02T10:09:12.500000+00:00")])
+    # Two turns, but the session holds one under every reader: it fits none.
+    _old_read(book, EVENING, 2)
+    out = tmp_path / "old"
+    summary = backfill.plan(out, harness="codex", model="luna", effort="low")
+    assert _handed(out) == {MORNING: [2], EVENING: None}
+    assert summary["stale"] == [EVENING]
+    lines = "\n".join(backfill.plan_lines(summary))
+    assert "1 session(s) are read whole again" in lines and "0badc0de" in lines
+    assert "will be read whole again" in "\n".join(backfill.status())
+
+
+def test_an_older_part_keeps_only_the_turns_every_fitting_reader_agrees_on(
+    book, tmp_path
+):
+    _answered(book)
+    # Turns 1 and 2 of a read in parts: with no flag to tell them apart, today's
+    # reader (the answer is turn 2) and the older one (turn 2 is at 10:05:30)
+    # agree only on turn 1, so turns 2 to 4 are handed out again.
+    _old_read(book, MORNING, 2, part=(1, 2))
+    out = tmp_path / "unsure"
+    backfill.plan(out, harness="codex", model="luna", effort="low")
+    assert _handed(out)[MORNING] == [2, 3, 4]
+    # A flag on turn 2 at 10:05:30 fits only the older reader.
+    _old_read(
+        book, MORNING, 2, flags=[(2, "2031-04-02T10:05:30.000000+00:00")], part=(1, 2)
+    )
+    out = tmp_path / "sure"
+    backfill.plan(out, harness="codex", model="luna", effort="low")
+    assert _handed(out)[MORNING] == [2, 4]
+
+
+def test_a_named_session_hands_out_every_turn_only_when_reread(book, tmp_path):
+    _read(tmp_path, [_lines({"session": MORNING, "done": True})])
+    with pytest.raises(LookupError, match="no session is left"):
+        backfill.plan(
+            tmp_path / "named",
+            harness="codex",
+            model="luna",
+            effort="low",
+            sessions=[MORNING],
+        )
+    out = tmp_path / "again"
+    backfill.plan(
+        out,
+        harness="codex",
+        model="luna",
+        effort="low",
+        sessions=[MORNING],
+        reread=True,
+    )
+    assert _handed(out) == {MORNING: None}
 
 
 def test_packets_never_land_in_the_checkout(book):

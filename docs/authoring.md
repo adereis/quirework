@@ -491,10 +491,22 @@ this risk and cannot remove it, because thinking depends on what the
 turns hold: one dense session can use up a reader's room alone. Plan it
 again with a lower `--turns`, and it is read in parts.
 
-A read of a part records the turns it covers. A session counts as read
-once its reads cover every turn, and the next plan hands out only the
-turns no reader finished. `backfill status` counts a session read only
-in part.
+A read records which turns its packet held: each by the time it was
+logged, or by its words in a source that logs no times, never by its
+number. Numbers move. When the reader learns a new kind of turn, such as
+an answer you picked from a question's options or a prompt you typed
+while the model worked, that turn joins your turns and every later turn
+moves up one. A session counts as read once its reads cover every turn
+it holds now, so the next plan hands out only the turns no reader saw:
+the rest of a session read in parts, or the few turns a session gained
+after its read, in one packet that names them, each with the end of the
+reply it answered. A read recorded before reads kept their turns is
+matched to the reader it ran on, by how many turns it counted and where
+it put the turns it flagged. A read no reader fits vouches for no turn,
+and the plan says its session is read whole again. Named sessions
+(`--session ID`) are planned the same way, and `--reread` hands out
+every turn of the sessions a plan takes. `backfill status` counts the
+sessions read only in part and their unread turns.
 
 Import holds any seat whose receipt carries a red flag its plan did not
 accept, records nothing it read, and exits nonzero, so an unexpected

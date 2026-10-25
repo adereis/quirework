@@ -121,6 +121,20 @@ def _human_slot(text, raw):
     return None
 
 
+# How an author turn reached a Claude Code log, in the order the reader
+# learned each path. A reader that predates a path did not count its turns,
+# so a turn's origin says which readers saw it: the answer to a question the
+# model asked joined the author's turns first, then a prompt typed while the
+# model worked, then a prompt logged as a list of blocks, which is how one
+# sent with a pasted image is logged.
+ORIGINS = ("typed", "answer", "queued", "listed")
+
+
+def _origin(turn, origin):
+    """``origin`` for a ``_human_slot`` row in the author's role, else ``None``."""
+    return origin if turn[0] == "human" else None
+
+
 def _answers(content, asks, raw, ts):
     """``("human", text, ts)`` for each answer in a tool-result echo.
 
@@ -142,7 +156,7 @@ def _answers(content, asks, raw, ts):
 # --------------------------------------------------------------------------- #
 # turn extraction -> a flat list of (role, text), in conversation order
 # --------------------------------------------------------------------------- #
-def cc_records(path, *, thinking=False, raw=False):
+def cc_records(path, *, thinking=False, raw=False, origins=False):
     """``(role, text, ts)`` turns from a cc-session JSONL.
 
     ``ts`` is the record's ISO-8601 ``timestamp`` (or ``None`` if absent).
@@ -165,7 +179,9 @@ def cc_records(path, *, thinking=False, raw=False):
     wrote back, its prose and the report it hands back, is ``subagent``.
     A prompt the author typed while the model was working is a human turn
     too, though the harness logs it only as a queue operation, at the time
-    he typed it (``ccfilter.queued_prompt``).
+    he typed it (``ccfilter.queued_prompt``). With ``origins`` each row
+    carries a fourth item: how a human turn reached the log (``ORIGINS``),
+    or ``None`` for any other row.
     """
     out = []
     asks = {}  # each question the model asked the author: id -> its input
@@ -182,7 +198,7 @@ def cc_records(path, *, thinking=False, raw=False):
             typ = o.get("type")
             prompt = FLT.queued_prompt(o, queued)
             if prompt:
-                out.append(("human", prompt[0], prompt[1]))
+                out.append(("human", prompt[0], prompt[1], "queued"))
                 continue
             if typ not in ("user", "assistant"):
                 continue
@@ -196,8 +212,10 @@ def cc_records(path, *, thinking=False, raw=False):
                     if not (o.get("isSidechain") or FLT.harness_flagged(o)):
                         turn = _human_slot(FLT.typed_text(content, raw), raw)
                         if turn:
-                            out.append((*turn, ts))
-                        out.extend(_answers(content, asks, raw, ts))
+                            out.append((*turn, ts, _origin(turn, "listed")))
+                        out.extend(
+                            (*row, "answer") for row in _answers(content, asks, raw, ts)
+                        )
                     continue
                 if o.get("isSidechain") or FLT.harness_flagged(o):
                     # Reached only with raw; neither was typed by the author.
@@ -205,11 +223,11 @@ def cc_records(path, *, thinking=False, raw=False):
                     # into the session's, so its flag wins over the thread's.
                     role = "harness" if FLT.harness_flagged(o) else "agent"
                     if content.strip():
-                        out.append((role, content.strip(), ts))
+                        out.append((role, content.strip(), ts, None))
                     continue
                 turn = _human_slot(content, raw)
                 if turn:
-                    out.append((*turn, ts))
+                    out.append((*turn, ts, _origin(turn, "typed")))
                 continue
             # assistant: merge this message's blocks into one turn
             if isinstance(content, str):
@@ -254,8 +272,8 @@ def cc_records(path, *, thinking=False, raw=False):
                     if o.get("isSidechain")
                     else "assistant"
                 )
-                out.append((role, body, ts))
-    return out
+                out.append((role, body, ts, None))
+    return out if origins else [row[:3] for row in out]
 
 
 def web_records(path, *, thinking=False, raw=False, **_):
@@ -413,6 +431,18 @@ def author_turns(kind, path):
     turns, each counted even when empty.
     """
     return [(n, logged, text) for n, logged, text, _ in exchanges(kind, path)]
+
+
+def turn_origins(kind, path):
+    """How each of the author's turns reached the log, in ``author_turns`` order.
+
+    One of ``ORIGINS``. They are told apart only in a Claude Code log, the
+    one source whose reader learned new paths after it was first used; every
+    turn of another source is ``typed``, a Codex answer included.
+    """
+    if kind != "cc":
+        return ["typed"] * len(exchanges(kind, path))
+    return [row[3] for row in cc_records(path, origins=True) if row[0] == "human"]
 
 
 def exchanges(kind, path):

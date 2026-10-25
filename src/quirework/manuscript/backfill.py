@@ -30,12 +30,14 @@ from __future__ import annotations
 
 import argparse
 import functools
+import hashlib
 import json
 import os
 import re
 import subprocess
 import sys
 import tempfile
+from collections import Counter
 from dataclasses import dataclass, field
 from datetime import date, datetime, timezone
 from pathlib import Path
@@ -365,22 +367,31 @@ def _quoted(text):
     return "\n".join(f"> {line}" if line.strip() else ">" for line in text.splitlines())
 
 
-def packet(sid, family, path, span=None):
+def _listed(numbers):
+    """Turn numbers as a sentence lists them: "3, 17 and 40"."""
+    words = [str(n) for n in numbers]
+    return words[0] if len(words) == 1 else f"{', '.join(words[:-1])} and {words[-1]}"
+
+
+def packet(sid, family, path, only=None):
     """One session as a reader reads it: each author turn, and what it answered.
 
     Turns are numbered as ``provenance show`` numbers them, and stamped with
     the logged UTC time, so a flag can be followed back to the turn it names.
-    A ``span`` of ``(first, last)`` hands out only those turns, as one part of
-    a session too long for one reader. The numbers stay the session's own, and
-    the header says which turns the packet holds.
+    ``only``, a list of turn numbers, hands out just those turns: one part of
+    a session too long for one reader, or the turns of a session that no
+    reader has seen. The numbers stay the session's own, and the header says
+    which turns the packet holds.
     """
     from quirework.provenance import humaninput, show
 
     rows = show.exchanges(family, path)
     total = len(rows)
-    if span is not None:
-        first, last = span
-        rows = [row for row in rows if first <= row[0] <= last]
+    if only is not None:
+        wanted = set(only)
+        rows = [row for row in rows if row[0] in wanted]
+        if not rows:
+            raise ValueError(f"{_short(sid)} has none of the turns asked for")
     held_note = []
     if family == "redpen":
         revision, held = _round_book(path)
@@ -410,12 +421,23 @@ def packet(sid, family, path, span=None):
         "",
         f"{trail._HARNESS_OF[family]} · {begun} · {total} author turn(s)",
     ]
-    if span is not None:
+    if only is not None:
+        numbers = [row[0] for row in rows]
+        if numbers == list(range(numbers[0], numbers[-1] + 1)):
+            held = (
+                f"This packet holds only turns {numbers[0]} to {numbers[-1]} of "
+                f"the session's {total}; other readers read the rest."
+            )
+        else:
+            held = (
+                f"This packet holds only {len(numbers)} of the session's {total} "
+                f"turns: {_listed(numbers)}. Other readers read the rest, so the "
+                "turns between these are not shown."
+            )
         lines += [
             "",
-            f"This packet holds only turns {first} to {last} of the session's "
-            f"{total}; other readers read the rest. Flag only these turns, and "
-            "write the session's done line when you have read them.",
+            f"{held} Flag only these turns, and write the session's done line "
+            "when you have read them.",
         ]
     if family == "redpen":
         lines += ["", REDPEN_NOTE.strip(), *held_note]
@@ -460,53 +482,134 @@ def _current(read):
     return read.get("packet_version") == PACKET_VERSION
 
 
-# Coverage of a session read whole, as opposed to the turns of its parts.
-_WHOLE = "whole"
+def _keys(turns):
+    """A key for each of a session's turns that a renumbering leaves alone.
 
-
-def _coverage(reads=None):
-    """``{sid: _WHOLE or the set of turns}`` that current reads have covered.
-
-    A read of a whole session covers it. A read of one part covers that part's
-    turns, and a session read in parts is read once its parts cover every turn.
+    ``turns`` are ``(logged, text)`` pairs in the session's order. A read
+    records the keys of the turns it was handed, not their numbers, because
+    numbers move: a reader that learns to count a new kind of turn renumbers
+    every turn after it. A turn is known by the instant it was logged. Where
+    that does not tell it apart, because its source logs no times or another
+    turn shares the instant, the key adds a digest of what the turn says, and
+    an ordinal where two turns say the same.
     """
-    cover = {}
-    for read in _reads() if reads is None else reads:
-        if not _current(read):
+    turns = [(_instant(logged), text) for logged, text in turns]
+    shared = Counter(instant for instant, _ in turns)
+    keys, used = [], Counter()
+    for instant, text in turns:
+        if instant is not None and shared[instant] == 1:
+            keys.append(instant)
             continue
-        sid, part = read["session"], read.get("part")
+        digest = hashlib.sha256(text.encode("utf-8")).hexdigest()[:16]
+        key = f"{instant or 'untimed'}/{digest}"
+        used[key] += 1
+        keys.append(key if used[key] == 1 else f"{key}#{used[key]}")
+    return keys
+
+
+class _Session:
+    """A session's author turns as the ledger compares them, read once."""
+
+    def __init__(self, family, path):
+        from quirework.provenance import show
+
+        rows = show.exchanges(family, path)
+        self.family, self.path = family, path
+        self.numbers = [number for number, _, _, _ in rows]
+        self.instants = [_instant(logged) for _, logged, _, _ in rows]
+        self.keys = _keys((logged, text) for _, logged, text, _ in rows)
+        self._origins = None
+
+    def origins(self):
+        """How each turn reached the log (``show.turn_origins``)."""
+        if self._origins is None:
+            from quirework.provenance import show
+
+            self._origins = show.turn_origins(self.family, self.path)
+        return self._origins
+
+
+def _seen(read, session):
+    """The keys of the turns ``read`` was handed, as ``session`` holds them now.
+
+    A read records them since reads began keeping keys. An older read kept
+    only how many turns it read, the part it read if it read one, and the
+    number and logged instant of each turn it flagged. Its turns are found by
+    replaying the readers it could have run on: today's, and each one from
+    before a path to the author's turns was learned (``show.ORIGINS``), which
+    lists the session without the turns that arrived that way. A reader fits
+    when it lists as many turns as the read counted, or enough to hold the
+    part, and puts every flagged turn at the number the read gave it.
+    Readers that fit and disagree on which turns a part held leave it only
+    the turns they agree on, so a turn in doubt is handed out again. A read
+    no reader fits vouches for no turn, and is ``None``: its session gained
+    turns some other way since, as when a capture is rebuilt more completely,
+    and only a new read can say which turns it saw.
+    """
+    if "seen" in read:
+        return set(read["seen"])
+    from quirework.provenance import show
+
+    learned = show.ORIGINS[:0:-1]
+    part = read.get("part")
+    fits = []
+    for count in range(len(learned) + 1):
+        unknown = set(learned[:count])
+        listed = [
+            i for i, origin in enumerate(session.origins()) if origin not in unknown
+        ]
         if part is None:
-            cover[sid] = _WHOLE
-        elif cover.get(sid) != _WHOLE:
-            cover.setdefault(sid, set()).update(range(part["first"], part["last"] + 1))
-    return cover
+            first, last = 1, len(listed)
+            if last != read["turns"]:
+                continue
+        else:
+            first, last = part["first"], part["last"]
+            if last > len(listed):
+                continue
+        if all(
+            1 <= flag["turn"] <= len(listed)
+            and (
+                flag.get("logged") is None
+                or session.instants[listed[flag["turn"] - 1]] == flag["logged"]
+            )
+            for flag in read["candidates"]
+        ):
+            fits.append({session.keys[i] for i in listed[first - 1 : last]})
+    return set.intersection(*fits) if fits else None
 
 
-def _unread(total, covered):
-    """The runs of turns ``1..total`` outside ``covered``, as ``(first, last)``."""
-    if covered == _WHOLE:
-        return []
-    covered = covered or set()
-    runs, start = [], None
-    for turn in range(1, total + 1):
-        if turn in covered:
-            if start is not None:
-                runs.append((start, turn - 1))
-                start = None
-        elif start is None:
-            start = turn
-    if start is not None:
-        runs.append((start, total))
-    return runs
+def _coverage(sessions, reads=None):
+    """What current reads saw of ``sessions``, as ``(cover, stale)``.
+
+    ``sessions`` maps an id to its ``_Session``. ``cover`` maps every session
+    a current read covers to the keys of the turns those reads were handed;
+    a session counts as read once that is every turn it holds. ``stale`` is
+    the sessions with a read that vouches for no turn (``_seen``).
+    """
+    cover, stale = {}, set()
+    for read in _reads() if reads is None else reads:
+        sid = read["session"]
+        if not _current(read) or sid not in sessions:
+            continue
+        seen = _seen(read, sessions[sid])
+        if seen is None:
+            stale.add(sid)
+        cover.setdefault(sid, set()).update(seen or ())
+    return cover, stale
 
 
-def _parts(first, last, size):
-    """``first..last`` cut into as few parts of at most ``size`` as it takes,
-    of nearly equal length, so no part is a stub."""
-    count = last - first + 1
+def _unseen(session, seen):
+    """The numbers of ``session``'s turns whose keys are not in ``seen``."""
+    return [n for n, key in zip(session.numbers, session.keys) if key not in seen]
+
+
+def _chunks(numbers, size):
+    """``numbers`` cut into as few runs of at most ``size`` as it takes, of
+    nearly equal length, so no part is a stub."""
+    count = len(numbers)
     pieces = -(-count // max(size, 1))
     step = -(-count // pieces)
-    return [(a, min(a + step - 1, last)) for a in range(first, last + 1, step)]
+    return [numbers[at : at + step] for at in range(0, count, step)]
 
 
 def _kept(corpus):
@@ -559,18 +662,22 @@ def plan(
 ):
     """Write packets and a run plan that hands them to readers; return a summary.
 
-    Sessions are taken oldest first from the curated corpus, skipping any a
-    current read already covers unless ``reread`` or named in ``sessions``.
-    A source that logs no times but records its date, a gemini review or a
-    red-pen round, takes its place by that date; one with neither sorts
-    first, and the summary names it. ``out`` of ``None`` plans into a new
-    ``run_directory``, as ``RUN/packets``, beside which the record goes.
-    Each seat gets one batch of packets up to ``budget`` estimated tokens
-    and ``turns`` author turns, with the menu and any book ``materials`` in
-    front, and no tools. A session longer than ``turns`` is cut into parts of
-    nearly equal length, and a seat never holds two parts of one session. A
-    session some of whose parts were read hands out only its unread turns.
-    The summary names every session handed out in parts.
+    Sessions are taken oldest first from the curated corpus, or those named
+    in ``sessions``, and each hands out only the turns no current read was
+    handed (``_coverage``), all of them with ``reread``. A session read
+    whole before its reader learned a new kind of turn, or read in parts that
+    left some out, hands out the turns no reader saw. A source that logs no
+    times but records its date, a gemini review or a red-pen round, takes its
+    place by that date; one with neither sorts first, and the summary names
+    it. ``out`` of ``None`` plans into a new ``run_directory``, as
+    ``RUN/packets``, beside which the record goes. Each seat gets one batch
+    of packets up to ``budget`` estimated tokens and ``turns`` author turns,
+    with the menu and any book ``materials`` in front, and no tools. A
+    session with more turns to hand out than ``turns`` is cut into parts of
+    nearly equal length, and a seat never holds two parts of one session.
+    The summary names every session handed out in parts, counts the turns
+    of sessions read before, and names each session handed out whole again
+    because its old read no longer fits its turns.
     """
     from quirework.provenance import scope as SCOPE
     from quirework.provenance import show
@@ -595,31 +702,25 @@ def plan(
     kept = _kept(corpus)
     slugs = [s.slug for s in notes.spec_sections() if s.slug]
     if sessions:
-        chosen, cover = [], {}
+        chosen = []
         for prefix in sessions:
             sid, family, path, live = corpus.session(prefix)
             if live or sid not in kept:
                 raise LookupError(f"{_short(sid)} is not in the curated corpus")
             chosen.append(sid)
     else:
-        cover = {} if reread else _coverage()
         chosen = [
-            sid
-            for sid in kept
-            if cover.get(sid) != _WHOLE
-            and (scope is None or SCOPE.scope_of_id(sid) == scope)
+            sid for sid in kept if scope is None or SCOPE.scope_of_id(sid) == scope
         ]
-    whole = set(sessions or ()) or reread
-    dated, undated, counts, spans = [], set(), {}, {}
+    every = {sid: _Session(*kept[sid]) for sid in chosen}
+    cover, stale = ({}, set()) if reread else _coverage(every)
+    dated, undated, spans = [], set(), {}
     for sid in chosen:
         family, path = kept[sid]
-        counts[sid] = len(show.author_turns(family, path))
-        if not counts[sid]:
+        unseen = _unseen(every[sid], cover.get(sid, set()))
+        if not unseen:
             continue
-        runs = [(1, counts[sid])] if whole else _unread(counts[sid], cover.get(sid))
-        if not runs:
-            continue
-        spans[sid] = [p for a, b in runs for p in _parts(a, b, turns)]
+        spans[sid] = _chunks(unseen, turns)
         day = show.session_date(family, path)
         start = show.session_start(family, path) or (
             datetime.combine(day, datetime.min.time(), timezone.utc) if day else None
@@ -640,25 +741,26 @@ def plan(
     batches, current, size, held = [], [], 0, 0
     for _, sid in dated:
         family, path = kept[sid]
-        entire = spans[sid] == [(1, counts[sid])]
-        for first, last in spans[sid]:
-            span = None if entire else (first, last)
-            text = packet(sid, family, path, span)
+        session = every[sid]
+        key_of = dict(zip(session.numbers, session.keys))
+        for numbers in spans[sid]:
+            only = None if numbers == session.numbers else numbers
+            text = packet(sid, family, path, only)
             name = (
                 f"packets/{sid}.md"
-                if span is None
-                else f"packets/{sid}.turns-{first}-{last}.md"
+                if only is None
+                else f"packets/{sid}.turns-{numbers[0]}-{numbers[-1]}.md"
             )
             (out / name).write_text(text, encoding="utf-8")
-            tokens, count = len(text) // 4, last - first + 1
+            tokens, count = len(text) // 4, len(numbers)
             if current and (
                 size + tokens > budget
                 or held + count > turns
-                or any(s == sid for s, _, _, _ in current)
+                or any(handed[0] == sid for handed in current)
             ):
                 batches.append(current)
                 current, size, held = [], 0, 0
-            current.append((sid, name, tokens, span))
+            current.append((sid, name, tokens, only, [key_of[n] for n in numbers]))
             size += tokens
             held += count
     if current:
@@ -684,16 +786,20 @@ def plan(
             **({"accept_red_flags": ["session-bus"]} if harness == "agy" else {}),
             "metadata": {
                 "trail_read": {
-                    "sessions": [sid for sid, _, _, _ in batch],
+                    "sessions": [sid for sid, _, _, _, _ in batch],
+                    # The keys of the turns each packet holds, in turn order,
+                    # and the numbers of a packet that holds only some: what
+                    # import records as the turns a read was handed.
+                    "seen": {sid: keys for sid, _, _, _, keys in batch},
                     **(
                         {
                             "parts": {
-                                sid: list(span)
-                                for sid, _, _, span in batch
-                                if span is not None
+                                sid: only
+                                for sid, _, _, only, _ in batch
+                                if only is not None
                             }
                         }
-                        if any(span for _, _, _, span in batch)
+                        if any(only for _, _, _, only, _ in batch)
                         else {}
                     ),
                     "packet_version": PACKET_VERSION,
@@ -709,7 +815,7 @@ def plan(
                         *extra,
                         *(
                             {"source": name, "delivery": "text", "label": _short(sid)}
-                            for sid, name, _, _ in batch
+                            for sid, name, _, _, _ in batch
                         ),
                     ],
                     "min_bytes": 20,
@@ -733,7 +839,7 @@ def plan(
         + len((out / "menu.md").read_text(encoding="utf-8"))
         + sum(Path(m["source"]).stat().st_size for m in extra)
     ) // 4
-    packets = sum(t for batch in batches for _, _, t, _ in batch)
+    packets = sum(t for batch in batches for _, _, t, _, _ in batch)
     harnesses = {}
     for _, sid in dated:
         name = trail._HARNESS_OF[kept[sid][0]]
@@ -746,14 +852,28 @@ def plan(
         "harnesses": harnesses,
         "undated": [sid for _, sid in dated if sid in undated],
         "split": [
-            (sid, counts[sid], spans[sid])
+            (sid, len(every[sid].numbers), spans[sid])
             for _, sid in dated
-            if spans[sid] != [(1, counts[sid])]
+            if len(spans[sid]) > 1
         ],
+        "partial": [
+            (sid, sum(map(len, spans[sid])), len(every[sid].numbers))
+            for _, sid in dated
+            if cover.get(sid)
+        ],
+        "stale": [sid for _, sid in dated if sid in stale and not cover.get(sid)],
         "turns": turns,
         "tokens": packets,
         "total_tokens": packets + fixed * len(seats),
     }
+
+
+def _run(numbers):
+    """One part's turns in a plan's summary: "3-9", or "3-40 (12 of them)"."""
+    first, last = numbers[0], numbers[-1]
+    if len(numbers) == last - first + 1:
+        return f"{first}-{last}"
+    return f"{first}-{last} ({len(numbers)} of them)"
 
 
 def plan_lines(done):
@@ -769,13 +889,24 @@ def plan_lines(done):
             f"{len(done['undated'])} session(s) have no start time and are "
             "planned first: " + ", ".join(sid[:16] for sid in done["undated"])
         )
+    if done["partial"]:
+        lines.append(
+            f"{len(done['partial'])} session(s) read before hand out only the "
+            f"{sum(n for _, n, _ in done['partial']):,} turn(s) no reader saw"
+        )
+    if done["stale"]:
+        lines.append(
+            f"{len(done['stale'])} session(s) are read whole again, because an "
+            "earlier read no longer fits the turns they hold: "
+            + ", ".join(_short(sid) for sid in done["stale"])
+        )
     if done["split"]:
         lines.append(
             f"{len(done['split'])} session(s) handed out in parts of at most "
             f"{done['turns']} turns, one part to a seat: "
             + ", ".join(
                 f"{_short(sid)} turns "
-                + ", ".join(f"{a}-{b}" for a, b in parts)
+                + ", ".join(_run(part) for part in parts)
                 + f" of {n}"
                 for sid, n, parts in done["split"]
             )
@@ -828,29 +959,44 @@ def _cut_off(answer):
     return not found
 
 
-def parse_answer(answer, sessions, corpus, parts=None):
+def parse_answer(answer, sessions, corpus, parts=None, seen=None):
     """``{sid: read}`` for each session the answer finished, plus what it dropped.
 
     Every flag is checked against the corpus: the session must be one the seat
     was handed, the turn one of the author's, and each slug a spec section. A
     flag that fails is dropped and reported, never guessed into shape. The
     logged time stored with a flag comes from the corpus, not the reader, so
-    the flag survives a later renumbering of the session's turns. ``parts``
-    maps a session the seat was handed in part to its ``[first, last]``: a
-    flag outside it is dropped, and the read records the part it covers.
+    the flag survives a later renumbering of the session's turns. ``seen``
+    maps each session to the keys of the turns its packet held (``_keys``),
+    which the read records, and ``parts`` a session handed only some turns to
+    their numbers: a flag on a turn the packet did not hold is dropped. A
+    plan made before reads kept keys gives no ``seen``, and its ``parts``
+    are ``[first, last]``, which the read records as the part it covers.
     """
     titles = trail._spec_titles()
     captured = corpus.captured()
     parts = parts or {}
     handed = {sid: captured[sid] for sid in sessions if sid in captured}
-    turns = {
-        sid: {
-            t.number: t
-            for t in corpus.turns(sid, *handed[sid])
-            if sid not in parts or parts[sid][0] <= t.number <= parts[sid][1]
+    if seen is None:
+        turns = {
+            sid: {
+                t.number: t
+                for t in corpus.turns(sid, *handed[sid])
+                if sid not in parts or parts[sid][0] <= t.number <= parts[sid][1]
+            }
+            for sid in handed
         }
-        for sid in handed
-    }
+    else:
+        # The reader numbers a turn as its packet did; the key finds that turn
+        # today, wherever a renumbering since has moved it.
+        turns = {}
+        for sid, (family, path) in handed.items():
+            now = corpus.turns(sid, family, path)
+            by_key = dict(zip(_keys((t.logged, t.text) for t in now), now))
+            numbers = parts.get(sid) or range(1, len(seen[sid]) + 1)
+            turns[sid] = {
+                n: by_key[key] for n, key in zip(numbers, seen[sid]) if key in by_key
+            }
     objects, skipped = _objects(answer)
     dropped = [{"line": s, "why": "not a JSON object"} for s in skipped]
     dropped += [
@@ -897,8 +1043,8 @@ def parse_answer(answer, sessions, corpus, parts=None):
             confidence = confidence if confidence in CONFIDENCE else "low"
             reason = " ".join(str(item.get("reason", "")).split())[:300]
             entry = flags[sid].setdefault(
-                number,
-                {"turn": number, "logged": _instant(turn.logged), "sections": []},
+                turn.number,
+                {"turn": turn.number, "logged": _instant(turn.logged), "sections": []},
             )
             entry["sections"].append(
                 {
@@ -912,11 +1058,13 @@ def parse_answer(answer, sessions, corpus, parts=None):
         sid: {
             "session": sid,
             "harness": trail._HARNESS_OF[handed[sid][0]],
-            "turns": len(turns[sid]),
+            "turns": len(turns[sid]) if seen is None else len(seen[sid]),
             "about": about[sid],
             "candidates": [flags[sid][n] for n in sorted(flags[sid])],
             **(
-                {"part": {"first": parts[sid][0], "last": parts[sid][1]}}
+                {"seen": seen[sid]}
+                if seen is not None
+                else {"part": {"first": parts[sid][0], "last": parts[sid][1]}}
                 if sid in parts
                 else {}
             ),
@@ -992,7 +1140,7 @@ def import_run(record, accept=()):
             encoding="utf-8"
         )
         reads, dropped = parse_answer(
-            answer, meta["sessions"], corpus, meta.get("parts")
+            answer, meta["sessions"], corpus, meta.get("parts"), meta.get("seen")
         )
         captured = corpus.captured()
         for sid, read in reads.items():
@@ -1550,13 +1698,13 @@ def _whole(candidate):
 def status():
     """How far the backfill has come: sessions read, and sections left to rule."""
     from quirework.provenance import scope as SCOPE
-    from quirework.provenance import show
 
     corpus = trail.Corpus()
     kept = _kept(corpus)
     slugs = [s.slug for s in notes.spec_sections() if s.slug]
     reads = _reads()
-    cover = _coverage(reads)
+    every = {sid: _Session(family, path) for sid, (family, path) in kept.items()}
+    cover, stale = _coverage(every, reads)
     older = {r["session"] for r in reads} - set(cover)
     unoffered = {
         slug
@@ -1567,21 +1715,28 @@ def status():
     }
     rows = {}
     for sid, (family, path) in kept.items():
-        count = len(show.author_turns(family, path))
-        if not count:
+        if not every[sid].numbers:
             continue
         key = (trail._HARNESS_OF[family], SCOPE.scope_of_id(sid))
-        row = rows.setdefault(key, [0, 0, 0, 0])
-        unread = _unread(count, cover.get(sid)) if sid in cover else None
+        row = rows.setdefault(key, [0, 0, 0, 0, 0])
+        unread = _unseen(every[sid], cover[sid]) if cover.get(sid) else None
         row[0] += 1
         row[1] += unread == []
         row[2] += sid in older
         row[3] += bool(unread)
+        row[4] += len(unread or ())
     lines = ["sessions with author turns, by harness and scope:"]
-    for (harness, scope), (total, done, old, part) in sorted(rows.items()):
+    for (harness, scope), (total, done, old, part, left) in sorted(rows.items()):
         extra = f", {old} read only from an older packet" if old else ""
-        extra += f", {part} read only in part" if part else ""
+        extra += f", {part} read only in part ({left:,} turns unread)" if part else ""
         lines.append(f"  {harness:<12} {scope:<7} {done:>4} of {total:>4} read{extra}")
+    whole = sorted(sid for sid in stale if not cover.get(sid))
+    if whole:
+        lines.append(
+            f"  {len(whole)} session(s) will be read whole again, because an "
+            "earlier read no longer fits the turns they hold: "
+            + ", ".join(_short(sid) for sid in whole)
+        )
     if unoffered:
         lines.append(
             f"  {len(unoffered)} section(s) are newer than some reads, which "
@@ -1619,7 +1774,10 @@ backfilling a trail from the corpus, in three steps:
   1. hand every session to a cheap reader, once:
      quirework spec trail backfill plan --harness H --model M --effort E [--out DIR]
      then the prepare, start and import commands it prints; import holds a
-     seat whose receipt carries a red flag its plan did not accept
+     seat whose receipt carries a red flag its plan did not accept. A plan
+     hands out only the turns no reader saw, so one run after a reader
+     learns a new kind of turn hands out just those turns; --reread hands
+     out every turn of the sessions it picks
   2. rule on one section at a time, with a strong reader:
      quirework spec trail backfill SLUG          the section's candidates, oldest first
          --also OTHER                            with the turns readers flagged for
@@ -1669,7 +1827,13 @@ def main(argv):
             ap.add_argument(
                 "--tier", default="cheap", choices=("cheap", "standard", "premium")
             )
-            ap.add_argument("--session", action="append", dest="sessions", metavar="ID")
+            ap.add_argument(
+                "--session",
+                action="append",
+                dest="sessions",
+                metavar="ID",
+                help="only this session, and only its turns no reader saw",
+            )
             ap.add_argument("--scope", help="only sessions of this provenance scope")
             ap.add_argument("--limit", type=int, help="at most N sessions")
             ap.add_argument(
@@ -1694,7 +1858,7 @@ def main(argv):
             ap.add_argument(
                 "--reread",
                 action="store_true",
-                help="include sessions a current read already covers",
+                help="hand out every turn, including those a current read saw",
             )
             ap.add_argument(
                 "--external",

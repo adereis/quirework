@@ -246,3 +246,14 @@ def test_metrics_count_every_author_turn_once(session):
     assert acc.human_words == sum(metrics.words(t) for t in typed)
     audit = [text for tag, text in metrics.human_turns() if tag.startswith("cc/")]
     assert audit == typed
+
+
+def test_each_turn_says_how_it_reached_the_log(session):
+    assert show.turn_origins("cc", session) == [
+        "typed",
+        "typed",
+        "answer",
+        "queued",
+        "queued",
+        "listed",
+    ]
