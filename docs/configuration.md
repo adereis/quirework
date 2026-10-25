@@ -45,20 +45,26 @@ its spec commands work the same.
 `manuscript.quarto` names the Quarto project file. The manuscript can
 also name `manuscript.spec`, `manuscript.references` and
 `manuscript.review_notes`, the book-wide annotations a red-pen review
-copy carries, when the project uses those features.
-`publish.typst_template` names the Typst file that sets the printed
-page. Quirework reads it and never writes it. It takes from it the faces
-`publish fonts` checks and the text block `figures --check` measures
-type against, and it names the file when figure numbers disagree across
-editions, since its numbering rule is one place they are set.
-`publish.figure_fonts` lists font files that every staged figure carries
-as subsets, so a figure shown as an image is lettered in the book's face
-on a device that lacks it; the [authoring guide](authoring.md#4-figures)
-explains it. `publish.figure_type_floor_pt` sets the printed size, in
-points, under which `figures --check` warns about a figure's type; it
-defaults to 6. Annotation bindings resolve against the configured
-semantic register; a book need not adopt another project's claims or
-vocabulary.
+copy carries, when the project uses those features. `manuscript.spec`
+takes one path or an ordered list of paths, read as one register whose
+anchors are unique across every file; each listed file must exist, and
+an empty list or a file listed twice is refused.
+`manuscript.spec_public` names the ones a reader of the published work
+can see, each also listed in `manuscript.spec`; left unset, every spec
+file is published. The [authoring guide](authoring.md#2-the-spec) says
+what the boundary refuses. `publish.typst_template` names the Typst file
+that sets the printed page. Quirework reads it and never writes it. It
+takes from it the faces `publish fonts` checks and the text block
+`figures --check` measures type against, and it names the file when
+figure numbers disagree across editions, since its numbering rule is one
+place they are set. `publish.figure_fonts` lists font files that every
+staged figure carries as subsets, so a figure shown as an image is
+lettered in the book's face on a device that lacks it; the
+[authoring guide](authoring.md#4-figures) explains it.
+`publish.figure_type_floor_pt` sets the printed size, in points, under
+which `figures --check` warns about a figure's type; it defaults to 6.
+Annotation bindings resolve against the configured semantic register; a
+book need not adopt another project's claims or vocabulary.
 
 `manuscript.spec_trail` names the spec's trail sidecar, which points
 each spec section at the conversations that shaped it. It requires a
@@ -209,19 +215,20 @@ unit_spec = "specs/{slug}/spec.md"
 ```
 
 `unit_spec` is a path pattern with `{slug}`, relative to the project
-root. `spec` becomes the shared file, holding what several units lean
-on, and either setting may stand alone. Together they are one register.
-The shared file is read first, then each unit's own in reading order,
-then the specs of units not written yet, since a post is often specified
-before it is drafted. `spec notes --check` reports those as an advisory,
-because a mistyped slug looks the same.
+root. `spec` becomes the shared file, or files, holding what several
+units lean on, and either setting may stand alone. Together they are one
+register. The shared files are read first, in the order listed, then
+each unit's own in reading order, then the specs of units not written
+yet, since a post is often specified before it is drafted.
+`spec notes --check` reports those as an advisory, because a mistyped
+slug looks the same.
 
 A section of the shared spec is named by its anchor, and a section of a
 unit's own spec by the unit and its anchor. Two posts can each write
 `## The turn is the message {#thesis}`, and the register holds
 `why-the-lamp-turns/thesis` and `what-the-fog-signal-is-for/thesis`. An
-anchor is unique within its file, a shared anchor across the shared
-spec, and no anchor contains `/`.
+anchor is unique within its file, a shared anchor across every shared
+file, and no anchor contains `/`.
 
 A unit binds every section of its own spec without saying so. It is the
 post those commitments describe. A `@bind` in its sidecar still says
@@ -1379,8 +1386,8 @@ answer, built from what the project already declares:
 
 - the units and their marks, as the format lays them out: a book's whole
   source, or a site's pages, their bundles and `manuscript.marks`;
-- the register: `manuscript.spec`, each `manuscript.unit_spec`, and the
-  references and review notes;
+- the register: each `manuscript.spec` file, each
+  `manuscript.unit_spec`, and the references and review notes;
 - `manuscript.companion_dirs`;
 - and `manuscript.noncanonical_roots`, kept apart as writing without
   authority. Authorship counts it, and a reviewer is not owed it.

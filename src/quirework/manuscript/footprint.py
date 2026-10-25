@@ -9,8 +9,8 @@ site that keeps them outside the tree its generator renders. This module is
 the one answer, and it is built from what the project already declares:
 
 - the units and their marks, as the format lays them out;
-- the register: the shared spec, each unit's own spec, the sources, the
-  references and the review notes;
+- the register: the shared spec files, each unit's own spec, the sources,
+  the references and the review notes;
 - the companion collections;
 - and, kept apart, the working roots (`manuscript.noncanonical_roots`), which
   are writing without authority. A caller measuring effort counts them; a
@@ -57,18 +57,28 @@ def _directories(project: Project, key: str) -> tuple[str, ...]:
     return tuple(out)
 
 
+def _spec_files(project: Project) -> tuple[str, ...]:
+    """The shared spec files, one or a list, as project-relative globs; one
+    outside the project has no such name and is left out, as `relative` does."""
+    if project.get("manuscript.spec") is None:
+        return ()
+    out = []
+    for path in project.paths("manuscript.spec"):
+        try:
+            out.append(path.relative_to(project.root).as_posix())
+        except ValueError:
+            continue
+    return tuple(out)
+
+
 def footprint(project: Project | None = None) -> Footprint:
     project = project or current_project()
     if not project.get("manuscript"):
         return Footprint((), (), (), ())
     units = formats.get(project.get("manuscript.format", "quarto")).footprint(project)
-    register = tuple(
+    register = _spec_files(project) + tuple(
         found
-        for key in (
-            "manuscript.spec",
-            "manuscript.references",
-            "manuscript.review_notes",
-        )
+        for key in ("manuscript.references", "manuscript.review_notes")
         if (found := formats.relative(project, key)) is not None
     )
     unit_spec = project.get("manuscript.unit_spec")

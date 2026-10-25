@@ -260,6 +260,43 @@ spec = "manuscript/sections/_spec.md"
 The file name is the project's own. Commands that use bindings require
 this setting instead of guessing a name or location.
 
+A project can keep its register in more than one shared file, for
+instance what the work claims in one and the decisions about how the
+work states it in another. List them, in the order they are read:
+
+```toml
+[manuscript]
+spec = ["spec/claims.md", "spec/house.md"]
+```
+
+The files are one register. A binding, an `@omit`, a companion citation,
+the trail and `spec rename` reach a section in either file by its
+anchor, and an anchor is unique across all of them, so moving a section
+from one file to the other keeps its name, its bindings and its trail.
+The primer lists each file under its own heading. A single path is the
+same register with one file in it.
+
+Not every file need be published. A project that publishes its claims
+and keeps its house rules to itself says which files a reader can see:
+
+```toml
+[manuscript]
+spec = ["spec/claims.md", "spec/house.md"]
+spec_public = ["spec/claims.md"]
+```
+
+Each published file must also be listed in `spec`. What is published may
+not cite what is not: `notes --check` refuses a companion entry that
+cites a section of an unpublished file, and a `#slug` reference in a
+published spec file that names one, since its reader would follow it to
+a page they cannot open. An unpublished file may cite anything, and a
+unit's marks may bind any section. Without `spec_public` every spec file
+is published.
+
+Every `#slug` written in a spec file, bare or as a `](#slug)` link, must
+name a section of the register, as a binding must. A heading's own
+`{#slug}`, code, comments and frontmatter are not read as references.
+
 The slugs are the whole mechanism. A chapter does not restate a
 commitment; it names the section it expresses, so changing a commitment
 tells you which chapters have to change with it. The spec is not

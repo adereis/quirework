@@ -459,15 +459,28 @@ def _chapter_for(f: Path) -> Path:
     return units.attributed(f)
 
 
+def _in_docs(docs, configured):
+    """A configured file read from ``docs`` when it lies under the manuscript
+    source, so a check run on a staged copy reads the copy, not the tree."""
+    source = current_project().path("manuscript.source")
+    if configured.is_relative_to(source):
+        return Path(docs) / configured.relative_to(source)
+    return configured
+
+
 def _configured_book_file(docs, key):
     project = current_project()
     if project.get(key) is None:
         return None
-    configured = project.path(key)
-    source = project.path("manuscript.source")
-    if configured.is_relative_to(source):
-        return Path(docs) / configured.relative_to(source)
-    return configured
+    return _in_docs(docs, project.path(key))
+
+
+def _configured_book_files(docs, key):
+    """The files a key names, one path or an ordered list of them."""
+    project = current_project()
+    if project.get(key) is None:
+        return []
+    return [_in_docs(docs, configured) for configured in project.paths(key)]
 
 
 class Section(NamedTuple):
@@ -532,22 +545,24 @@ def spec_owner(path: Path) -> str | None:
 def spec_files(docs=None) -> list[Path]:
     """Every file of the register, in the order its sections are read.
 
-    A project states its commitments in one shared spec (`manuscript.spec`),
-    in one spec per unit (`manuscript.unit_spec`), or both. The shared file
-    comes first, because it holds what several units lean on; then each
-    unit's own, in reading order; then the specs of units that do not exist
-    yet, by slug, since a post is often specified before it is drafted.
+    A project states its commitments in shared spec files
+    (`manuscript.spec`, one path or an ordered list), in one spec per unit
+    (`manuscript.unit_spec`), or both. The shared files come first, in the
+    order they are listed, because they hold what several units lean on; then
+    each unit's own, in reading order; then the specs of units that do not
+    exist yet, by slug, since a post is often specified before it is drafted.
+    Every file is one register: a shared anchor is unique across all of them.
     """
     docs = (
         Path(docs) if docs is not None else current_project().path("manuscript.source")
     )
-    shared = _configured_book_file(docs, "manuscript.spec")
+    shared = _configured_book_files(docs, "manuscript.spec")
     pattern = _unit_spec_pattern()
-    if shared is None and pattern is None:
+    if not shared and pattern is None:
         raise ConfigurationError(
             "configure manuscript.spec or manuscript.unit_spec in quirework.toml"
         )
-    files = [shared] if shared is not None and shared.exists() else []
+    files = [f for f in shared if f.exists()]
     if pattern is not None:
         root = current_project().root
         found = {}
@@ -562,6 +577,43 @@ def spec_files(docs=None) -> list[Path]:
         files += [found.pop(slug) for slug in order if slug in found]
         files += [found[slug] for slug in sorted(found)]
     return files
+
+
+def public_spec_files(docs=None) -> list[Path] | None:
+    """The shared spec files a reader of the published work can see, or None
+    where the project draws no boundary and every spec file is published.
+
+    `manuscript.spec_public` lists them, each one also listed in
+    `manuscript.spec`. A spec file it leaves out, a unit's own spec included,
+    is the project's working register: what is published may not cite it,
+    and it may cite anything.
+    """
+    project = current_project()
+    if project.get("manuscript.spec_public") is None:
+        return None
+    docs = Path(docs) if docs is not None else project.path("manuscript.source")
+    return _configured_book_files(docs, "manuscript.spec_public")
+
+
+def _unpublished(slug: str, home: dict[str, Path], public) -> Path | None:
+    """The file holding ``slug`` when the project publishes only some spec
+    files and this one is not among them; None when the section is visible."""
+    if public is None or slug not in home or home[slug] in public:
+        return None
+    return home[slug]
+
+
+def spec_text_refs(text: str) -> list[tuple[str, int]]:
+    """``(slug, line)`` for each section reference written in a spec file's
+    prose: a ``#slug`` or a ``](#slug)`` link. A heading's ``{#anchor}`` is the
+    section's own name, not a reference, and fenced code, code spans, HTML
+    comments and frontmatter hold examples and notes rather than citations,
+    so none of those is read."""
+    masked = _BACKTICKED.sub(_blank, _mask_nonprose(mask_fences(text)))
+    return [
+        (m.group(1), masked.count("\n", 0, m.start()) + 1)
+        for m in _SPEC_REF.finditer(masked)
+    ]
 
 
 def _spec_name(docs=None) -> str:
@@ -1084,6 +1136,23 @@ def companion_check(
     stems = units.names(docs)
     binds = chapter_bindings(docs)
     label = f"**{_anchors_label()}:**"
+    # An entry is published, so a section it cites must be one its reader
+    # can open: where only some spec files are published, the others are out
+    # of its reach, however well the name resolves.
+    public = public_spec_files(docs)
+    home = {s.slug: s.path for s in spec_sections(docs) if s.slug}
+
+    def hidden(slug, pos):
+        held = _unpublished(slug, home, public)
+        if held is not None:
+            ln = text.count("\n", 0, pos) + 1
+            problems.append(
+                f"{rel}:{ln}: cites '#{slug}', a section of {_rel(held)}, which "
+                f"is not published (manuscript.spec_public). A published entry "
+                f"cites only what its reader can open: cite the published "
+                f"section this one serves, or publish its file."
+            )
+
     for f in companion_files(root):
         text = mask_fences(f.read_text())
         rel = _rel(f)
@@ -1122,6 +1191,7 @@ def companion_check(
                 )
         for m in _BIND_REF.finditer(text):
             if m.group(1) in spec:
+                hidden(m.group(1), m.start())
                 if (
                     anchor_run is None
                     or not anchor_run.start() <= m.start() < anchor_run.end()
@@ -1142,6 +1212,7 @@ def companion_check(
             )
         for slug, pos in _code_spec_refs(text):
             if slug in spec:
+                hidden(slug, pos)
                 continue
             ln = text.count("\n", 0, pos) + 1
             problems.append(
@@ -1166,7 +1237,7 @@ def companion_check(
 
 def _findings(docs: Path) -> tuple[list[str], list[tuple[str, list[str]]]]:
     """Lint the split-metadata layout; replaces physical co-location as the
-    drift guard. Thirteen hard invariants (any failure → exit 1):
+    drift guard. Fourteen hard invariants (any failure → exit 1):
 
       1. no prose file carries an @-mark (marks live in sidecars), a derived
          edition's documents included;
@@ -1205,6 +1276,10 @@ def _findings(docs: Path) -> tuple[list[str], list[tuple[str, list[str]]]]:
          in that register, and every source has a slug of its own.
      13. every @omit sits in a derived edition's sidecar, names one spec
          section, and gives its reason; no edition both binds and omits one.
+     14. every section reference written in a spec file (`#slug`, or a
+         `](#slug)` link) names a spec section. Where `manuscript.spec_public`
+         publishes only some spec files, a reference in a published file, and
+         every citation in a companion entry, names a published section.
 
     Plus seven advisories, printed but never fatal. The seventh names each
     section the canon binds that a composed edition neither binds nor omits.
@@ -1345,6 +1420,30 @@ def _findings(docs: Path) -> tuple[list[str], list[tuple[str, list[str]]]]:
         else:
             spec_seen[s.slug] = s
     spec = set(spec_seen)
+
+    # 14. a section reference written in a spec file names a section of the
+    # register, as a binding does, and one written in a published spec file
+    # names a published section, since its reader cannot open the others.
+    public = public_spec_files(docs)
+    home = {s.slug: s.path for s in sections if s.slug}
+    for f in spec_files(docs):
+        owner = spec_owner(f)
+        shown = public is None or f in public
+        for written, ln in spec_text_refs(f.read_text()):
+            slug = resolve(written, owner, spec)
+            if slug not in spec:
+                problems.append(
+                    f"{_rel(f)}:{ln}: '#{written}' names no spec section. A "
+                    f"reference inside the spec resolves like a binding: name "
+                    f"the section that holds the content now."
+                )
+            elif shown and (held := _unpublished(slug, home, public)) is not None:
+                problems.append(
+                    f"{_rel(f)}:{ln}: '#{written}' names a section of "
+                    f"{_rel(held)}, which is not published "
+                    f"(manuscript.spec_public), from a published spec file its "
+                    f"reader would follow it out of."
+                )
 
     # 11. the trail sidecar, where the project keeps one, mirrors the spec. A
     # renamed or retired section breaks its trail in the same edit that breaks

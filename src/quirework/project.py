@@ -241,6 +241,28 @@ class Project:
         base = Path(self.origins[key]).parent if key in self.origins else self.root
         return (path if path.is_absolute() else base / path).resolve()
 
+    def paths(self, key):
+        """A key naming one path or an ordered list of them, each resolved as
+        `path` resolves one. A list keeps its order. An empty list, an entry
+        that is not a nonempty path, and a file named twice are refused, since
+        each leaves whoever reads the setting guessing what was meant."""
+        value = self.get(key)
+        if not isinstance(value, (list, tuple)):
+            return [self.path(key)]
+        if not value:
+            raise ConfigurationError(f"{key} names no file; list at least one")
+        base = Path(self.origins[key]).parent if key in self.origins else self.root
+        out = []
+        for entry in value:
+            if not isinstance(entry, (str, Path)) or not str(entry).strip():
+                raise ConfigurationError(f"{key} must list nonempty paths")
+            path = Path(entry).expanduser()
+            resolved = (path if path.is_absolute() else base / path).resolve()
+            if resolved in out:
+                raise ConfigurationError(f"{key} names {entry} twice")
+            out.append(resolved)
+        return out
+
     def path_at(self, root, key, default=None):
         """Apply a configured layout to an explicitly supplied project root."""
         value = self.get(key, default)
@@ -356,14 +378,29 @@ class Project:
 
             with project_scope(self):
                 formats.current().validate(self)
-            for key, kind in (
-                ("manuscript.spec", "spec file"),
-                ("manuscript.review_notes", "review-notes file"),
-            ):
-                if self.get(key) is not None and not self.path(key).is_file():
-                    raise ConfigurationError(
-                        f"configured {kind} is missing: {self.path(key)}"
-                    )
+            # The spec may be several shared files, read as one register.
+            spec = []
+            if self.get("manuscript.spec") is not None:
+                spec = self.paths("manuscript.spec")
+                for path in spec:
+                    if not path.is_file():
+                        raise ConfigurationError(
+                            f"configured spec file is missing: {path}"
+                        )
+            # The published part of that register is named from its own files,
+            # so a file the spec does not list cannot be published by mistake.
+            if self.get("manuscript.spec_public") is not None:
+                for path in self.paths("manuscript.spec_public"):
+                    if path not in spec:
+                        raise ConfigurationError(
+                            f"manuscript.spec_public names {path}, which "
+                            f"manuscript.spec does not list"
+                        )
+            key = "manuscript.review_notes"
+            if self.get(key) is not None and not self.path(key).is_file():
+                raise ConfigurationError(
+                    f"configured review-notes file is missing: {self.path(key)}"
+                )
             sources = self.get("manuscript.sources")
             if sources is not None and not any(c in str(sources) for c in "*?["):
                 if not self.path("manuscript.sources").is_file():

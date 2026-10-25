@@ -69,6 +69,7 @@ SETTINGS: tuple[str, ...] = (
             "source_copies",
             "sources",
             "spec",
+            "spec_public",
             "spec_trail",
             "spec_trail_leads",
             "unit_name",
