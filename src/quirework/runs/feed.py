@@ -33,6 +33,7 @@ from dataclasses import dataclass
 from pathlib import Path
 
 from quirework.providers import blind
+from quirework.providers import exits
 from quirework.providers.harness import VIRTUAL
 from quirework.runs.storage import identifier, read, shown
 
@@ -824,6 +825,12 @@ class RunFeed:
         began, ended = _mtime(record / "launch.json"), _mtime(record / "events.jsonl")
         took = f" in {duration(ended - began)}" if began and ended else ""
         lines = self.page.event(ended, f"{name} answered {turn}{took}")
+        if stopped := exits.recorded(record):
+            lines += self.page.event(
+                None,
+                f"its harness did not exit after answering and was stopped "
+                f"{stopped['grace_seconds']}s later",
+            )
         answers = record / "answers"
         answer = answers / "answer.md"
         if self.show.words and answer.is_file() and answer.read_text().strip():

@@ -36,6 +36,7 @@ from quirework.project import current_project, submit
 from quirework.core import usage as usage_records
 from quirework.providers import blind
 from quirework.providers import quota
+from quirework.providers import exits
 from quirework.providers import models as drivers
 from quirework.runs import feed
 from quirework.runs import observe
@@ -1254,13 +1255,24 @@ def launch_turn(
                     pid=proc.pid,
                     process_identity=process_identity(proc.pid),
                 )
-                timed_out = False
-                try:
-                    proc.communicate(payload, timeout=timeout)
-                except subprocess.TimeoutExpired:
+                why = exits.wait(
+                    proc,
+                    payload,
+                    harness=config["harness"],
+                    events=record / "events.jsonl",
+                    timeout=timeout,
+                )
+                if why:
                     _terminate(proc)
                     proc.communicate()
-                    timed_out = True
+                timed_out = why == exits.TIMEOUT
+                if why == exits.ANSWERED:
+                    exits.record(
+                        record,
+                        harness=config["harness"],
+                        grace=exits.EXIT_GRACE,
+                        exit_code=proc.returncode,
+                    )
             code, seconds = proc.returncode, round(time.time() - started, 2)
             event(
                 root,
@@ -1270,6 +1282,7 @@ def launch_turn(
                 code=code,
                 seconds=seconds,
                 timed_out=timed_out,
+                stopped_after_answer=why == exits.ANSWERED,
             )
     try:
         got = drivers.receipt(config, record, private, resumed=resume)
@@ -1291,6 +1304,7 @@ def launch_turn(
             "exit_code": code,
             "seconds": seconds,
             "timed_out": timed_out,
+            "stopped_after_answer": exits.recorded(record),
             "error": detail,
             "compaction_markers": compacted,
             "quota_stop": stop["phase"] if stop else None,

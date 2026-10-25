@@ -9,7 +9,6 @@ import json
 import os
 import re
 import shutil
-import signal
 import subprocess
 import sys
 import tempfile
@@ -21,6 +20,7 @@ from pathlib import Path
 
 from quirework.providers import blind
 from quirework.providers import claude_login
+from quirework.providers import exits
 from quirework.providers import quota
 from quirework.providers.quota import rewind_sessions, session_marks
 from quirework.providers import models as workshop_drivers
@@ -863,6 +863,12 @@ class Run:
         )
         if config.get("model_pinned"):
             receipt["model_pinned"] = config["model_pinned"]
+        # A harness stopped after it answered exits nonzero by our hand, not
+        # its own; the receipt says so, and the exit status is no fault.
+        stopped = exits.recorded(record)
+        if stopped:
+            receipt["stopped_after_answer"] = stopped
+            receipt.setdefault("notices", []).append(exits.notice(stopped))
         sid = receipt["session_id"]
         if pending["mode"] == "resume" and sid != state["session_id"]:
             raise RuntimeError("resume created a different session")
@@ -1115,7 +1121,7 @@ class Run:
         state.update(session_id=sid, served_model=receipt["model"], pending=None)
         self.save(seat, state)
         self.check_parent(seat)
-        if pending.get("exit_code") not in (None, 0):
+        if pending.get("exit_code") not in (None, 0) and not stopped:
             raise RuntimeError(
                 "answer banked but process exited nonzero; inspect before continuing"
             )
@@ -1500,15 +1506,25 @@ class Run:
                     process_identity=process_identity(proc.pid),
                 )
                 self.save(seat, state)
-                try:
-                    proc.communicate(payload, timeout=timeout)
-                except subprocess.TimeoutExpired:
-                    os.killpg(proc.pid, signal.SIGTERM)
-                    try:
-                        proc.wait(timeout=5)
-                    except subprocess.TimeoutExpired:
-                        os.killpg(proc.pid, signal.SIGKILL)
-                        proc.wait()
+                name = spec["config"]["harness"]
+                why = exits.wait(
+                    proc,
+                    payload,
+                    harness=name,
+                    events=record / "events.jsonl",
+                    timeout=timeout,
+                )
+                if why:
+                    exits.stop(proc)
+                if why == exits.ANSWERED:
+                    # Written before the receipt is read, so the record that
+                    # banks the answer says the exit was forced and why.
+                    exits.record(
+                        record,
+                        harness=name,
+                        grace=exits.EXIT_GRACE,
+                        exit_code=proc.returncode,
+                    )
                 state["pending"].update(
                     phase="receipt-pending", exit_code=proc.returncode
                 )

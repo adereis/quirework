@@ -48,6 +48,7 @@ from pathlib import Path
 from quirework.core import usage as usage_records
 from quirework.providers import blind
 from quirework.providers import claude_login
+from quirework.providers import exits
 from quirework.sops import personas
 from quirework.providers import quota
 from quirework.providers import replies
@@ -1401,14 +1402,26 @@ def _turn(
                 env=env,
                 start_new_session=True,
             )
-            try:
-                proc.communicate(prompt.encode(), timeout=timeout)
-            except subprocess.TimeoutExpired:
+            why = exits.wait(
+                proc,
+                prompt.encode(),
+                harness=config["harness"],
+                events=turn_dir / "events.jsonl",
+                timeout=timeout,
+            )
+            if why:
                 # Killed, not abandoned: whatever the reviewer had already written
                 # to its report is the point of the write-as-you-go rule, and it
                 # is collected below exactly as a completed turn's would be.
-                drivers._terminate(proc)
+                exits.stop(proc)
                 proc.communicate()
+            if why == exits.ANSWERED:
+                exits.record(
+                    turn_dir,
+                    harness=config["harness"],
+                    grace=exits.EXIT_GRACE,
+                    exit_code=proc.returncode,
+                )
     after = worktree_state()
     after["reviewed_hashes"] = reviewed_hashes(delta)
     return _collect(
@@ -1597,6 +1610,7 @@ def _collect(
         "output_limit": receipt.get("output_limit"),
         "harness_text": receipt.get("harness_text", []),
         "red_flags": receipt.get("red_flags", []),
+        "stopped_after_answer": exits.recorded(turn_dir),
         "seconds": round(time.time() - started, 1),
         "find_only": verdict["find_only"],
         "workspace": verdict["workspace"],

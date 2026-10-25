@@ -22,6 +22,7 @@ from pathlib import Path
 from quirework.core import usage as usage_records
 from quirework.providers import blind
 from quirework.providers import claude_login
+from quirework.providers import exits
 from quirework.sops import personas
 from quirework.providers import quota
 from quirework.providers import models as drivers
@@ -593,6 +594,8 @@ def _collect(root, writer, *, external=None):
                 resumed=state.get("resumed_from"),
             )
             result["transport"] = "confined harness session"
+            if stopped := exits.recorded(record):
+                result["stopped_after_answer"] = stopped
             # An Antigravity writer reaches the keyring through the bus its
             # launch opened. The receipt says so, as every procedure's does.
             result["red_flags"] = result.get("red_flags", []) + bus_flags(record)
@@ -793,16 +796,30 @@ def run_writer(root, writer, *, manual=False, timeout=None, resume=None):
                             pid=proc.pid, process_identity=process_identity(proc.pid)
                         )
                         write_json(record / "state.json", state)
-                        try:
-                            proc.communicate(payload, timeout=timeout)
-                        except subprocess.TimeoutExpired:
+                        why = exits.wait(
+                            proc,
+                            payload,
+                            harness=state["config"]["harness"],
+                            events=record / "events.jsonl",
+                            timeout=timeout,
+                        )
+                        if why:
                             # Killed, not abandoned: collection below archives
                             # whatever prose exists and then reports the run as
                             # failed, so a stalled writer costs one slot, not the
-                            # whole experiment.
+                            # whole experiment. A writer that answered and
+                            # stayed is collected like one that exited.
                             _terminate(proc)
                             proc.communicate()
+                        if why == exits.TIMEOUT:
                             state["timed_out_after"] = timeout
+                        if why == exits.ANSWERED:
+                            state["stopped_after_answer"] = exits.record(
+                                record,
+                                harness=state["config"]["harness"],
+                                grace=exits.EXIT_GRACE,
+                                exit_code=proc.returncode,
+                            )
                         state["exit_code"] = proc.returncode
                 state.update(ended_at=time.time())
                 state.pop("pid", None)

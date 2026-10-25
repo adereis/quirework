@@ -111,6 +111,19 @@ filesystem exposure, model, and effort per seat. Preparation rejects a
 capability the selected harness cannot provide. The resulting receipt
 records the boundary that was actually enforced or audited.
 
+A seat's turn ends when its harness exits, and every procedure watches
+the harness's stream while it waits. A harness closes a turn with one
+row, a `result` for Antigravity and Claude Code and `turn.completed` or
+`turn.failed` for Codex, and normally exits a moment later. Antigravity
+sometimes stays: its answer is complete and its process sits idle, past
+its own print timeout and deaf to SIGTERM. So once the closing row is
+in, a harness has two minutes to exit on its own, and is then stopped,
+with SIGKILL if SIGTERM goes unheard. The stop is written to the turn's
+record as `stopped.json`, the receipt carries it as
+`stopped_after_answer` with a notice, and `watch` says so beside the
+answer. The answer is judged from the stream as after any exit, and a
+stream with no closing row is never taken for a finished one.
+
 A receipt says where each claim comes from. `effort_evidence` reads
 "native turn context" for Codex and "native session" for Claude, whose
 session records each answer's effort; a drift from the requested effort

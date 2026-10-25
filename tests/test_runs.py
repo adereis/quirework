@@ -1062,3 +1062,67 @@ def test_a_seat_whose_canary_has_no_model_is_refused_before_freezing(
     monkeypatch.setattr(engine.blind, "cheapest_model", unresolvable)
     with pytest.raises(ValueError, match="does not resolve: no such family"):
         engine.canary_model("claude", "reader", {})
+
+
+STAYS = r"""
+import json, signal, sys, time
+sys.stdin.buffer.read()
+signal.signal(signal.SIGTERM, signal.SIG_IGN)
+sys.stdout.write(json.dumps({"type": "turn.completed"}) + "\n")
+sys.stdout.flush()
+time.sleep(3600)
+"""
+
+
+def test_a_seat_that_answers_and_stays_is_stopped_and_banked(
+    setup, monkeypatch, canaries_pass
+):
+    """The harness writes its closing row and never exits, deaf to SIGTERM.
+    The turn is banked a grace period later, and its receipt says the exit
+    was forced, instead of the run waiting until someone kills it by hand."""
+    import os
+    import sys
+
+    from quirework.core import usage
+    from quirework.providers import exits
+
+    root = setup[0]
+    script = root / "stays.py"
+    script.write_text(STAYS)
+    run = prepared(setup)
+    monkeypatch.setattr(exits, "EXIT_GRACE", 0.3)
+    monkeypatch.setattr(exits, "POLL_SECONDS", 0.05)
+    monkeypatch.setattr(exits, "STOP_PATIENCE", 0.3)
+    monkeypatch.setattr(
+        harness,
+        "command",
+        lambda *a: ([sys.executable, str(script)], b"Read this scene.", "prompt"),
+    )
+    monkeypatch.setattr(
+        harness,
+        "launch_context",
+        lambda *a: ([], dict(os.environ), run.private("reader")),
+    )
+    monkeypatch.setattr(usage, "seat", lambda *a, **kw: None)
+    native = root / "native.jsonl"
+    native.write_text("{}\n")
+    monkeypatch.setattr(
+        harness,
+        "receipt",
+        lambda *a: dict(
+            session_id="sid",
+            model="fixture-model",
+            rollout=str(native),
+            answer="Green umbrella.",
+            forked_from=None,
+        ),
+    )
+    monkeypatch.setattr(harness, "history_image_hashes", lambda *a: [])
+    receipt = run.turn("reader", 0, 30)
+    record = run.record("reader", "first")
+    stopped = json.loads((record / exits.STOP_FILE).read_text())
+    assert stopped["exit_code"] == -9 and stopped["grace_seconds"] == 0.3
+    assert receipt["stopped_after_answer"] == stopped
+    assert any("did not exit" in n for n in receipt["notices"])
+    assert (record / "answers/answer.md").read_text() == "Green umbrella.\n"
+    assert run.state("reader")["pending"] is None
