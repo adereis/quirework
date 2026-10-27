@@ -207,7 +207,7 @@ def codex_catalog():
     return data.get("models", []), source
 
 
-def resolve(harness, requested, effort, resolved_model=None):
+def resolve(harness, requested, effort, resolved_model=None, declared=None):
     if harness not in HARNESSES:
         raise ValueError(f"unknown harness: {harness}")
     if not shutil.which(harness):
@@ -298,15 +298,25 @@ def resolve(harness, requested, effort, resolved_model=None):
             )
         evidence["catalog_entry"] = model
     else:
-        model = resolve_claude(model)
+        # A model the project declares (``providers.claude.models``) is
+        # accepted verbatim: a gateway id is neither a family alias nor a
+        # claude version, so the name validation below would refuse the
+        # whole route. The receipt still verifies what was served, the way
+        # it does for an explicit version.
+        if model in {str(m).strip().lower() for m in (declared or ())}:
+            evidence["catalog_entry"] = (
+                "operator-declared model; the receipt verifies the served identity"
+            )
+        else:
+            model = resolve_claude(model)
+            evidence["catalog_entry"] = (
+                "family alias; the CLI picks its latest, and the receipt records "
+                "the version served"
+                if model in CLAUDE_ALIASES
+                else "explicit model; verify served identity after launch"
+            )
         if effort not in ("low", "medium", "high", "xhigh", "max"):
             raise ValueError(f"invalid Claude effort: {effort}")
-        evidence["catalog_entry"] = (
-            "family alias; the CLI picks its latest, and the receipt records "
-            "the version served"
-            if model in CLAUDE_ALIASES
-            else "explicit model; verify served identity after launch"
-        )
     evidence.update(harness=harness, model=model, effort=effort)
     return evidence
 

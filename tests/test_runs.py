@@ -1037,7 +1037,7 @@ def test_a_seat_whose_canary_has_no_model_is_refused_before_freezing(
     monkeypatch.setattr(
         engine.workshop_drivers,
         "resolve",
-        lambda harness, model, effort: dict(
+        lambda harness, model, effort, resolved_model=None, declared=None: dict(
             harness=harness, model=model, effort=effort
         ),
     )

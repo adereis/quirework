@@ -408,3 +408,90 @@ def test_a_resumed_reviewer_and_writer_name_the_pinned_version(tmp_path):
     assert args[args.index("--model") + 1] == "claude-opus-5-20260601"
     args, _ = d.command(config, tmp_path, "carry on", resume="s-1")
     assert args[args.index("--model") + 1] == "claude-opus-5-20260601"
+
+
+def test_a_declared_claude_model_resolves_verbatim(monkeypatch):
+    _installed(monkeypatch)
+    got = d.resolve(
+        "claude", "RITS/Zai-Org/GLM-5-3", "medium", declared=["rits/zai-org/glm-5-3"]
+    )
+    assert got["model"] == "rits/zai-org/glm-5-3"
+    assert "operator-declared" in got["catalog_entry"]
+    # The effort check the claude branch owns still applies to a declared id.
+    with pytest.raises(ValueError, match="invalid Claude effort"):
+        d.resolve("claude", "glm-5-3", "wild", declared=["glm-5-3"])
+
+
+def test_an_undeclared_claude_name_is_still_refused(monkeypatch):
+    _installed(monkeypatch)
+    with pytest.raises(ValueError, match="not a name Claude Code accepts"):
+        d.resolve("claude", "glm-5-3", "medium", declared=["another/gateway"])
+
+
+def test_gateway_env_crosses_and_replaces_the_host_login(monkeypatch):
+    from quirework.providers import harness
+
+    monkeypatch.setenv("ANTHROPIC_BASE_URL", "https://gateway.example")
+    monkeypatch.setenv("ANTHROPIC_API_KEY", "sk-fictitious")
+
+    def never():
+        raise AssertionError("a gateway seat never borrows the host login")
+
+    monkeypatch.setattr(harness.claude_login, "host_login", never)
+    env = harness.environment("claude", ["ANTHROPIC_BASE_URL", "ANTHROPIC_API_KEY"])
+    assert env["ANTHROPIC_BASE_URL"] == "https://gateway.example"
+    assert env["ANTHROPIC_API_KEY"] == "sk-fictitious"
+    assert "CLAUDE_CODE_OAUTH_TOKEN" not in env
+
+
+def test_an_unsourced_gateway_env_refuses_rather_than_falls_back(monkeypatch):
+    from quirework.providers import harness
+
+    monkeypatch.delenv("ANTHROPIC_BASE_URL", raising=False)
+    with pytest.raises(RuntimeError, match="gateway environment not sourced"):
+        harness.environment("claude", ["ANTHROPIC_BASE_URL", "ANTHROPIC_API_KEY"])
+
+
+def test_a_declared_claude_seat_carries_its_gateway_env_into_the_record(tmp_path):
+    from quirework.project import Project, project_scope
+    from quirework.runs import engine
+
+    settings = {
+        "providers": {
+            "claude": {
+                "models": ["rits/zai-org/glm-5-3"],
+                "gateway_env": ["ANTHROPIC_BASE_URL", "ANTHROPIC_API_KEY"],
+            }
+        }
+    }
+    plan = dict(
+        title="Fictitious read",
+        seats=[
+            dict(
+                id="reader",
+                harness="claude",
+                model="rits/zai-org/glm-5-3",
+                effort="medium",
+                policy=dict(tools="read"),
+                turns=[dict(id="t", prompt="Continue the fictitious draft.")],
+            ),
+            dict(
+                id="writer",
+                harness="claude",
+                model="opus",
+                effort="high",
+                policy=dict(tools="read"),
+                turns=[dict(id="t", prompt="Continue the fictitious draft.")],
+            ),
+        ],
+    )
+    path = tmp_path / "plan.json"
+    path.write_text(json.dumps(plan))
+    with project_scope(Project.from_settings(tmp_path, settings)):
+        engine.prepare(path, tmp_path / "build" / "record", resolve=False)
+    frozen = json.loads((tmp_path / "build" / "record" / "plan.json").read_text())
+    policies = {s["id"]: s["policy"]["gateway_env"] for s in frozen["seats"]}
+    assert policies["reader"] == ["ANTHROPIC_BASE_URL", "ANTHROPIC_API_KEY"]
+    # A seat on an ordinary claude name keeps the empty default (a list,
+    # because the frozen record is JSON).
+    assert policies["writer"] == []

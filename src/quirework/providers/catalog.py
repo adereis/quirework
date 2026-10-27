@@ -20,7 +20,12 @@ def main(argv=None):
     query.add_argument("--effort", required=True)
     args = p.parse_args(argv)
     if args.command == "resolve":
-        result = resolve(args.provider, args.model, args.effort)
+        result = resolve(
+            args.provider,
+            args.model,
+            args.effort,
+            declared=current_project().get("providers.claude.models", []),
+        )
     elif args.provider == "codex":
         models, source = codex_catalog()
         result = {"source": source, "models": models}

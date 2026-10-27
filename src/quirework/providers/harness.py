@@ -72,7 +72,7 @@ def rows(path):
     return [json.loads(line) for line in path.read_text().splitlines() if line.strip()]
 
 
-def environment(harness):
+def environment(harness, gateway_env=()):
     names = (
         "PATH",
         "LANG",
@@ -93,6 +93,19 @@ def environment(harness):
         DISABLE_AUTOUPDATER="1",
         DISABLE_COMPACT="1",
     )
+    if gateway_env:
+        # A declared gateway routes the seat's traffic and carries its own
+        # credentials, so the host login is not the auth path and never
+        # crosses. Refuse rather than fall back: a seat launched without
+        # its gateway answers from the host's own account and the wrong
+        # model, and nothing downstream could tell.
+        missing = [k for k in gateway_env if k not in os.environ]
+        if missing:
+            raise RuntimeError(
+                "gateway environment not sourced; missing " + ", ".join(missing)
+            )
+        env.update({k: os.environ[k] for k in gateway_env})
+        return env
     if harness == "claude":
         # Only the access token crosses, never the refresh token; and only one
         # with LAUNCH_MARGIN of life left, so the host does not renew it, and
@@ -374,7 +387,7 @@ def launch_context(config, policy, workspace, bus=None, canary=None):
     _, missing = blind.runner_binds([name])
     if missing:
         raise RuntimeError("missing harness prerequisites: " + "; ".join(missing))
-    env = environment(name)
+    env = environment(name, policy.get("gateway_env") or ())
     jail = blind.jail_argv(
         workspace,
         runners=[name],

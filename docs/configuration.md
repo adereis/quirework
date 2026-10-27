@@ -1438,9 +1438,15 @@ the consumer's package and must be installed explicitly.
 is then used as given instead of asking `codex debug models`. Leave it
 unset unless a run must resolve against a frozen list. Claude Code keeps
 no local catalog, so `quirework sop models list claude` prints the list
-`providers.claude.models` declares. It is a reference for the project's
-own choices and constrains nothing: a Claude seat passes its family or
-version to the CLI, and the receipt records which model answered.
+`providers.claude.models` declares. A model on that list resolves
+verbatim, which is how a project runs a seat through a gateway whose
+model id is neither a Claude family nor a version; the receipt still
+records which model answered. `providers.claude.gateway_env` names the
+environment variables such a seat needs passed through to its runner, a
+base URL and its key among them. A launch passes them through when the
+operator's own environment carries them and refuses rather than fall
+back, and a seat with a declared gateway never borrows the host login:
+the gateway is the auth path.
 
 Every launch proves its seat blind before the seat starts. A runner
 release can change what a flag does without rejecting it, and only a

@@ -1984,7 +1984,12 @@ def cheapest_model(name: str) -> str | None:
     if name in configured:
         from quirework.providers import canary, models
 
-        return models.resolve(name, configured[name], canary.EFFORT)["model"]
+        return models.resolve(
+            name,
+            configured[name],
+            canary.EFFORT,
+            declared=current_project().get("providers.claude.models", []),
+        )["model"]
     if name != "agy":
         return None
     try:

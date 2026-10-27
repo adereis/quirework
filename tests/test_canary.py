@@ -140,7 +140,7 @@ def test_a_configured_canary_model_resolves_like_a_seats(tmp_path, monkeypatch):
 
     asked = []
 
-    def resolve(harness, requested, effort):
+    def resolve(harness, requested, effort, resolved_model=None, declared=None):
         asked.append((harness, requested, effort))
         return {"model": "kestrel-2"}
 

@@ -105,6 +105,7 @@ SETTINGS: tuple[str, ...] = (
     "providers.*.state",
     "providers.agy.sessions",
     "providers.canary_models.*",
+    "providers.claude.gateway_env",
     "providers.claude.models",
     "providers.claude.sessions",
     "providers.codex.catalog",

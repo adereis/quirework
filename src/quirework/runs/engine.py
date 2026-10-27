@@ -75,6 +75,10 @@ POLICY = dict(
     # bytes the seat was given: launch refuses if they have changed, and the
     # receipt flags a change during the turn.
     read_root_digests={},
+    # Environment variable names a declared gateway model needs passed
+    # through to its runner (see ``providers.claude.gateway_env``). Empty
+    # for every seat that runs on the host's own login.
+    gateway_env=(),
 )
 # The provider serves a share of the ceiling, and rounds it. Assert we were
 # given essentially the whole window, not the much smaller session default,
@@ -150,6 +154,10 @@ def policy(value):
         raise ValueError("system_prompt must be text or null")
     if type(p["allow_compaction"]) is not bool:
         raise ValueError("allow_compaction must be boolean")
+    if not isinstance(p["gateway_env"], (list, tuple)) or not all(
+        isinstance(v, str) and v for v in p["gateway_env"]
+    ):
+        raise ValueError("gateway_env must be a list of environment variable names")
     for key in ("context_window", "minimum_context_window"):
         if p[key] is not None and (type(p[key]) is not int or p[key] < 0):
             raise ValueError(f"{key} must be a nonnegative integer")
@@ -334,12 +342,30 @@ def prepare(plan_path, destination, *, resolve=True):
             mode = supplied.get("mode", "auto")
             if mode not in ("auto", "external"):
                 raise ValueError("seat mode must be auto or external")
+            declared = [
+                str(m).strip().lower()
+                for m in current_project().get("providers.claude.models", [])
+            ]
             if resolve and mode == "auto":
                 config = workshop_drivers.resolve(
-                    config["harness"], config["model"], config["effort"]
+                    config["harness"],
+                    config["model"],
+                    config["effort"],
+                    declared=declared,
                 )
                 canary_model(config["harness"], name, canaries)
             p = resolve_window(policy(supplied.get("policy", {})), config)
+            if (
+                config.get("harness") == "claude"
+                and str(config.get("model", "")).strip().lower() in declared
+                and (
+                    gateway_env := current_project().get("providers.claude.gateway_env")
+                )
+            ):
+                # A declared claude model runs through the project's gateway:
+                # the launch passes those variables through and never borrows
+                # the host login. Unsourced, it refuses rather than fall back.
+                p["gateway_env"] = list(gateway_env)
             instrument = (
                 instruments.load(supplied["instrument"])
                 if supplied.get("instrument")
