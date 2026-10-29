@@ -1,6 +1,6 @@
 [project]
 name = "quirework"
-version = "0.1.0"
+dynamic = ["version"]
 description = "Tools for writing and researching books and sites with an AI companion"
 requires-python = ">=3.11"
 license = {text = "MIT"}
@@ -22,6 +22,9 @@ build-backend = "setuptools.build_meta"
 
 [tool.setuptools.packages.find]
 where = ["src"]
+
+[tool.setuptools.dynamic]
+version = {attr = "quirework.__version__"}
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
