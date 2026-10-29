@@ -71,10 +71,12 @@ can convene a room with Codex, Claude, and Antigravity seats. Each seat
 declares its harness, model, effort, materials, and access policy. The
 receipt records what the provider actually served.
 
-The [workflow guide](docs/workflows.md) develops this loop through five
-especially useful patterns: writers rooms, roundtables of models working
-together as themselves, independent prose workshops, blind-reader
-panels, and contextual consistency reviews.
+The
+[workflow guide](https://github.com/adereis/quirework/blob/main/docs/workflows.md)
+develops this loop through five especially useful patterns: writers
+rooms, roundtables of models working together as themselves, independent
+prose workshops, blind-reader panels, and contextual consistency
+reviews.
 
 ## What it does
 
@@ -355,19 +357,22 @@ quirework sop runs start /path/to/private/run --timeout 60 --wait-quota 0
 quirework sop runs watch /path/to/private/run
 ```
 
-Starting from nothing? The [authoring guide](docs/authoring.md) is the
-path from an empty directory to a manuscript with a spec, marked
+Starting from nothing? The
+[authoring guide](https://github.com/adereis/quirework/blob/main/docs/authoring.md)
+is the path from an empty directory to a manuscript with a spec, marked
 chapters, figures and its own procedures, and its last part does the
-same for a site. [examples/side-quest](examples/side-quest) is a short
-complete book that walked it: a comic memoir with a spec and its trail,
-a book in four formats, three derived editions bound to the same spec,
-an extension of its own, the fifteen sessions it was written in, and the
-records of the workshop, writers room, blind read, roundtable and
-consistency review that made parts of it. Its editions can be read at
+same for a site.
+[examples/side-quest](https://github.com/adereis/quirework/tree/main/examples/side-quest)
+is a short complete book that walked it: a comic memoir with a spec and
+its trail, a book in four formats, three derived editions bound to the
+same spec, an extension of its own, the fifteen sessions it was written
+in, and the records of the workshop, writers room, blind read,
+roundtable and consistency review that made parts of it. Its editions
+can be read at
 [quirework.com/examples](https://quirework.com/examples/).
-[examples/demo-site](examples/demo-site) is the site version: posts with
-a spec each, a shared spec, marks kept outside the rendered tree, and a
-voice policy the checks enforce.
+[examples/demo-site](https://github.com/adereis/quirework/tree/main/examples/demo-site)
+is the site version: posts with a spec each, a shared spec, marks kept
+outside the rendered tree, and a voice policy the checks enforce.
 
 Both examples are test fixtures, not showcases. Their authors are
 invented, AI wrote them, and no person edited or reviewed their prose.
@@ -375,10 +380,13 @@ Every session of the book was driven by an AI playing its author, which
 the example's own README says. Read them for the structure Quirework
 keeps, not as examples of the writing it helps an author make.
 
-The [configuration guide](docs/configuration.md) explains how to connect
-a project. The [workflow guide](docs/workflows.md) covers procedures,
-research, model runs, and saved evidence. The
-[development guide](docs/development.md) covers architecture and tests.
+The
+[configuration guide](https://github.com/adereis/quirework/blob/main/docs/configuration.md)
+explains how to connect a project. The
+[workflow guide](https://github.com/adereis/quirework/blob/main/docs/workflows.md)
+covers procedures, research, model runs, and saved evidence. The
+[development guide](https://github.com/adereis/quirework/blob/main/docs/development.md)
+covers architecture and tests.
 
 ## A project owns its choices
 

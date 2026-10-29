@@ -2,9 +2,25 @@
 name = "quirework"
 dynamic = ["version"]
 description = "Tools for writing and researching books and sites with an AI companion"
+readme = "README.md"
 requires-python = ">=3.11"
-license = {text = "MIT"}
+license = "MIT"
+license-files = ["LICENSE"]
+authors = [{name = "Ademar Reis"}]
+classifiers = [
+    "Environment :: Console",
+    "Intended Audience :: End Users/Desktop",
+    "Natural Language :: English",
+    "Programming Language :: Python :: 3 :: Only",
+    "Topic :: Text Processing :: Markup :: Markdown",
+]
 dependencies = []
+
+[project.urls]
+Homepage = "https://quirework.com"
+Source = "https://github.com/adereis/quirework"
+Documentation = "https://github.com/adereis/quirework/tree/main/docs"
+Issues = "https://github.com/adereis/quirework/issues"
 
 [project.optional-dependencies]
 capture = ["websocket-client>=1.6"]
@@ -17,7 +33,7 @@ dev = ["quirework[capture,quarto,semantic,test]"]
 quirework = "quirework.cli:main"
 
 [build-system]
-requires = ["setuptools>=68"]
+requires = ["setuptools>=77"]
 build-backend = "setuptools.build_meta"
 
 [tool.setuptools.packages.find]
