@@ -181,18 +181,16 @@ working project fails there first.
 
 ## Get started
 
-Quirework needs Python 3.11 or later. Install it from its repository:
+Quirework needs Python 3.11 or later. Make a directory for your book or
+site, and install Quirework in an environment inside it:
 
 ```
-git clone https://github.com/adereis/quirework
-cd quirework
 python3 -m venv --system-site-packages .venv
-.venv/bin/python -m pip install -e '.[quarto]'
+.venv/bin/python -m pip install 'quirework[quarto]'
 ```
 
 The `quarto` extra installs what a book needs to render; leave it out
-for a site. Then open your companion in an empty directory and ask it to
-start a book, or a site, by the
-[authoring guide](repo:docs/authoring.md). The
+for a site. Then open your companion there and ask it to start a book,
+or a site, by the [authoring guide](repo:docs/authoring.md). The
 [configuration guide](repo:docs/configuration.md) connects a project you
 already have.
