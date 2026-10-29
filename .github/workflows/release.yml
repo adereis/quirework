@@ -39,9 +39,13 @@ jobs:
 
       # Without isolation, so the backend is the pinned one in this venv
       # and not whatever setuptools is newest on the day of the release.
+      # The venv sees none of the runner's own packages: setuptools takes
+      # an installed copy of a dependency over the one it bundles, and the
+      # runner's packaging, older than setuptools needs, once failed the
+      # build that way.
       - name: Build the sdist and the wheel
         run: |
-          python3 -m venv --system-site-packages "$RUNNER_TEMP/build"
+          python3 -m venv "$RUNNER_TEMP/build"
           "$RUNNER_TEMP/build/bin/pip" install -q \
             "build==${BUILD_VERSION}" "setuptools==${SETUPTOOLS_VERSION}"
           "$RUNNER_TEMP/build/bin/python" -m build --no-isolation

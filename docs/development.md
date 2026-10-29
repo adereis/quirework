@@ -231,7 +231,11 @@ changed on PyPI first.
 
 The build runs without isolation, against pinned versions of `build` and
 setuptools, so every release is built by the same backend until a pin is
-bumped on purpose.
+bumped on purpose. Its venv leaves out the runner's system packages,
+unlike a contributor's, because setuptools prefers an installed copy of
+a dependency over the one it bundles. The runner's `packaging` was older
+than setuptools needs for an SPDX license, and it failed the first
+release before anything was uploaded.
 
 PyPI shows the README as the project's description, frozen with each
 version. Its links are absolute for that reason: PyPI resolves a
