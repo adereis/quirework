@@ -43,15 +43,17 @@ local build simply has no `/side-quest/`.
 ## Deploy
 
 A Cloudflare Worker serving static assets, deployed by the GitHub
-Actions workflow `.github/workflows/site.yml` on every push to `main`
-that touches the site, the sample book or the tool, and on demand from
-the Actions tab. Its build job renders the book with the Quirework of
+Actions workflow `.github/workflows/site.yml`. A release deploys it: the
+release workflow calls it for every `v*` tag, before publishing to PyPI.
+Between releases it deploys `main` when run by hand from the Actions
+tab, and a hand run from any other branch builds without deploying. A
+push runs nothing. Its build job renders the book with the Quirework of
 the same commit, stages the renders, builds the site and checks that
 every edition is in it. Its deploy job runs `wrangler deploy` on that
 build.
 
 The deploy needs two secrets in the repository's `production`
-environment, which only `main` may deploy from:
+environment, which only `main` and `v*` tags may deploy from:
 
 - `CLOUDFLARE_API_TOKEN`, a token allowed to edit Workers scripts and
   their routes on the account;

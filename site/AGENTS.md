@@ -229,8 +229,13 @@ Every pin in it is deliberate:
 Bump a pin on purpose, and watch the next run. A pin taken newer than a
 couple of weeks has had little time to be vetted.
 
-The workflow runs on a push that touches the site, the sample book or
-the tool, since each can change what the site serves.
+A release runs the workflow. `release.yml` calls it for every `v*` tag
+and publishes to PyPI only after the site deploys, so a release whose
+sample book does not render never reaches PyPI. Between releases it runs
+only by hand: from `main` it deploys, and from any other branch it
+builds and stops. A push runs nothing, so a change to the site, the
+sample book or the tool reaches quirework.com with the next release, or
+with the next hand run from `main`.
 
 ## Set outside this repository
 
@@ -244,9 +249,10 @@ the search engines, not here.
   `wrangler deploy` of an assets-only Worker with a custom domain uses,
   as a full deploy proved. It never expires. It and the account id are
   the secrets of the repository's `production` environment, which only
-  `main` may deploy from. To roll it, create a new token with the same
-  three permissions, replace `CLOUDFLARE_API_TOKEN` there, run the
-  workflow, and delete the old token only after that deploy succeeds.
+  `main` and `v*` tags may deploy from. To roll it, create a new token
+  with the same three permissions, replace `CLOUDFLARE_API_TOKEN` there,
+  run the workflow by hand from `main`, and delete the old token only
+  after that deploy succeeds.
 - **The Worker has no `workers.dev` address and no previews**, as
   `wrangler.jsonc` declares, so quirework.com is its only address.
 - **Web Analytics** runs with automatic setup. Cloudflare adds its
