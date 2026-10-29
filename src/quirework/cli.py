@@ -30,7 +30,7 @@ GROUPS = {
     "sop": "Find procedures and operate supervised workflows",
     "dev": "Repository checks and tooling maintenance",
     "config": "Inspect and validate project configuration",
-    "usage": "Report which commands and procedures get used",
+    "usage": "Report which commands, procedures and seats get used",
 }
 COMMANDS = {
     ("spec", "notes"): Command(

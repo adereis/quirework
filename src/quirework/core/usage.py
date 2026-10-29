@@ -547,8 +547,8 @@ def main(argv=None) -> int:
     parser = argparse.ArgumentParser(
         prog="quirework usage",
         description="Which commands and procedures this installation actually "
-        "runs. Recorded on this machine, read only by this command, and sent "
-        "nowhere.",
+        "runs, and which model seats it launches. Recorded on this machine, "
+        "read only by this command, and sent nowhere.",
         epilog="Disable recording with `enabled = false` under [usage] in "
         "quirework.toml, or QUIREWORK_USAGE=0 for one shell.",
     )

@@ -84,6 +84,7 @@ enabled = false
 # store = "my-site"
 
 [usage]
-# Which commands and procedures this project runs, recorded on this
-# machine and read back by `quirework usage`. Nothing is sent anywhere.
+# Which commands and procedures this project runs, and which model
+# seats it launches, recorded on this machine and read back by
+# `quirework usage`. Nothing is sent anywhere.
 # enabled = true
