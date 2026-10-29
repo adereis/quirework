@@ -1,0 +1,84 @@
+# Publishes Quirework to PyPI when a version tag is pushed
+# (docs/development.md, "Releasing").
+#
+# Two jobs, so that nothing installed to build the package ever holds the
+# right to publish it. `build` makes the sdist and the wheel, refuses a tag
+# that names another version than theirs, and uploads them. `publish` runs
+# nothing but pypa's action on that upload. It holds no token: PyPI trusts
+# this file, in this repository, in the `pypi` environment, and takes the
+# short-lived identity GitHub issues to that job alone.
+#
+# Every third-party piece is pinned: actions by commit, the build frontend
+# and backend by exact version. Bump a pin on purpose, and watch the next
+# run.
+
+name: release
+
+on:
+  push:
+    tags: ["v*"]
+
+permissions:
+  contents: read
+
+# One release at a time, and never one cut off halfway.
+concurrency:
+  group: release
+  cancel-in-progress: false
+
+env:
+  BUILD_VERSION: "1.6.1"
+  SETUPTOOLS_VERSION: "84.0.0"
+
+jobs:
+  build:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      # Without isolation, so the backend is the pinned one in this venv
+      # and not whatever setuptools is newest on the day of the release.
+      - name: Build the sdist and the wheel
+        run: |
+          python3 -m venv --system-site-packages "$RUNNER_TEMP/build"
+          "$RUNNER_TEMP/build/bin/pip" install -q \
+            "build==${BUILD_VERSION}" "setuptools==${SETUPTOOLS_VERSION}"
+          "$RUNNER_TEMP/build/bin/python" -m build --no-isolation
+
+      # PyPI never takes a version twice, so a tag naming one version over
+      # a package carrying another would publish the wrong number for good.
+      - name: Check the tag names the version built
+        run: |
+          version="${GITHUB_REF_NAME#v}"
+          ls dist
+          test -f "dist/quirework-${version}.tar.gz"
+          test -f "dist/quirework-${version}-py3-none-any.whl"
+
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: dist
+          path: dist
+          if-no-files-found: error
+          retention-days: 7
+
+  publish:
+    needs: build
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    # PyPI's trusted publisher names this environment, so the same steps
+    # run anywhere else are refused.
+    environment:
+      name: pypi
+      url: https://pypi.org/project/quirework/
+    permissions:
+      id-token: write
+    steps:
+      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          name: dist
+          path: dist
+
+      # 1.14.3 is the first release after GHSA-5xjx-3w67-w9x9, a revoked
+      # certificate in the chain trusted publishing signs with.
+      - uses: pypa/gh-action-pypi-publish@7245906fb61fa33a13554f9d5fb856fe61758086 # v1.14.3

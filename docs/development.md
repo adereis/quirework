@@ -202,3 +202,37 @@ A requested setting is not evidence that the native client honored it.
 Keep raw test sessions and runtime homes outside Git. Retain only
 synthetic fixtures and the tests themselves. Record relevant validation
 results with each release or integration change.
+
+## Releasing
+
+A release is a tag. Pushing `vX.Y.Z` runs
+`.github/workflows/release.yml`, which builds the sdist and the wheel
+and publishes them to PyPI. PyPI never accepts a version number twice,
+even after the release is deleted, so whatever a tag publishes stays
+published under that number.
+
+The version lives in one place, `__version__` in
+`src/quirework/__init__.py`, and the package metadata reads it from
+there. The workflow refuses a tag that names any other version. To
+release, set `__version__`, run the suite and `quirework dev check`,
+then commit and push. Tag that commit and push the tag:
+
+```bash
+git tag v0.2.0
+git push origin v0.2.0
+```
+
+The workflow holds no PyPI token. The project's trusted publisher on
+PyPI names this repository, the file `release.yml` and the environment
+`pypi`. PyPI accepts the short-lived identity GitHub issues to a job
+that matches all three and nothing else, so a fork or another workflow
+cannot publish. Renaming the file or the environment needs the publisher
+changed on PyPI first.
+
+The build runs without isolation, against pinned versions of `build` and
+setuptools, so every release is built by the same backend until a pin is
+bumped on purpose.
+
+PyPI shows the README as the project's description, frozen with each
+version. Its links are absolute for that reason: PyPI resolves a
+relative link against pypi.org, where the guides do not exist.

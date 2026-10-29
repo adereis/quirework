@@ -102,5 +102,9 @@ commits stay apart from an example's for the same reason. Keep commit
 subjects within 50 columns and prose body lines within 72 columns.
 Non-trivial commits explain their motivation and important invariants.
 End commits with a Co-Authored-By trailer identifying the model
-established by the harness. Do not push unless the user authorizes it.
-Preserve unrelated concurrent changes.
+established by the harness. Do not push unless the user authorizes it. A
+pushed `v*` tag publishes that version to PyPI, where its number can
+never be used again, so an authorization to push a branch never covers a
+tag. The release workflow is the tool's, and its changes travel with the
+tool's (`docs/development.md`, "Releasing"). Preserve unrelated
+concurrent changes.

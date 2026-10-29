@@ -279,8 +279,8 @@ it current.
 
 ## Install
 
-Python 3.11 or later is required. Quirework is installed from this
-repository, and a checkout also brings the two examples:
+Python 3.11 or later is required. A checkout of this repository brings
+the two examples along with the tool:
 
 ```bash
 git clone https://github.com/adereis/quirework.git
@@ -290,9 +290,8 @@ python3 -m venv --system-site-packages .venv
 ```
 
 Put `.venv/bin` on your `PATH`, or copy `.envrc.example` to `.envrc` and
-let direnv do it. To install into an environment of your own without a
-checkout, run
-`pip install 'quirework[quarto] @ git+https://github.com/adereis/quirework'`.
+let direnv do it. To install the released package into an environment of
+your own without a checkout, run `pip install 'quirework[quarto]'`.
 
 The extras follow the work. `quarto` installs Quarto, which brings Typst
 for the PDF, and what a book's render needs besides. A site needs none.
