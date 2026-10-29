@@ -107,11 +107,11 @@ it in all of them, or refuses before writing anything.
 
 ## What the checks catch
 
-`spec notes --check` gates thirteen invariants of the structure. Among
-them: a mark left in the prose, a sidecar that no longer mirrors its
-chapter, a binding to a commitment the spec does not declare, and a
-reading order that disagrees with the files on disk. `spec quotes`
-checks that a phrase quoted in a note still exists in the work, and
+`spec notes --check` gates the invariants of the structure. Among them:
+a mark left in the prose, a sidecar that no longer mirrors its chapter,
+a binding to a commitment the spec does not declare, and a reading order
+that disagrees with the files on disk. `spec quotes` checks that a
+phrase quoted in a note still exists in the work, and
 `spec quotes --grep TERM` finds every quotation of a term you have just
 retired.
 
