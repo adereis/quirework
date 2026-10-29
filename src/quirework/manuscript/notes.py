@@ -1235,6 +1235,53 @@ def companion_check(
     return problems, advisories, anchors
 
 
+def references_check(docs: Path, spec: set[str]) -> list[str]:
+    """Resolve the references register's spec citations, the `#slug`s it
+    writes in code spans as a companion entry does.
+
+    Each one names a spec section. Where `manuscript.references_public`
+    publishes the register beside the spec, each also names a published
+    section, since its reader cannot open the others. The register's own
+    `](#anchor)` links point inside it and are not read, and a code span
+    naming one of its own headings, rather than a spec section, is a pointer
+    inside it too."""
+    project = current_project()
+    # Read from the tree being checked, as the spec files are, so a check of
+    # a staged copy reads the copy's register and never the live one's
+    # against the copy's spec.
+    path = _configured_book_file(docs, "manuscript.references")
+    if path is None or not path.exists():
+        return []
+    text = mask_fences(path.read_text())
+    rel = _rel(path)
+    public = (
+        public_spec_files(docs)
+        if project.get("manuscript.references_public", False)
+        else None
+    )
+    home = {s.slug: s.path for s in spec_sections(docs) if s.slug}
+    own = {label for _, label in _headings(text)}
+    problems: list[str] = []
+    for slug, pos in _code_spec_refs(text):
+        ln = text.count("\n", 0, pos) + 1
+        if slug not in spec and slug in own:
+            continue
+        if slug not in spec:
+            problems.append(
+                f"{rel}:{ln}: cites '#{slug}', which names no spec section. The "
+                f"register points at a commitment that has moved or gone: name "
+                f"the section that holds it now."
+            )
+        elif (held := _unpublished(slug, home, public)) is not None:
+            problems.append(
+                f"{rel}:{ln}: cites '#{slug}', a section of {_rel(held)}, which "
+                f"is not published (manuscript.spec_public). The register is "
+                f"published beside it (manuscript.references_public), so it "
+                f"cites only what its reader can open."
+            )
+    return problems
+
+
 def _findings(docs: Path) -> tuple[list[str], list[tuple[str, list[str]]]]:
     """Lint the split-metadata layout; replaces physical co-location as the
     drift guard. Fourteen hard invariants (any failure → exit 1):
@@ -1277,9 +1324,12 @@ def _findings(docs: Path) -> tuple[list[str], list[tuple[str, list[str]]]]:
      13. every @omit sits in a derived edition's sidecar, names one spec
          section, and gives its reason; no edition both binds and omits one.
      14. every section reference written in a spec file (`#slug`, or a
-         `](#slug)` link) names a spec section. Where `manuscript.spec_public`
-         publishes only some spec files, a reference in a published file, and
-         every citation in a companion entry, names a published section.
+         `](#slug)` link), and every `#slug` the references register cites in
+         a code span, names a spec section. Where `manuscript.spec_public`
+         publishes only some spec files, a reference in a published file,
+         every citation in a companion entry, and every citation in a
+         references register published beside the spec
+         (`manuscript.references_public`), names a published section.
 
     Plus seven advisories, printed but never fatal. The seventh names each
     section the canon binds that a composed edition neither binds nor omits.
@@ -1444,6 +1494,9 @@ def _findings(docs: Path) -> tuple[list[str], list[tuple[str, list[str]]]]:
                     f"(manuscript.spec_public), from a published spec file its "
                     f"reader would follow it out of."
                 )
+    # The references register cites the spec as a companion entry does, and
+    # where it is published beside the spec it is held to the same boundary.
+    problems += references_check(docs, spec)
 
     # 11. the trail sidecar, where the project keeps one, mirrors the spec. A
     # renamed or retired section breaks its trail in the same edit that breaks

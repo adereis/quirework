@@ -396,6 +396,25 @@ class Project:
                             f"manuscript.spec_public names {path}, which "
                             f"manuscript.spec does not list"
                         )
+            # The references register cites the spec, so `spec notes --check`
+            # reads it; whether it is published beside the spec is the
+            # project's to say, and nothing is published by default.
+            key = "manuscript.references"
+            if self.get(key) is not None and not self.path(key).is_file():
+                raise ConfigurationError(
+                    f"configured references register is missing: {self.path(key)}"
+                )
+            shown = self.get("manuscript.references_public")
+            if shown is not None:
+                if not isinstance(shown, bool):
+                    raise ConfigurationError(
+                        "manuscript.references_public must be true or false"
+                    )
+                if shown and self.get(key) is None:
+                    raise ConfigurationError(
+                        "manuscript.references_public publishes a references "
+                        "register, and manuscript.references names none"
+                    )
             key = "manuscript.review_notes"
             if self.get(key) is not None and not self.path(key).is_file():
                 raise ConfigurationError(

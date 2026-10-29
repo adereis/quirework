@@ -63,6 +63,7 @@ SETTINGS: tuple[str, ...] = (
             "pages",
             "quarto",
             "references",
+            "references_public",
             "review_notes",
             "revision_field",
             "source",

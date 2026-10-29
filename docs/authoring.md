@@ -297,6 +297,21 @@ Every `#slug` written in a spec file, bare or as a `](#slug)` link, must
 name a section of the register, as a binding must. A heading's own
 `{#slug}`, code, comments and frontmatter are not read as references.
 
+A references register (`manuscript.references`) cites the spec as a
+companion entry does, with the slug in a code span, `` `#slug` ``, since
+its own `](#anchor)` links point at its own headings. Each citation must
+name a spec section. When the references register is published beside
+the spec, say so, and its citations are held to the boundary too:
+
+```toml
+[manuscript]
+references = "spec/references.md"
+references_public = true
+```
+
+Left unset, the references register counts as unpublished and may cite
+any section.
+
 The slugs are the whole mechanism. A chapter does not restate a
 commitment; it names the section it expresses, so changing a commitment
 tells you which chapters have to change with it. The spec is not
@@ -306,12 +321,12 @@ A slug is a name, and a section can outgrow it: reverse what a section
 says and its slug may now say the opposite. The slug is written in the
 spec's heading and in its links, in every sidecar that binds the
 section, a derived edition's included, in an edition's `@omit` marks, in
-companion citations, in the trail's heading and in the backfill ledger,
-so renaming it by hand means finding all of them.
-`quirework spec rename OLD NEW` renames it in every one, and refuses
-before writing anything if it cannot: a new name already in use, an
-anchor that is not one, a unit's own section moved to another unit.
-`--dry-run` lists the files it would change.
+companion citations and the references register's, in the trail's
+heading and in the backfill ledger, so renaming it by hand means finding
+all of them. `quirework spec rename OLD NEW` renames it in every one,
+and refuses before writing anything if it cannot: a new name already in
+use, an anchor that is not one, a unit's own section moved to another
+unit. `--dry-run` lists the files it would change.
 
 `quirework spec notes --primer` prints the spec's sections first, then
 the marks in reading order. That is the one command to run at the start

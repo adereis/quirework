@@ -51,10 +51,13 @@ anchors are unique across every file; each listed file must exist, and
 an empty list or a file listed twice is refused.
 `manuscript.spec_public` names the ones a reader of the published work
 can see, each also listed in `manuscript.spec`; left unset, every spec
-file is published. The [authoring guide](authoring.md#2-the-spec) says
-what the boundary refuses. `publish.typst_template` names the Typst file
-that sets the printed page. Quirework reads it and never writes it. It
-takes from it the faces `publish fonts` checks and the text block
+file is published. `manuscript.references_public`, true or false, says
+whether the references register is published beside them; it requires
+`manuscript.references`, and left unset the references register counts
+as unpublished. The [authoring guide](authoring.md#2-the-spec) says what
+the boundary refuses. `publish.typst_template` names the Typst file that
+sets the printed page. Quirework reads it and never writes it. It takes
+from it the faces `publish fonts` checks and the text block
 `figures --check` measures type against, and it names the file when
 figure numbers disagree across editions, since its numbering rule is one
 place they are set. `publish.figure_fonts` lists font files that every
