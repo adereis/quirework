@@ -1378,13 +1378,15 @@ def _section_range(text, slug):
     """``(first, last)`` 1-based lines of the section anchored ``slug``."""
     masked = notes._mask_nonprose(notes.mask_fences(text))
     heads = [m for m in notes._HEADING.finditer(masked) if len(m.group(1)) == 2]
-    for i, m in enumerate(heads):
+    stops = notes.section_stops(masked)
+    for m in heads:
         anchor = notes._ATTR_ID.search(m.group(3) or "")
         if anchor and anchor.group(1) == slug:
             first = text.count("\n", 0, m.start()) + 1
+            stop = next((s for s in stops if s > m.start()), None)
             last = (
-                text.count("\n", 0, heads[i + 1].start())
-                if i + 1 < len(heads)
+                text.count("\n", 0, stop)
+                if stop is not None
                 else text.count("\n") + (not text.endswith("\n"))
             )
             return first, last

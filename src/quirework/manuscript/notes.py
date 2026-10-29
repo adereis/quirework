@@ -627,8 +627,16 @@ def _spec_names(docs=None) -> tuple[str, ...]:
     return tuple(f.name for f in spec_files(docs))
 
 
+def section_stops(text: str) -> list[int]:
+    """Where a section of a spec file can end: at the next section, or at a
+    level-1 heading that groups the sections into parts. A deeper heading
+    sits inside a section and ends nothing. ``text`` is already masked."""
+    return [m.start() for m in _HEADING.finditer(text) if len(m.group(1)) <= 2]
+
+
 def _sections_of(spec: Path) -> list[Section]:
     text = mask_fences(spec.read_text())
+    stops = section_stops(_mask_nonprose(text))
     lvl2 = []
     for m in _HEADING.finditer(_mask_nonprose(text)):
         if len(m.group(1)) != 2:
@@ -644,8 +652,8 @@ def _sections_of(spec: Path) -> list[Section]:
         )
     owner = spec_owner(spec)
     out = []
-    for i, (_, end, title, anchor) in enumerate(lvl2):
-        stop = lvl2[i + 1][0] if i + 1 < len(lvl2) else len(text)
+    for start, end, title, anchor in lvl2:
+        stop = next((s for s in stops if s > start), len(text))
         slug = f"{owner}/{anchor}" if owner and anchor else anchor
         out.append(Section(slug, title, text[end:stop].strip(), spec, anchor))
     return out

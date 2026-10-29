@@ -158,6 +158,29 @@ def test_a_link_into_the_second_file_is_renamed_from_the_first(book):
     assert "](#whistle-signal)" in house
 
 
+def test_a_part_heading_ends_the_section_above_it(book, capsys):
+    """A level-1 heading groups sections into parts. It ends the section
+    before it and binds nothing, while a deeper heading stays inside its
+    section."""
+    sections = book / "manuscript" / "sections"
+    (sections / "_claims.md").write_text(
+        "# What the notebook holds\n\n# The whistle\n\n"
+        "## A kettle signals without thinking {#kettle-signal}\n\n"
+        "A whistle reports a state.\n\n### An aside\n\nStill the whistle.\n\n"
+        "# The cooling\n\n"
+        "## Cooling is not the reverse of boiling {#cooling-asymmetry}\n\n"
+        "Cooling makes no sound.\n"
+    )
+    bodies = {s.slug: s.body for s in notes.spec_sections()}
+    assert bodies["kettle-signal"] == (
+        "A whistle reports a state.\n\n### An aside\n\nStill the whistle."
+    )
+    assert bodies["cooling-asymmetry"] == "Cooling makes no sound."
+    text = (sections / "_claims.md").read_text()
+    assert trail._section_range(text, "kettle-signal") == (5, 12)
+    assert notes.check() == 0, capsys.readouterr().err
+
+
 def test_the_primer_lists_each_file_under_its_own_heading(book, capsys):
     assert notes.main(["--primer"]) == 0
     out = capsys.readouterr().out

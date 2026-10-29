@@ -250,6 +250,11 @@ about it.
 A kettle reaches the boil by one route and cools by another.
 ```
 
+A long spec can group its sections into parts under level-1 headings,
+such as `# The kettle` above the sections about it. A part heading
+carries no slug and nothing binds it; it ends the section before it, so
+a section's text never runs into the next part's heading.
+
 Point at it and it becomes the binding namespace:
 
 ```toml
