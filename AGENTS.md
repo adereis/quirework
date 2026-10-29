@@ -87,9 +87,12 @@ written with Quirework.
 
 The site serves the sample book's renders, made fresh by
 `.github/workflows/site.yml` at every deploy with the Quirework of the
-same commit. So a push that changes the tool redeploys the site, and a
-change that breaks the sample book's render fails that deploy. The
-workflow belongs to the site, and its changes travel with the site's.
+same commit. A release deploys it: `release.yml` calls `site.yml` for
+each `v*` tag and publishes to PyPI only after the site deploys, so a
+change that breaks the sample book's render stops the release before
+PyPI. A push runs nothing, and between releases the site deploys only
+when run by hand from `main`. `site.yml` belongs to the site, and its
+changes travel with the site's.
 
 ## Git
 

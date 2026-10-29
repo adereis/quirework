@@ -1,12 +1,18 @@
-# Publishes Quirework to PyPI when a version tag is pushed
-# (docs/development.md, "Releasing").
+# Publishes Quirework to PyPI, and deploys its site, when a version tag
+# is pushed (docs/development.md, "Releasing").
 #
-# Two jobs, so that nothing installed to build the package ever holds the
-# right to publish it. `build` makes the sdist and the wheel, refuses a tag
-# that names another version than theirs, and uploads them. `publish` runs
-# nothing but pypa's action on that upload. It holds no token: PyPI trusts
-# this file, in this repository, in the `pypi` environment, and takes the
-# short-lived identity GitHub issues to that job alone.
+# `build` makes the sdist and the wheel, refuses a tag that names another
+# version than theirs, and uploads them. `site` then runs the site's own
+# workflow, site.yml, which renders the sample book with this commit's
+# Quirework and builds and deploys quirework.com. `publish` waits for
+# both, so a release whose sample book does not render never reaches
+# PyPI, where a version can never be replaced.
+#
+# Nothing installed to build the package ever holds the right to publish
+# it. `publish` runs nothing but pypa's action on the upload. It holds no
+# token: PyPI trusts this file, in this repository, in the `pypi`
+# environment, and takes the short-lived identity GitHub issues to that
+# job alone.
 #
 # Every third-party piece is pinned: actions by commit, the build frontend
 # and backend by exact version. Bump a pin on purpose, and watch the next
@@ -66,8 +72,13 @@ jobs:
           if-no-files-found: error
           retention-days: 7
 
-  publish:
+  # After build, so a tag the version check refuses deploys nothing.
+  site:
     needs: build
+    uses: ./.github/workflows/site.yml
+
+  publish:
+    needs: [build, site]
     runs-on: ubuntu-24.04
     timeout-minutes: 10
     # PyPI's trusted publisher names this environment, so the same steps

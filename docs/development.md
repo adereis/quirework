@@ -206,10 +206,18 @@ results with each release or integration change.
 ## Releasing
 
 A release is a tag. Pushing `vX.Y.Z` runs
-`.github/workflows/release.yml`, which builds the sdist and the wheel
-and publishes them to PyPI. PyPI never accepts a version number twice,
-even after the release is deleted, so whatever a tag publishes stays
-published under that number.
+`.github/workflows/release.yml`, which builds the sdist and the wheel,
+deploys the site, and then publishes the package to PyPI. PyPI never
+accepts a version number twice, even after the release is deleted, so
+whatever a tag publishes stays published under that number.
+
+The site goes first because deploying it renders the sample book with
+the tagged Quirework, and that render is the only check on a release
+that exercises the tool end to end. A release whose book does not render
+stops before PyPI, so the fix ships under the same number. A failed
+deploy holds the publish back the same way, and "Re-run failed jobs"
+resumes the run once the cause is fixed. A push runs no workflow at all;
+`site/README.md` says how to deploy the site between releases.
 
 The version lives in one place, `__version__` in
 `src/quirework/__init__.py`, and the package metadata reads it from
@@ -226,8 +234,9 @@ The workflow holds no PyPI token. The project's trusted publisher on
 PyPI names this repository, the file `release.yml` and the environment
 `pypi`. PyPI accepts the short-lived identity GitHub issues to a job
 that matches all three and nothing else, so a fork or another workflow
-cannot publish. Renaming the file or the environment needs the publisher
-changed on PyPI first.
+cannot publish. The `pypi` environment admits only `v*` tags, so a run
+from a branch cannot either. Renaming the file or the environment needs
+the publisher changed on PyPI first.
 
 The build runs without isolation, against pinned versions of `build` and
 setuptools, so every release is built by the same backend until a pin is
