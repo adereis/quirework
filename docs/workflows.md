@@ -257,6 +257,21 @@ Every resolution records its `catalog_source`.
 and bundles. `quirework sop panel` compiles a declared panel. These
 helpers live above the generic execution engine.
 
+Both hand long material over as a file and take the answer back as one,
+unless a plan says otherwise. A panel material with no `delivery` is a
+`file`, and each panel turn declares an answer file under `drafts/`,
+named after the turn, so its seat runs with the `write` tools; a spec
+that keeps answers in the reply declares `"answers": "reply"`, and one
+that asks for answer files without those tools is refused. A whole-book
+bundle hands each chapter over as a file. The sequential book plan keeps
+its page images: they are pictures rather than text in the prompt, and
+each chapter's reaction is short. A file a seat reads is evidence only
+if it was read, so for every supplied text file the receipt reports
+`supplied_files_read` from the seat's own tool calls, whether it read
+the file at the path it was told or at the file's own, and red-flags a
+file not read in full. An answer written to a file can be written in
+pieces, so no one response has to hold it.
+
 A panel model allocation accepts `tier: cheap | premium | standard`.
 Every seat built from that allocation inherits its tier. For example, a
 panel can declare one inexpensive model as `cheap` and another as
@@ -604,6 +619,16 @@ and argued about it from the brief's summary, probably because the
 budget warning makes a seat frugal before it has read anything. Hand the
 few files the discussion stands on and leave the rest on disk for
 reference. A person at the table is not handed them.
+
+Inline is for short files. A long one is better marked `"read": true`,
+in a roundtable's or a room's plan alike: it stays a file on disk, and
+every model turn's receipt says in `required_files_read` how many of the
+marked files the seat's session has read in full, from its own tool
+calls, and red-flags each one still unread. A session resumes across
+rounds, so a seat that reads the file in its third turn passes from then
+on, and the supervisor can see in the first round which seat argued from
+the brief alone. Inline text also has a size the harness will carry: agy
+cut a 214 KB file handed that way (see "Run plans").
 
 A person can take a seat as well:
 

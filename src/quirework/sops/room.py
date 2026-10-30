@@ -37,6 +37,7 @@ from quirework.core import usage as usage_records
 from quirework.providers import blind
 from quirework.providers import quota
 from quirework.providers import exits
+from quirework.providers import reads
 from quirework.providers import models as drivers
 from quirework.runs import feed
 from quirework.runs import observe
@@ -47,6 +48,7 @@ from quirework.runs.storage import (
     lock,
     process_identity,
     read,
+    relative,
     shown,
     slot,
     write,
@@ -508,6 +510,17 @@ def prepare(plan_path, destination, *, resolve_models=True):
             target.parent.mkdir(parents=True, exist_ok=True)
             target.write_bytes(content)
         seat["reads"] = sorted(files)
+        # Files the plan marks "read": true are held to being read in full,
+        # and every turn's receipt says whether the session has read them.
+        seat["required_reads"] = sorted(
+            entry["path"]
+            for entry in (
+                supplied["brief"],
+                *supplied.get("shared_files", []),
+                *seat.get("files", []),
+            )
+            if entry.get("read")
+        )
         seat["input_hashes"] = hashes(work / "input")
         (destination / "board" / "posts" / seat["id"]).mkdir(parents=True)
         (destination / "records" / seat["id"]).mkdir(parents=True)
@@ -1158,6 +1171,39 @@ def run_seat(root, plan, seat, n, *, timeout=None):
     )
 
 
+def required_reading(work, seat, got):
+    """Whether the session has read in full each file the plan marked "read".
+
+    A seat handed a path decides whether to open it: in a pilot table, two of
+    five seats never opened the chapter they were told to start with and
+    argued from the brief's summary of it. A session resumes across rounds
+    and its transcript keeps every turn, so the count is of the whole session
+    so far, and a file still unread raises a red flag on every turn until it
+    is read. ``{}`` for a seat with nothing marked.
+    """
+    required = seat.get("required_reads") or []
+    if not required:
+        return {}
+    paths = [str(work / "input" / relative(rel)) for rel in required]
+    recorded = [
+        (p, r)
+        for transcript in got.get("native_transcripts", [])
+        for kind, p, r in reads.events(transcript)
+        if kind == "read"
+    ]
+    fully, _, unproven = reads.coverage(recorded, paths)
+    out = {"required_files_read": f"{fully}/{len(paths)}"}
+    if unproven:
+        out["red_flags"] = got.get("red_flags", []) + [
+            f"Not yet proven read in full: {fully} of {len(paths)} required "
+            f"files ({', '.join(unproven[:5])}"
+            + (", ..." if len(unproven) > 5 else "")
+            + "). A read the record cannot parse also lands here, so check "
+            "the native session before calling it skipped."
+        ]
+    return out
+
+
 def launch_turn(
     root,
     plan,
@@ -1286,6 +1332,7 @@ def launch_turn(
             )
     try:
         got = drivers.receipt(config, record, private, resumed=resume)
+        got.update(required_reading(work, seat, got))
         status, detail = "answered", None
     except (RuntimeError, ValueError, OSError) as exc:
         got, status, detail = {}, "failed", str(exc)

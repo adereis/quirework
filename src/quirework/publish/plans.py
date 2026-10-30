@@ -496,7 +496,10 @@ def bundle(
         path = artifact / relative(row["file"])
         if path.is_symlink() or digest(path) != row["sha256"]:
             raise ValueError("book artifact entry changed")
-        materials.append({"source": str(path), "delivery": "text"})
+        # A whole book is far past what a message carries safely (agy cuts
+        # one at about 192 KB), so each chapter is a file the seat reads and
+        # the receipt proves the read.
+        materials.append({"source": str(path), "delivery": "file"})
         if images:
             for name in row["figures"]:
                 if name not in figures:
@@ -539,13 +542,14 @@ def bundle(
                 "scope": "work",
                 "policy": {
                     "filesystem": "audited" if harness == "agy" else "enforced",
-                    "tools": "read" if images and harness == "agy" else "none",
+                    "tools": "write",
                 },
                 "turns": [
                     {
                         "id": "review",
                         "prompt": Path(prompt_file).read_text(),
                         "materials": materials,
+                        "outputs": ["drafts/review.md"],
                     }
                 ],
             }

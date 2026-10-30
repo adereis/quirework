@@ -869,6 +869,56 @@ class Run:
             )
         return prompt, images, files
 
+    def check_supplied_reads(self, seat, index, receipt):
+        """Hold a turn's supplied text files to being read in full.
+
+        Material handed over as a file arrives only if the seat opens it, and
+        a seat handed a path decides whether to: in one measured run, two of
+        five never opened the chapter they were told to start with. The
+        receipt therefore says how many of the turn's supplied text files the
+        native session shows read in full, and red-flags a shortfall, the way
+        it does for a mounted reading list. A file that is not text, such as
+        a PDF, has no lines to count and is left out of the count.
+        """
+        spec = self.seats[seat]
+        turn = spec["turns"][index]
+        name = f"turn-{self.prefix_length(seat) + index:03d}"
+        supplied = []
+        for host, shown in artifacts.staged_files(
+            turn["materials"],
+            self.workspace(seat) / "materials" / name,
+            harness.VIRTUAL / "materials" / name,
+        ):
+            try:
+                host.read_text(encoding="utf-8")
+            except (OSError, UnicodeDecodeError):
+                continue
+            supplied.append((str(host), str(shown)))
+        if not supplied:
+            return
+        # The jail binds the materials at the path the seat is told and at
+        # their own, so a read by either name counts.
+        alias = {host: shown for host, shown in supplied}
+        recorded = [
+            (alias.get(p, p), r)
+            for kind, p, r in reads.events(receipt["rollout"])
+            if kind == "read"
+        ]
+        fully, _, unproven = reads.coverage(
+            recorded,
+            [shown for _, shown in supplied],
+            local={shown: host for host, shown in supplied},
+        )
+        receipt["supplied_files_read"] = f"{fully}/{len(supplied)}"
+        if unproven:
+            receipt.setdefault("red_flags", []).append(
+                f"Not proven read in full: {fully} of {len(supplied)} supplied "
+                f"files ({', '.join(unproven[:5])}"
+                + (", ..." if len(unproven) > 5 else "")
+                + "). A read the record cannot parse also lands here, so "
+                "check the native session before calling it skipped."
+            )
+
     def expected_images(self, seat, through):
         spec = self.seats[seat]
         values = []
@@ -1079,6 +1129,7 @@ class Run:
                     "record cannot parse also lands here, so check the native "
                     "session before calling it out of order."
                 )
+        self.check_supplied_reads(seat, index, receipt)
         answers = record / "answers"
         answers.mkdir(exist_ok=True)
         target = answers / "answer.md"

@@ -508,6 +508,7 @@ def prepare(plan_path, destination, *, resolve_models=True):
                 "source_sha256": digest(path),
                 "git": git_state(path),
                 "inline": bool(entry.get("inline")),
+                "read": bool(entry.get("read")),
             }
         )
         return content
@@ -544,6 +545,9 @@ def prepare(plan_path, destination, *, resolve_models=True):
             target.parent.mkdir(parents=True, exist_ok=True)
             target.write_bytes(content)
         seat["reads"] = sorted(packet)
+        # Files the plan marks "read": true are held to being read in full;
+        # every turn's receipt says whether the session has read them.
+        seat["required_reads"] = sorted(s["path"] for s in sources if s["read"])
         seat["input_hashes"] = hashes(work / "input")
         write(
             room.state_path(destination, seat["id"]),

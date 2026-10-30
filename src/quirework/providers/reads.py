@@ -358,7 +358,9 @@ def events(rollout):
             elif name in ("Write", "Edit", "MultiEdit") and args.get("file_path"):
                 out.append(("write", args["file_path"], None))
             elif name == "Bash" and args.get("command"):
-                out += _shell_events(args["command"])
+                # Claude Code records the directory each row ran in, so a
+                # relative path resolves as the shell resolved it.
+                out += _shell_events(args["command"], row.get("cwd"))
     return out
 
 
@@ -437,7 +439,7 @@ def reactions_unrevised(evs, referenced, pairs):
     return True
 
 
-def coverage(reads, referenced):
+def coverage(reads, referenced, local=None):
     """Check a declared reading list against the reads a session recorded.
 
     Returns ``(fully_read, in_order, unproven)``: how many of the
@@ -447,7 +449,12 @@ def coverage(reads, referenced):
     shows two files opened out of order, and None when nothing is out of
     order but a file was never seen opening, since a read the record cannot
     parse leaves exactly that gap.
+
+    ``referenced`` names each file as the seat saw it. ``local`` maps such a
+    name to the copy the lines are counted in, for material a seat reads at
+    a path inside its jail that is not where the file sits on the host.
     """
+    local = local or {}
     covered = {}
     first_seen = {}
     for index, (path, ranges) in enumerate(reads):
@@ -460,7 +467,9 @@ def coverage(reads, referenced):
                 lines.update(range(first, last + 1))
     fully, unproven = 0, []
     for path in referenced:
-        total = len(Path(path).read_text(encoding="utf-8").splitlines())
+        total = len(
+            Path(local.get(path, path)).read_text(encoding="utf-8").splitlines()
+        )
         seen = covered.get(path, set())
         if "all" in seen or all(n in seen for n in range(1, total + 1)):
             fully += 1

@@ -156,6 +156,7 @@ def compile_plan(spec, *, directory, root=None):
         "segments",
         "turns",
         "policy",
+        "answers",
         "title",
         "source",
     }
@@ -164,6 +165,22 @@ def compile_plan(spec, *, directory, root=None):
         raise ValueError("declare exactly one of materials, segments or turns")
     preset, preset_hash = panel(spec["panel"], root=root)
     scope = spec.get("scope", "artifact")
+    # Each answer comes back as a file the seat writes, which a long answer
+    # needs: written in pieces, no single response has to hold it, and the
+    # receipt measures the file. A spec keeps the answer in the reply with
+    # "answers": "reply".
+    answers = spec.get("answers", "file")
+    if answers not in ("file", "reply"):
+        raise ValueError('answers must be "file" or "reply"')
+    seat_policy = dict(spec.get("policy", {}))
+    if answers == "file":
+        seat_policy.setdefault("tools", "write")
+        if seat_policy["tools"] != "write":
+            raise ValueError(
+                "answer files need the write tools policy: set "
+                '"tools": "write", or declare "answers": "reply" to keep each '
+                "answer in the reply"
+            )
     if scope not in instruments.SCOPES:
         raise ValueError("invalid panel scope")
     models = spec.get("models", [])
@@ -228,7 +245,10 @@ def compile_plan(spec, *, directory, root=None):
             raise ValueError("materials must be a list")
         result = copy.deepcopy(rows)
         for row in result:
-            _object(row, {"source", "delivery"}, {"label"})
+            _object(row, {"source"}, {"delivery", "label"})
+            # Long material goes as a file the seat reads, and the receipt
+            # proves the read; text in the prompt is a choice a spec makes.
+            row.setdefault("delivery", "file")
             for key, value in row.items():
                 _text(value, f"material {key}")
             path = Path(row["source"]).expanduser()
@@ -304,6 +324,8 @@ def compile_plan(spec, *, directory, root=None):
             raise ValueError("panel needs turns")
         for turn in turns:
             turn["materials"] = material_paths(turn.get("materials", []))
+            if answers == "file":
+                turn.setdefault("outputs", [f"drafts/{identifier(turn['id'])}.md"])
         if not any(t.get("materials") for t in turns):
             raise ValueError("panel review requires supplied material")
         if scope == "changes":
@@ -337,7 +359,7 @@ def compile_plan(spec, *, directory, root=None):
             "persona": {"frozen": resolved[p]},
             "scope": scope,
             "exposure": spec.get("exposure", "packet"),
-            "policy": spec.get("policy", {}),
+            "policy": dict(seat_policy),
             "turns": turns,
         }
         if instrument_name:

@@ -136,6 +136,19 @@ def prepare(materials, origin, destination, cache=None):
     return result
 
 
+def staged_files(items, destination, virtual):
+    """``[(host path, path the seat sees)]`` for each file :func:`stage` hands
+    over, named exactly as it names them, without copying anything."""
+    return [
+        (
+            destination / f"material-{index:03d}{Path(item['path']).suffix}",
+            virtual / f"material-{index:03d}{Path(item['path']).suffix}",
+        )
+        for index, item in enumerate(items)
+        if item["kind"] not in ("text", "image")
+    ]
+
+
 def stage(items, frozen, destination, virtual):
     """Only the declared current turn is copied; return prompt and attachments."""
     destination.mkdir(parents=True, exist_ok=True)
