@@ -1,5 +1,5 @@
 ---
-name: release
+name: quirework-release
 description: "Release Quirework: bump the version, verify, and push the tag that deploys the site and publishes to PyPI."
 disable-model-invocation: true
 argument-hint: "[version, such as 0.2.0]"
@@ -9,7 +9,7 @@ Release Quirework $ARGUMENTS.
 
 A pushed `v*` tag deploys quirework.com and publishes that version to
 PyPI, where its number can never be used again. This runs only because
-the person typed `/release`.
+the person typed `/quirework-release`.
 
 Read `docs/development.md`, section "Releasing", in full, and follow its
 list. It is the procedure, and this skill only says when to stop. Read

@@ -1,5 +1,5 @@
 ---
-name: site-fix
+name: quirework-site-fix
 description: "Make a change to quirework.com alone, and deploy it from main between releases."
 disable-model-invocation: true
 argument-hint: "[what to change on the site]"

@@ -253,9 +253,9 @@ delete it on GitHub with `git push origin --delete vX.Y.Z`, tag the fix,
 and push the tag again. If `publish` failed after a file reached PyPI,
 that number is spent, and the fix ships as the next one.
 
-In Claude Code, `/release X.Y.Z` runs this list
-(`.claude/skills/release/`). It prepares everything through step 3 and
-stops for the maintainer's word, naming the tag, before step 4.
+In Claude Code, `/quirework-release X.Y.Z` runs this list
+(`.claude/skills/quirework-release/`). It prepares everything through
+step 3 and stops for the maintainer's word, naming the tag, before step 4.
 
 The workflow holds no PyPI token. The project's trusted publisher on
 PyPI names this repository, the file `release.yml` and the environment
