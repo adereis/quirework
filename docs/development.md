@@ -221,14 +221,41 @@ resumes the run once the cause is fixed. A push runs no workflow at all;
 
 The version lives in one place, `__version__` in
 `src/quirework/__init__.py`, and the package metadata reads it from
-there. The workflow refuses a tag that names any other version. To
-release, set `__version__`, run the suite and `quirework dev check`,
-then commit and push. Tag that commit and push the tag:
+there. The workflow refuses a tag that names any other version.
 
-```bash
-git tag v0.2.0
-git push origin v0.2.0
-```
+To release:
+
+1. Start from `main` as GitHub has it: fetch, and rebase any local
+   commits onto `origin/main`. No tracked file has uncommitted changes,
+   and the tag will name a commit that everyone else can see.
+2. Choose the number, which is the maintainer's call, and check that
+   PyPI does not hold it: `https://pypi.org/pypi/quirework/X.Y.Z/json`
+   answers 404. The workflow does not check this, and a taken number
+   would deploy the site and then fail at the upload.
+3. Set `__version__`, run the suite and `quirework dev check`, and
+   commit the bump on its own. Its subject is "Release X.Y.Z", and its
+   body says what the release brings since the last tag.
+4. Push `main`, then tag the bump and push that tag alone:
+
+   ```bash
+   git tag v0.2.0
+   git push origin v0.2.0
+   ```
+
+5. Watch the run to its end (`gh run watch`). A release has landed when
+   every job passed, PyPI lists the version with both files, and
+   quirework.com answers. The site shows no version number, so its
+   deploy job is the evidence of which commit it serves.
+
+If the run fails before `publish`, nothing reached PyPI and the number
+is still free. Fix the cause on `main`, then move the tag to the fix:
+delete it on GitHub with `git push origin --delete vX.Y.Z`, tag the fix,
+and push the tag again. If `publish` failed after a file reached PyPI,
+that number is spent, and the fix ships as the next one.
+
+In Claude Code, `/release X.Y.Z` runs this list
+(`.claude/skills/release/`). It prepares everything through step 3 and
+stops for the maintainer's word, naming the tag, before step 4.
 
 The workflow holds no PyPI token. The project's trusted publisher on
 PyPI names this repository, the file `release.yml` and the environment
