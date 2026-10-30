@@ -890,7 +890,9 @@ asked for. From 1.4.3 its `read_file` result names only the lines, and
 each result follows the call it answers in turn. So the file comes from
 that call, and only while the results after a response match its calls
 one for one. A read cut to agy's size limit counts only the lines it
-showed whole. A read the parser cannot recognize is reported as not
+showed whole, and a range read in such pieces counts whole once its
+pieces cover every byte of it, since the line a cut falls in is whole in
+neither piece. A read the parser cannot recognize is reported as not
 proven, never as done, and so is the order of a file it never saw
 opening: `referenced_files_in_order` is false only when the record shows
 two files opened out of order, and null when one was never seen. Reading

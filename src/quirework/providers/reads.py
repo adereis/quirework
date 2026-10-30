@@ -60,9 +60,13 @@ _AGY_CREATED = re.compile(r"Created file file://(\S+) with requested content")
 # read's body can begin and end inside a line, and those lines were not shown
 # whole. Each shown line is numbered `n: `.
 _AGY_SHOWN = re.compile(r"Showing lines (\d+)-(\d+) of \d+")
+# A piece that finishes the range ends its sentence there. One that stops at
+# the size limit goes on, "truncated at the N-byte limit", and tells the
+# model how to fetch the rest; the first piece of a long file always does.
 _AGY_PARTIAL = re.compile(
     r"Partial read \(lines (\d+)-(\d+) of \d+\)\. "
-    r"Showing bytes (\d+)-(\d+) of (\d+) in this line range\."
+    r"Showing bytes (\d+)-(\d+) of (\d+) in this line range"
+    r"(?:\.|, truncated at the \d+-byte limit\..*)"
 )
 _AGY_LINE = re.compile(r"(\d+):(?: |$)")
 # What its `edit_file` records when it changed something: how many
@@ -268,7 +272,17 @@ def _agy_whole_lines(partial, body):
     return (low, high) if first <= low <= high <= last else None
 
 
-def _agy_paired(name, path, result):
+def _covers(spans, size):
+    """Whether byte spans ``[start, end)`` cover ``0`` to ``size`` with no gap."""
+    reached = 0
+    for start, end in sorted(spans):
+        if start > reached:
+            return False
+        reached = max(reached, end)
+    return reached >= size
+
+
+def _agy_paired(name, path, result, pieces=None):
     """What a call to one of agy's newer file tools did, from the step that
     answers it: the file is the call's, the lines are the result's."""
     if result is None or result.get("type") != "GENERIC":
@@ -290,14 +304,16 @@ def _agy_paired(name, path, result):
         return [("write", path, None)] if named else []
     if shown := _AGY_SHOWN.fullmatch(head):
         return [("read", path, [(int(shown.group(1)), int(shown.group(2)))])]
-    if (partial := _AGY_PARTIAL.fullmatch(head)) and (
-        span := _agy_whole_lines(partial, body)
-    ):
-        return [("read", path, [span])]
+    if partial := _AGY_PARTIAL.fullmatch(head):
+        if pieces is not None:
+            first, last, start, end, size = (int(g) for g in partial.groups())
+            pieces.append((path, first, last, start, end, size))
+        if span := _agy_whole_lines(partial, body):
+            return [("read", path, [span])]
     return []
 
 
-def _agy_events(row, steps):
+def _agy_events(row, steps, pieces=None):
     """Ordered read and write events one step of an agy transcript carries.
 
     A planner step lists the tools it called and each result is a step of its
@@ -318,7 +334,7 @@ def _agy_events(row, steps):
             if call.get("name") == "run_command" and isinstance(command, str):
                 found += _shell_events(command, args.get("Cwd"))
             elif call.get("name") in _AGY_PAIRED:
-                found += _agy_paired(call["name"], args.get("Path"), result)
+                found += _agy_paired(call["name"], args.get("Path"), result, pieces)
         return found
     if row.get("status") != "DONE":
         return []
@@ -337,12 +353,26 @@ def events(rollout):
     out = []
     rows = _rows(rollout)
     steps = {r["step_index"]: r for r in rows if isinstance(r.get("step_index"), int)}
+    # Byte spans agy showed of each line range, read in pieces.
+    ranges, whole = {}, set()
     for row in rows:
         if row.get("type") == "response_item":
             out += _codex_events(row.get("payload", {}))
             continue
         if "step_index" in row:
-            out += _agy_events(row, steps)
+            pieces = []
+            out += _agy_events(row, steps, pieces)
+            for path, first, last, start, end, size in pieces:
+                # A long range is read in pieces, each cut at agy's size
+                # limit, and the line a cut falls in is whole in neither
+                # piece. Once the pieces of one range cover all its bytes,
+                # every line of the range has been shown.
+                key = (path, first, last, size)
+                spans = ranges.setdefault(key, [])
+                spans.append((start, end))
+                if key not in whole and _covers(spans, size):
+                    whole.add(key)
+                    out.append(("read", path, [(first, last)]))
             continue
         if row.get("type") != "assistant":
             continue

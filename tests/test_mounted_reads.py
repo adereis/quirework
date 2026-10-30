@@ -337,6 +337,71 @@ def test_a_cut_agy_read_counts_only_the_lines_it_showed_whole(tmp_path, mount):
     ]
 
 
+def test_a_read_agy_stopped_at_its_size_limit_counts_its_whole_lines(tmp_path, mount):
+    """agy words a read it stopped at the limit with a comma, not a period.
+
+    The first piece of a long file read in pieces looks like this, and the
+    rest of the range is fetched by a second call from the byte it stopped
+    at; both pieces together are the whole range.
+    """
+    first = chapter(mount, 0)
+    session = agy_session(
+        tmp_path,
+        [
+            agy_call("read_file", Path=first),
+            agy_answer(
+                "Partial read (lines 1-3 of 3). Showing bytes 0-40 of 68 in "
+                "this line range, truncated at the 40-byte limit. To read the "
+                "rest of this line range, call this tool again with the same "
+                "range and ByteOffset 40.",
+                *agy_lines(first, 1, 1),
+                "2: The door sta",
+            ),
+            agy_call("read_file", Path=first, ByteOffset=40),
+            agy_answer(
+                "Partial read (lines 1-3 of 3). Showing bytes 40-68 of 68 in "
+                "this line range.",
+                "yed open.",
+                *agy_lines(first, 3, 3),
+            ),
+        ],
+    )
+    # Each piece shows its whole lines; the line the cut fell in is whole in
+    # neither, and together the pieces cover every byte of the range.
+    assert reads.file_reads(session) == [
+        (first, [(1, 1)]),
+        (first, [(3, 3)]),
+        (first, [(1, 3)]),
+    ]
+    assert reads.coverage(reads.file_reads(session), [first]) == (1, True, [])
+
+
+def test_pieces_with_a_gap_between_them_do_not_make_a_whole_range(tmp_path, mount):
+    first = chapter(mount, 0)
+    session = agy_session(
+        tmp_path,
+        [
+            agy_call("read_file", Path=first),
+            agy_answer(
+                "Partial read (lines 1-3 of 3). Showing bytes 0-40 of 68 in "
+                "this line range, truncated at the 40-byte limit. To read the "
+                "rest, call again with ByteOffset 40.",
+                *agy_lines(first, 1, 1),
+                "2: The door sta",
+            ),
+            agy_call("read_file", Path=first, ByteOffset=50),
+            agy_answer(
+                "Partial read (lines 1-3 of 3). Showing bytes 50-68 of 68 in "
+                "this line range.",
+                "open.",
+                *agy_lines(first, 3, 3),
+            ),
+        ],
+    )
+    assert reads.file_reads(session) == [(first, [(1, 1)]), (first, [(3, 3)])]
+    assert reads.coverage(reads.file_reads(session), [first])[0] == 0
+
+
 def test_a_cut_line_that_looks_numbered_is_not_taken_for_a_whole_one(tmp_path, mount):
     score = mount / "chapters" / "03-score.md"
     score.write_text("The score at noon was 1: nil.\nThe rain held off.\nThey left.\n")
