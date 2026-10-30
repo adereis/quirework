@@ -162,21 +162,34 @@ breadcrumb in the same session, because it is the one reader that knows
 which words did it. It errs toward including one, since a reader can
 skip a breadcrumb but nobody can recover a turn that nobody pointed at.
 A breadcrumb is never deleted because you moved on. A `reverse` is added
-instead, because the earlier position is part of the story.
+instead, because the earlier position is part of the story. A project's
+commit check can name the sections a change rewrote with no breadcrumb
+beside them, as a reminder and never a gate.
 
 The trail is context, never authority. The spec states what the work
 holds now, and what you ask for now outranks anything on the trail.
 
-## Backfilling a trail
+## Reading older sessions into leads
 
 A spec that grew before it had a trail needs its history read, and
 hundreds of sessions are too much for a strong model to read whole.
-`spec trail backfill` splits the work by what it costs. Cheap readers go
-through each session once and flag every turn of yours that might have
-shaped any section. A strong model then takes one section at a time,
-reads everything flagged for it, oldest first, and decides. Each session
-is read once against the whole list, because reading it costs the same
+`spec trail backfill` sends cheap readers through each session once.
+They flag every turn of yours that may have shaped a section, each flag
+with its kind, its reason and how sure the reader is. Each session is
+read once against the whole list, because reading it costs the same
 whether it is read for one section or for all of them.
+
+A flag that nobody has kept or rejected is a lead. `spec trail SLUG`
+counts a section's leads, and `--leads` lists them after its
+breadcrumbs: the ones a reader flagged with high confidence, or every
+one with `--all`. Whoever reads the trail judges a lead in context, and
+can keep it as a breadcrumb or reject it. A lead stays a reader's guess
+until then.
+
+When a section's history has to be right, a strong model takes the
+section whole, reads every lead for it oldest first, and decides. That
+is the thorough route and the expensive one, so it is kept for the
+sections that need it.
 
 The [authoring guide](repo:docs/authoring.md) walks through a spec, its
 marks and its trail from an empty directory.
