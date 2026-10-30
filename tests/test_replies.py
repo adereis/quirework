@@ -261,6 +261,16 @@ def test_a_cut_below_the_declared_ceiling_is_flagged_and_the_answer_kept(tmp_pat
     )
 
 
+def test_every_procedure_holds_a_cut_to_the_declared_ceiling():
+    """Rooms, reviews and experiments read flags here, not in the run receipt."""
+    evidence = dict(output_limit=dict(cut_at=[64000]), harness_text=[])
+    assert any("declared 128000" in f for f in replies.flags(evidence, 128000))
+    assert not any(f.startswith("Output ceiling") for f in replies.flags(evidence))
+    assert not any(
+        f.startswith("Output ceiling") for f in replies.flags(evidence, 64000)
+    )
+
+
 def test_harness_text_with_no_known_cause_is_flagged_and_kept_out(tmp_path):
     stream = response("m1", "Before. ") + [injected("Something else.")]
     stream += response("m2", "After.")

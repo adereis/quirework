@@ -9,6 +9,7 @@ from pathlib import Path
 
 from quirework.providers import blind
 from quirework.providers import claude_login
+from quirework.providers import output_ceiling as output_ceiling_
 from quirework.providers import quota
 from quirework.providers import replies
 from quirework.providers import models as workshop_drivers
@@ -95,11 +96,7 @@ def environment(harness, gateway_env=(), output_ceiling=None):
         DISABLE_AUTOUPDATER="1",
         DISABLE_COMPACT="1",
     )
-    if output_ceiling is not None:
-        # Claude Code moves its per-model default to this, up to the model's
-        # own ceiling, on a streamed request. Its usage table goes on
-        # reporting the default; a cut response shows what was used.
-        env["CLAUDE_CODE_MAX_OUTPUT_TOKENS"] = str(output_ceiling)
+    output_ceiling_.apply(env, output_ceiling)
     if gateway_env:
         # A declared gateway routes the seat's traffic and carries its own
         # credentials, so the host login is not the auth path and never
@@ -659,17 +656,8 @@ def receipt(config, policy, record, private, established=None):
         if compactions
         else []
     )
-    red_flags += replies.flags(reply)
+    red_flags += replies.flags(reply, policy.get("output_ceiling"))
     red_flags += bus_flags(record)
-    declared = policy.get("output_ceiling")
-    cuts = (reply["output_limit"] or {}).get("cut_at") or []
-    if declared is not None and any(cut != declared for cut in cuts):
-        # The answer stands: a response cut at another ceiling was resumed
-        # and is banked whole. What failed is the declared condition.
-        red_flags.append(
-            f"Output ceiling not as declared: declared {declared}, a response "
-            f"was cut at {', '.join(str(c) for c in cuts)} tokens."
-        )
     minimum = policy.get("minimum_context_window", 0)
     if minimum and (window is None or window < minimum):
         raise RuntimeError("required effective context window is not evidenced")

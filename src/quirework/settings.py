@@ -108,6 +108,7 @@ SETTINGS: tuple[str, ...] = (
     "providers.canary_models.*",
     "providers.claude.gateway_env",
     "providers.claude.models",
+    "providers.claude.output_ceiling",
     "providers.claude.sessions",
     "providers.codex.catalog",
     "providers.isolation_policy",

@@ -26,6 +26,7 @@ import uuid
 from quirework.core import usage as usage_records
 from quirework.providers import blind
 from quirework.providers import claude_login
+from quirework.providers import output_ceiling
 from quirework.providers import quota
 from quirework.providers import replies
 
@@ -255,7 +256,7 @@ def parse_codex(rows, home, model, effort, established):
     }
 
 
-def parse_claude(rows, home, model, effort, established):
+def parse_claude(rows, home, model, effort, established, declared=None):
     reject_compaction(rows)
     results = [r for r in rows if r.get("type") == "result"]
     if len(results) != 1:
@@ -314,7 +315,7 @@ def parse_claude(rows, home, model, effort, established):
         "auxiliary_usage": auxiliary,
         "cost_usd": result.get("total_cost_usd"),
         "rollout": str(matches[0]),
-        "red_flags": replies.flags(reply),
+        "red_flags": replies.flags(reply, declared),
         **reply,
     }
 
@@ -390,12 +391,16 @@ def command(runner, model, effort, mode, sid, images, prompt):
     return args, None
 
 
-def claude_environment():
+def claude_environment(ceiling=None):
     """Supply only an access token; a blind child must not rotate shared OAuth.
 
     No token is put in an argument, receipt, plan or snapshot. The documented
     environment-token path takes precedence over persisted Claude credentials
     and has no refresh token. Renew authentication outside the reader.
+
+    ``ceiling`` is the output ceiling the plan froze. A plan without one runs
+    at the CLI's default, and a ceiling left in the operator's own
+    environment is cleared rather than inherited.
     """
     env = os.environ.copy()
     if any(
@@ -416,7 +421,7 @@ def claude_environment():
         # With LAUNCH_MARGIN of life left, so the host does not renew the
         # login out from under the reader (``claude_login``).
         env["CLAUDE_CODE_OAUTH_TOKEN"], _ = claude_login.host_login()
-    return env
+    return output_ceiling.apply(env, ceiling)
 
 
 def canary(runner, label):
@@ -595,7 +600,11 @@ class Experiment:
             # Proven before the request is marked pending, so a seat that
             # cannot be shown blind leaves no submission to reconcile.
             proven = canary(self.runner, f"experiment {key}")
-            runtime_env = claude_environment() if self.runner == "claude" else None
+            runtime_env = (
+                claude_environment(self.plan.get("output_ceiling"))
+                if self.runner == "claude"
+                else None
+            )
             self.state["pending"] = {
                 "key": key,
                 "request_sha": request_hash,
@@ -677,13 +686,12 @@ class Experiment:
         failure = None
         for attempt in range(30):
             try:
-                parser = parse_codex if self.runner == "codex" else parse_claude
-                answer, receipt = parser(
-                    events(raw),
-                    self.home(seat),
-                    self.plan["model"],
-                    self.plan["effort"],
-                    self.state.get("served_model"),
+                parsed = (events(raw), self.home(seat), self.plan["model"])
+                parsed += (self.plan["effort"], self.state.get("served_model"))
+                answer, receipt = (
+                    parse_codex(*parsed)
+                    if self.runner == "codex"
+                    else parse_claude(*parsed, declared=self.plan.get("output_ceiling"))
                 )
                 break
             except (RuntimeError, json.JSONDecodeError) as exc:
@@ -857,6 +865,11 @@ def prepare(args):
         "runner": args.runner,
         "model": args.model,
         "effort": args.effort,
+        "output_ceiling": output_ceiling.validate(
+            current_project().get(output_ceiling.SETTING)
+        )
+        if args.runner == "claude"
+        else None,
         "runner_version": blind.runner_version(args.runner),
         "driver_sha": digest(__file__),
         "blind_sha": digest(blind.__file__),

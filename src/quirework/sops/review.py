@@ -49,6 +49,7 @@ from quirework.core import usage as usage_records
 from quirework.providers import blind
 from quirework.providers import claude_login
 from quirework.providers import exits
+from quirework.providers import output_ceiling
 from quirework.sops import personas
 from quirework.providers import quota
 from quirework.providers import replies
@@ -659,6 +660,10 @@ def launch_context(
         DISABLE_AUTOUPDATER="1",
         DISABLE_COMPACT="1",
     )
+    if harness == "claude":
+        # The ceiling frozen into the review when it was prepared; one
+        # prepared before reviews carried it runs at the CLI's default.
+        output_ceiling.apply(env, config.get("output_ceiling"))
     if not jailed:
         if harness == "claude":
             # Say it plainly rather than letting the record imply otherwise.
@@ -965,7 +970,7 @@ def _answer(harness, config, rows, private):
             session_id=result["session_id"],
             answer=answer,
             usage=result.get("modelUsage"),
-            red_flags=replies.flags(reply),
+            red_flags=replies.flags(reply, config.get("output_ceiling")),
             **reply,
         )
         served = {

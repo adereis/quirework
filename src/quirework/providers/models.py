@@ -15,7 +15,7 @@ import sys
 from pathlib import Path
 
 from quirework.project import current_project
-from quirework.providers import blind, claude_login, quota, replies
+from quirework.providers import blind, claude_login, output_ceiling, quota, replies
 
 HARNESSES = ("codex", "claude", "agy")
 
@@ -317,6 +317,12 @@ def resolve(harness, requested, effort, resolved_model=None, declared=None):
             )
         if effort not in ("low", "medium", "high", "xhigh", "max"):
             raise ValueError(f"invalid Claude effort: {effort}")
+        # Every driver resolves its seats when it prepares them, so the
+        # project's ceiling is frozen into each seat's config here and a
+        # record keeps the one it was prepared with.
+        ceiling = output_ceiling.validate(current_project().get(output_ceiling.SETTING))
+        if ceiling is not None:
+            evidence["output_ceiling"] = ceiling
     evidence.update(harness=harness, model=model, effort=effort)
     return evidence
 
@@ -615,6 +621,9 @@ def launch_context(config, workspace, bus=None, canary=None):
         # The access token alone, with LAUNCH_MARGIN of life left, so the host
         # does not renew the login out from under the writer (``claude_login``).
         env["CLAUDE_CODE_OAUTH_TOKEN"], _ = claude_login.host_login()
+        # The ceiling the seat was prepared with; a room prepared before
+        # seats carried one runs at the CLI's default, as it always did.
+        output_ceiling.apply(env, config.get("output_ceiling"))
     jail = blind.jail_argv(
         workspace,
         runners=[harness],
@@ -1214,7 +1223,7 @@ def receipt(config, record, private, *, manual=False, resumed=None):
         "native_transcripts": [str(p) for p in native],
         "output_limit": reply["output_limit"],
         "harness_text": reply["harness_text"],
-        "red_flags": replies.flags(reply),
+        "red_flags": replies.flags(reply, config.get("output_ceiling")),
         "answer": answer,
     }
 

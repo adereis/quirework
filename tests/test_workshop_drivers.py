@@ -452,6 +452,98 @@ def test_an_unsourced_gateway_env_refuses_rather_than_falls_back(monkeypatch):
         harness.environment("claude", ["ANTHROPIC_BASE_URL", "ANTHROPIC_API_KEY"])
 
 
+@pytest.mark.parametrize("value", [0, -5, 2.5, False, "64000"])
+def test_the_project_output_ceiling_must_be_a_positive_integer(value):
+    from quirework.providers import output_ceiling
+
+    with pytest.raises(ValueError, match="providers.claude.output_ceiling"):
+        output_ceiling.validate(value)
+
+
+def test_an_undeclared_ceiling_clears_one_the_operator_left_set():
+    from quirework.providers import output_ceiling
+
+    env = {output_ceiling.ENV: "9999"}
+    assert output_ceiling.ENV not in output_ceiling.apply(env, None)
+    assert output_ceiling.apply({}, 128000)[output_ceiling.ENV] == "128000"
+
+
+def test_preparing_a_claude_seat_freezes_the_project_ceiling(tmp_path, monkeypatch):
+    from quirework.project import Project, project_scope
+
+    _installed(monkeypatch)
+    settings = {"providers": {"claude": {"output_ceiling": 128000}}}
+    with project_scope(Project.from_settings(tmp_path, settings)):
+        assert d.resolve("claude", "opus", "high")["output_ceiling"] == 128000
+    # A project that sets none leaves the CLI's default, and says nothing.
+    assert "output_ceiling" not in d.resolve("claude", "opus", "high")
+
+
+def test_a_room_seat_launches_with_the_ceiling_it_was_prepared_with(
+    tmp_path, monkeypatch
+):
+    monkeypatch.setattr(d.blind, "backend_error", lambda: None)
+    monkeypatch.setattr(d.blind, "runner_binds", lambda _: ([], []))
+    monkeypatch.setattr(d.claude_login, "host_login", lambda: ("tok", None))
+    monkeypatch.setenv("CLAUDE_CODE_MAX_OUTPUT_TOKENS", "9999")
+    work = tmp_path / "writer"
+    work.mkdir()
+
+    def jail(*args, **kwargs):
+        # The real jail creates the private runner home; this one stands in.
+        (d.blind.state_root(work) / "claude").mkdir(parents=True, exist_ok=True)
+        return ["bwrap"]
+
+    monkeypatch.setattr(d.blind, "jail_argv", jail)
+    config = {"harness": "claude", "output_ceiling": 128000}
+    _, env, _ = d.launch_context(config, work)
+    assert env["CLAUDE_CODE_MAX_OUTPUT_TOKENS"] == "128000"
+    # A room prepared before seats carried a ceiling runs at the default,
+    # and the operator's own setting never reaches it.
+    _, env, _ = d.launch_context({"harness": "claude"}, work)
+    assert "CLAUDE_CODE_MAX_OUTPUT_TOKENS" not in env
+
+
+def test_a_reviewer_launches_with_its_frozen_ceiling(tmp_path):
+    from quirework.sops import review
+
+    config = {"harness": "claude", "output_ceiling": 128000}
+    _, env, _, _ = review.launch_context(config, tmp_path, tmp_path, jailed=False)
+    assert env["CLAUDE_CODE_MAX_OUTPUT_TOKENS"] == "128000"
+
+
+def test_a_run_seat_keeps_the_project_ceiling_in_its_policy(tmp_path, monkeypatch):
+    from quirework.project import Project, project_scope
+    from quirework.runs import engine
+
+    _installed(monkeypatch)
+    monkeypatch.setattr(engine, "canary_model", lambda *a: None)
+    settings = {"providers": {"claude": {"output_ceiling": 128000}}}
+    seat = dict(
+        harness="claude",
+        model="opus",
+        effort="high",
+        turns=[dict(id="t", prompt="Continue the fictitious draft.")],
+    )
+    plan = dict(
+        title="Fictitious read",
+        seats=[
+            dict(seat, id="inherits"),
+            dict(seat, id="declares", policy=dict(output_ceiling=64000)),
+        ],
+    )
+    path = tmp_path / "plan.json"
+    path.write_text(json.dumps(plan))
+    with project_scope(Project.from_settings(tmp_path, settings)):
+        engine.prepare(path, tmp_path / "build" / "record")
+    frozen = json.loads((tmp_path / "build" / "record" / "plan.json").read_text())
+    seats = {s["id"]: s for s in frozen["seats"]}
+    assert seats["inherits"]["policy"]["output_ceiling"] == 128000
+    assert seats["declares"]["policy"]["output_ceiling"] == 64000
+    # One home for it in a run record: the policy, never the config too.
+    assert all("output_ceiling" not in s["config"] for s in seats.values())
+
+
 def test_a_declared_output_ceiling_reaches_the_claude_runner(monkeypatch):
     from quirework.providers import harness
 

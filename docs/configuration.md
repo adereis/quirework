@@ -1456,6 +1456,20 @@ operator's own environment carries them and refuses rather than fall
 back, and a seat with a declared gateway never borrows the host login:
 the gateway is the auth path.
 
+`providers.claude.output_ceiling` is the most a Claude seat may write in
+one response, thinking included, such as `128000`. Claude Code sets the
+ceiling per model and asks some models for half of what they allow, so a
+long answer at high effort is cut and resumed, and the message the
+harness writes to resume it asks the model to break its remaining work
+into smaller pieces. Every driver freezes the value into each Claude
+seat it prepares, run seats, rooms, roundtables, workshops, reviews and
+experiments alike, and the launch passes it as
+`CLAUDE_CODE_MAX_OUTPUT_TOKENS`, which the CLI caps at the model's own
+ceiling. A record keeps the ceiling it was prepared with, and one
+prepared without it runs at the CLI's default. A run seat may declare
+its own in its policy. The receipt holds each cut response to the
+declaration (see "Execution and recovery" in the workflow guide).
+
 Every launch proves its seat blind before the seat starts. A runner
 release can change what a flag does without rejecting it, and only a
 live seat can say what it holds, so the launch canary spends one short

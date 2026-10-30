@@ -149,10 +149,22 @@ def claude(stream, native):
     return answer, dict(output_limit=output_limit, harness_text=harness_text)
 
 
-def flags(evidence):
-    """The red flags ``evidence`` from :func:`claude` raises, if any."""
+def flags(evidence, declared=None):
+    """The red flags ``evidence`` from :func:`claude` raises, if any.
+
+    ``declared`` is the output ceiling the seat was launched with
+    (``output_ceiling``). A response cut at any other count shows the
+    declaration did not hold; the answer stands, since the cut reply is
+    still joined whole.
+    """
     found = []
     limit = evidence.get("output_limit") or {}
+    cuts = limit.get("cut_at") or []
+    if declared is not None and any(cut != declared for cut in cuts):
+        found.append(
+            f"Output ceiling not as declared: declared {declared}, a response "
+            f"was cut at {', '.join(str(c) for c in cuts)} tokens."
+        )
     if limit.get("answer_ends_at_limit"):
         found.append(
             "The reply ends at the model's output limit, so the answer is cut "

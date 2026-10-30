@@ -269,6 +269,16 @@ def banked_answers(root, name):
     """
     path = root / "state" / f"{name}.json"
     done = read(path).get("done", {}) if path.exists() else {}
+    plan = root / "plan.json"
+    seat = next(
+        (
+            s
+            for s in (read(plan).get("seats", []) if plan.exists() else ())
+            if s.get("id") == name
+        ),
+        {},
+    )
+    declared = (seat.get("policy") or {}).get("output_ceiling")
     found, flags = {}, []
     for turn, banked in done.items():
         record = (
@@ -291,7 +301,7 @@ def banked_answers(root, name):
             banked_characters=len(kept.removesuffix("\n")),
             reply_characters=len(whole),
         )
-        flags += [f"turn {turn}: {flag}" for flag in replies.flags(evidence)]
+        flags += [f"turn {turn}: {flag}" for flag in replies.flags(evidence, declared)]
         if not complete:
             flags.append(
                 f"turn {turn}: the banked answer holds "

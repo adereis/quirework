@@ -1127,8 +1127,10 @@ fields and flag.
 
 The ceiling counts thinking as well as the visible reply, and Claude
 Code sets it per model, sometimes well below what the model allows: it
-asks some models for half their ceiling. A run seat can declare its own
-with `"output_ceiling": 128000` in its policy, and the CLI then uses it
+asks some models for half their ceiling. A project raises it for every
+Claude seat in every procedure with `providers.claude.output_ceiling`,
+which preparation freezes into each seat, and a run seat can declare its
+own with `"output_ceiling": 128000` in its policy. The CLI uses either
 up to the model's own ceiling. Only a Claude seat accepts one;
 preparation refuses it on the others. The CLI's usage table goes on
 reporting its default whatever the launch asked for, so the receipt

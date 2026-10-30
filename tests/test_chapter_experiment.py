@@ -497,6 +497,15 @@ def test_claude_child_receives_no_refresh_credential(tmp_path, monkeypatch):
         exp.claude_environment()
 
 
+def test_an_experiment_reader_runs_at_the_ceiling_its_plan_froze(monkeypatch):
+    monkeypatch.setattr(exp.claude_login, "host_login", lambda: ("tok", None))
+    monkeypatch.setenv("CLAUDE_CODE_MAX_OUTPUT_TOKENS", "9999")
+    assert exp.claude_environment(128000)["CLAUDE_CODE_MAX_OUTPUT_TOKENS"] == "128000"
+    # The experiment copies the operator's environment, so a ceiling left
+    # set there is cleared rather than inherited by a plan that froze none.
+    assert "CLAUDE_CODE_MAX_OUTPUT_TOKENS" not in exp.claude_environment()
+
+
 def test_access_only_jail_omits_credential_file_mounts(tmp_path):
     args = exp.blind.jail_argv(
         tmp_path, runners=["claude"], bind_credentials=False, canary=exp.blind.PROBE

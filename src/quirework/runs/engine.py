@@ -21,6 +21,7 @@ from pathlib import Path
 from quirework.providers import blind
 from quirework.providers import claude_login
 from quirework.providers import exits
+from quirework.providers import output_ceiling
 from quirework.providers import quota
 from quirework.providers.quota import rewind_sessions, session_marks
 from quirework.providers import models as workshop_drivers
@@ -79,10 +80,11 @@ POLICY = dict(
     # through to its runner (see ``providers.claude.gateway_env``). Empty
     # for every seat that runs on the host's own login.
     gateway_env=(),
-    # The most a Claude seat may write in one response, thinking included.
-    # Unset, the CLI picks its own default per model, which for some models
-    # is half the ceiling the model itself allows. A response cut at any
-    # other count is flagged on the turn's receipt.
+    # The most a Claude seat may write in one response, thinking included
+    # (``providers.output_ceiling``). Unset in the plan, preparation fills
+    # the project's ``providers.claude.output_ceiling``; unset in both, the
+    # CLI picks its own default per model. A response cut at any other
+    # count is flagged on the turn's receipt.
     output_ceiling=None,
 )
 # The provider serves a share of the ceiling, and rounds it. Assert we were
@@ -166,10 +168,7 @@ def policy(value):
     for key in ("context_window", "minimum_context_window"):
         if p[key] is not None and (type(p[key]) is not int or p[key] < 0):
             raise ValueError(f"{key} must be a nonnegative integer")
-    if p["output_ceiling"] is not None and (
-        type(p["output_ceiling"]) is not int or p["output_ceiling"] < 1
-    ):
-        raise ValueError("output_ceiling must be a positive integer or null")
+    output_ceiling.validate(p["output_ceiling"], "output_ceiling")
     if not isinstance(p["read_roots"], list):
         raise ValueError("read_roots must be a list of explicit directory paths")
     p["read_roots"] = [
@@ -364,6 +363,12 @@ def prepare(plan_path, destination, *, resolve=True):
                 )
                 canary_model(config["harness"], name, canaries)
             p = resolve_window(policy(supplied.get("policy", {})), config)
+            # The resolver freezes the project's ceiling into the config, as
+            # every driver's seats carry it. A run seat keeps its ceiling in
+            # its policy, where the plan may also declare its own.
+            project_ceiling = config.pop("output_ceiling", None)
+            if p["output_ceiling"] is None:
+                p["output_ceiling"] = project_ceiling
             if (
                 config.get("harness") == "claude"
                 and str(config.get("model", "")).strip().lower() in declared
