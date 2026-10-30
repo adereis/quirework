@@ -3,9 +3,10 @@
 A prompt typed while the model is working reaches the model inside the running
 turn and is logged only as queue operations. An answer to a question the model
 asked is logged as a tool result. A prompt sent with a pasted image is logged
-as a list of blocks, the shape of a tool result. Every reader that counts the
-author's turns must find all three, agree on their numbers, and take from an
-answer only the words the author typed.
+as a list of blocks, the shape of a tool result. A command that sends the model
+a prompt, a skill and its arguments, is logged as nothing but the harness's
+wrappers. Every reader that counts the author's turns must find all four, agree
+on their numbers, and take from an answer only the words the author typed.
 """
 
 import json
@@ -42,6 +43,21 @@ ANSWER = (
 )
 NOTICE = "<task-notification>\n<task-id>b1</task-id>\n</task-notification>"
 INTERRUPT = "[Request interrupted by user]"
+SKILL = (
+    "<command-message>kettle-review</command-message>\n"
+    "<command-name>/kettle-review</command-name>\n"
+    "<command-args>discuss: only the lid</command-args>"
+)
+BUILTIN = (
+    "<command-name>/model</command-name>\n"
+    "<command-message>model</command-message>\n"
+    "<command-args></command-args>"
+)
+LOADED = (
+    "<command-message>pot-reference</command-message>\n"
+    "<command-name>pot-reference</command-name>\n"
+    "<skill-format>true</skill-format>"
+)
 
 
 def _queue(op, at, content=None, **extra):
@@ -145,6 +161,54 @@ SESSION = [
         "timestamp": "2031-04-03T10:07:30Z",
         "message": {"content": [{"type": "text", "text": INTERRUPT}]},
     },
+    # A skill typed with its arguments: the harness logs the command as its
+    # wrappers alone, then sends the model the skill as a meta record.
+    {
+        "type": "user",
+        "uuid": "u7",
+        "timestamp": "2031-04-03T10:08:00Z",
+        "message": {"content": SKILL},
+    },
+    {
+        "type": "user",
+        "uuid": "u8",
+        "parentUuid": "u7",
+        "isMeta": True,
+        "timestamp": "2031-04-03T10:08:00Z",
+        "message": {"content": [{"type": "text", "text": "Review the kettle."}]},
+    },
+    # A command the harness answers alone; the model never sees it.
+    {
+        "type": "user",
+        "uuid": "u9",
+        "timestamp": "2031-04-03T10:09:00Z",
+        "message": {"content": BUILTIN},
+    },
+    {
+        "type": "user",
+        "uuid": "u10",
+        "parentUuid": "u9",
+        "timestamp": "2031-04-03T10:09:00Z",
+        "message": {
+            "content": "<local-command-stdout>Set model to Kettle</local-command-stdout>"
+        },
+    },
+    # A skill the model loaded for itself, logged as the harness's own.
+    {
+        "type": "user",
+        "uuid": "u11",
+        "isMeta": True,
+        "timestamp": "2031-04-03T10:10:00Z",
+        "message": {"content": LOADED},
+    },
+    {
+        "type": "user",
+        "uuid": "u12",
+        "parentUuid": "u11",
+        "isMeta": True,
+        "timestamp": "2031-04-03T10:10:00Z",
+        "message": {"content": [{"type": "text", "text": "How pots are made."}]},
+    },
 ]
 NAME = "0badc0de-0000-4000-8000-0000000000aa.jsonl"
 TURNS = [
@@ -155,6 +219,7 @@ TURNS = [
     "Actually, make the kettle blue.",
     "And a lid.",
     "[Image #1] The spout looks bent here.",
+    "/kettle-review discuss: only the lid",
 ]
 
 
@@ -218,6 +283,7 @@ def test_the_human_input_stream_numbers_turns_as_show_does(session):
         (4, TURNS[3]),
         (5, TURNS[4]),
         (6, TURNS[5]),
+        (7, TURNS[6]),
     ]
 
 
@@ -228,13 +294,16 @@ def test_the_cold_read_render_shows_mid_turn_prompts(session):
     assert f"### Human\n\n{TURNS[5]}" in text
     assert "task-id" not in text and "taken back" not in text
     assert INTERRUPT not in text and "kettle.png" not in text
+    # The blind render keeps dropping command lines, so its version and the
+    # reports cached from it stand.
+    assert "kettle-review" not in text and "only the lid" not in text
     assert stats["human_turns"] == 6
 
 
 def test_metrics_count_every_author_turn_once(session):
     acc = metrics.Acc("cc")
     metrics.claude_code(acc)
-    assert acc.human_turns == 6
+    assert acc.human_turns == 7
     typed = [
         TURNS[0],
         TURNS[1],
@@ -242,6 +311,7 @@ def test_metrics_count_every_author_turn_once(session):
         TURNS[3],
         TURNS[4],
         TURNS[5],
+        TURNS[6],
     ]
     assert acc.human_words == sum(metrics.words(t) for t in typed)
     audit = [text for tag, text in metrics.human_turns() if tag.startswith("cc/")]
@@ -256,4 +326,19 @@ def test_each_turn_says_how_it_reached_the_log(session):
         "queued",
         "queued",
         "listed",
+        "command",
     ]
+
+
+def test_a_command_is_a_turn_only_when_it_prompted_the_model():
+    assert ccfilter.command_line(SKILL) == "/kettle-review discuss: only the lid"
+    assert ccfilter.command_line(BUILTIN) == "/model"
+    assert ccfilter.command_line(LOADED) == ""
+    assert ccfilter.command_line("Run /kettle-review on it.") == ""
+    assert ccfilter.prompted_commands(SESSION) == {"u7"}
+
+
+def test_raw_keeps_a_prompted_command_as_logged(session):
+    records = [(role, text) for role, text, _ in show.cc_records(session, raw=True)]
+    assert ("human", SKILL) in records
+    assert not any(text == BUILTIN for role, text in records if role == "human")

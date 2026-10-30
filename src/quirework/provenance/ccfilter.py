@@ -194,6 +194,56 @@ def harness_flagged(obj):
     )
 
 
+_COMMAND_NAME = re.compile(r"<command-name>\s*(/[^<\s]+)\s*</command-name>")
+_COMMAND_ARGS = re.compile(r"<command-args>(.*?)</command-args>", re.DOTALL)
+
+
+def command_line(text):
+    """The line the author typed to run a command, from the record that logs it.
+
+    The harness logs a typed ``/name args`` as nothing but its own wrappers
+    (``<command-name>``, ``<command-message>``, ``<command-args>``), and every
+    reader strips those, so a command and the instruction in its arguments
+    vanished. This rebuilds the line as typed, or returns ``''`` for any other
+    record: one with prose outside the wrappers, or a name without the leading
+    slash, which is a skill the model loaded for itself. Whether the command
+    reached the model at all is ``prompted_commands``'s question.
+    """
+    if not isinstance(text, str) or strip_wrappers(text):
+        return ""
+    name = _COMMAND_NAME.search(text)
+    if not name:
+        return ""
+    args = _COMMAND_ARGS.search(text)
+    return f"{name.group(1)} {args.group(1).strip() if args else ''}".strip()
+
+
+def prompted_commands(records):
+    """The uuids of the command records whose command reached the model.
+
+    A command the author types either runs in the harness alone (``/model``,
+    ``/clear``, answered with local output the model never sees) or sends the
+    model a prompt (a skill, a plugin's command), which the harness logs as a
+    meta record whose parent is the command's record. Only the second is a
+    turn of the conversation, the author asking for something as a typed
+    prompt does. ``filter_session`` keeps dropping both, so the blind render
+    and every report cached from it stay as they are.
+    """
+    parents = {
+        o.get("parentUuid")
+        for o in records
+        if isinstance(o, dict) and o.get("isMeta") and o.get("parentUuid")
+    }
+    return {
+        o.get("uuid")
+        for o in records
+        if isinstance(o, dict)
+        and o.get("type") == "user"
+        and o.get("uuid") in parents
+        and command_line((o.get("message") or {}).get("content"))
+    }
+
+
 def typed_text(content, raw=False):
     """The text a ``user`` record's ``content`` carries, as one string.
 

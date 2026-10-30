@@ -79,7 +79,9 @@ from quirework.provenance.metrics import HARNESS
 #    `show` numbers them.
 # 5: a Claude Code prompt sent with a pasted image joins. The harness logs it
 #    as a list of blocks, which was read as a tool result and dropped.
-EXTRACTION_VERSION = 5
+# 6: a Claude Code command that sent the model a prompt joins, as the line the
+#    author typed. The harness logs it as nothing but its own wrappers.
+EXTRACTION_VERSION = 6
 
 # A turn this short (or a bare slash-command / one-word ack) is procedural, not
 # authored thought: "yes", "go on", "/clear", "perfect, commit it". Marked
@@ -229,8 +231,9 @@ def _cc_turns():
     record with text, which a prompt sent with a pasted image carries as the
     text blocks of a list, ``ccfilter.typed_text``), a prompt typed while the
     model was working (logged only
-    as a queue operation, ``ccfilter.queued_prompt``), and an answer to a
-    question the model asked (a tool result). Each takes the turn number
+    as a queue operation, ``ccfilter.queued_prompt``), a command that sent the
+    model a prompt (``ccfilter.command_line``), and an answer to a question
+    the model asked (a tool result). Each takes the turn number
     ``show`` gives it, so a hit opens with ``--turn``. Of an answer, only a
     typed answer and the notes are the author's words (``ccfilter.
     answer_words``); one that picked an option holds none and adds no turn
@@ -258,14 +261,17 @@ def _cc_turns():
                 }
             )
 
+        records = []
         for line in open(fp):
             line = line.strip()
             if not line:
                 continue
             try:
-                o = json.loads(line)
+                records.append(json.loads(line))
             except json.JSONDecodeError:
                 continue
+        prompted = FLT.prompted_commands(records)
+        for o in records:
             prompt = FLT.queued_prompt(o, queued)
             if prompt:
                 n += 1
@@ -284,6 +290,10 @@ def _cc_turns():
                         asks[b.get("id")] = b.get("input")
                 continue
             if o.get("type") != "user":
+                continue
+            if o.get("uuid") in prompted:
+                n += 1
+                keep(FLT.command_line(c), o.get("timestamp"))
                 continue
             txt = _clean(FLT.typed_text(c))
             if txt:

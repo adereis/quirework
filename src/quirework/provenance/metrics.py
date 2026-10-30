@@ -354,8 +354,9 @@ def claude_code(acc, scope=None, making=None):
     a session of its own; its sub-agents, which no copy carries, still count.
 
     The author's turns include a prompt typed while the model was working,
-    logged only as a queue operation, and an answer to a question the model
-    asked, logged as a tool result; an answer's human words are only what he
+    logged only as a queue operation, a command that sent the model a prompt,
+    logged only as the harness's wrappers (``ccfilter.command_line``), and an
+    answer to a question the model asked, logged as a tool result; an answer's human words are only what he
     typed (``ccfilter.answer_words``). A queue operation has no id for
     ownership to match, so such a prompt is counted once corpus-wide by its
     text and the moment it was queued.
@@ -377,14 +378,17 @@ def claude_code(acc, scope=None, making=None):
         mode = "default"
         agents = set()  # the session's sub-agents, by their agentId
         asks, queued = {}, {}
+        records = []
         for line in open(fp):
             line = line.strip()
             if not line:
                 continue
             try:
-                o = json.loads(line)
+                records.append(json.loads(line))
             except json.JSONDecodeError:
                 continue  # a torn line (the mirror can copy a live session mid-write)
+        prompted = FLT.prompted_commands(records)
+        for o in records:
             t = o.get("type")
             prompt = FLT.queued_prompt(o, queued)
             if prompt:
@@ -412,7 +416,9 @@ def claude_code(acc, scope=None, making=None):
             c = (o.get("message") or {}).get("content")
             if t == "user":
                 if isinstance(c, str):
-                    if not c.lstrip().startswith(HARNESS):
+                    if o.get("uuid") in prompted:
+                        acc.human(FLT.command_line(c))
+                    elif not c.lstrip().startswith(HARNESS):
                         acc.human(c)
                     continue
                 # list content is a prompt sent with a pasted image, or a
@@ -750,14 +756,17 @@ def human_turns():
     for fp in paths:
         asks, queued = {}, {}
         tag = "cc/" + Path(fp).name[:8]
+        records = []
         for line in open(fp):
             line = line.strip()
             if not line:
                 continue
             try:
-                o = json.loads(line)
+                records.append(json.loads(line))
             except json.JSONDecodeError:
                 continue  # a torn line; every other corpus reader shrugs too
+        prompted = FLT.prompted_commands(records)
+        for o in records:
             prompt = FLT.queued_prompt(o, queued)
             if prompt:
                 if (prompt[1], prompt[0]) not in prompts:
@@ -778,7 +787,9 @@ def human_turns():
                 continue
             if o.get("type") != "user":
                 continue
-            if isinstance(c, str) and not c.lstrip().startswith(HARNESS):
+            if o.get("uuid") in prompted:
+                out.append((tag, FLT.command_line(c)))  # a command and its args
+            elif isinstance(c, str) and not c.lstrip().startswith(HARNESS):
                 out.append((tag, c))
             elif isinstance(c, list) and (typed := FLT.typed_text(c)):
                 out.append((tag, typed))  # a prompt sent with a pasted image

@@ -884,17 +884,22 @@ build and names the directories where its accepted sessions started.
 Search reads human-authored turns; provider metadata is not proof of
 which model authored a historical turn.
 
-Claude Code logs two kinds of author turn outside its user records, and
-every reader counts both. A prompt typed while the model is working is
-delivered into the running turn and logged only as queue operations; it
-counts at the moment it was typed, and a queued sub-agent report, a task
-notice or a prompt pulled back into the input box does not. An answer to
-a question the model asked is logged as a tool result; `show`, the trail
-and the blind cold-read keep it whole, while search, `provenance input`
-and the effort metrics take only what the author typed, an answer of his
-own or his notes, since an option's label was worded for him. Each turn
-keeps the same number everywhere, so a search hit opens with
-`show --turn`.
+Claude Code logs three kinds of author turn outside its user records. A
+prompt typed while the model is working is delivered into the running
+turn and logged only as queue operations; it counts at the moment it was
+typed, and a queued sub-agent report, a task notice or a prompt pulled
+back into the input box does not. An answer to a question the model
+asked is logged as a tool result; `show`, the trail and the blind
+cold-read keep it whole, while search, `provenance input` and the effort
+metrics take only what the author typed, an answer of his own or his
+notes, since an option's label was worded for him. A command that sends
+the model a prompt, such as a skill typed with its arguments, is logged
+as nothing but the harness's wrappers; `show`, the trail, search,
+`provenance input` and the effort metrics count it as the line the
+author typed, and the blind cold-read leaves it out as it always has. A
+command the harness answers alone, such as `/model`, never reached the
+model and counts nowhere. Each turn keeps the same number everywhere, so
+a search hit opens with `show --turn`.
 
 A harness logs its own text in the human's slot too, and none of it
 counts as a turn of the author's: slash-command and system-reminder

@@ -126,8 +126,9 @@ def _human_slot(text, raw):
 # so a turn's origin says which readers saw it: the answer to a question the
 # model asked joined the author's turns first, then a prompt typed while the
 # model worked, then a prompt logged as a list of blocks, which is how one
-# sent with a pasted image is logged.
-ORIGINS = ("typed", "answer", "queued", "listed")
+# sent with a pasted image is logged, then a command that sent the model a
+# prompt, logged as nothing but the harness's wrappers.
+ORIGINS = ("typed", "answer", "queued", "listed", "command")
 
 
 def _origin(turn, origin):
@@ -179,100 +180,108 @@ def cc_records(path, *, thinking=False, raw=False, origins=False):
     wrote back, its prose and the report it hands back, is ``subagent``.
     A prompt the author typed while the model was working is a human turn
     too, though the harness logs it only as a queue operation, at the time
-    he typed it (``ccfilter.queued_prompt``). With ``origins`` each row
-    carries a fourth item: how a human turn reached the log (``ORIGINS``),
-    or ``None`` for any other row.
+    he typed it (``ccfilter.queued_prompt``). So is a command he typed that
+    sent the model a prompt, such as a skill and its arguments, shown as the
+    line he typed (``ccfilter.command_line``); a command the harness answered
+    alone, such as ``/model``, never reached the model and stays out. With
+    ``origins`` each row carries a fourth item: how a human turn reached the
+    log (``ORIGINS``), or ``None`` for any other row.
     """
     out = []
     asks = {}  # each question the model asked the author: id -> its input
     queued = {}  # queued text -> when it was enqueued
+    records = []
     with open(path, encoding="utf-8", errors="replace") as fh:
         for line in fh:
             line = line.strip()
             if not line:
                 continue
             try:
-                o = json.loads(line)
+                records.append(json.loads(line))
             except json.JSONDecodeError:
                 continue
-            typ = o.get("type")
-            prompt = FLT.queued_prompt(o, queued)
-            if prompt:
-                out.append(("human", prompt[0], prompt[1], "queued"))
+    prompted = FLT.prompted_commands(records)
+    for o in records:
+        typ = o.get("type")
+        prompt = FLT.queued_prompt(o, queued)
+        if prompt:
+            out.append(("human", prompt[0], prompt[1], "queued"))
+            continue
+        if typ not in ("user", "assistant"):
+            continue
+        if not raw and (FLT.harness_flagged(o) or o.get("isSidechain")):
+            continue
+        ts = o.get("timestamp")
+        content = (o.get("message") or {}).get("content")
+        if typ == "user":
+            if not isinstance(content, str):
+                # A tool-result echo, or a prompt sent with a pasted image.
+                if not (o.get("isSidechain") or FLT.harness_flagged(o)):
+                    turn = _human_slot(FLT.typed_text(content, raw), raw)
+                    if turn:
+                        out.append((*turn, ts, _origin(turn, "listed")))
+                    out.extend(
+                        (*row, "answer") for row in _answers(content, asks, raw, ts)
+                    )
                 continue
-            if typ not in ("user", "assistant"):
+            if o.get("isSidechain") or FLT.harness_flagged(o):
+                # Reached only with raw; neither was typed by the author.
+                # The harness writes into a subagent's slot as it does
+                # into the session's, so its flag wins over the thread's.
+                role = "harness" if FLT.harness_flagged(o) else "agent"
+                if content.strip():
+                    out.append((role, content.strip(), ts, None))
                 continue
-            if not raw and (FLT.harness_flagged(o) or o.get("isSidechain")):
+            if o.get("uuid") in prompted:
+                text = content.strip() if raw else FLT.command_line(content)
+                out.append(("human", text, ts, "command"))
                 continue
-            ts = o.get("timestamp")
-            content = (o.get("message") or {}).get("content")
-            if typ == "user":
-                if not isinstance(content, str):
-                    # A tool-result echo, or a prompt sent with a pasted image.
-                    if not (o.get("isSidechain") or FLT.harness_flagged(o)):
-                        turn = _human_slot(FLT.typed_text(content, raw), raw)
-                        if turn:
-                            out.append((*turn, ts, _origin(turn, "listed")))
-                        out.extend(
-                            (*row, "answer") for row in _answers(content, asks, raw, ts)
-                        )
-                    continue
-                if o.get("isSidechain") or FLT.harness_flagged(o):
-                    # Reached only with raw; neither was typed by the author.
-                    # The harness writes into a subagent's slot as it does
-                    # into the session's, so its flag wins over the thread's.
-                    role = "harness" if FLT.harness_flagged(o) else "agent"
-                    if content.strip():
-                        out.append((role, content.strip(), ts, None))
-                    continue
-                turn = _human_slot(content, raw)
-                if turn:
-                    out.append((*turn, ts, _origin(turn, "typed")))
+            turn = _human_slot(content, raw)
+            if turn:
+                out.append((*turn, ts, _origin(turn, "typed")))
+            continue
+        # assistant: merge this message's blocks into one turn
+        if isinstance(content, str):
+            blocks = [{"type": "text", "text": content}]
+        elif isinstance(content, list):
+            blocks = content
+        else:
+            blocks = []
+        parts = []
+        for b in blocks:
+            if not isinstance(b, dict):
                 continue
-            # assistant: merge this message's blocks into one turn
-            if isinstance(content, str):
-                blocks = [{"type": "text", "text": content}]
-            elif isinstance(content, list):
-                blocks = content
-            else:
-                blocks = []
-            parts = []
-            for b in blocks:
-                if not isinstance(b, dict):
-                    continue
-                bt = b.get("type")
-                if bt == "text":
-                    t = (b.get("text") or "").strip()
-                    if t:
-                        parts.append(t)
-                elif bt == "thinking" and thinking:
-                    t = (b.get("thinking") or b.get("text") or "").strip()
-                    if t:
-                        parts.append("[thinking]\n" + t)
-                elif bt == "tool_use" and b.get("name") == FLT.ASK_TOOL:
-                    asks[b.get("id")] = b.get("input")
-                elif (
-                    bt == "tool_use"
-                    and b.get("name") == _HANDBACK
-                    and o.get("isSidechain")
-                ):
-                    report = (b.get("input") or {}).get("message")
-                    if isinstance(report, str) and report.strip():
-                        parts.append(report.strip())
-                # other tool_use / tool_result: dropped
-            body = "\n\n".join(parts).strip()
-            if body:
-                # Reached flagged or side-thread only with raw: an error
-                # notice is the harness's, and a side-thread's reply is the
-                # subagent's, never the session's own assistant.
-                role = (
-                    "harness"
-                    if FLT.harness_flagged(o)
-                    else "subagent"
-                    if o.get("isSidechain")
-                    else "assistant"
-                )
-                out.append((role, body, ts, None))
+            bt = b.get("type")
+            if bt == "text":
+                t = (b.get("text") or "").strip()
+                if t:
+                    parts.append(t)
+            elif bt == "thinking" and thinking:
+                t = (b.get("thinking") or b.get("text") or "").strip()
+                if t:
+                    parts.append("[thinking]\n" + t)
+            elif bt == "tool_use" and b.get("name") == FLT.ASK_TOOL:
+                asks[b.get("id")] = b.get("input")
+            elif (
+                bt == "tool_use" and b.get("name") == _HANDBACK and o.get("isSidechain")
+            ):
+                report = (b.get("input") or {}).get("message")
+                if isinstance(report, str) and report.strip():
+                    parts.append(report.strip())
+            # other tool_use / tool_result: dropped
+        body = "\n\n".join(parts).strip()
+        if body:
+            # Reached flagged or side-thread only with raw: an error
+            # notice is the harness's, and a side-thread's reply is the
+            # subagent's, never the session's own assistant.
+            role = (
+                "harness"
+                if FLT.harness_flagged(o)
+                else "subagent"
+                if o.get("isSidechain")
+                else "assistant"
+            )
+            out.append((role, body, ts, None))
     return out if origins else [row[:3] for row in out]
 
 
