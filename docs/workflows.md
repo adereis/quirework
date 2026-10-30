@@ -641,8 +641,13 @@ marked files the seat's session has read in full, from its own tool
 calls, and red-flags each one still unread. A session resumes across
 rounds, so a seat that reads the file in its third turn passes from then
 on, and the supervisor can see in the first round which seat argued from
-the brief alone. Inline text also has a size the harness will carry: agy
-cut a 214 KB file handed that way (see "Run plans").
+the brief alone. A seat names its files as it was told them,
+`input/brief.md`, and each read is counted where its shell ran it: the
+directory the call names, or else the turn's, which Codex records in its
+rollout for a call that names none. Counted without that, a Codex seat
+that read every file was once flagged as having read none of them.
+Inline text also has a size the harness will carry: agy cut a 214 KB
+file handed that way (see "Run plans").
 
 A person can take a seat as well:
 

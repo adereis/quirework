@@ -21,6 +21,13 @@ that an unread file was read. Recognized forms:
   Codex call: `cat`, `nl`, `sed -n 'A,Bp'` or `'Ap'`, and `head -n N` or
   `head -N`.
 
+A relative path is resolved where the shell resolved it: the directory
+the call names, or else the one the harness recorded for the row or the
+turn. Codex runs a call with no `workdir` in the turn's working
+directory, which its rollout records, so a seat told `input/notes.md`
+is counted at that file. A call whose directory cannot be known leaves
+its relative paths uncounted.
+
 Writes are recognized as conservatively: Claude's `Write` and `Edit` tools,
 Codex's `apply_patch` (an added or updated file), agy's `write_to_file` and
 its newer `write_file` and `edit_file` (from the result, as for a view), and
@@ -47,6 +54,11 @@ _SED_RANGE = re.compile(r"^(\d+)(?:,(\d+))?p$")
 # A command string inside Codex's JavaScript exec tool: `cmd: "..."` or
 # `"cmd": "..."`, with the string's own escapes.
 _JS_CMD = re.compile(r"""["']?cmd["']?\s*:\s*("(?:[^"\\]|\\.)*")""")
+# The same call's working directory, when it names one. A `workdir` written
+# any other way than a plain string cannot be read, and then the command's
+# directory is unknown rather than the turn's.
+_JS_WORKDIR = re.compile(r"""["']?workdir["']?\s*:\s*""")
+_JS_STRING = re.compile(r'"(?:[^"\\]|\\.)*"')
 # What agy records as the result of a view and of a write. Each names its own
 # file, so neither has to be matched back to the call that asked for it, and
 # a call agy rejected leaves no such result to count.
@@ -180,12 +192,78 @@ def _shell_reads(command, workdir=None):
     return [(p, r) for kind, p, r in _shell_events(command, workdir) if kind == "read"]
 
 
-def _codex_events(payload):
-    """Ordered read and write events one Codex response item carries."""
+def _workdir(named, cwd):
+    """The directory a call ran in: the one it names, resolved against the
+    turn's, or the turn's when it names none. None when neither is known."""
+    if named is None:
+        return cwd
+    if not isinstance(named, str):
+        return None
+    return _resolve(named, cwd)
+
+
+def _patched(name, cwd):
+    """The file a patch names. A relative name is kept as written when the
+    directory is unknown, since an answer file is matched by its ending."""
+    name = name.strip()
+    return _resolve(name, cwd) or name
+
+
+def _js_objects(text):
+    """(start, end) of each `{...}` in a JavaScript snippet, innermost first
+    within each nesting, with string literals and comments skipped so a
+    brace inside one does not count. An unbalanced brace leaves its object
+    out, and a call found in no object has no directory that can be known."""
+    spans, opened, i, n = [], [], 0, len(text)
+    while i < n:
+        c = text[i]
+        if c in "\"'`":
+            i += 1
+            while i < n and text[i] != c:
+                i += 2 if text[i] == "\\" else 1
+        elif text.startswith("//", i):
+            i = text.find("\n", i)
+            i = n if i < 0 else i
+        elif text.startswith("/*", i):
+            i = text.find("*/", i + 2)
+            i = n if i < 0 else i + 1
+        elif c == "{":
+            opened.append(i)
+        elif c == "}" and opened:
+            spans.append((opened.pop(), i + 1))
+        i += 1
+    return spans
+
+
+def _js_call_workdir(text, at, spans, cwd):
+    """The directory of the exec call whose `cmd` sits at ``at``: the
+    `workdir` in the same object, or the turn's when the object names none."""
+    inside = [s for s in spans if s[0] < at < s[1]]
+    if not inside:
+        return None
+    start, end = max(inside)
+    named = _JS_WORKDIR.search(text, start, end)
+    if not named:
+        return cwd
+    value = _JS_STRING.match(text, named.end(), end)
+    if not value:
+        return None
+    try:
+        return _workdir(json.loads(value.group(0)), cwd)
+    except json.JSONDecodeError:
+        return None
+
+
+def _codex_events(payload, cwd=None):
+    """Ordered read and write events one Codex response item carries.
+
+    ``cwd`` is the turn's working directory from the rollout, where Codex
+    runs a call that names no directory of its own.
+    """
     kind = payload.get("type", "")
     if kind == "local_shell_call":
         command = payload.get("action", {}).get("command")
-        workdir = payload.get("action", {}).get("working_directory")
+        workdir = _workdir(payload.get("action", {}).get("working_directory"), cwd)
         if isinstance(command, list):
             command = shlex.join(command)
         return _shell_events(command, workdir) if isinstance(command, str) else []
@@ -194,28 +272,36 @@ def _codex_events(payload):
             args = json.loads(payload.get("arguments") or "{}")
         except json.JSONDecodeError:
             return []
+        workdir = _workdir(args.get("workdir"), cwd)
         if payload.get("name") == "apply_patch" or "input" in args:
             patch = args.get("input") or ""
-            return [("write", p.strip(), None) for p in _PATCH_FILE.findall(patch)]
+            return [
+                ("write", _patched(p, workdir), None)
+                for p in _PATCH_FILE.findall(patch)
+            ]
         command = args.get("cmd") or args.get("command")
         if isinstance(command, list):
             command = shlex.join(command)
         if not isinstance(command, str):
             return []
-        return _shell_events(command, args.get("workdir"))
+        return _shell_events(command, workdir)
     if kind == "custom_tool_call":
         # A JavaScript snippet awaits its tool calls in the order it states
         # them, so its commands and patches are ordered by position.
         text = payload.get("input") or ""
+        spans = _js_objects(text)
         found = []
         for match in _JS_CMD.finditer(text):
             try:
                 command = json.loads(match.group(1))
             except json.JSONDecodeError:
                 continue
-            found.append((match.start(), _shell_events(command)))
+            workdir = _js_call_workdir(text, match.start(), spans, cwd)
+            found.append((match.start(), _shell_events(command, workdir)))
         for match in _PATCH_FILE.finditer(text):
-            found.append((match.start(), [("write", match.group(1).strip(), None)]))
+            found.append(
+                (match.start(), [("write", _patched(match.group(1), cwd), None)])
+            )
         return [e for _, evs in sorted(found, key=lambda f: f[0]) for e in evs]
     return []
 
@@ -355,9 +441,15 @@ def events(rollout):
     steps = {r["step_index"]: r for r in rows if isinstance(r.get("step_index"), int)}
     # Byte spans agy showed of each line range, read in pieces.
     ranges, whole = {}, set()
+    # Codex records the working directory once for the session and again for
+    # every turn, and a call that names none runs in the turn's.
+    cwd = None
     for row in rows:
+        if row.get("type") in ("session_meta", "turn_context"):
+            cwd = (row.get("payload") or {}).get("cwd") or cwd
+            continue
         if row.get("type") == "response_item":
-            out += _codex_events(row.get("payload", {}))
+            out += _codex_events(row.get("payload", {}), cwd)
             continue
         if "step_index" in row:
             pieces = []

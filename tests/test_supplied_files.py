@@ -267,6 +267,37 @@ def test_a_required_file_is_held_to_being_read_across_the_session(tmp_path):
     assert room.required_reading(work, {}, {}) == {}
 
 
+def test_a_codex_seat_reading_its_input_by_relative_path_is_proven(tmp_path):
+    """A room tells a seat `input/brief.md`, and Codex runs a call that names
+    no directory in the turn's, which its rollout records. Read without that
+    directory, every such read went unproven and a seat that read all its
+    files was flagged as having read none."""
+    work = tmp_path / "seat"
+    (work / "input").mkdir(parents=True)
+    (work / "input" / "brief.md").write_text("Goal.\nScope.\n")
+    (work / "input" / "spec.md").write_text("One.\nTwo.\nThree.\n")
+    seat = {"required_reads": ["brief.md", "spec.md"]}
+    rows = [
+        {"type": "session_meta", "payload": {"id": "fixture", "cwd": str(work)}},
+        {"type": "turn_context", "payload": {"cwd": str(work)}},
+        {
+            "type": "response_item",
+            "payload": {
+                "type": "custom_tool_call",
+                "input": 'text(await tools.exec_command({cmd:"cat input/brief.md",'
+                '"max_output_tokens":2000}));\n'
+                "const parts=await Promise.allSettled([\n"
+                "  tools.exec_command({cmd:\"sed -n '1,2p' input/spec.md\"}),\n"
+                "  tools.exec_command({cmd:\"sed -n '3,3p' input/spec.md\"}),\n"
+                "]);",
+            },
+        },
+    ]
+    rollout = session(tmp_path, rows, "rollout.jsonl")
+    got = room.required_reading(work, seat, {"native_transcripts": [str(rollout)]})
+    assert got == {"required_files_read": "2/2"}
+
+
 def test_a_whole_book_bundle_hands_chapters_over_as_files(tmp_path):
     artifact = tmp_path / "artifact"
     artifact.mkdir()

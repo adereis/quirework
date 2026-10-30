@@ -155,6 +155,136 @@ def test_a_command_it_cannot_parse_is_unproven_not_assumed(tmp_path, mount):
     assert (fully, in_order, unproven) == (0, None, ["01-opening.md"])
 
 
+def codex_rollout(tmp_path, cwd, payloads):
+    """A rollout as Codex writes it: the session's and the turn's working
+    directory first, then the calls."""
+    rows = [
+        {"type": "session_meta", "payload": {"id": "fixture", "cwd": str(cwd)}},
+        {"type": "turn_context", "payload": {"cwd": str(cwd)}},
+    ] + [{"type": "response_item", "payload": p} for p in payloads]
+    path = tmp_path / "rollout.jsonl"
+    path.write_text("".join(json.dumps(r) + "\n" for r in rows))
+    return path
+
+
+def test_a_codex_call_naming_no_directory_runs_in_the_turns(tmp_path, mount):
+    """Codex runs a call with no `workdir` in the turn's working directory,
+    so a relative path is the file there, in each of its call forms."""
+    session = codex_rollout(
+        tmp_path,
+        mount,
+        [
+            dict(
+                type="custom_tool_call",
+                input="await tools.exec_command({cmd: \"sed -n '1,2p' "
+                'chapters/01-opening.md"});',
+            ),
+            dict(
+                type="function_call",
+                arguments=json.dumps({"cmd": "sed -n '3,3p' chapters/01-opening.md"}),
+            ),
+            dict(
+                type="local_shell_call",
+                action={
+                    "command": ["cat", "02-later.md"],
+                    "working_directory": "chapters",
+                },
+            ),
+        ],
+    )
+    assert reads.coverage(
+        reads.file_reads(session), [chapter(mount, 0), chapter(mount, 1)]
+    ) == (2, True, [])
+
+
+def test_a_codex_call_naming_its_own_directory_is_read_there(tmp_path, mount):
+    """A `workdir` the call names wins over the turn's: the same relative
+    name in another directory is another file, and proves nothing here."""
+    elsewhere = tmp_path / "elsewhere"
+    session = codex_rollout(
+        tmp_path,
+        mount,
+        [
+            dict(
+                type="custom_tool_call",
+                input='await tools.exec_command({workdir: "'
+                + str(elsewhere)
+                + '", cmd: "cat chapters/01-opening.md"});\n'
+                'await tools.exec_command({cmd: "cat 02-later.md", '
+                'workdir: "chapters"});',
+            )
+        ],
+    )
+    assert reads.file_reads(session) == [
+        (str(elsewhere / "chapters" / "01-opening.md"), None),
+        (chapter(mount, 1), None),
+    ]
+
+
+def test_a_codex_directory_that_cannot_be_read_is_not_guessed(tmp_path, mount):
+    """A `workdir` built at run time, or a rollout that records no directory,
+    leaves a relative path unproven rather than counted at the turn's."""
+    unreadable = codex_rollout(
+        tmp_path,
+        mount,
+        [
+            dict(
+                type="custom_tool_call",
+                input='await tools.exec_command({cmd: "cat chapters/01-opening.md", '
+                "workdir: base + '/x'});",
+            )
+        ],
+    )
+    assert reads.file_reads(unreadable) == []
+    unrecorded = codex_session(
+        tmp_path,
+        [
+            dict(
+                type="custom_tool_call",
+                input='await tools.exec_command({cmd: "cat chapters/01-opening.md"});',
+            )
+        ],
+    )
+    assert reads.file_reads(unrecorded) == []
+
+
+def test_a_codex_patch_with_a_relative_name_is_written_in_the_turns(tmp_path, mount):
+    """A relative patch target is the file in the turn's directory, and one
+    with no directory recorded keeps its name, which still ends like the
+    answer file it is matched against."""
+    patch = (
+        'await tools.apply_patch("*** Begin Patch\\n*** Add File: '
+        'drafts/notes.md\\n+A reaction.\\n*** End Patch");'
+    )
+    placed = codex_rollout(
+        tmp_path, mount, [dict(type="custom_tool_call", input=patch)]
+    )
+    assert reads.events(placed) == [("write", str(mount / "drafts" / "notes.md"), None)]
+    (tmp_path / "bare").mkdir()
+    bare = codex_session(
+        tmp_path / "bare", [dict(type="custom_tool_call", input=patch)]
+    )
+    assert reads.events(bare) == [("write", "drafts/notes.md", None)]
+
+
+def test_a_brace_inside_a_string_does_not_move_the_calls_directory(tmp_path, mount):
+    """The `workdir` belongs to the object around its `cmd`; a brace or a
+    `workdir` inside a string or a comment is text."""
+    session = codex_rollout(
+        tmp_path,
+        mount,
+        [
+            dict(
+                type="custom_tool_call",
+                input="// pass {workdir: '/nowhere'} only when needed\n"
+                'const note = "} {";\n'
+                'await tools.exec_command({cmd: "cat chapters/02-later.md"});',
+            )
+        ],
+    )
+    assert reads.file_reads(session) == [(chapter(mount, 1), None)]
+
+
 def test_opening_a_later_chapter_first_is_out_of_order(tmp_path, mount):
     session = claude_session(
         tmp_path,
