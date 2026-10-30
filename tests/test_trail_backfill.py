@@ -681,6 +681,16 @@ def test_the_instructions_ask_for_an_account_of_each_session():
     assert '"done": true, "about": "<one sentence>"' in backfill.INSTRUCTIONS
 
 
+def test_the_instructions_say_what_each_confidence_means():
+    """A flag is shown unchecked, so its confidence has to carry the sorting."""
+    text = " ".join(backfill.INSTRUCTIONS.split())
+    assert "Nobody checks your flags before they are used" in text
+    assert "only your high-confidence flags are shown unless they ask" in text
+    assert "- high: the author's own words change, settle or reject" in text
+    assert "- low: the turn only touches the section's subject." in text
+    assert "Flag generously" not in text
+
+
 def test_a_new_section_does_not_send_the_corpus_out_again(book, tmp_path):
     _read(tmp_path, [ANSWER])
     spec = book.path("manuscript.spec")

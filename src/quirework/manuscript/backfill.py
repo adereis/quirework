@@ -51,6 +51,9 @@ from quirework.project import ConfigurationError, current_project
 
 # Bump when a packet shows a reader something materially different, so the
 # ledger can tell a session read from the current packet from an older one.
+# A bump hands every session out again. The instructions are not the packet:
+# rewording them leaves earlier flags usable, and a read records its run,
+# whose plan holds the prompt the reader was given.
 PACKET_VERSION = 1
 
 # How much of the reply a turn answered is shown. The end is kept, because a
@@ -213,10 +216,15 @@ book holds. The menu below lists them. The packets below hold the author's
 turns from one or more sessions, each turn with the end of the reply it
 answered.
 
-Flag every author turn that may have shaped what a section holds, so that a
-later reader can decide. Flag generously. A turn you are unsure about is worth
-flagging with low confidence, because a turn nobody flags is lost, while a
-later, careful reader rejects what does not belong.
+Flag every author turn that shaped what a section holds. Nobody checks your
+flags before they are used: each one is shown, with its reason, to whoever
+later reads that section's history, and only your high-confidence flags are
+shown unless they ask for more. So let confidence say what the turn did:
+- high: the author's own words change, settle or reject what the section holds;
+- medium: the turn bears on the section, but you cannot tell whether it changed it;
+- low: the turn only touches the section's subject.
+Still flag a turn you are unsure about, at medium or low, because a turn nobody
+flags is lost, and a lead costs a reader nothing until they ask for it.
 
 A turn shapes a section when the author, in their own words:
 - seed: first raises the idea;

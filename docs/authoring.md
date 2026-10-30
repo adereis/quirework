@@ -600,12 +600,16 @@ holds any, `spec trail SLUG` ends on one line counting them, and
 first: each turn's date, session and number, every reader's flag on it
 with its kind, confidence and reason, and the `provenance show` that
 opens it. Only the leads a reader flagged with high confidence are
-listed, unless `--all` asks for every one. `spec trail --unit U --leads`
-does the same for each section a unit binds. Whoever reads the trail
-judges a lead in context, and can still keep it with `trail add` or
-reject it with `backfill reject`, which takes it out of the count. A
-lead stays a reader's guess, never a breadcrumb. The turns a section's
-commits lead to are not leads here; the section's worklist lists those.
+listed, unless `--all` asks for every one. A reader is told so, and
+asked to give high confidence only where your own words change, settle
+or reject what a section holds, medium where a turn bears on a section
+without showing whether it changed it, and low where it only touches the
+subject. `spec trail --unit U --leads` does the same for each section a
+unit binds. Whoever reads the trail judges a lead in context, and can
+still keep it with `trail add` or reject it with `backfill reject`,
+which takes it out of the count. A lead stays a reader's guess, never a
+breadcrumb. The turns a section's commits lead to are not leads here;
+the section's worklist lists those.
 
 ## 3. Marks
 
