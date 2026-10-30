@@ -48,15 +48,20 @@ def claude(stream, native):
     wrote into the turn, with its cause where one is known.
     """
     stops = {}
+    written = {}
     for row in native:
         message = row.get("message")
         if (
-            row.get("type") == "assistant"
-            and isinstance(message, dict)
-            and message.get("id")
-            and message.get("stop_reason")
+            row.get("type") != "assistant"
+            or not isinstance(message, dict)
+            or not message.get("id")
         ):
+            continue
+        if message.get("stop_reason"):
             stops[message["id"]] = message["stop_reason"]
+        spent = (message.get("usage") or {}).get("output_tokens")
+        if isinstance(spent, int):
+            written[message["id"]] = max(spent, written.get(message["id"], 0))
     items = []
     for row in stream:
         # A response of a sub-agent belongs to that agent's thread, not to
@@ -134,6 +139,12 @@ def claude(stream, native):
             # text, so it is a cut but not a join.
             answer_joined_at=sorted({o for o in offsets.values() if o}),
             answer_ends_at_limit=LIMIT in (last, result.get("stop_reason")),
+            # The tokens each cut response had written, thinking included.
+            # A cut falls at the ceiling the request carried, so this is
+            # the only evidence of that ceiling the records hold.
+            cut_at=sorted(
+                {written[i] for i in known if stops[i] == LIMIT and i in written}
+            ),
         )
     return answer, dict(output_limit=output_limit, harness_text=harness_text)
 

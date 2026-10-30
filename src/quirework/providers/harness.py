@@ -47,6 +47,8 @@ def validate(config, policy, turns, parent=None):
     caps = CAPABILITIES[harness]
     if policy.get("system_prompt") is not None and harness == "agy":
         raise ValueError("agy does not support replacing the system prompt")
+    if policy.get("output_ceiling") is not None and harness != "claude":
+        raise ValueError(f"{harness} has no output ceiling a seat can declare")
     if parent and not caps["fork"]:
         raise ValueError(
             f"{harness} cannot provide a native fork; no replay substitute"
@@ -72,7 +74,7 @@ def rows(path):
     return [json.loads(line) for line in path.read_text().splitlines() if line.strip()]
 
 
-def environment(harness, gateway_env=()):
+def environment(harness, gateway_env=(), output_ceiling=None):
     names = (
         "PATH",
         "LANG",
@@ -93,6 +95,11 @@ def environment(harness, gateway_env=()):
         DISABLE_AUTOUPDATER="1",
         DISABLE_COMPACT="1",
     )
+    if output_ceiling is not None:
+        # Claude Code moves its per-model default to this, up to the model's
+        # own ceiling, on a streamed request. Its usage table goes on
+        # reporting the default; a cut response shows what was used.
+        env["CLAUDE_CODE_MAX_OUTPUT_TOKENS"] = str(output_ceiling)
     if gateway_env:
         # A declared gateway routes the seat's traffic and carries its own
         # credentials, so the host login is not the auth path and never
@@ -387,7 +394,9 @@ def launch_context(config, policy, workspace, bus=None, canary=None):
     _, missing = blind.runner_binds([name])
     if missing:
         raise RuntimeError("missing harness prerequisites: " + "; ".join(missing))
-    env = environment(name, policy.get("gateway_env") or ())
+    env = environment(
+        name, policy.get("gateway_env") or (), policy.get("output_ceiling")
+    )
     jail = blind.jail_argv(
         workspace,
         runners=[name],
@@ -545,7 +554,13 @@ def receipt(config, policy, record, private, established=None):
         # rebuilt from the stream, and the native session says where.
         answer, reply = replies.claude(stream, native)
         if reply["output_limit"] is not None:
-            reply["output_limit"]["ceiling"] = served.get("maxOutputTokens")
+            # The usage table reports the CLI's default for the model even
+            # when the launch raised or lowered it, so a declared ceiling is
+            # stated as declared, and `cut_at` is what evidences it.
+            declared = policy.get("output_ceiling")
+            reply["output_limit"]["ceiling"] = (
+                declared if declared is not None else served.get("maxOutputTokens")
+            )
         window = None
         parent = None
         # The session states each answer's effort and token use, so both
@@ -646,6 +661,15 @@ def receipt(config, policy, record, private, established=None):
     )
     red_flags += replies.flags(reply)
     red_flags += bus_flags(record)
+    declared = policy.get("output_ceiling")
+    cuts = (reply["output_limit"] or {}).get("cut_at") or []
+    if declared is not None and any(cut != declared for cut in cuts):
+        # The answer stands: a response cut at another ceiling was resumed
+        # and is banked whole. What failed is the declared condition.
+        red_flags.append(
+            f"Output ceiling not as declared: declared {declared}, a response "
+            f"was cut at {', '.join(str(c) for c in cuts)} tokens."
+        )
     minimum = policy.get("minimum_context_window", 0)
     if minimum and (window is None or window < minimum):
         raise RuntimeError("required effective context window is not evidenced")

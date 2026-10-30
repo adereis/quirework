@@ -132,6 +132,7 @@ def test_a_reply_resumed_after_the_ceiling_is_banked_whole(tmp_path):
         responses_at_limit=1,
         answer_joined_at=[32],
         answer_ends_at_limit=False,
+        cut_at=[64000],
         ceiling=64000,
     )
     assert receipt["harness_text"] == [
@@ -217,6 +218,47 @@ def test_a_reply_within_the_ceiling_is_the_result_itself(tmp_path):
     assert receipt["output_limit"]["responses_at_limit"] == 0
     assert receipt["harness_text"] == []
     assert receipt["red_flags"] == []
+
+
+def test_a_declared_ceiling_is_stated_as_declared_not_as_the_cli_default(tmp_path):
+    # The usage table says 64000 whatever the launch asked for, so with
+    # no cut to show otherwise the declaration is all there is to state.
+    record, private = turn(tmp_path, [("m1", "Green.", "end_turn")])
+    policy = dict(POLICY, output_ceiling=128000)
+    receipt = harness.receipt(CONFIG, policy, record, private)
+    assert receipt["output_limit"]["ceiling"] == 128000
+    assert receipt["output_limit"]["cut_at"] == []
+    assert receipt["red_flags"] == []
+
+
+def test_a_cut_at_the_declared_ceiling_raises_no_ceiling_flag(tmp_path):
+    record, private = turn(
+        tmp_path,
+        [
+            ("m1", "Mira left the umbrella by the do", "max_tokens"),
+            ("m2", "or.", "end_turn"),
+        ],
+    )
+    policy = dict(POLICY, output_ceiling=64000)
+    receipt = harness.receipt(CONFIG, policy, record, private)
+    assert not any(f.startswith("Output ceiling") for f in receipt["red_flags"])
+
+
+def test_a_cut_below_the_declared_ceiling_is_flagged_and_the_answer_kept(tmp_path):
+    record, private = turn(
+        tmp_path,
+        [
+            ("m1", "Mira left the umbrella by the do", "max_tokens"),
+            ("m2", "or, and it was green.", "end_turn"),
+        ],
+    )
+    policy = dict(POLICY, output_ceiling=128000)
+    receipt = harness.receipt(CONFIG, policy, record, private)
+    assert receipt["answer"] == "Mira left the umbrella by the door, and it was green."
+    assert any(
+        "declared 128000, a response was cut at 64000" in flag
+        for flag in receipt["red_flags"]
+    )
 
 
 def test_harness_text_with_no_known_cause_is_flagged_and_kept_out(tmp_path):

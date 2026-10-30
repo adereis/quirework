@@ -452,6 +452,41 @@ def test_an_unsourced_gateway_env_refuses_rather_than_falls_back(monkeypatch):
         harness.environment("claude", ["ANTHROPIC_BASE_URL", "ANTHROPIC_API_KEY"])
 
 
+def test_a_declared_output_ceiling_reaches_the_claude_runner(monkeypatch):
+    from quirework.providers import harness
+
+    monkeypatch.setattr(harness.claude_login, "host_login", lambda: ("tok", None))
+    env = harness.environment("claude", output_ceiling=128000)
+    assert env["CLAUDE_CODE_MAX_OUTPUT_TOKENS"] == "128000"
+    assert "CLAUDE_CODE_MAX_OUTPUT_TOKENS" not in harness.environment("claude")
+
+
+def test_a_gateway_seat_keeps_its_declared_output_ceiling(monkeypatch):
+    from quirework.providers import harness
+
+    monkeypatch.setenv("ANTHROPIC_BASE_URL", "https://gateway.example")
+    env = harness.environment("claude", ["ANTHROPIC_BASE_URL"], 128000)
+    assert env["CLAUDE_CODE_MAX_OUTPUT_TOKENS"] == "128000"
+
+
+@pytest.mark.parametrize("name", ["codex", "agy"])
+def test_only_a_claude_seat_can_declare_an_output_ceiling(name):
+    from quirework.providers import harness
+    from quirework.runs import engine
+
+    policy = engine.policy(dict(output_ceiling=128000, filesystem="audited"))
+    with pytest.raises(ValueError, match="no output ceiling"):
+        harness.validate(dict(harness=name), policy, [])
+
+
+@pytest.mark.parametrize("value", [0, -1, 1.5, True, "128000"])
+def test_an_output_ceiling_must_be_a_positive_integer(value):
+    from quirework.runs import engine
+
+    with pytest.raises(ValueError, match="output_ceiling"):
+        engine.policy(dict(output_ceiling=value))
+
+
 def test_a_declared_claude_seat_carries_its_gateway_env_into_the_record(tmp_path):
     from quirework.project import Project, project_scope
     from quirework.runs import engine

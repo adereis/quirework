@@ -1123,6 +1123,21 @@ a Claude answer, from rooms and workshops to reviews and chapter
 comparisons, rebuilds it the same way, and its receipt carries the same
 fields and flag.
 
+The ceiling counts thinking as well as the visible reply, and Claude
+Code sets it per model, sometimes well below what the model allows: it
+asks some models for half their ceiling. A run seat can declare its own
+with `"output_ceiling": 128000` in its policy, and the CLI then uses it
+up to the model's own ceiling. Only a Claude seat accepts one;
+preparation refuses it on the others. The CLI's usage table goes on
+reporting its default whatever the launch asked for, so the receipt
+states a declared ceiling as declared. What evidences it is the cut
+itself: `output_limit.cut_at` lists the tokens each cut response had
+written, and a cut at any count but the declared one carries a red flag.
+A ceiling the turn never reaches also keeps the harness's message out of
+it, and that message is not neutral: it asks the model to break its
+remaining work into smaller pieces, which can change the shape of what
+follows the cut.
+
 A record banked before receipts did this kept only the last part of such
 a reply. `observe` runs from the installed package rather than the
 record's frozen executor, so it can check one: for every Claude turn it

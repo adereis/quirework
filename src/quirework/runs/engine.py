@@ -79,6 +79,11 @@ POLICY = dict(
     # through to its runner (see ``providers.claude.gateway_env``). Empty
     # for every seat that runs on the host's own login.
     gateway_env=(),
+    # The most a Claude seat may write in one response, thinking included.
+    # Unset, the CLI picks its own default per model, which for some models
+    # is half the ceiling the model itself allows. A response cut at any
+    # other count is flagged on the turn's receipt.
+    output_ceiling=None,
 )
 # The provider serves a share of the ceiling, and rounds it. Assert we were
 # given essentially the whole window, not the much smaller session default,
@@ -161,6 +166,10 @@ def policy(value):
     for key in ("context_window", "minimum_context_window"):
         if p[key] is not None and (type(p[key]) is not int or p[key] < 0):
             raise ValueError(f"{key} must be a nonnegative integer")
+    if p["output_ceiling"] is not None and (
+        type(p["output_ceiling"]) is not int or p["output_ceiling"] < 1
+    ):
+        raise ValueError("output_ceiling must be a positive integer or null")
     if not isinstance(p["read_roots"], list):
         raise ValueError("read_roots must be a list of explicit directory paths")
     p["read_roots"] = [
