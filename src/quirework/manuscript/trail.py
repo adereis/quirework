@@ -1184,8 +1184,22 @@ def _crumb_lines(crumb, found, *, brief, utc, days=None):
     return lines
 
 
-def story(slug, *, brief=False, utc=False, sidecar=None, states=None):
-    """One section's trail, oldest first, as printable lines."""
+def story(
+    slug,
+    *,
+    brief=False,
+    utc=False,
+    sidecar=None,
+    states=None,
+    leads=None,
+    listed=False,
+):
+    """One section's trail, oldest first, as printable lines.
+
+    ``leads`` is the section's ``backfill.Leads``, or ``None`` to say nothing
+    of them. The trail then ends on one line counting the leads that wait,
+    when any do, or with ``listed`` on the leads themselves.
+    """
     titles = _spec_titles()
     _known_slug(slug, titles)
     sidecar = load() if sidecar is None else sidecar
@@ -1200,20 +1214,46 @@ def story(slug, *, brief=False, utc=False, sidecar=None, states=None):
         lines.append(f"bound by: {', '.join(chapters)}")
     if not crumbs:
         lines.append("no breadcrumbs yet (quirework spec trail add adds one)")
-        return lines
-    sessions = len({c.session for c in crumbs})
-    lines.append(
-        f"{len(crumbs)} breadcrumb{'s' * (len(crumbs) != 1)} from {sessions} "
-        f"session{'s' * (sessions != 1)}, {_span(crumbs, utc, days)} · "
-        f"{_tally(crumbs)}"
-    )
-    states = _states(crumbs) if states is None else states
-    for crumb in crumbs:
-        found = states.get(id(crumb)) if states else None
-        if not brief:
-            lines.append("")
-        lines += _crumb_lines(crumb, found, brief=brief, utc=utc, days=days)
+    else:
+        sessions = len({c.session for c in crumbs})
+        lines.append(
+            f"{len(crumbs)} breadcrumb{'s' * (len(crumbs) != 1)} from {sessions} "
+            f"session{'s' * (sessions != 1)}, {_span(crumbs, utc, days)} · "
+            f"{_tally(crumbs)}"
+        )
+        states = _states(crumbs) if states is None else states
+        for crumb in crumbs:
+            found = states.get(id(crumb)) if states else None
+            if not brief:
+                lines.append("")
+            lines += _crumb_lines(crumb, found, brief=brief, utc=utc, days=days)
+    if leads is not None:
+        from quirework.manuscript import backfill
+
+        if listed:
+            lines += ["", *backfill.leads_lines(leads, utc=utc)]
+        elif leads.waiting:
+            line = backfill.waiting_line(leads)
+            lines += [line] if brief else ["", line]
     return lines
+
+
+def _waiting(slugs, *, listed=False, everything=False):
+    """``{slug: backfill.Leads}`` for ``slugs``, or ``{}`` where none are kept.
+
+    Leads come from a backfill ledger, read against the corpus. Listing them
+    is asked for, so a project without either is told what to configure;
+    a trail merely counting them says nothing in a project that keeps none.
+    """
+    project = current_project()
+    if not listed and (
+        project.get("manuscript.spec_trail_leads") is None
+        or not project.get("provenance.enabled", False)
+    ):
+        return {}
+    from quirework.manuscript import backfill
+
+    return backfill.leads(slugs, everything=everything)
 
 
 def overview(*, utc=False):
@@ -1237,8 +1277,13 @@ def overview(*, utc=False):
     return lines
 
 
-def unit_view(chapter, *, utc=False):
-    """The trails of every section a unit binds, one line per breadcrumb."""
+def unit_view(chapter, *, utc=False, listed=False, everything=False):
+    """The trails of every section a unit binds, one line per breadcrumb.
+
+    Each trail counts the leads waiting for its section, or with ``listed``
+    lists them: those with a high-confidence flag, or every one with
+    ``everything``.
+    """
     from quirework.manuscript import units
 
     bindings = notes.chapter_bindings()
@@ -1255,11 +1300,20 @@ def unit_view(chapter, *, utc=False):
     bound = bindings[stems[0]]
     sidecar = load()
     states = _states([c for s, c in sidecar.crumbs() if s.slug in bound]) or {}
+    order = [s.slug for s in notes.spec_sections() if s.slug in bound]
+    waiting = _waiting(order, listed=listed, everything=everything)
     lines = [f"{stems[0]} binds {len(bound)} spec section(s)"]
-    for slug in (s.slug for s in notes.spec_sections()):
-        if slug in bound:
-            lines.append("")
-            lines += story(slug, brief=True, utc=utc, sidecar=sidecar, states=states)
+    for slug in order:
+        lines.append("")
+        lines += story(
+            slug,
+            brief=True,
+            utc=utc,
+            sidecar=sidecar,
+            states=states,
+            leads=waiting.get(slug),
+            listed=listed,
+        )
     return lines
 
 
@@ -1723,9 +1777,16 @@ def _lead(turn, on_trail, zone):
 USAGE_EPILOG = """\
 views:
   quirework spec trail                      which sections have a trail
-  quirework spec trail SLUG                 one section's trail, oldest first
+  quirework spec trail SLUG                 one section's trail, oldest first,
+                                            and how many leads wait for it
   quirework spec trail SLUG --brief         one line per breadcrumb
-  quirework spec trail --unit U             the trails of every section U binds
+  quirework spec trail SLUG --leads         then its high-confidence leads:
+                                            turns a reader flagged that no
+                                            one has kept or rejected, to
+                                            judge in context; --all lists
+                                            every lead
+  quirework spec trail --unit U             the trails of every section U
+                                            binds; --leads and --all as above
   quirework spec trail --session ID         which sections a session fed
   quirework spec trail --check              the gate
 
@@ -1742,6 +1803,8 @@ backfill:
                                             what each one changed in it
   quirework spec trail backfill             cheap readers flag, a strong
                                             reader rules: see its help
+  a lead is kept with trail add, and rejected with
+  quirework spec trail backfill reject SLUG --session ID --turn N --reason TEXT
 
 kinds, what the turn did to the section:
 """ + "\n".join(f"  {k:<8}  {v}" for k, v in KINDS.items())
@@ -1840,9 +1903,27 @@ def main(argv=None):
         action="store_true",
         help="with suggest: what each commit changed in the section",
     )
+    ap.add_argument(
+        "--leads",
+        action="store_true",
+        help="after the trail, the high-confidence leads: turns a reader "
+        "flagged that no one has kept or rejected",
+    )
+    ap.add_argument(
+        "--all", action="store_true", help="with --leads: every lead, not only the high"
+    )
     args = ap.parse_args(argv)
     try:
         sidecar_path()
+        if args.all and not args.leads:
+            ap.error("--all goes with --leads")
+        if args.leads and (
+            args.slug == "suggest"
+            or args.check
+            or args.session
+            or not (args.slug or args.unit)
+        ):
+            ap.error("--leads goes with SLUG or --unit U")
         if args.slug == "suggest":
             if not args.rest:
                 ap.error("suggest needs a SLUG")
@@ -1856,11 +1937,20 @@ def main(argv=None):
                 ap.error("--check runs the gate and takes no view options")
             return check()
         elif args.unit:
-            lines = unit_view(args.unit, utc=args.utc)
+            lines = unit_view(
+                args.unit, utc=args.utc, listed=args.leads, everything=args.all
+            )
         elif args.session:
             lines = session_view(args.session, utc=args.utc)
         elif args.slug:
-            lines = story(args.slug, brief=args.brief, utc=args.utc)
+            waiting = _waiting([args.slug], listed=args.leads, everything=args.all)
+            lines = story(
+                args.slug,
+                brief=args.brief,
+                utc=args.utc,
+                leads=waiting.get(args.slug),
+                listed=args.leads,
+            )
             lines += ["", _CONTEXT]
         else:
             lines = overview(utc=args.utc)

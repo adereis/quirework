@@ -8,6 +8,7 @@ imports one goes through a real prepared record, never a hand-built stand-in.
 
 import json
 import subprocess
+from collections import Counter
 from datetime import datetime, timezone
 from pathlib import Path
 
@@ -864,6 +865,177 @@ def test_a_turn_cannot_be_kept_and_rejected_in_one_file(book):
     ]
     with pytest.raises(LookupError, match="both kept and rejected"):
         backfill.rule("kettle-signal", both)
+
+
+# --------------------------------------------------------------------------- #
+# leads: flags read beside a trail, without a ruling
+# --------------------------------------------------------------------------- #
+def _flag(slug, kind, confidence, reason):
+    return {"slug": slug, "kind": kind, "confidence": confidence, "reason": reason}
+
+
+MIXED = _lines(
+    {
+        "session": MORNING,
+        "turn": 1,
+        "sections": [
+            _flag("kettle-signal", "seed", "high", "Asks to open on the whistle.")
+        ],
+    },
+    {
+        "session": MORNING,
+        "turn": 2,
+        "sections": [
+            _flag("kettle-signal", "probe", "low", "Mentions the kettle in passing."),
+            _flag("cooling-asymmetry", "seed", "medium", "Calls cooling a route."),
+        ],
+    },
+    {
+        "session": MORNING,
+        "turn": 3,
+        "sections": [_flag("cooling-asymmetry", "correct", "high", "Refuses speed.")],
+    },
+    {"session": MORNING, "done": True},
+    {
+        "session": EVENING,
+        "turn": 1,
+        "sections": [
+            _flag("kettle-signal", "accept", "medium", "Commits the chapter.")
+        ],
+    },
+    {"session": EVENING, "done": True},
+)
+
+
+def test_leads_are_the_flags_no_one_has_kept_or_rejected(book, tmp_path):
+    _read(tmp_path, [MIXED])
+    found = backfill.leads(["kettle-signal", "cooling-asymmetry"])
+    assert list(found) == ["kettle-signal", "cooling-asymmetry"]
+    kettle = found["kettle-signal"]
+    assert (kettle.waiting, kettle.high, kettle.stale) == (3, 1, [])
+    assert [(c.turn.session, c.turn.number) for c in kettle.shown] == [(MORNING, 1)]
+
+    every = backfill.leads(["kettle-signal"], everything=True)["kettle-signal"]
+    assert [(c.turn.session, c.turn.number, c.confidence) for c in every.shown] == [
+        (MORNING, 1, "high"),
+        (MORNING, 2, "low"),
+        (EVENING, 1, "medium"),
+    ], "oldest first, each with its surest confidence"
+
+    trail.add("kettle-signal", "seed", session=MORNING, turn=1)
+    backfill.reject("kettle-signal", session=EVENING, turn=1, reason="A commit.")
+    kettle = backfill.leads(["kettle-signal"])["kettle-signal"]
+    assert (kettle.waiting, kettle.high, kettle.shown) == (1, 0, [])
+    with pytest.raises(LookupError, match="no section"):
+        backfill.leads(["kettle-signal", "no-such"])
+
+
+def test_a_leads_confidence_is_the_surest_any_reader_gave_it(book, tmp_path):
+    _read(tmp_path, [MIXED])
+    again = tmp_path / "again"
+    again.mkdir()
+    surer = _flag("kettle-signal", "sharpen", "high", "Names the whistle first.")
+    answer = _lines(
+        {"session": MORNING, "turn": 2, "sections": [surer]},
+        {"session": MORNING, "done": True},
+    )
+    _read(again, [answer], sessions=[MORNING], reread=True)
+    kettle = backfill.leads(["kettle-signal"])["kettle-signal"]
+    assert (kettle.waiting, kettle.high) == (3, 2)
+    [lead] = [c for c in kettle.shown if c.turn.number == 2]
+    assert lead.confidence == "high"
+    assert sorted(flag["confidence"] for _, flag in lead.flags) == ["high", "low"]
+
+
+def test_leads_for_many_sections_read_the_ledger_once(book, tmp_path, monkeypatch):
+    """A unit's view asks for every section it binds at once."""
+    _read(tmp_path, [MIXED])
+    calls = Counter()
+    for module, name in ((backfill, "_reads"), (trail, "load"), (trail, "Corpus")):
+
+        def counted(*args, _real=getattr(module, name), _name=name, **kwargs):
+            calls[_name] += 1
+            return _real(*args, **kwargs)
+
+        monkeypatch.setattr(module, name, counted)
+    backfill.leads(["kettle-signal", "cooling-asymmetry"])
+    assert calls == {"_reads": 1, "load": 1, "Corpus": 1}
+
+
+def test_a_trail_counts_its_waiting_leads_and_lists_them_when_asked(
+    book, tmp_path, capsys
+):
+    _read(tmp_path, [MIXED])
+    assert trail.main(["kettle-signal", "--utc"]) == 0
+    out = capsys.readouterr().out
+    assert (
+        "\n3 leads not yet ruled (1 high-confidence): --leads lists the high "
+        "ones, --leads --all every one\n" in out
+    )
+    assert "Asks to open" not in out, "the trail only counts them"
+
+    assert trail.main(["kettle-signal", "--leads", "--utc"]) == 0
+    out = capsys.readouterr().out
+    assert "Leads: a reader's flags, not breadcrumbs. Judge each in context." in out
+    assert "3 leads not yet ruled (1 high-confidence); the high ones" in out
+    assert "quirework spec trail backfill reject kettle-signal --session ID" in out
+    assert (
+        "2031-04-02 10:00  claude-code 0badc0de Human 1\n"
+        "  claude-sonnet-5: seed (high) Asks to open on the whistle.\n"
+        "  read   quirework provenance show 0badc0de --turn 1\n"
+    ) in out
+    assert "Mentions the kettle" not in out, "only the high-confidence leads"
+
+    assert trail.main(["kettle-signal", "--leads", "--all", "--utc"]) == 0
+    out = capsys.readouterr().out
+    assert "  claude-sonnet-5: probe (low) Mentions the kettle in passing." in out
+    order = ["2031-04-02 10:00", "2031-04-02 10:05", "2031-04-03 20:00"]
+    assert [out.index(f"{when}  claude-code") for when in order] == sorted(
+        out.index(f"{when}  claude-code") for when in order
+    )
+
+    trail.add("cooling-asymmetry", "correct", session=MORNING, turn=3)
+    backfill.reject("cooling-asymmetry", session=MORNING, turn=2, reason="A route.")
+    assert trail.main(["cooling-asymmetry"]) == 0
+    assert "not yet ruled" not in capsys.readouterr().out, "none wait, no line"
+    assert trail.main(["cooling-asymmetry", "--leads"]) == 0
+    assert "None wait: every turn a reader flagged" in capsys.readouterr().out
+
+
+def test_a_units_trails_count_and_list_each_sections_leads(book, tmp_path, capsys):
+    _read(tmp_path, [MIXED])
+    assert trail.main(["--unit", "opening"]) == 0
+    lines = capsys.readouterr().out.splitlines()
+    at = lines.index("no breadcrumbs yet (quirework spec trail add adds one)")
+    assert lines[at + 1].startswith("3 leads not yet ruled (1 high-confidence)")
+    assert trail.main(["kettle-signal", "--brief"]) == 0
+    assert "adds one)\n3 leads not yet ruled" in capsys.readouterr().out
+
+    assert trail.main(["--unit", "opening", "--leads", "--all", "--utc"]) == 0
+    out = capsys.readouterr().out
+    assert "#kettle-signal" in out and "probe (low)" in out
+    assert "Refuses speed" not in out, "opening binds only kettle-signal"
+
+
+def test_leads_go_with_a_section_or_a_unit(book, capsys):
+    for argv in (
+        ["kettle-signal", "--all"],
+        ["--leads"],
+        ["--session", "0badc0de", "--leads"],
+        ["suggest", "kettle-signal", "--leads"],
+    ):
+        with pytest.raises(SystemExit):
+            trail.main(argv)
+    assert "--leads goes with SLUG or --unit U" in capsys.readouterr().err
+
+
+def test_a_trail_without_a_ledger_has_no_leads_to_count(tmp_path, monkeypatch, capsys):
+    monkeypatch.setenv("CODEX_HOME", str(tmp_path / "codex-home"))
+    with project_scope(_book(tmp_path, leads=None)):
+        assert trail.main(["kettle-signal"]) == 0
+        assert "lead" not in capsys.readouterr().out
+        with pytest.raises(ConfigurationError, match="keeps no backfill ledger"):
+            trail.main(["kettle-signal", "--leads"])
 
 
 REDPEN_ROUND = """# Red-pen round v2 (2031-04-01)

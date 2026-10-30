@@ -150,7 +150,8 @@ a copy of the words. A companion about to change a commitment reads the
 author's own turns, oldest first, and opens as much of each conversation
 as it needs. For a spec that grew before it had a trail,
 `spec trail backfill` has cheap readers flag every session once and
-leaves the decision for each section to a strong model. Each read
+leaves the decision for each section to a strong model, or, as leads
+shown beside the trail, to whoever reads that section later. Each read
 records the turns it saw, so a session that later gains turns is handed
 out again for those turns alone.
 

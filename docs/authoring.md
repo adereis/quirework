@@ -592,6 +592,21 @@ private as the trail: its reasons paraphrase your turns.
 have candidates left; its counts are the readers' flags, and a section's
 list adds the turns its commits lead to.
 
+Ruling is the thorough route and the expensive one, and a trail is
+useful without it. A flag nobody has kept or rejected is a lead, and a
+section's trail reads its leads beside its breadcrumbs. Where a ledger
+holds any, `spec trail SLUG` ends on one line counting them, and
+`spec trail SLUG --leads` lists them after the breadcrumbs, oldest
+first: each turn's date, session and number, every reader's flag on it
+with its kind, confidence and reason, and the `provenance show` that
+opens it. Only the leads a reader flagged with high confidence are
+listed, unless `--all` asks for every one. `spec trail --unit U --leads`
+does the same for each section a unit binds. Whoever reads the trail
+judges a lead in context, and can still keep it with `trail add` or
+reject it with `backfill reject`, which takes it out of the count. A
+lead stays a reader's guess, never a breadcrumb. The turns a section's
+commits lead to are not leads here; the section's worklist lists those.
+
 ## 3. Marks
 
 Marks are HTML comments, and they live in a sidecar beside the prose

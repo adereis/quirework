@@ -6,9 +6,11 @@ trail needs its history read, and a corpus of hundreds of sessions is too
 large for a strong model to read whole. So the work is split by what it
 costs. A cheap model reads each session once, as a compact packet, and flags
 every author turn that might have shaped any section. A strong model then
-works one section at a time through everything flagged for it, and decides.
-Reading a session costs the same whether it is read for one section or for
-all of them, which is why each session is read once, against the whole menu.
+works one section at a time through everything flagged for it, and decides,
+or the flags wait unruled as leads, which a section's trail lists for whoever
+reads it. Reading a session costs the same whether it is read for one section
+or for all of them, which is why each session is read once, against the whole
+menu.
 
 This module owns what sits between the two readers:
 
@@ -18,6 +20,8 @@ This module owns what sits between the two readers:
 * the ledger: each reader's flags, imported and checked against the corpus,
   and the ruling reader's rejections, so no later pass pays to read the same
   candidate again.
+* a section's leads: the flags no ruling has kept or rejected, with the
+  surest confidence a reader gave each.
 
 A flag is a lead and never a breadcrumb; a breadcrumb is written with
 ``trail add``. Only the ruling reader drops a candidate, and it records why.
@@ -1458,6 +1462,45 @@ class Candidate:
     notes: list = field(default_factory=list)  # what the ruler should know first
     reply: str = ""  # the model's reply this turn answered
 
+    @property
+    def confidence(self):
+        """The surest confidence any reader flagged this turn with, or ``None``."""
+        ranks = [_rank(item.get("confidence")) for _, item in self.flags]
+        return CONFIDENCE[min(ranks)] if ranks else None
+
+
+def _rank(confidence):
+    """Where a confidence sorts: surest first, and any other value after low."""
+    return CONFIDENCE.index(confidence) if confidence in CONFIDENCE else len(CONFIDENCE)
+
+
+def _locator(corpus):
+    """``at(session, number, logged)``: the turn a stored flag names, or ``None``.
+
+    A flag names its turn by the instant it was logged where the turn has
+    one, and by its number otherwise. Each session's instants are worked out
+    once, however many flags name its turns.
+    """
+    rows = {}
+
+    def at(sid, number=None, logged=None):
+        if sid not in rows:
+            captured = corpus.captured().get(sid)
+            rows[sid] = (
+                None
+                if captured is None
+                else [(_instant(t.logged), t) for t in corpus.turns(sid, *captured)]
+            )
+        for instant, t in rows[sid] or ():
+            if logged and t.logged is not None:
+                if instant == logged:
+                    return t
+            elif t.number == number:
+                return t
+        return None
+
+    return at
+
 
 def worklist(slug, *, commits=True, everything=False, also=()):
     """``(pending, on_trail, rejected, stale)`` candidates for one section.
@@ -1477,18 +1520,7 @@ def worklist(slug, *, commits=True, everything=False, also=()):
     wanted = {slug, *also}
     corpus = trail.Corpus()
     found, stale = {}, []
-
-    def at(sid, number=None, logged=None):
-        captured = corpus.captured().get(sid)
-        if captured is None:
-            return None
-        for t in corpus.turns(sid, *captured):
-            if logged and t.logged is not None:
-                if _instant(t.logged) == logged:
-                    return t
-            elif t.number == number:
-                return t
-        return None
+    at = _locator(corpus)
 
     for read in _reads():
         for entry in read["candidates"]:
@@ -1541,6 +1573,157 @@ def worklist(slug, *, commits=True, everything=False, also=()):
     return sorted(pending, key=order), on_trail, dropped, stale
 
 
+# --------------------------------------------------------------------------- #
+# leads: flags read beside a trail, without a ruling
+# --------------------------------------------------------------------------- #
+@dataclass
+class Leads:
+    """A section's leads: turns readers flagged that no one has kept or rejected.
+
+    ``shown`` holds them oldest first: those with a high-confidence flag, or
+    every one when all were asked for. ``waiting`` counts every lead and
+    ``high`` those with a high-confidence flag. ``stale`` names the flags,
+    as ``(session, turn)``, whose turn the corpus no longer holds.
+    """
+
+    slug: str
+    shown: list
+    waiting: int
+    high: int
+    stale: list
+
+
+def leads(slugs, *, everything=False):
+    """``{slug: Leads}`` for each of ``slugs``, in the order given.
+
+    A lead is a turn a reader flagged for a section that is neither on the
+    section's trail nor rejected for it. It waits to be judged by whoever
+    reads that trail, in context, so a project need not rule on every flag
+    before its trail is useful. Only readers' flags are leads here: the
+    turns a section's commits lead to are read in its worklist. A lead's
+    confidence is the surest any reader gave it; without ``everything``
+    only leads with a high-confidence flag are shown, and the counts cover
+    every one.
+
+    One pass serves every section: the corpus, the readers' flags and the
+    trail are each read once, whatever the number of slugs.
+    """
+    slugs = list(dict.fromkeys(slugs))
+    titles = trail._spec_titles()
+    for slug in slugs:
+        trail._known_slug(slug, titles)
+    corpus = trail.Corpus()
+    at = _locator(corpus)
+    found = {slug: {} for slug in slugs}
+    stale = {slug: [] for slug in slugs}
+    for read in _reads():
+        model = read.get("model") or read.get("requested") or "?"
+        for entry in read["candidates"]:
+            for item in entry["sections"]:
+                if item["slug"] not in found:
+                    continue
+                turn = at(read["session"], entry["turn"], entry.get("logged"))
+                if turn is None:
+                    stale[item["slug"]].append((read["session"], entry["turn"]))
+                    continue
+                key = (turn.session, turn.number)
+                found[item["slug"]].setdefault(key, Candidate(turn)).flags.append(
+                    (model, item)
+                )
+    held = {}
+    for section, crumb in trail.load().crumbs():
+        held.setdefault(section.slug, []).append(crumb)
+    days = {}
+
+    def order(c):
+        return (_when(c.turn, corpus, days), c.turn.session, c.turn.number)
+
+    out = {}
+    for slug in slugs:
+        crumbs, rejected = held.get(slug, []), rejections(slug)
+        waiting = sorted(
+            (
+                c
+                for c in found[slug].values()
+                if not any(trail._points_at(crumb, c.turn) for crumb in crumbs)
+                and not any(_same(e, c.turn) for e in rejected)
+            ),
+            key=order,
+        )
+        high = [c for c in waiting if c.confidence == "high"]
+        out[slug] = Leads(
+            slug, waiting if everything else high, len(waiting), len(high), stale[slug]
+        )
+    return out
+
+
+def _counted(found):
+    """How many leads wait, and how many of them are high-confidence, in words."""
+    n, high = found.waiting, found.high
+    if n == 1:
+        return f"1 lead not yet ruled ({'' if high else 'not '}high-confidence)"
+    share = "all" if high == n else "none" if not high else str(high)
+    return f"{n} leads not yet ruled ({share} high-confidence)"
+
+
+def waiting_line(found):
+    """The one line a section's trail adds while leads wait; ``None`` if none do."""
+    if not found.waiting:
+        return None
+    it = "it" if found.waiting == 1 else "them"
+    if not found.high:
+        return f"{_counted(found)}: --leads --all lists {it}"
+    if found.high == found.waiting:
+        return f"{_counted(found)}: --leads lists {it}"
+    return f"{_counted(found)}: --leads lists the high ones, --leads --all every one"
+
+
+def leads_lines(found, *, utc=False):
+    """A section's leads as ``spec trail --leads`` lists them, after its trail."""
+    slug = found.slug
+    lines = ["Leads: a reader's flags, not breadcrumbs. Judge each in context."]
+    if not found.waiting:
+        lines.append(
+            "None wait: every turn a reader flagged here is on the trail or rejected."
+        )
+    elif len(found.shown) == found.waiting:
+        lines.append(f"{_counted(found)}, oldest first.")
+    elif found.shown:
+        lines.append(
+            f"{_counted(found)}; the high ones, oldest first. --all lists every one."
+        )
+    else:
+        lines.append(f"{_counted(found)}. --all lists every one.")
+    if found.shown:
+        lines += [
+            (
+                f"  keep:   quirework spec trail add {slug} --kind KIND "
+                f'--session ID --turn N --note "…"'
+            ),
+            (
+                f"  reject: quirework spec trail backfill reject {slug} "
+                f'--session ID --turn N --reason "…"'
+            ),
+        ]
+    if found.stale:
+        lines.append(
+            f"  {len(found.stale)} flag(s) name a turn the corpus no longer holds: "
+            + ", ".join(f"{_short(s)} turn {n}" for s, n in found.stale[:5])
+        )
+    zone = timezone.utc if utc else None
+    corpus, days = trail.Corpus(), {}
+    for c in found.shown:
+        t = c.turn
+        when = _dated(t, corpus, days, zone)
+        lines += ["", f"{when}  {t.harness} {t.short} Human {t.number}"]
+        for model, item in c.flags:
+            lines.append(
+                f"  {model}: {item['kind']} ({item['confidence']}) {item['reason']}"
+            )
+        lines.append(f"  read   quirework provenance show {t.short} --turn {t.number}")
+    return lines
+
+
 def _day(turn, corpus, days):
     """The day a timeless turn's session is dated, cached per session."""
     if turn.session not in days:
@@ -1559,6 +1742,14 @@ def _when(turn, corpus, days):
     if day is not None:
         return datetime.combine(day, datetime.min.time(), timezone.utc)
     return datetime.min.replace(tzinfo=timezone.utc)
+
+
+def _dated(turn, corpus, days, zone):
+    """A turn's date as a listing prints it: to the minute, else its day."""
+    if turn.logged:
+        return f"{turn.logged.astimezone(zone):%Y-%m-%d %H:%M}"
+    day = _day(turn, corpus, days)
+    return f"{day:%Y-%m-%d} (day only)" if day else "undated"
 
 
 def _annotate(candidates, corpus):
@@ -1648,11 +1839,7 @@ def _worklist_lines(slug, *, commits, everything, utc, also=(), read=False):
     corpus, days = trail.Corpus(), {}
     for c in pending:
         t = c.turn
-        if t.logged:
-            when = f"{t.logged.astimezone(zone):%Y-%m-%d %H:%M}"
-        else:
-            day = _day(t, corpus, days)
-            when = f"{day:%Y-%m-%d} (day only)" if day else "undated"
+        when = _dated(t, corpus, days, zone)
         lines += ["", f"{when}  {t.harness} {t.short} Human {t.number}"]
         for model, item in c.flags:
             where = f" [#{item['slug']}]" if item["slug"] != slug else ""

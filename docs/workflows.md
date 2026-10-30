@@ -58,10 +58,12 @@ provenance search, section by section. For a large one,
 `spec trail backfill` has cheap readers flag every session once and
 leaves the decision, section by section, to a strong model. That
 decision needs the judgment of a strong model, so a project gives
-backfill a procedure of its own. Capturing and curating sessions is
-different work, mechanical enough for a small model, and a project's
-ingest procedure may name backfill as a follow-up without ever running
-it.
+backfill a procedure of its own. A project may also leave flags unruled:
+`spec trail SLUG --leads` shows them beside the trail as leads, for
+whoever reads that section to judge in context. Capturing and curating
+sessions is different work, mechanical enough for a small model, and a
+project's ingest procedure may name backfill as a follow-up without ever
+running it.
 
 ## Procedures and skills
 
