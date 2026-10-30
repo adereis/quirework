@@ -544,6 +544,32 @@ def test_a_run_seat_keeps_the_project_ceiling_in_its_policy(tmp_path, monkeypatc
     assert all("output_ceiling" not in s["config"] for s in seats.values())
 
 
+def test_a_message_agy_cut_is_found_in_its_transcript_and_flagged():
+    note = "NOTE: The output was truncated because it was too long. Use a more"
+    rows = [
+        dict(
+            type="USER_INPUT",
+            content=f"Chapter one.\n\n<truncated 120 bytes>\n\n{note}",
+        ),
+        dict(type="PLANNER_RESPONSE", content="The chapter ends mid-sentence."),
+    ]
+    assert d.agy_input_cuts(rows) == [120]
+    assert "120 bytes" in d.agy_input_flags(rows)[0]
+
+
+def test_material_quoting_a_cut_marker_is_not_a_cut():
+    rows = [
+        dict(type="USER_INPUT", content="A log line read <truncated 5 bytes> once."),
+        dict(
+            type="PLANNER_RESPONSE",
+            content="<truncated 9 bytes> NOTE: The output was truncated because "
+            "it was too long",
+        ),
+    ]
+    assert d.agy_input_cuts(rows) == []
+    assert d.agy_input_flags(rows) == []
+
+
 def test_a_declared_output_ceiling_reaches_the_claude_runner(monkeypatch):
     from quirework.providers import harness
 

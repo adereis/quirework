@@ -427,6 +427,8 @@ def receipt(config, policy, record, private, established=None):
     # Only Claude's record says why each response stopped and marks what
     # the harness itself wrote, so elsewhere neither can be evidenced.
     reply = dict(output_limit=None, harness_text=[])
+    # Only agy's transcript records a cut to the input it was handed.
+    input_cuts = []
     if name == "codex":
         ids = {r["thread_id"] for r in stream if r.get("type") == "thread.started"}
         complete = [r for r in stream if r.get("type") == "turn.completed"]
@@ -629,6 +631,7 @@ def receipt(config, policy, record, private, established=None):
         if len(paths) != 1:
             raise RuntimeError("agy native transcript missing or ambiguous")
         native = rows(paths[0])
+        input_cuts = workshop_drivers.agy_input_flags(native)
         for row in stream:
             su = row.get("step_update") or {}
             if su.get("step_type") == "tool" and su.get("state") == "ACTIVE":
@@ -657,6 +660,7 @@ def receipt(config, policy, record, private, established=None):
         else []
     )
     red_flags += replies.flags(reply, policy.get("output_ceiling"))
+    red_flags += input_cuts
     red_flags += bus_flags(record)
     minimum = policy.get("minimum_context_window", 0)
     if minimum and (window is None or window < minimum):

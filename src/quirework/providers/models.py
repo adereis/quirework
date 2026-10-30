@@ -688,6 +688,43 @@ def compaction_events(rows):
     return found
 
 
+# agy cuts a user message it finds too long, and the model then reads only
+# the part before the cut, followed by agy's note that it was truncated. The
+# cut is kept in agy's own transcript, in the step holding the message; the
+# prompt the launcher sent is whole, so nothing else in the record shows it.
+# Observed at about 192 KB. The marker is matched with agy's note after it,
+# so material that merely quotes such a marker is not taken for a cut.
+AGY_INPUT_CUT = re.compile(
+    r"<truncated (\d+) bytes>\s*NOTE: The output was truncated because it was "
+    r"too long"
+)
+
+
+def agy_input_cuts(native_rows):
+    """The bytes agy cut from each user message of a turn, in order."""
+    cuts = []
+    for row in native_rows:
+        if row.get("type") != "USER_INPUT":
+            continue
+        content = row.get("content")
+        text = content if isinstance(content, str) else json.dumps(content)
+        cuts += [int(n) for n in AGY_INPUT_CUT.findall(text)]
+    return cuts
+
+
+def agy_input_flags(native_rows):
+    """The red flag a turn whose input agy cut raises, if any."""
+    cuts = agy_input_cuts(native_rows)
+    if not cuts:
+        return []
+    return [
+        f"agy cut the input it was handed: {', '.join(f'{n:,}' for n in cuts)} "
+        "bytes of the message never reached the model, which read the part "
+        "before the cut and agy's note that it was truncated. The answer is "
+        "about that part alone; hand long material over as a file."
+    ]
+
+
 def _no_compaction(rows):
     if compaction_events(rows):
         raise RuntimeError(
@@ -1010,6 +1047,8 @@ def receipt(config, record, private, *, manual=False, resumed=None):
     # Only Claude's record says why each response stopped and marks what
     # the harness itself wrote; see `replies`.
     reply = dict(output_limit=None, harness_text=[])
+    # Only agy's transcript records a cut to the input it was handed.
+    input_cuts = []
     if harness == "codex":
         if manual:
             paths = list((private / "sessions").rglob("*.jsonl"))
@@ -1178,6 +1217,7 @@ def receipt(config, record, private, *, manual=False, resumed=None):
         native = paths
         native_rows = json_rows(paths[0])
         _no_compaction(native_rows)
+        input_cuts = agy_input_flags(native_rows)
         forbidden = []
         # agy cannot be told which tools a seat may use, so its transcript is
         # read afterwards instead. The web is outside a writing assignment and
@@ -1223,7 +1263,7 @@ def receipt(config, record, private, *, manual=False, resumed=None):
         "native_transcripts": [str(p) for p in native],
         "output_limit": reply["output_limit"],
         "harness_text": reply["harness_text"],
-        "red_flags": replies.flags(reply, config.get("output_ceiling")),
+        "red_flags": replies.flags(reply, config.get("output_ceiling")) + input_cuts,
         "answer": answer,
     }
 

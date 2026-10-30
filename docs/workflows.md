@@ -272,6 +272,16 @@ images, rendered PDF pages, and native files. Delivery and exposure are
 separate choices. A native file receipt does not establish that its
 pages were inspected visually.
 
+Antigravity cuts a user message it finds too long, at about 192 KB in
+the one case measured, and the model then reads the part before the cut
+and a note that the rest was truncated. The prompt the launcher sent is
+whole, so the record's own copy cannot show the cut; agy's transcript of
+the message does. Every receipt that reads an agy turn, a run seat's or
+a room's, looks for the cut there and red-flags it with the bytes that
+never arrived, since the answer is about part of the material. A
+whole-document read handed to agy as text past that size is the case
+this catches; handing long material over as a file avoids it.
+
 Clean prose (`prose`, and `prose-images` with its figures) is the copy a
 reader of the rendered page would get, whether the source is a Quarto
 chapter or a site's post. Frontmatter goes, in either convention, since
