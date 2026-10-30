@@ -269,8 +269,11 @@ each chapter's reaction is short. A file a seat reads is evidence only
 if it was read, so for every supplied text file the receipt reports
 `supplied_files_read` from the seat's own tool calls, whether it read
 the file at the path it was told or at the file's own, and red-flags a
-file not read in full. An answer written to a file can be written in
-pieces, so no one response has to hold it.
+file not read in full. A turn that names its answer file also tells the
+seat to write a long answer in parts, one section per write, so that no
+one response has to hold it: a file is no shorter a reply by itself, and
+a seat left to choose wrote a 9,720-word answer in a single write of
+about 55,000 tokens, under which agy's stream dropped three times.
 
 A panel model allocation accepts `tier: cheap | premium | standard`.
 Every seat built from that allocation inherits its tier. For example, a

@@ -113,6 +113,36 @@ def test_a_supplied_file_never_opened_is_flagged(tmp_path, run):
     assert "Not proven read in full: 0 of 1 supplied files" in receipt["red_flags"][0]
 
 
+def test_a_turn_with_an_answer_file_asks_for_it_in_parts(tmp_path):
+    (tmp_path / "note.md").write_text("Mira left a green umbrella.\n")
+    plan = dict(
+        title="Fictitious note",
+        seats=[
+            dict(
+                id="reader",
+                harness="claude",
+                model="fixture-model",
+                effort="high",
+                policy=dict(tools="write"),
+                turns=[
+                    dict(
+                        id="review",
+                        prompt="Read the note.",
+                        materials=[dict(source="note.md", delivery="file")],
+                        outputs=["drafts/review.md"],
+                    )
+                ],
+            )
+        ],
+    )
+    path = tmp_path / "plan.json"
+    path.write_text(json.dumps(plan))
+    engine.prepare(path, tmp_path / "record", resolve=False)
+    prompt, _, _ = engine.Run(tmp_path / "record").stage("reader", 0)
+    assert prompt.endswith(engine.WRITE_IN_PARTS)
+    assert "/tmp/work/drafts/review.md" in prompt
+
+
 def test_the_harness_names_the_exact_path_of_a_supplied_file(tmp_path, run):
     _, seen, _ = run
     assert seen.startswith(str(harness.VIRTUAL / "materials"))

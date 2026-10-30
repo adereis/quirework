@@ -87,6 +87,12 @@ POLICY = dict(
     # count is flagged on the turn's receipt.
     output_ceiling=None,
 )
+# Appended wherever a turn names its output files.
+WRITE_IN_PARTS = (
+    "\nWrite a long contribution in parts: create the file with its first "
+    "section, then add each further section with its own edit, so that no "
+    "single reply has to carry all of it.\n"
+)
 # The provider serves a share of the ceiling, and rounds it. Assert we were
 # given essentially the whole window, not the much smaller session default,
 # without failing a run over a rounding change.
@@ -867,6 +873,10 @@ class Run:
             prompt += "\nSave the requested contribution at:\n" + "\n".join(
                 str(harness.VIRTUAL / relative(p)) for p in turn["outputs"]
             )
+            # A file is no shorter a reply by itself: a seat left to choose
+            # wrote a 55,000-token answer in one write, and agy's stream
+            # dropped three times under replies that long.
+            prompt += WRITE_IN_PARTS
         return prompt, images, files
 
     def check_supplied_reads(self, seat, index, receipt):
