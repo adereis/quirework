@@ -544,6 +544,51 @@ def test_a_run_seat_keeps_the_project_ceiling_in_its_policy(tmp_path, monkeypatc
     assert all("output_ceiling" not in s["config"] for s in seats.values())
 
 
+def _agy_turn(*types):
+    rows = [dict(step_index=i, type=t, status="DONE") for i, t in enumerate(types)]
+    for row in rows:
+        if row["type"] == "ERROR_MESSAGE":
+            row["error"] = d.AGY_RECOVERABLE
+    return rows
+
+
+def test_an_agy_turn_that_recovered_its_dropped_streams_is_banked():
+    result = dict(status="ERROR", error=d.AGY_RECOVERABLE, response="Written.")
+    rows = _agy_turn(
+        "USER_INPUT", "ERROR_MESSAGE", "ERROR_MESSAGE", "PLANNER_RESPONSE", "GENERIC"
+    )
+    assert d.agy_recovered(result, rows) == 2
+    assert "dropped 2 times" in d.agy_recovered_flag(2)
+
+
+@pytest.mark.parametrize(
+    "result, types",
+    [
+        # Nothing completed after the last drop.
+        (
+            dict(status="ERROR", error=None, response="Partly."),
+            ("USER_INPUT", "PLANNER_RESPONSE", "ERROR_MESSAGE"),
+        ),
+        # Another error, not a dropped stream.
+        (
+            dict(status="ERROR", error="Quota exhausted.", response="x"),
+            ("USER_INPUT", "ERROR_MESSAGE", "PLANNER_RESPONSE"),
+        ),
+        # No reply at all.
+        (
+            dict(status="ERROR", response=""),
+            ("USER_INPUT", "ERROR_MESSAGE", "PLANNER_RESPONSE"),
+        ),
+    ],
+)
+def test_an_agy_error_that_did_not_recover_stays_a_failure(result, types):
+    result = dict(result)
+    result.setdefault("error", d.AGY_RECOVERABLE)
+    if result["error"] is None:
+        result["error"] = d.AGY_RECOVERABLE
+    assert d.agy_recovered(result, _agy_turn(*types)) is None
+
+
 def test_a_message_agy_cut_is_found_in_its_transcript_and_flagged():
     note = "NOTE: The output was truncated because it was too long. Use a more"
     rows = [

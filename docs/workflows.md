@@ -297,6 +297,17 @@ never arrived, since the answer is about part of the material. A
 whole-document read handed to agy as text past that size is the case
 this catches; handing long material over as a file avoids it.
 
+agy also recovers from a stream that drops in the middle of a response:
+it records the drop as an error step and the model carries on, which in
+a long turn can happen several times. Its result then says ERROR, with
+"The stream was interrupted", even when a later response completed the
+turn, and continuing the session reports the same. A receipt banks such
+a turn when every error in the session is that drop, a response
+completed after the last one and the result carries a reply, and
+red-flags it with the number of drops, since a response a drop cut was
+generated again rather than continued. Any other ERROR result is still a
+failed turn.
+
 Clean prose (`prose`, and `prose-images` with its figures) is the copy a
 reader of the rendered page would get, whether the source is a Quarto
 chapter or a site's post. Frontmatter goes, in either convention, since

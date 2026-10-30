@@ -712,6 +712,51 @@ def agy_input_cuts(native_rows):
     return cuts
 
 
+# agy recovers from a stream that drops in the middle of a response: it
+# records the drop as an error step and the model carries on. The turn's
+# result then says ERROR, with this error, even when a later response
+# completed the turn, and a continuation of that session says it again.
+AGY_RECOVERABLE = (
+    "The stream was interrupted. Please continue the task you were working on."
+)
+
+
+def agy_recovered(result, native_rows):
+    """How many dropped streams agy recovered from in a turn its result
+    calls an ERROR, or None when the turn did not recover.
+
+    It recovered when every error step in the session is that dropped
+    stream, a model response completed after the last of them, and the
+    result carries a reply. Anything else is a failed turn.
+    """
+    if result.get("status") != "ERROR" or result.get("error") != AGY_RECOVERABLE:
+        return None
+    if not (result.get("response") or "").strip():
+        return None
+    steps = [r for r in native_rows if isinstance(r.get("step_index"), int)]
+    errors = [r for r in steps if r.get("type") == "ERROR_MESSAGE"]
+    if not errors or any(r.get("error") != AGY_RECOVERABLE for r in errors):
+        return None
+    last = max(r["step_index"] for r in errors)
+    if not any(
+        r["step_index"] > last
+        and r.get("type") == "PLANNER_RESPONSE"
+        and r.get("status") == "DONE"
+        for r in steps
+    ):
+        return None
+    return len(errors)
+
+
+def agy_recovered_flag(count):
+    return (
+        f"agy's stream dropped {count} time{'s' if count != 1 else ''} in this "
+        "session and agy resumed the model each time, so its result says "
+        "ERROR though a later response completed the turn. The answer is "
+        "banked; a response cut by a drop was regenerated, not continued."
+    )
+
+
 def agy_input_flags(native_rows):
     """The red flag a turn whose input agy cut raises, if any."""
     cuts = agy_input_cuts(native_rows)
@@ -1191,7 +1236,7 @@ def receipt(config, record, private, *, manual=False, resumed=None):
                     "agy has no unique final result; inspect events and stderr"
                 )
             result = results[0]
-            if result.get("status") not in ("SUCCESS", "COMPLETED", "DONE"):
+            if result.get("status") not in ("SUCCESS", "COMPLETED", "DONE", "ERROR"):
                 raise RuntimeError(f"agy result status: {result.get('status')}")
             ids = {r["conversation_id"] for r in rows if r.get("conversation_id")}
             if len(ids) != 1:
@@ -1218,6 +1263,11 @@ def receipt(config, record, private, *, manual=False, resumed=None):
         native_rows = json_rows(paths[0])
         _no_compaction(native_rows)
         input_cuts = agy_input_flags(native_rows)
+        if not manual and result.get("status") == "ERROR":
+            recovered = agy_recovered(result, native_rows)
+            if recovered is None:
+                raise RuntimeError(f"agy result status: {result.get('status')}")
+            input_cuts.append(agy_recovered_flag(recovered))
         forbidden = []
         # agy cannot be told which tools a seat may use, so its transcript is
         # read afterwards instead. The web is outside a writing assignment and

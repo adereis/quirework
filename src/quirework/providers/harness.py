@@ -607,7 +607,7 @@ def receipt(config, policy, record, private, established=None):
         if (
             len(results) != 1
             or len(ids) != 1
-            or results[0].get("status") not in ("SUCCESS", "COMPLETED", "DONE")
+            or results[0].get("status") not in ("SUCCESS", "COMPLETED", "DONE", "ERROR")
         ):
             raise RuntimeError("agy has no unique completed result")
         result = results[0]
@@ -632,6 +632,12 @@ def receipt(config, policy, record, private, established=None):
             raise RuntimeError("agy native transcript missing or ambiguous")
         native = rows(paths[0])
         input_cuts = workshop_drivers.agy_input_flags(native)
+        # An ERROR result passes only where agy recovered the turn itself.
+        if result.get("status") == "ERROR":
+            recovered = workshop_drivers.agy_recovered(result, native)
+            if recovered is None:
+                raise RuntimeError("agy has no unique completed result")
+            input_cuts.append(workshop_drivers.agy_recovered_flag(recovered))
         for row in stream:
             su = row.get("step_update") or {}
             if su.get("step_type") == "tool" and su.get("state") == "ACTIVE":
