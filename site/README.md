@@ -61,3 +61,26 @@ environment, which only `main` and `v*` tags may deploy from:
 
 The Worker is `quirework-site`. Everything else, the custom domain
 included, is in `wrangler.jsonc`.
+
+## Deploying between releases
+
+A change to the site alone goes live without a release:
+
+1. Edit under `site/` by the rules in `AGENTS.md`. Refresh the captures
+   if the change touches what they show, build with
+   `hugo --panicOnWarning`, and commit the change apart from the tool's
+   and the examples'.
+2. Push `main`. Every unpushed commit goes with it, so read
+   `git log origin/main..main` first.
+3. Run the workflow from `main`: "Run workflow" in the Actions tab, or
+   `gh workflow run site.yml --ref main`. Watch it with `gh run watch`.
+
+A run from `main` renders the sample book with `main`'s Quirework, not
+the release's. When the tool has changed since the last tag
+(`git diff --stat vX.Y.Z..main -- src pyproject.toml`), the site shows a
+Quirework that PyPI does not have yet, and a release is the way to avoid
+that.
+
+In Claude Code, `/site-fix` runs this list (the repository's
+`.claude/skills/site-fix/`). It makes and commits the change, then stops
+for the maintainer's word before step 2.
