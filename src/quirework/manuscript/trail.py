@@ -62,7 +62,12 @@ from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
 from quirework.manuscript import notes
-from quirework.project import ConfigurationError, current_project
+from quirework.project import (
+    ConfigurationError,
+    Project,
+    current_project,
+    project_scope,
+)
 
 # What a turn did to the section. A closed set, so every trail reads the same
 # way; the nuance belongs in the note. `probe` exists so that a position the
@@ -1414,6 +1419,114 @@ def check():
     count = len(sidecar.crumbs())
     print(f"✓ trail --check: {count} breadcrumb(s) in {_rel(sidecar.path)}.")
     return 0
+
+
+# --------------------------------------------------------------------------- #
+# a reminder for spec commits
+# --------------------------------------------------------------------------- #
+def _holdings(specs):
+    """``{slug: body}`` for every level-2 section of ``specs``, as compared.
+
+    ``specs`` maps each spec file to its text. A body is compared with its
+    comments dropped and its whitespace collapsed, so a rewrap or a mark
+    changes nothing it holds, and with no regard to its file or part, so a
+    section moved unchanged is the same section.
+    """
+    out = {}
+    for path, text in specs.items():
+        for section in notes._sections_of(Path(path), text):
+            if section.slug:
+                body = notes._COMMENT.sub(" ", section.body)
+                out[section.slug] = " ".join(body.split())
+    return out
+
+
+def _headed(text):
+    """``{slug: breadcrumbs}`` under each heading of a trail sidecar's text."""
+    out = {}
+    for section in parse(text, Path("<trail>")).sections:
+        if section.slug:
+            out.setdefault(section.slug, []).extend(section.crumbs)
+    return out
+
+
+def unbreadcrumbed(before_specs, after_specs, before_trail, after_trail):
+    """The spec sections a change rewrote or added without a new breadcrumb.
+
+    ``before_specs`` and ``after_specs`` map each spec file to its text before
+    and after the change; ``before_trail`` and ``after_trail`` are the trail
+    sidecar's text. A section counts when it is new, or its body is not the
+    same once comments are dropped and whitespace collapsed, and the trail
+    after holds no breadcrumb under its heading that the trail before lacked.
+    A deleted section never counts. Slugs come in the order the spec after
+    the change holds them.
+
+    It reads no file and runs nothing. It is a reminder, never a gate: a
+    change can rightly reword a section with no turn of the author's behind
+    it, and only whoever made the change knows.
+    """
+    before, after = _holdings(before_specs), _holdings(after_specs)
+    changed = [slug for slug, body in after.items() if before.get(slug) != body]
+    if not changed:
+        return []
+    then, now = _headed(before_trail), _headed(after_trail)
+    return [
+        slug
+        for slug in changed
+        if all(
+            any(crumb.same_turn(old) for old in then.get(slug, ()))
+            for crumb in now.get(slug, ())
+        )
+    ]
+
+
+def _staged(path):
+    """``(at HEAD, in the index)``: the two texts of ``path`` a commit compares.
+
+    A version git does not hold, such as a file new to the index or a
+    repository with no commit yet, is empty.
+    """
+    path = Path(path).resolve()
+    where = next((p for p in path.parents if p.is_dir()), path.parent)
+    try:
+        top = Path(_git(where, "rev-parse", "--show-toplevel").strip())
+    except (OSError, subprocess.CalledProcessError) as exc:
+        raise LookupError(
+            f"{_rel(path)} is in no git repository, so nothing of it is staged"
+        ) from exc
+    name = path.relative_to(top).as_posix()
+
+    def version(ref):
+        try:
+            return _git(top, "show", f"{ref}:{name}")
+        except subprocess.CalledProcessError:
+            return ""
+
+    return version("HEAD"), version("")
+
+
+def staged_without_breadcrumb(root=None):
+    """``unbreadcrumbed`` for what is staged: the index against ``HEAD``.
+
+    Reads every spec file and the trail sidecar as the project configures
+    them, at ``HEAD`` and in the index. ``root`` is a project directory to
+    read, for a caller outside one; by default, the current project.
+    """
+    if root is not None:
+        with project_scope(Project.load(root)):
+            return staged_without_breadcrumb()
+    sidecar = sidecar_path()
+    docs = current_project().path("manuscript.source")
+    # A shared spec file the work tree no longer holds may still be at HEAD,
+    # and a section that moved out of it is not new.
+    specs = dict.fromkeys(
+        [*notes._configured_book_files(docs, "manuscript.spec"), *notes.spec_files()]
+    )
+    before, after = {}, {}
+    for spec in specs:
+        before[spec], after[spec] = _staged(spec)
+    trail_before, trail_after = _staged(sidecar)
+    return unbreadcrumbed(before, after, trail_before, trail_after)
 
 
 # --------------------------------------------------------------------------- #

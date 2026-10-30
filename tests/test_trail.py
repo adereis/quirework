@@ -860,3 +860,119 @@ def test_a_breadcrumb_can_point_at_a_red_pen_mark(tmp_path, monkeypatch):
         )
         assert crumb.header() == "- turn 1 · reverse · redpen redpen-v1-2031-04-05"
         assert trail.check() == 0
+
+
+# --------------------------------------------------------------------------- #
+# a reminder for spec commits
+# --------------------------------------------------------------------------- #
+CRUMB = (
+    "- 2031-04-02T10:09:12Z · correct · claude-code "
+    "0badc0de-0000-4000-8000-000000000001\n\n  Route, not speed.\n"
+)
+LATER = (
+    "- 2031-04-02T10:05:30Z · seed · claude-code 0badc0de-0000-4000-8000-000000000001\n"
+)
+HEADS = (
+    "## A kettle signals without thinking {#kettle-signal}\n\n",
+    "## Cooling is not the reverse of boiling {#cooling-asymmetry}\n\n",
+)
+
+
+def _trail(kettle="", cooling=""):
+    return f"{HEADS[0]}{kettle}\n{HEADS[1]}{cooling}"
+
+
+def test_a_rewritten_section_without_a_new_breadcrumb_is_named(book):
+    spec = book.path("manuscript.spec")
+    reworded = SPEC.replace("cools by another.", "cools by another route.")
+    trail_text = _trail(cooling=CRUMB)
+    assert trail.unbreadcrumbed(
+        {spec: SPEC}, {spec: reworded}, trail_text, trail_text
+    ) == ["cooling-asymmetry"]
+    assert (
+        trail.unbreadcrumbed(
+            {spec: SPEC}, {spec: reworded}, trail_text, _trail(cooling=CRUMB + LATER)
+        )
+        == []
+    ), "a breadcrumb added under its heading"
+    assert trail.unbreadcrumbed(
+        {spec: SPEC}, {spec: reworded}, _trail(), _trail(kettle=CRUMB)
+    ) == ["cooling-asymmetry"], "a breadcrumb under another heading is not its"
+    edited = _trail(cooling=CRUMB.replace("Route, not speed.", "A route."))
+    assert trail.unbreadcrumbed({spec: SPEC}, {spec: reworded}, trail_text, edited) == [
+        "cooling-asymmetry"
+    ], "a reworded note points at no new turn"
+
+
+def test_a_rewrap_a_mark_or_a_move_between_parts_holds_the_same(book):
+    spec = book.path("manuscript.spec")
+    rewrapped = SPEC.replace("route and cools", "route and\ncools")
+    marked = SPEC.replace(
+        "A kettle reaches", "<!-- @todo say how long it takes -->\nA kettle reaches"
+    )
+    moved = SPEC.replace(
+        "## Cooling is not", "# What the notebook adds\n\n## Cooling is not"
+    )
+    for after in (rewrapped, marked, moved):
+        assert trail.unbreadcrumbed({spec: SPEC}, {spec: after}, "", "") == []
+
+
+def test_a_section_moved_to_another_file_unchanged_is_not_new(book):
+    spec = book.path("manuscript.spec")
+    other = spec.with_name("_more.md")
+    kettle, cooling = SPEC.split("## Cooling")
+    after = {spec: kettle, other: "# More\n\n## Cooling" + cooling}
+    assert trail.unbreadcrumbed({spec: SPEC, other: ""}, after, "", "") == []
+
+
+def test_a_new_section_is_named_and_a_deleted_one_is_not(book):
+    spec = book.path("manuscript.spec")
+    grown = SPEC + "\n## Steam is not smoke {#steam-not-smoke}\n\nIt is water.\n"
+    shrunk = SPEC.split("## Cooling")[0]
+    assert trail.unbreadcrumbed({spec: SPEC}, {spec: grown}, "", "") == [
+        "steam-not-smoke"
+    ]
+    assert trail.unbreadcrumbed({spec: SPEC}, {spec: shrunk}, "", "") == []
+    steam = "## Steam is not smoke {#steam-not-smoke}\n\n" + LATER
+    assert trail.unbreadcrumbed({spec: SPEC}, {spec: grown}, "", steam) == []
+
+
+def test_only_what_is_staged_is_compared_with_head(book):
+    root, spec = book.root, book.path("manuscript.spec")
+    sidecar = book.path("manuscript.spec_trail")
+    sidecar.parent.mkdir(parents=True, exist_ok=True)
+    sidecar.write_text(_trail(cooling=CRUMB))
+    _git(root, "init", "-q")
+    _git(root, "add", "manuscript", "private/spec-trail.md")
+    _git(root, "commit", "-q", "-m", "Draft the notebook's spec")
+    assert trail.staged_without_breadcrumb() == []
+
+    spec.write_text(SPEC.replace("cools by another.", "cools by another route."))
+    assert trail.staged_without_breadcrumb() == [], "an unstaged edit is not compared"
+    _git(root, "add", str(spec))
+    assert trail.staged_without_breadcrumb() == ["cooling-asymmetry"]
+    sidecar.write_text(_trail(cooling=CRUMB + LATER))
+    assert trail.staged_without_breadcrumb() == ["cooling-asymmetry"]
+    _git(root, "add", str(sidecar))
+    assert trail.staged_without_breadcrumb() == []
+
+
+def test_a_project_directory_can_be_named_for_the_staged_comparison(tmp_path):
+    project = _book(tmp_path, provenance=False)
+    root = project.root
+    (root / "quirework.toml").write_text(
+        "schema = 2\n\n[manuscript]\n"
+        'source = "manuscript"\nchapters = "manuscript/sections"\n'
+        'quarto = "manuscript/_quarto.yml"\n'
+        'spec = "manuscript/sections/_spec.md"\n'
+        'spec_trail = "private/spec-trail.md"\n'
+    )
+    _git(root, "init", "-q")
+    spec = root / "manuscript" / "sections" / "_spec.md"
+    spec.write_text(SPEC + "\n## Steam is not smoke {#steam-not-smoke}\n\nWater.\n")
+    _git(root, "add", "manuscript")
+    assert trail.staged_without_breadcrumb(root) == [
+        "kettle-signal",
+        "cooling-asymmetry",
+        "steam-not-smoke",
+    ], "with no commit yet, every staged section is new"

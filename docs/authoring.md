@@ -452,6 +452,17 @@ by a prefix. It only warns about a session not captured yet, or captured
 before the turn was made, which is what pointing at a live conversation
 costs until that session is captured.
 
+A breadcrumb is easiest to forget in the very edit that needed it.
+`quirework.manuscript.trail.staged_without_breadcrumb()` is for a
+project's own pre-commit hook to print: the spec sections a staged
+change rewrote or added while the staged trail gained no breadcrumb
+under their headings. It compares the index with `HEAD`. A rewrap, a
+comment or a section moved unchanged to another part or file is not a
+change, and a deleted section is never listed. It is a reminder, never a
+gate, since a section can rightly change with no turn of yours behind
+it. `trail.unbreadcrumbed` makes the same comparison between any two
+versions of the spec files and the trail.
+
 ### Backfilling a trail
 
 A spec that grew before it had a trail needs its history read, and a

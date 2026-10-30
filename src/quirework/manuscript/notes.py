@@ -651,8 +651,10 @@ def section_stops(text: str) -> list[int]:
     return [m.start() for m in _HEADING.finditer(text) if len(m.group(1)) <= 2]
 
 
-def _sections_of(spec: Path) -> list[Section]:
-    text = mask_fences(spec.read_text())
+def _sections_of(spec: Path, text: str | None = None) -> list[Section]:
+    """The level-2 sections of one spec file: its text on disk, or ``text``
+    as the file held it at some other revision."""
+    text = mask_fences(spec.read_text() if text is None else text)
     stops = section_stops(_mask_nonprose(text))
     lvl2 = []
     for m in _HEADING.finditer(_mask_nonprose(text)):
