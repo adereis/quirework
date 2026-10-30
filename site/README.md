@@ -81,6 +81,6 @@ the release's. When the tool has changed since the last tag
 Quirework that PyPI does not have yet, and a release is the way to avoid
 that.
 
-In Claude Code, `/site-fix` runs this list (the repository's
-`.claude/skills/site-fix/`). It makes and commits the change, then stops
-for the maintainer's word before step 2.
+In Claude Code, `/quirework-site-fix` runs this list (the repository's
+`.claude/skills/quirework-site-fix/`). It makes and commits the change,
+then stops for the maintainer's word before step 2.
