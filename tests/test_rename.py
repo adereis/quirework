@@ -22,7 +22,8 @@ A whistle reports a state.
 
 ## Cooling is not the reverse of boiling {#cooling-asymmetry}
 
-Unlike [the whistle](#kettle-signal), cooling makes no sound.
+Unlike [the whistle](#kettle-signal), cooling makes no sound, and nothing
+in #kettle-signal runs backward.
 """
 
 TRAIL = """## A kettle signals without thinking {#kettle-signal}
@@ -45,6 +46,7 @@ def _book(tmp_path):
     (sections / "_marks" / "opening.md").write_text(
         "# The opening {#sec-opening}\n\n"
         "<!-- @bind(kettle-signal) -->\n<!-- @bind(cooling-asymmetry) -->\n"
+        "<!-- @todo say whether #kettle-signal covers a silent kettle -->\n"
     )
     (root / "companion").mkdir()
     (root / "companion" / "entry.md").write_text(
@@ -104,9 +106,11 @@ def test_a_rename_reaches_every_place_the_slug_is_written(book):
     sections = book / "manuscript" / "sections"
     spec = (sections / "_spec.md").read_text()
     assert "{#whistle-signal}" in spec and "](#whistle-signal)" in spec
+    assert "nothing\nin #whistle-signal runs backward" in spec
     assert "kettle-signal" not in spec
     marks = (sections / "_marks" / "opening.md").read_text()
     assert "@bind(whistle-signal)" in marks and "@bind(cooling-asymmetry)" in marks
+    assert "whether #whistle-signal covers" in marks
     entry = (book / "companion" / "entry.md").read_text()
     assert "`@bind(whistle-signal)`" in entry and "`#whistle-signal`" in entry
     assert "`#cooling-asymmetry`" in entry
@@ -129,9 +133,30 @@ def test_a_dry_run_writes_nothing(book, capsys):
     assert rename.main(["kettle-signal", "whistle-signal", "--dry-run"]) == 0
     assert _texts(book) == before
     out = capsys.readouterr().out
-    assert "manuscript/sections/_spec.md: heading, link" in out
+    assert "manuscript/sections/_spec.md: heading, reference ×2" in out
+    assert "manuscript/sections/_marks/opening.md: @bind, reference" in out
     assert "private/leads/rulings/kettle-signal.json -> " in out
     assert "would become #whistle-signal in 6 file(s)" in out
+
+
+def test_examples_in_the_spec_keep_the_old_name(book):
+    """A code span, an HTML comment and a fenced block hold examples, which the
+    spec gate does not read as references, so the rename leaves them as they
+    are and the gate still passes."""
+    spec = book / "manuscript" / "sections" / "_spec.md"
+    spec.write_text(
+        spec.read_text()
+        + "\nA citation is written `#kettle-signal`.\n\n"
+        + "<!-- an aside on #kettle-signal -->\n\n"
+        + "```\nsee #kettle-signal\n```\n"
+    )
+    assert rename.main(["kettle-signal", "whistle-signal"]) == 0
+    text = spec.read_text()
+    assert "in #whistle-signal runs" in text
+    assert "`#kettle-signal`" in text
+    assert "<!-- an aside on #kettle-signal -->" in text
+    assert "see #kettle-signal" in text
+    assert notes.check() == 0
 
 
 @pytest.mark.parametrize(
@@ -201,6 +226,20 @@ def test_a_units_own_section_keeps_its_bare_binding_bare(tmp_path):
     lamp = root / "specs" / "the-lamp"
     assert "{#thesis}" in (lamp / "spec.md").read_text()
     assert (lamp / "marks.md").read_text() == "<!-- @bind(thesis) -->\n"
+
+
+def test_a_bare_reference_in_a_units_own_spec_follows_that_units_section(tmp_path):
+    """Each post's spec says #thesis and means its own section, so renaming one
+    post's section rewrites that post's reference and not the other's."""
+    root = tmp_path / "site"
+    with project_scope(_site(root)):
+        for slug in ("the-kettle", "the-lamp"):
+            spec = root / "specs" / slug / "spec.md"
+            spec.write_text(spec.read_text() + "\nThe rest follows #thesis.\n")
+        assert rename.main(["the-kettle/thesis", "claim"]) == 0
+        assert notes.check() == 0
+    assert "follows #claim." in (root / "specs" / "the-kettle" / "spec.md").read_text()
+    assert "follows #thesis." in (root / "specs" / "the-lamp" / "spec.md").read_text()
 
 
 def test_a_units_own_section_cannot_move_to_another_unit(tmp_path, capsys):

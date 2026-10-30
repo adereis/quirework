@@ -324,14 +324,19 @@ rendered into the book.
 
 A slug is a name, and a section can outgrow it: reverse what a section
 says and its slug may now say the opposite. The slug is written in the
-spec's heading and in its links, in every sidecar that binds the
-section, a derived edition's included, in an edition's `@omit` marks, in
-companion citations and the references register's, in the trail's
-heading and in the backfill ledger, so renaming it by hand means finding
-all of them. `quirework spec rename OLD NEW` renames it in every one,
-and refuses before writing anything if it cannot: a new name already in
-use, an anchor that is not one, a unit's own section moved to another
-unit. `--dry-run` lists the files it would change.
+spec's heading, in its links and in its bare `#slug` references, in
+every sidecar that binds the section or names it in a mark's body, a
+derived edition's included, in an edition's `@omit` marks, in companion
+citations and the references register's, in the trail's heading and in
+the backfill ledger, so renaming it by hand means finding all of them.
+`quirework spec rename OLD NEW` renames it in every one, and refuses
+before writing anything if it cannot: a new name already in use, an
+anchor that is not one, a unit's own section moved to another unit. A
+reference resolves where it is written, as a binding does, so a unit's
+own spec that names its section bare keeps naming it bare. Code spans,
+comments and fenced blocks in the spec hold examples, which the checks
+do not read as references, and the rename leaves them alone. `--dry-run`
+lists the files it would change.
 
 `quirework spec notes --primer` prints the spec's sections first, then
 the marks in reading order. That is the one command to run at the start

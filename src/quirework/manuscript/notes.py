@@ -603,16 +603,33 @@ def _unpublished(slug: str, home: dict[str, Path], public) -> Path | None:
     return home[slug]
 
 
-def spec_text_refs(text: str) -> list[tuple[str, int]]:
-    """``(slug, line)`` for each section reference written in a spec file's
-    prose: a ``#slug`` or a ``](#slug)`` link. A heading's ``{#anchor}`` is the
-    section's own name, not a reference, and fenced code, code spans, HTML
-    comments and frontmatter hold examples and notes rather than citations,
-    so none of those is read."""
+def spec_ref_spans(text: str) -> list[tuple[int, int, str]]:
+    """``(start, end, name)`` for each section reference written in a spec
+    file's prose, a ``#slug`` or a ``](#slug)`` link, spanning the name after
+    its ``#``. A heading's ``{#anchor}`` is the section's own name, not a
+    reference, and fenced code, code spans, HTML comments and frontmatter hold
+    examples and notes rather than citations, so none of those is read."""
     masked = _BACKTICKED.sub(_blank, _mask_nonprose(mask_fences(text)))
+    return [(m.start(1), m.end(1), m.group(1)) for m in _SPEC_REF.finditer(masked)]
+
+
+def spec_text_refs(text: str) -> list[tuple[str, int]]:
+    """``(slug, line)`` for each reference :func:`spec_ref_spans` finds."""
     return [
-        (m.group(1), masked.count("\n", 0, m.start()) + 1)
-        for m in _SPEC_REF.finditer(masked)
+        (name, text.count("\n", 0, start) + 1)
+        for start, _, name in spec_ref_spans(text)
+    ]
+
+
+def mark_ref_spans(text: str) -> list[tuple[int, int, str]]:
+    """``(start, end, name)`` for each ``#slug`` written in a mark's body, the
+    references the inline-reference advisory resolves. A mark in a fenced
+    example is not a mark, so its body is not read."""
+    masked = mask_fences(text)
+    return [
+        (m.start(3) + r.start(1), m.start(3) + r.end(1), r.group(1))
+        for m in _ANNO.finditer(masked)
+        for r in _SPEC_REF.finditer(m.group(3))
     ]
 
 

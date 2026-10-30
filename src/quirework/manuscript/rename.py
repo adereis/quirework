@@ -99,17 +99,20 @@ def _heading(text: str, anchor: str, new_anchor: str) -> tuple[str, int]:
     return text, 0
 
 
-def _links(text: str, names: dict[str, str]) -> tuple[str, int]:
-    """Markdown links to a section, ``](#name)``, renamed per ``names``."""
-    count = 0
-
-    def swap(m):
-        nonlocal count
+def _refs(text: str, spans, unit: str | None, old: str, new: str, known: set[str]):
+    """The ``#name`` references at ``spans`` that resolve to ``old``, written
+    as they were written: in full when they were, bare when a unit named its
+    own section bare. The spans come from the reader the checks use, so a
+    rename rewrites exactly what they would report and leaves examples alone."""
+    count, out, last = 0, [], 0
+    for start, end, written in spans:
+        if notes.resolve(written, unit, known) != old:
+            continue
         count += 1
-        return f"](#{names[m.group(1)]})"
-
-    alternatives = "|".join(re.escape(n) for n in names)
-    return re.sub(rf"\]\(#({alternatives})\)", swap, text), count
+        out += [text[last:start], new if "/" in written else notes.anchor_of(new)]
+        last = end
+    out.append(text[last:])
+    return "".join(out), count
 
 
 def _binds(text: str, unit: str | None, old: str, new: str, known: set[str]):
@@ -185,16 +188,23 @@ def plan(old: str, new: str) -> tuple[str, list[Edit]]:
 
     change(section.path, lambda t: _heading(t, old_anchor, new_anchor), "heading")
     for spec in notes.spec_files():
-        names = {old: new}
-        if spec == section.path:
-            names[old_anchor] = new_anchor
-        change(spec, lambda t, n=names: _links(t, n), "link")
+        owner = notes.spec_owner(spec)
+        change(
+            spec,
+            lambda t, u=owner: _refs(t, notes.spec_ref_spans(t), u, old, new, known),
+            "reference",
+        )
     for f in notes.mark_files():
         # An edition's marks name sections in full, so its unit is the
         # edition's own name, which no bare name resolves under.
         unit = editions.unit_of(f) or units.slug_of(notes._chapter_for(f))
         change(f, lambda t, u=unit: _binds(t, u, old, new, known), "@bind")
         change(f, lambda t: _omits(t, old, new), "@omit")
+        change(
+            f,
+            lambda t, u=unit: _refs(t, notes.mark_ref_spans(t), u, old, new, known),
+            "reference",
+        )
     for f in notes.companion_files():
         change(f, lambda t: _binds(t, None, old, new, known), "@bind")
         change(f, lambda t: _code_refs(t, old, new), "citation")
