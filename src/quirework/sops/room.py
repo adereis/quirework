@@ -211,13 +211,13 @@ def start_text(root, plan, seat):
         "Post to outbox/post.md, replacing your last post each\n"
         f"time. That file is what the room sees. About {plan['post_words']} words.\n"
     )
-    roster = holdings(plan)
+    roster = holdings(plan, seat)
     if roster:
         text += "\nIn the room, and what each person brought:\n\n" + roster
     return personas.compose(text, seat["persona_frozen"])
 
 
-def holdings(plan):
+def holdings(plan, you=None):
     """Who is in the room and what each of them was given beyond the common set.
 
     Seats are handed different material on purpose, and that asymmetry is what
@@ -249,7 +249,11 @@ def holdings(plan):
         extra = sorted(set(seat.get("reads", [])) - common)
         shown_as = [named.get(rel, rel) for rel in extra]
         brought = ", ".join(shown_as) if extra else "nothing the rest of you lack"
-        lines.append(f"- {label(seat)}: {brought}\n")
+        # Each person is named as the board names them, label and id, and the
+        # seat reading this is marked: seats that share a persona's label
+        # could not otherwise tell their own posts from a colleague's.
+        mine = ", you" if you is not None and seat["id"] == you["id"] else ""
+        lines.append(f"- {label(seat)} ({seat['id']}{mine}): {brought}\n")
     return "".join(lines)
 
 

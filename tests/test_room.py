@@ -704,8 +704,15 @@ def test_the_room_is_told_who_brought_what(prepared):
     """
     text = (prepared / "seats/ana-pell/START.md").read_text()
     assert "In the room, and what each person brought" in text
-    assert "Bo Larke: extra.md" in text
-    assert "Ana Pell: nothing the rest of you lack" in text
+    assert "Bo Larke (bo-larke): extra.md" in text
+    assert "Ana Pell (ana-pell, you): nothing the rest of you lack" in text
+
+
+def test_a_seat_is_told_which_one_it_is(prepared):
+    """Seats sharing a persona's label cannot tell their own posts apart unless
+    the roster names each by the id the board prints and marks the reader."""
+    bo = (prepared / "seats/bo-larke/START.md").read_text()
+    assert "Bo Larke (bo-larke, you)" in bo and "Ana Pell (ana-pell):" in bo
 
 
 def test_the_roster_never_leaks_a_packet_into_a_seat_that_lacks_it(prepared):
