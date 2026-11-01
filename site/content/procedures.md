@@ -168,6 +168,12 @@ them. Launch intent is recorded before a process starts, and a pending
 request is reconciled before anything is resubmitted, so an answer is
 never bought twice.
 
+Long material reaches a seat as a file, and a long answer comes back as
+one, written in parts. Neither has to fit in one message, where a
+harness can cut it without saying so. A file is evidence only if the
+seat read it. The receipt counts the seat's own reads of each file, and
+flags one it did not read in full.
+
 A run stopped by a quota limit continues in its own session instead of
 starting over. A turn cut off by an error waits for your decision, with
 its session intact. A compaction is reported even when the answer looks
