@@ -53,6 +53,7 @@ import numpy as np
 
 from quirework.project import current_project
 from quirework.provenance import rulings as RULINGS
+from quirework.provenance import show as SHOW
 from quirework.provenance import store
 
 
@@ -246,6 +247,10 @@ def corpus_fingerprint():
             h.update(f"{p.name}:{p.stat().st_size}\n".encode())
     for p in RULINGS.rounds():
         h.update(f"rulings/{p.name}:{p.stat().st_size}\n".encode())
+    # A red-pen round is rewritten when its archive is re-extracted, so its
+    # size says whether its marks moved, as a ruling's does.
+    for p in SHOW.redpen_rounds():
+        h.update(f"redpen/{p.name}:{p.stat().st_size}\n".encode())
     return h.hexdigest()
 
 
@@ -258,6 +263,8 @@ def _path(source, file):
     if source == "rulings":
         found = RULINGS.directory()
         return found / file if found is not None and (found / file).is_file() else None
+    if source == "redpen":
+        return next((p for p in SHOW.redpen_rounds() if p.name == file), None)
     return store.path_of(_FAMILY.get(source, store.WEB), file)
 
 

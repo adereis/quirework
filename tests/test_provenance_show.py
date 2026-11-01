@@ -800,6 +800,21 @@ def test_a_red_pen_round_joins_search_with_only_the_authors_words(tmp_path):
         assert search.search(["cools"], highlights="")[0] == []
 
 
+def test_a_red_pen_round_moves_the_semantic_fingerprint(tmp_path):
+    """An index built before a round was archived must notice it and rebuild."""
+    from quirework.project import project_scope
+    from quirework.provenance import semantic
+
+    with project_scope(_redpen_project(tmp_path)):
+        before = semantic.corpus_fingerprint()
+        assert semantic._path("redpen", "v3-2031-05-07.md").name == "v3-2031-05-07.md"
+        archive = tmp_path / "book" / "private" / "redpen"
+        (archive / "v4-2031-06-01.md").write_text(
+            REDPEN_ROUND.replace("v3 (2031-05-07)", "v4 (2031-06-01)"), encoding="utf-8"
+        )
+        assert semantic.corpus_fingerprint() != before
+
+
 def test_red_pen_rounds_join_only_by_the_projects_own_setting(tmp_path):
     from quirework.project import Project, project_scope
 
