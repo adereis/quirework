@@ -197,6 +197,33 @@ def test_a_codex_call_naming_no_directory_runs_in_the_turns(tmp_path, mount):
     ) == (2, True, [])
 
 
+def test_a_sed_read_to_the_last_line_covers_the_rest_of_the_file(tmp_path, mount):
+    """`sed -n 'N,$p'` prints from line N to the end, so a file read in two
+    pieces, the second open-ended, was read in full. The open piece alone
+    leaves the lines before it unread."""
+    first = chapter(mount, 0)
+
+    def sed(*ranges):
+        return [
+            dict(
+                type="custom_tool_call",
+                input=f"await tools.exec_command({{cmd: \"sed -n '{r}' {first}\"}});",
+            )
+            for r in ranges
+        ]
+
+    (tmp_path / "pieces").mkdir()
+    pieces = codex_rollout(tmp_path / "pieces", mount, sed("1,1p", "2,$p"))
+    assert reads.coverage(reads.file_reads(pieces), [first]) == (1, True, [])
+    (tmp_path / "tail").mkdir()
+    tail = codex_rollout(tmp_path / "tail", mount, sed("3,$p"))
+    assert reads.coverage(reads.file_reads(tail), [first]) == (
+        0,
+        True,
+        ["01-opening.md"],
+    )
+
+
 def test_a_codex_call_naming_its_own_directory_is_read_there(tmp_path, mount):
     """A `workdir` the call names wins over the turn's: the same relative
     name in another directory is another file, and proves nothing here."""

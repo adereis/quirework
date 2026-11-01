@@ -50,7 +50,8 @@ _HEREDOC = re.compile(r"<<-?\s*(['\"]?)([A-Za-z_]\w*)\1")
 # A file an apply_patch adds or updates. In a Codex exec snippet the patch is
 # a JavaScript string, so its newlines are the two characters `\n`.
 _PATCH_FILE = re.compile(r"\*\*\* (?:Add|Update) File: ([^\\\n\"']+)")
-_SED_RANGE = re.compile(r"^(\d+)(?:,(\d+))?p$")
+# `sed -n 'Np'`, `'N,Mp'`, or `'N,$p'`, which prints from line N to the end.
+_SED_RANGE = re.compile(r"^(\d+)(?:,(\d+|\$))?p$")
 # A command string inside Codex's JavaScript exec tool: `cmd: "..."` or
 # `"cmd": "..."`, with the string's own escapes.
 _JS_CMD = re.compile(r"""["']?cmd["']?\s*:\s*("(?:[^"\\]|\\.)*")""")
@@ -141,8 +142,10 @@ def _segment_events(words, workdir):
     elif tool == "sed" and len(args) >= 3 and args[0] == "-n":
         match = _SED_RANGE.match(args[1])
         if match:
-            first = int(match.group(1))
-            last = int(match.group(2) or first)
+            first, end = int(match.group(1)), match.group(2)
+            # The last line's number is the file's to say, so `$` stays open
+            # here and coverage closes it against the file it counts.
+            last = None if end == "$" else int(end or first)
             ranges, files = [(first, last)], args[2:]
     elif tool == "head":
         count, names = None, []
@@ -167,7 +170,8 @@ def _segment_events(words, workdir):
 def _shell_events(command, workdir=None):
     """Ordered ("read", path, ranges) and ("write", path, None) events a shell
     command performs. ranges is None for a whole file, else a list of
-    inclusive (first, last) line pairs. A heredoc's body is skipped."""
+    inclusive (first, last) line pairs, where a last of None runs to the
+    file's end. A heredoc's body is skipped."""
     events, delimiter = [], None
     for line in command.split("\n"):
         if delimiter is not None:
@@ -578,6 +582,8 @@ def coverage(reads, referenced, local=None):
     """
     local = local or {}
     covered = {}
+    # The first line of the earliest read that ran to the file's end.
+    tails = {}
     first_seen = {}
     for index, (path, ranges) in enumerate(reads):
         first_seen.setdefault(path, index)
@@ -586,14 +592,18 @@ def coverage(reads, referenced, local=None):
             lines.add("all")
         else:
             for first, last in ranges:
-                lines.update(range(first, last + 1))
+                if last is None:
+                    tails[path] = min(first, tails.get(path, first))
+                else:
+                    lines.update(range(first, last + 1))
     fully, unproven = 0, []
     for path in referenced:
         total = len(
             Path(local.get(path, path)).read_text(encoding="utf-8").splitlines()
         )
         seen = covered.get(path, set())
-        if "all" in seen or all(n in seen for n in range(1, total + 1)):
+        tail = tails.get(path, total + 1)
+        if "all" in seen or all(n in seen or n >= tail for n in range(1, total + 1)):
             fully += 1
         else:
             unproven.append(Path(path).name)
