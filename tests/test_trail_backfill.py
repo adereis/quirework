@@ -2,8 +2,11 @@
 
 The book is invented: a two-section spec about a kettle, one chapter binding
 it, and two Claude Code sessions written for the purpose. A reader's answer is
-banked through the run engine's own external import, so every test that
+banked through the run engine itself, by its own external import or by
+collecting a turn whose harness receipt is stubbed, so every test that
 imports one goes through a real prepared record, never a hand-built stand-in.
+An answer imported by hand is banked as the reply, so the tests that bank one
+that way also cover import's fallback from the answer file to the reply.
 """
 
 import json
@@ -16,6 +19,7 @@ import pytest
 
 from quirework.manuscript import backfill, trail
 from quirework.project import ConfigurationError, Project, project_scope
+from quirework.providers import harness
 from quirework.runs import engine
 from quirework.runs.storage import hashes, write
 
@@ -108,15 +112,26 @@ def book(tmp_path, monkeypatch):
         yield project
 
 
-def _read(tmp_path, answers, *, flags=(), accept=(), **options):
+def _read(tmp_path, answers, *, flags=(), accept=(), older=False, **options):
     """Plan external seats, bank ``answers`` through the engine, import them.
 
     ``flags`` are red flags the banked receipts carry, as a runner's would.
+    ``older`` rewrites the plan as plans were before readers took files: the
+    packets in the prompt, the answer in the reply, and no tools.
     """
     out = tmp_path / "packets"
     backfill.plan(
         out, harness="claude", model="sonnet", effort="medium", external=True, **options
     )
+    if older:
+        plan = json.loads((out / "plan.json").read_text())
+        for seat in plan["seats"]:
+            seat["policy"]["tools"] = "none"
+            for turn in seat["turns"]:
+                del turn["outputs"]
+                for material in turn["materials"]:
+                    material["delivery"] = "text"
+        (out / "plan.json").write_text(json.dumps(plan))
     record = tmp_path / "record"
     engine.prepare(out / "plan.json", record, resolve=False)
     run = engine.Run(record)
@@ -184,18 +199,32 @@ def test_the_menu_names_each_section_by_its_slug(book):
 # --------------------------------------------------------------------------- #
 # a run plan
 # --------------------------------------------------------------------------- #
-def test_a_plan_hands_out_every_session_oldest_first_with_no_tools(book, tmp_path):
+def test_a_plan_hands_out_every_session_oldest_first_as_files(book, tmp_path):
+    guidance = tmp_path / "names.toml"
+    guidance.write_text('old = "new"\n')
     done = backfill.plan(
-        tmp_path / "packets", harness="codex", model="luna", effort="medium"
+        tmp_path / "packets",
+        harness="codex",
+        model="luna",
+        effort="medium",
+        materials=[guidance],
     )
     plan = json.loads((tmp_path / "packets" / "plan.json").read_text())
     assert (done["seats"], done["sessions"]) == (1, 2)
     seat = plan["seats"][0]
-    assert seat["policy"] == {"tools": "none", "filesystem": "enforced"}
+    assert seat["policy"] == {"tools": "write", "filesystem": "enforced"}
     assert seat["tier"] == "cheap"
     assert seat["metadata"]["trail_read"]["sessions"] == [MORNING, EVENING]
-    sources = [m["source"] for m in seat["turns"][0]["materials"]]
-    assert sources == ["menu.md", f"packets/{MORNING}.md", f"packets/{EVENING}.md"]
+    [turn] = seat["turns"]
+    sources = [m["source"] for m in turn["materials"]]
+    assert sources == [
+        "menu.md",
+        str(guidance),
+        f"packets/{MORNING}.md",
+        f"packets/{EVENING}.md",
+    ]
+    assert {m["delivery"] for m in turn["materials"]} == {"file"}
+    assert turn["outputs"] == ["drafts/read.md"], "the answer comes back as a file"
 
 
 def test_an_agy_seat_is_audited_because_agy_cannot_enforce(book, tmp_path):
@@ -203,16 +232,22 @@ def test_an_agy_seat_is_audited_because_agy_cannot_enforce(book, tmp_path):
         tmp_path / "packets", harness="agy", model="gemini-pro", effort="high"
     )
     plan = json.loads((tmp_path / "packets" / "plan.json").read_text())
-    assert plan["seats"][0]["policy"] == {"tools": "none", "filesystem": "audited"}
+    assert plan["seats"][0]["policy"] == {"tools": "write", "filesystem": "audited"}
 
 
-def test_only_an_agy_seat_expects_the_keyring_flag(book, tmp_path):
+def test_no_reader_accepts_the_keyring_flag_in_advance(book, tmp_path):
+    """A reader with tools could use the session bus, so the run engine
+    refuses to let its plan accept the flag; the agy plan prepares as is."""
     backfill.plan(tmp_path / "agy", harness="agy", model="flash", effort="high")
-    backfill.plan(tmp_path / "codex", harness="codex", model="luna", effort="low")
-    agy = json.loads((tmp_path / "agy" / "plan.json").read_text())["seats"][0]
-    codex = json.loads((tmp_path / "codex" / "plan.json").read_text())["seats"][0]
-    assert agy["accept_red_flags"] == ["session-bus"]
-    assert "accept_red_flags" not in codex
+    plan = json.loads((tmp_path / "agy" / "plan.json").read_text())
+    assert "accept_red_flags" not in plan["seats"][0]
+    engine.prepare(tmp_path / "agy" / "plan.json", tmp_path / "record", resolve=False)
+    plan["seats"][0]["accept_red_flags"] = ["session-bus"]
+    (tmp_path / "agy" / "plan.json").write_text(json.dumps(plan))
+    with pytest.raises(ValueError, match="only under the policy"):
+        engine.prepare(
+            tmp_path / "agy" / "plan.json", tmp_path / "again", resolve=False
+        )
 
 
 def test_a_plan_without_out_takes_a_new_run_directory_each_time(book):
@@ -613,11 +648,33 @@ def test_a_seat_with_an_unexpected_red_flag_is_held_and_records_nothing(book, tm
     assert "HELD" in "\n".join(backfill.import_lines(report))
 
 
-def test_an_older_record_imports_past_the_keyring_flag_only_when_told(book, tmp_path):
-    held = _read(tmp_path, [ANSWER], flags=[KEYRING])
-    assert held[0]["held"] == [KEYRING], "its plan could not declare the flag"
-    report = backfill.import_run(tmp_path / "record", accept=["session-bus"])
-    assert report[0]["read"] == 1 and report[0]["accepted"] == [KEYRING]
+def test_the_keyring_flag_is_reported_and_holds_no_seat(book, tmp_path):
+    [row] = _read(tmp_path, [ANSWER], flags=[KEYRING])
+    assert row["held"] == [] and row["read"] == 1
+    assert row["exposure"] == [KEYRING] and row["accepted"] == []
+    [path] = (book.path("manuscript.spec_trail_leads") / "reads" / MORNING).glob(
+        "*.json"
+    )
+    assert json.loads(path.read_text())["red_flags"] == [KEYRING], "on the read"
+    lines = "\n".join(backfill.import_lines([row]))
+    assert "1 seat(s) with exposure reported, 0 seat(s) held" in lines
+    assert f"! exposure, not held: {KEYRING}" in lines
+
+
+def test_a_seat_with_tools_cannot_accept_the_keyring_flag_at_import(book, tmp_path):
+    [row] = _read(tmp_path, [ANSWER], flags=[KEYRING], accept=["session-bus"])
+    assert row["accepted"] == [], "the engine's policy rule still decides"
+    assert row["exposure"] == [KEYRING] and row["read"] == 1
+
+
+def test_an_older_record_imports_its_reply_and_accepts_the_flag_when_told(
+    book, tmp_path
+):
+    [row] = _read(
+        tmp_path, [ANSWER], flags=[KEYRING], accept=["session-bus"], older=True
+    )
+    assert row["read"] == 1 and row["unread"] == [EVENING]
+    assert row["accepted"] == [KEYRING] and row["exposure"] == []
 
 
 def test_import_refuses_a_flag_code_it_does_not_know(book, tmp_path):
@@ -765,6 +822,172 @@ def test_an_answer_that_ends_is_not_cut_off():
     assert not backfill._cut_off(done + "\n")
     assert not backfill._cut_off(done + "\n```\n")
     assert backfill._cut_off(done + '\n{"session": "0badc0de", "tu')
+
+
+# --------------------------------------------------------------------------- #
+# a reader that runs: files in, an answer file out
+# --------------------------------------------------------------------------- #
+def _collected(
+    tmp_path,
+    monkeypatch,
+    *,
+    answer,
+    read="all",
+    reply="The answer file holds every session.",
+    flags=(),
+    harness_name="claude",
+):
+    """Plan one seat, stage it, and collect its turn through the engine.
+
+    The seat writes ``answer`` to its answer file, or none when it is
+    ``None``. Its session reads every supplied file, or only the menu when
+    ``read`` is ``"menu"``. Only the harness's receipt is stubbed; the engine
+    measures the files, banks the answer and proves the reads itself.
+    Returns the record and the prompt the seat was given.
+    """
+    out = tmp_path / "packets"
+    backfill.plan(out, harness=harness_name, model="fixture", effort="medium")
+    record = tmp_path / "record"
+    engine.prepare(out / "plan.json", record, resolve=False)
+    run = engine.Run(record)
+    [seat] = run.seats
+    prompt, _, files = run.stage(seat, 0)
+    shown = [str(v) for _, v in files]
+    rollout = tmp_path / "native.jsonl"
+    rollout.write_text(
+        "".join(
+            json.dumps(
+                {
+                    "type": "assistant",
+                    "message": {
+                        "content": [
+                            {
+                                "type": "tool_use",
+                                "name": "Read",
+                                "input": {"file_path": path},
+                            }
+                        ]
+                    },
+                }
+            )
+            + "\n"
+            for path in (shown if read == "all" else shown[:1])
+        )
+        or "{}\n"
+    )
+    if answer is not None:
+        target = run.workspace(seat) / backfill.ANSWER_FILE
+        target.parent.mkdir(parents=True, exist_ok=True)
+        target.write_text(answer, encoding="utf-8")
+    state = run.state(seat)
+    state["pending"] = dict(turn="read", mode="start", parent_id="sid")
+    run.save(seat, state)
+    run.record(seat, "read").mkdir(parents=True)
+    monkeypatch.setattr(harness, "history_image_hashes", lambda *a: [])
+    monkeypatch.setattr(
+        harness,
+        "receipt",
+        lambda *a: dict(
+            session_id="sid",
+            model="fixture-served",
+            rollout=str(rollout),
+            answer=reply,
+            forked_from=None,
+            red_flags=list(flags),
+        ),
+    )
+    try:
+        run.collect_turn(seat, 0)
+    except RuntimeError as exc:
+        # As `attempt_turn` keeps a collection that failed: on the pending
+        # turn, which stays with its session.
+        state = run.state(seat)
+        state["pending"]["last_error"] = str(exc)
+        run.save(seat, state)
+    return record, prompt
+
+
+def test_a_reader_is_handed_files_and_asked_for_its_answer_file_in_parts(
+    book, tmp_path, monkeypatch
+):
+    _, prompt = _collected(tmp_path, monkeypatch, answer=ANSWER)
+    assert prompt.startswith(backfill.INSTRUCTIONS)
+    assert "=== MATERIAL" not in prompt, "nothing is pasted into the prompt"
+    assert "Read the supplied files at these exact paths" in prompt
+    assert prompt.count(f"{harness.VIRTUAL}/materials/turn-000/material-") == 6
+    assert "material-000.md: menu" in prompt
+    assert f"material-001.md: {MORNING[:8]}" in prompt
+    assert f"{harness.VIRTUAL}/drafts/read.md" in prompt
+    assert prompt.endswith(engine.WRITE_IN_PARTS)
+    text = " ".join(backfill.INSTRUCTIONS.split())
+    assert "Read these files in full" in text
+    assert "Write the file in parts, as the end of this message asks." in text
+    assert "End every part on a whole line." in text
+
+
+def test_import_reads_the_answer_from_the_file_the_reader_wrote(
+    book, tmp_path, monkeypatch
+):
+    # The reply says the evening session is done; only the file counts.
+    reply = json.dumps({"session": EVENING, "done": True})
+    record, _ = _collected(tmp_path, monkeypatch, answer=ANSWER, reply=reply)
+    receipt = engine.Run(record).state("read-001")["done"]["read"]["receipt"]
+    assert receipt["supplied_files_read"] == "3/3"
+    [row] = backfill.import_run(record)
+    assert row["held"] == [] and row["read"] == 1
+    assert row["unread"] == [EVENING], "the reply is not the answer"
+    [path] = (book.path("manuscript.spec_trail_leads") / "reads" / MORNING).glob(
+        "*.json"
+    )
+    read = json.loads(path.read_text())
+    assert [c["turn"] for c in read["candidates"]] == [1, 3]
+    assert read["model"] == "fixture-served"
+
+
+def test_a_reader_that_did_not_read_every_file_is_held(book, tmp_path, monkeypatch):
+    record, _ = _collected(tmp_path, monkeypatch, answer=ANSWER, read="menu")
+    [row] = backfill.import_run(record)
+    [flag] = row["held"]
+    assert flag.startswith("Not proven read in full: 1 of 3 supplied files")
+    assert row["read"] == 0
+    assert not list(book.path("manuscript.spec_trail_leads").rglob("reads/*/*.json"))
+
+
+def test_a_reader_that_wrote_no_answer_file_is_not_answered_and_says_why(
+    book, tmp_path, monkeypatch
+):
+    record, _ = _collected(tmp_path, monkeypatch, answer=None, reply=ANSWER)
+    [row] = backfill.import_run(record)
+    assert not row["answered"] and row["read"] == 0
+    assert row["why"] == "declared output is missing/empty: drafts/read.md"
+    [line] = backfill.import_lines([row])
+    assert line == (
+        "  read-001: not answered (turn read pending with no process; 0 of 1 "
+        "turns banked): declared output is missing/empty: drafts/read.md"
+    ), "an answer in the reply alone is not banked"
+
+
+def test_an_answer_file_cut_off_mid_line_is_reported(book, tmp_path, monkeypatch):
+    flag = {"slug": "kettle-signal", "kind": "seed", "confidence": "high"}
+    whole = json.dumps({"session": MORNING, "turn": 1, "sections": [flag]})
+    record, _ = _collected(tmp_path, monkeypatch, answer=whole + "\n" + whole[:40])
+    [row] = backfill.import_run(record)
+    assert row["read"] == 0 and row["unread"] == [MORNING, EVENING]
+    assert row["cut"] == {"output": None, "thinking": None}
+    assert "! the answer stops mid-line" in "\n".join(backfill.import_lines([row]))
+
+
+def test_an_agy_reader_with_tools_imports_past_the_keyring_flag(
+    book, tmp_path, monkeypatch
+):
+    record, _ = _collected(
+        tmp_path, monkeypatch, answer=ANSWER, flags=[KEYRING], harness_name="agy"
+    )
+    run = engine.Run(record)
+    assert run.red_flags("read-001")[0] == [KEYRING], "open on the receipt"
+    [row] = backfill.import_run(record)
+    assert row["held"] == [] and row["read"] == 1
+    assert row["exposure"] == [KEYRING]
 
 
 def test_status_counts_the_sessions_read_and_the_sections_flagged(book, tmp_path):

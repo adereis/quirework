@@ -15,8 +15,9 @@ menu.
 This module owns what sits between the two readers:
 
 * the packet a reader is handed, and the menu it names sections from;
-* a run plan that hands packets to readers through the run engine, one seat
-  per batch, so no reader's context grows from one batch to the next;
+* a run plan that hands packets to readers through the run engine, as files
+  the receipt proves were read, one seat per batch, so no reader's context
+  grows from one batch to the next; each reader writes its answer to a file;
 * the ledger: each reader's flags, imported and checked against the corpus,
   and the ruling reader's rejections, so no later pass pays to read the same
   candidate again.
@@ -53,7 +54,10 @@ from quirework.project import ConfigurationError, current_project
 # ledger can tell a session read from the current packet from an older one.
 # A bump hands every session out again. The instructions are not the packet:
 # rewording them leaves earlier flags usable, and a read records its run,
-# whose plan holds the prompt the reader was given.
+# whose plan holds the prompt the reader was given. Nor is the delivery: a
+# packet handed over as a file holds the same text it held in the prompt,
+# and the run's frozen plan says which way it went and where the answer was
+# written, which is how import reads an older record (``_answer``).
 PACKET_VERSION = 1
 
 # How much of the reply a turn answered is shown. The end is kept, because a
@@ -65,24 +69,44 @@ TURN_HEAD = 4000
 TURN_TAIL = 1500
 GIST_CHARS = 280
 BATCH_TOKENS = 30000
-# A seat's answer is bounded by its model's output limit, and its thinking
-# counts against that limit. The token budget bounds it for conversations:
-# across 55 conversation seats in six passes, none held more than 100 author
-# turns, and none wrote more than 58,901 output tokens. Red-pen marks are
-# short, so the same budget packed 124 of them into one seat, and its answer
-# stopped mid-line at 64,853 of its model's 65,536. A cap on turns lowers that
-# risk and cannot remove it. Thinking depends on what the turns hold: a round
-# of 52 marks, alone in its seat, was cut off the same way, and both cut-off
-# seats had stopped thinking within five tokens of 62,910, which no finished
-# seat came near. Import reports such an answer, and a plan with a lower cap
-# reads that session in parts.
+# A seat's answer was bounded by its model's output limit, when it came back
+# as the reply, and its thinking counts against that limit. The token budget
+# bounds it for conversations: across 55 conversation seats in six passes,
+# none held more than 100 author turns, and none wrote more than 58,901
+# output tokens. Red-pen marks are short, so the same budget packed 124 of
+# them into one seat, and its answer stopped mid-line at 64,853 of its
+# model's 65,536. A cap on turns lowers that risk and cannot remove it.
+# Thinking depends on what the turns hold: a round of 52 marks, alone in its
+# seat, was cut off the same way, and both cut-off seats had stopped thinking
+# within five tokens of 62,910, which no finished seat came near. Import
+# reports such an answer, and a plan with a lower cap reads that session in
+# parts. A reader now writes its answer to a file in parts, so no single
+# response has to hold all of it, but the limit still bounds each response,
+# and no pass has yet measured how a reader spreads its thinking across its
+# writes. The cap stays until one has.
 SEAT_TURNS = 80
+# Where a reader writes its answer, named after its turn as a panel names
+# each turn's answer file. The run engine banks the turn only once the file
+# exists, and copies it into the record under the same path.
+ANSWER_FILE = "drafts/read.md"
 # A seat that flags almost nothing over many turns may have written its done
 # lines without reading. Seats in one real pass flagged 12% to 79% of their
 # author turns, by what the sessions were about, so the floor is absolute and
 # low: it catches a seat that skipped, not one that read tooling sessions.
 DILIGENCE_TURNS = 20
 DILIGENCE_RATE = 0.05
+# Red flags import reports and does not hold a seat on, by their codes in
+# ``engine.ACCEPTABLE_FLAGS``. agy keeps its login in the keyring, which every
+# agy jail reaches over the session bus, so every agy seat's receipt says the
+# keyring was readable. A reader with tools could use the bus, so its plan
+# cannot accept the flag in advance: the run engine allows that only on a
+# seat with no tools. The flag therefore stays open on the receipt and in
+# `start`'s exit, as it does for every agy seat with tools. It records what
+# the seat could reach, not a failed run condition: it says nothing about
+# whether the reader read what it was handed or answered whole, which is
+# what holding a seat protects. Import keeps the reads, records the flag on
+# each of them, and names it in its report.
+EXPOSURE = ("session-bus",)
 
 CONFIDENCE = ("high", "medium", "low")
 READ_KINDS = (*trail.KINDS, "unsure")
@@ -212,9 +236,14 @@ def _unheld(text, held):
 INSTRUCTIONS = """\
 You are reading conversations in which an author worked out the ideas of a
 book. The book keeps a spec: a list of sections, each stating one thing the
-book holds. The menu below lists them. The packets below hold the author's
-turns from one or more sessions, each turn with the end of the reply it
-answered.
+book holds. The menu lists them. The packets hold the author's turns from one
+or more sessions, each turn with the end of the reply it answered. Each is a
+file named at the end of this message, as is any guidance the book adds.
+
+Read these files in full: the menu and any guidance first, then each packet
+from its first line to its last, before you write that packet's lines. A long
+file may take more than one read; read on until its end. A turn you have not
+read cannot be flagged, and a session you have not read cannot be finished.
 
 Flag every author turn that shaped what a section holds. Nobody checks your
 flags before they are used: each one is shown, with its reason, to whoever
@@ -247,7 +276,8 @@ Rules:
   sections; list each one.
 - Leave out turns that shape no section.
 
-Answer with JSON lines and nothing else. One line per flagged turn:
+Write your answer to the answer file named at the end of this message, as
+JSON lines and nothing else. One line per flagged turn:
 {"session": "<the id after '# Session'>", "turn": <its number>, "sections": [{"slug": "<slug>", "kind": "<kind>", "confidence": "high|medium|low", "reason": "<one short sentence>"}]}
 After a session's last flagged turn, one line saying you finished it, with
 one sentence, in your own words, on what the author and the model were doing
@@ -256,6 +286,12 @@ across the whole session:
 Every session in the packets needs its done line, even one with nothing to
 flag. The about sentence is how a later reader knows the session was read, so
 write it from the turns, not from the first one alone.
+
+Write the file in parts, as the end of this message asks. There a section of
+the file means one session's lines, done line included, not a section of the
+spec: create the file with the first session's lines, and add each further
+session's with its own edit. End every part on a whole line. Once the file
+holds every session, reply with one line saying so.
 """
 
 
@@ -684,7 +720,9 @@ def plan(
     it. ``out`` of ``None`` plans into a new ``run_directory``, as
     ``RUN/packets``, beside which the record goes. Each seat gets one batch
     of packets up to ``budget`` estimated tokens and ``turns`` author turns,
-    with the menu and any book ``materials`` in front, and no tools. A
+    with the menu and any book ``materials`` in front. Every one is handed
+    over as a file, which the receipt proves the seat read in full, and the
+    seat writes its answer to ``ANSWER_FILE`` with the write tools. A
     session with more turns to hand out than ``turns`` is cut into parts of
     nearly equal length, and a seat never holds two parts of one session.
     The summary names every session handed out in parts, counts the turns
@@ -746,8 +784,15 @@ def plan(
 
     (out / "packets").mkdir(parents=True, exist_ok=True)
     (out / "menu.md").write_text(menu(), encoding="utf-8")
+    # Every material goes as a file the seat reads, as every procedure that
+    # runs model seats hands long material over: a harness can cut text in
+    # the prompt without saying so, and the receipt proves a file was read.
     extra = [
-        {"source": str(Path(m).expanduser().resolve(strict=True)), "delivery": "text"}
+        {
+            "source": str(Path(m).expanduser().resolve(strict=True)),
+            "delivery": "file",
+            "label": "guidance",
+        }
         for m in materials
     ]
     batches, current, size, held = [], [], 0, 0
@@ -786,16 +831,16 @@ def plan(
             "model": model,
             "effort": effort,
             "tier": tier,
-            # agy audits file access and cannot enforce isolation; the seat
-            # has no tools either way, and its receipt says which it was.
+            # The seat reads its files and writes its answer file, so it has
+            # the write tools. agy audits file access and cannot enforce
+            # isolation, and its receipt says which it was. agy also reaches
+            # its login in the keyring; with tools the seat could use that,
+            # so the plan cannot accept the flag in advance, and import
+            # reports it rather than holding the seat (``EXPOSURE``).
             "policy": {
-                "tools": "none",
+                "tools": "write",
                 "filesystem": "audited" if harness == "agy" else "enforced",
             },
-            # agy keeps its login in the keyring, which every agy jail can
-            # reach; a seat with no tools cannot use it, so the flag is
-            # expected and only another one stops the import.
-            **({"accept_red_flags": ["session-bus"]} if harness == "agy" else {}),
             "metadata": {
                 "trail_read": {
                     "sessions": [sid for sid, _, _, _, _ in batch],
@@ -823,13 +868,14 @@ def plan(
                     "id": "read",
                     "prompt": INSTRUCTIONS,
                     "materials": [
-                        {"source": "menu.md", "delivery": "text", "label": "menu"},
+                        {"source": "menu.md", "delivery": "file", "label": "menu"},
                         *extra,
                         *(
-                            {"source": name, "delivery": "text", "label": _short(sid)}
+                            {"source": name, "delivery": "file", "label": _short(sid)}
                             for sid, name, _, _, _ in batch
                         ),
                     ],
+                    "outputs": [ANSWER_FILE],
                     "min_bytes": 20,
                 }
             ],
@@ -958,11 +1004,34 @@ def _objects(answer):
     return found, skipped
 
 
+def _answer(run, seat, turn):
+    """The text a reader answered with: the answer file it wrote, or its reply.
+
+    The run engine banks a turn that names an answer file only once the seat
+    has written it, and copies it under the record's ``answers/`` at the path
+    the turn names; a turn whose file is missing stays pending, unbanked, and
+    import reports it as not answered. Where a banked turn holds no such copy
+    the reply is the answer, banked as ``answers/answer.md``, as an export
+    takes it for a turn that names no file: a record planned before readers
+    wrote files names none, and an answer imported by hand for an external
+    seat is banked as the reply whatever its turn names.
+    """
+    from quirework.runs.storage import relative
+
+    answers = run.record(seat, turn["id"]) / "answers"
+    for output in turn.get("outputs") or ():
+        path = answers / relative(output)
+        if path.is_file():
+            return path.read_text(encoding="utf-8")
+    return (answers / "answer.md").read_text(encoding="utf-8")
+
+
 def _cut_off(answer):
     """Whether an answer stops partway through a line, as one cut off does.
 
-    A reader that runs out of output leaves its last line unfinished. A last
-    line that parses, or is a closing fence, is an answer that ended.
+    A reader that runs out of output leaves its last line unfinished, in the
+    reply or in the part of its answer file it was writing. A last line that
+    parses, or is a closing fence, is an answer that ended.
     """
     lines = [line.strip() for line in answer.splitlines() if line.strip()]
     if not lines or lines[-1].startswith("```"):
@@ -1092,12 +1161,18 @@ def import_run(record, accept=()):
     The record is verified first, so a changed answer or input is refused. A
     seat with a red flag its plan did not accept is held, and nothing it
     read is recorded: an unexpected flag is the author's call, not the
-    importer's. ``accept`` names flag codes to accept here instead, for a
+    importer's. A file the seat was handed and did not read in full is such
+    a flag. ``accept`` names flag codes to accept here instead, for a
     record prepared before its plan could declare them, and only under the
-    same policy a plan would need. A session whose done line is missing is
-    not recorded as read: it is left for a later plan to hand out again.
-    What an answer held that could not be checked is kept beside the reads,
-    in the seat's own record, for audit.
+    same policy a plan would need. A flag in ``EXPOSURE`` holds no seat: it
+    is reported, and recorded on each read. The answer is the file the seat
+    wrote, or its reply where the turn banked none (``_answer``). A seat
+    whose turn the engine could not bank, such as one that never wrote its
+    answer file, is reported as not answered, with the engine's reason. A
+    session whose done line is missing is not recorded as read: it is left
+    for a later plan to hand out again. What an answer held that could not
+    be checked is kept beside the reads, in the seat's own record, for
+    audit.
     """
     from quirework.provenance import show
     from quirework.runs.engine import ACCEPTABLE_FLAGS, Run, flag_code
@@ -1123,6 +1198,7 @@ def import_run(record, accept=()):
             "answered": False,
             "held": [],
             "accepted": [],
+            "exposure": [],
             "model": None,
             "turns": 0,
             "flagged": 0,
@@ -1131,10 +1207,18 @@ def import_run(record, accept=()):
             "sessions": [],
             "cut": None,
             "handed": len(meta["sessions"]),
+            "status": None,
+            "why": None,
         }
         report.append(row)
-        done = run.state(name)["done"].get("read")
+        state = run.state(name)
+        done = state["done"].get("read")
         if not done:
+            # A turn the engine could not bank stays pending with its
+            # session, and its last attempt to collect the turn says why: a
+            # reader that wrote no answer file is one.
+            row["status"] = run.status(name)
+            row["why"] = (state.get("pending") or {}).get("last_error")
             continue
         row["answered"] = True
         receipt = done["receipt"]
@@ -1145,12 +1229,13 @@ def import_run(record, accept=()):
             if code in accept and ACCEPTABLE_FLAGS[code][1](seat["policy"]):
                 open_flags.remove(flag)
                 row["accepted"].append(flag)
+            elif code in EXPOSURE:
+                open_flags.remove(flag)
+                row["exposure"].append(flag)
         if open_flags:
             row["held"] = open_flags
             continue
-        answer = (run.record(name, "read") / "answers" / "answer.md").read_text(
-            encoding="utf-8"
-        )
+        answer = _answer(run, name, next(t for t in seat["turns"] if t["id"] == "read"))
         reads, dropped = parse_answer(
             answer, meta["sessions"], corpus, meta.get("parts"), meta.get("seen")
         )
@@ -1207,6 +1292,7 @@ def import_run(record, accept=()):
             "sessions": meta["sessions"],
             "unread": row["unread"],
             "dropped": dropped,
+            "exposure": row["exposure"],
         }
         _write_private(
             root / "seats" / f"{tag}-{name}.json",
@@ -1225,7 +1311,9 @@ def import_lines(report):
     for row in report:
         name = row["seat"]
         if not row["answered"]:
-            lines.append(f"  {name}: not answered yet")
+            status = row.get("status") or "not started"
+            why = f": {row['why']}" if row.get("why") else ""
+            lines.append(f"  {name}: not answered ({status}){why}")
             continue
         if row["held"]:
             lines.append(
@@ -1290,12 +1378,20 @@ def import_lines(report):
     confidence = {c: sum(1 for _, x in sections if x == c) for c in CONFIDENCE}
     empty = [e for r in rows for e in r["empty"]]
     held = [r for r in report if r["held"]]
+    exposed = [r for r in rows if r.get("exposure")]
     lines += [
         "pass:",
         f"  {sum(r['read'] for r in rows)} of {handed} session(s) read in "
         f"{len(rows)} seat(s) on {', '.join(models)}",
         f"  red flags: {sum(len(r['accepted']) for r in rows)} accepted, "
-        f"{len(held)} seat(s) held",
+        f"{len(exposed)} seat(s) with exposure reported, {len(held)} seat(s) held",
+    ]
+    # Every agy seat carries the same exposure, so it is named once.
+    lines += [
+        f"  ! exposure, not held: {flag}"
+        for flag in dict.fromkeys(f for r in exposed for f in r["exposure"])
+    ]
+    lines += [
         f"  {len(sections):,} section flag(s) on {sum(r['flagged'] for r in rows):,} "
         f"of {sum(r['turns'] for r in rows):,} author turn(s), "
         f"{len({slug for slug, _ in sections})} section(s) "
@@ -1968,11 +2064,14 @@ backfilling a trail from the corpus, in three steps:
 
   1. hand every session to a cheap reader, once:
      quirework spec trail backfill plan --harness H --model M --effort E [--out DIR]
-     then the prepare, start and import commands it prints; import holds a
-     seat whose receipt carries a red flag its plan did not accept. A plan
-     hands out only the turns no reader saw, so one run after a reader
-     learns a new kind of turn hands out just those turns; --reread hands
-     out every turn of the sessions it picks
+     then the prepare, start and import commands it prints. Each reader is
+     handed its packets as files and writes its answer to a file; import
+     holds a seat whose receipt carries a red flag its plan did not accept,
+     a file not read in full among them, and reports the agy keyring flag
+     without holding the seat on it. A plan hands out only the turns no
+     reader saw, so one run after a reader learns a new kind of turn hands
+     out just those turns; --reread hands out every turn of the sessions it
+     picks
   2. rule on one section at a time, with a strong reader:
      quirework spec trail backfill SLUG          the section's candidates, oldest first
          --also OTHER                            with the turns readers flagged for

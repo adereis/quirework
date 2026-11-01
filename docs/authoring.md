@@ -483,17 +483,26 @@ spec_trail_leads = "private/spec-trail-leads"
 `backfill plan` writes each session as a packet: your turns, numbered
 and stamped as `provenance show` gives them, each with the end of the
 reply it answered, so a bare "yes" can be read as the acceptance it was.
-It then writes a run plan that hands the packets to readers with no
-tools, one seat per batch, so no reader's context grows from one batch
-to the next. A batch is bounded by estimated tokens (`--budget`) and by
-your turns (`--turns`, 80 by default), because a reader's answer,
-thinking included, grows with the turns it answers for and stops at its
-model's output limit. Short turns, such as red-pen marks, fill a token
-budget with more turns than a reader can answer. A session longer than
-`--turns` is read in parts of nearly equal length, one part to a seat. A
-part's packet says which turns it holds, and its turns keep their
-numbers. The plan names every session it hands out in parts. The run
-engine runs the plan, and resumes it after a quota stop. Without
+It then writes a run plan that hands the packets to readers, one seat
+per batch, so no reader's context grows from one batch to the next. A
+reader is handed the menu, any `--material` and its packets as files,
+never as text in its prompt, and writes its answer to a file,
+`drafts/read.md`, in parts, one session's lines at a time, so it runs
+with the `write` tools. A harness can cut text pasted into a prompt
+without saying so, and a file is evidence only if the reader read it:
+its receipt counts, from the reader's own tool calls, the files it read
+in full (`supplied_files_read`), and red-flags any it did not. A batch
+is bounded by estimated tokens (`--budget`) and by your turns
+(`--turns`, 80 by default), because a reader's thinking grows with the
+turns it answers for, and each of its responses stops at its model's
+output limit. An answer written in parts no longer has to fit in one
+response, but no pass has yet measured how a reader spreads its thinking
+across its writes, so the cap stays. Short turns, such as red-pen marks,
+fill a token budget with more turns than a reader can answer. A session
+longer than `--turns` is read in parts of nearly equal length, one part
+to a seat. A part's packet says which turns it holds, and its turns keep
+their numbers. The plan names every session it hands out in parts. The
+run engine runs the plan, and resumes it after a quota stop. Without
 `--out`, the plan takes a new directory in the project's private state,
 named for the day and the model, with a suffix for a second pass the
 same day. It prints the sessions by harness, the whole cost including
@@ -514,18 +523,24 @@ revision. A comment's file and line are where the archive matched its
 anchor, and a one-word anchor can match the wrong place, which the
 packet also says.
 
-`backfill import RECORD` checks each flag against the corpus and keeps
-it in the ledger: a turn that is not yours, or a slug the spec does not
-have, is dropped and reported with its reason. A session whose reader
-did not say it finished is left for the next plan to hand out again.
+`backfill import RECORD` reads each answer from the file its reader
+wrote, checks each flag against the corpus and keeps it in the ledger: a
+turn that is not yours, or a slug the spec does not have, is dropped and
+reported with its reason. A session whose reader did not say it finished
+is left for the next plan to hand out again. An answer imported by hand
+is the reply, and so is one in a record planned before readers wrote
+files. A reader that wrote no answer file has no answer: the run engine
+banks no turn without the file it names, so the turn stays pending with
+its session, and import says so, with the engine's reason.
 
 Import says when a reader was cut off: an answer that stops partway
-through a line, with sessions left unfinished, is reported with the
-seat's output and thinking tokens. Those sessions are handed out again
-by the next plan; give them fewer turns per seat. The turn cap lowers
-this risk and cannot remove it, because thinking depends on what the
-turns hold: one dense session can use up a reader's room alone. Plan it
-again with a lower `--turns`, and it is read in parts.
+through a line, in its file or its reply, with sessions left unfinished,
+is reported with the seat's output and thinking tokens. Those sessions
+are handed out again by the next plan; give them fewer turns per seat.
+The turn cap lowers this risk and cannot remove it, because thinking
+depends on what the turns hold: one dense session can use up a reader's
+room alone. Plan it again with a lower `--turns`, and it is read in
+parts.
 
 A read records which turns its packet held: each by the time it was
 logged, or by its words in a source that logs no times, never by its
@@ -546,20 +561,28 @@ sessions read only in part and their unread turns.
 
 Import holds any seat whose receipt carries a red flag its plan did not
 accept, records nothing it read, and exits nonzero, so an unexpected
-flag reaches you rather than the ledger. An Antigravity plan accepts the
-keyring flag every Antigravity seat carries, because its readers have no
-tools; a record planned before that was possible takes
-`--accept session-bus`. Import then prints each seat's share of flagged
-turns and warns about a seat with many turns and almost no flags. A flag
-count cannot tell a reader that skipped from one whose sessions held
-nothing, so a reader closes each session with an `about` sentence on
-what it was, written from turns it had to read. A warned seat lists each
-session's title, which the reader never saw, beside that sentence, and a
-mismatch or a missing one is the mark of a skipped packet. It ends with
-the pass as a whole: sessions read, models, flags by confidence, and
-sessions with no flag. A session with no flag is not suspect by itself;
-a turn can matter only beside another session, such as the unrelated
-thread in which a question is asked as a control.
+flag reaches you rather than the ledger. A file the reader did not read
+in full is such a flag. The keyring flag every Antigravity seat carries
+is not. Antigravity reaches its login in the desktop keyring through the
+jail (the [workflow guide](workflows.md) describes the jail), and a
+reader with tools could use it, so the run engine refuses to let its
+plan accept the flag in advance, and `start` reports the seat as
+completed with red flags. The flag says what the seat could reach, not
+whether it read what it was handed, so import keeps the seat's reads,
+records the flag on each one, and names it once in the pass summary as
+exposure. `--accept CODE` still accepts a flag the run engine lets a
+plan accept, under the policy that makes it harmless, for a record
+planned before its plan could declare it. Import then prints each seat's
+share of flagged turns and warns about a seat with many turns and almost
+no flags. A flag count cannot tell a reader that skipped from one whose
+sessions held nothing, so a reader closes each session with an `about`
+sentence on what it was, written from turns it had to read. A warned
+seat lists each session's title, which the reader never saw, beside that
+sentence, and a mismatch or a missing one is the mark of a skipped
+packet. It ends with the pass as a whole: sessions read, models, flags
+by confidence, and sessions with no flag. A session with no flag is not
+suspect by itself; a turn can matter only beside another session, such
+as the unrelated thread in which a question is asked as a control.
 
 `backfill SLUG` lists a section's candidates oldest first: what each
 reader flagged, and the turns before the commits that changed the
