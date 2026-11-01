@@ -424,6 +424,37 @@ def redpen_marks(path):
     return out
 
 
+_REDPEN_INSERT = re.compile(r"\u27e6\+(.*?)\+\u27e7", re.S)
+_REDPEN_FIELD = re.compile(
+    r"^(note|edit/anchor|highlight):\s?|^(->)\s?|^([-+])\s(?:was|now):\s?"
+)
+
+
+def redpen_words(block):
+    """The author's own words in one red-pen mark, without the book's.
+
+    A mark is his act, but only what he wrote is his words: a comment's or a
+    Kindle note's ``note:``, a review-notes block's ``+ now:``, and text he
+    inserted in a tracked edit (between the insertion brackets). The book text
+    a mark anchors on or highlights, a block's ``- was:`` and the tracked edit's
+    surrounding text are left out, so a search over his words does not match
+    the book quoted back. Continuation lines belong to the field above them.
+    """
+    words, keep = [], False
+    for line in block.splitlines()[1:]:
+        s = line.strip()
+        field = _REDPEN_FIELD.match(s)
+        if field:
+            keep = field.group(1) == "note" or field.group(3) == "+"
+            s = s[field.end() :]
+        if keep:
+            if s:
+                words.append(s)
+        else:
+            words += [m.strip() for m in _REDPEN_INSERT.findall(s) if m.strip()]
+    return "\n".join(words)
+
+
 def _redpen_title(path):
     for line in Path(path).read_text(encoding="utf-8", errors="replace").splitlines():
         if line.startswith("# "):
@@ -579,13 +610,17 @@ def sessions(pending=False):
         if pending:
             chosen.update({p.name: p for p in store.pending(family, pattern)})
         found += [(kind, chosen[name]) for name in sorted(chosen)]
-    redpen = _redpen_directory()
-    if redpen is not None:
-        found += [
-            ("redpen", f) for f in sorted(redpen.glob("*.md")) if is_redpen_round(f)
-        ]
+    found += [("redpen", f) for f in redpen_rounds()]
     found += [("rulings", f) for f in RULINGS.rounds()]
     return found
+
+
+def redpen_rounds():
+    """The declared red-pen archive's rounds, in name order; none undeclared."""
+    redpen = _redpen_directory()
+    if redpen is None:
+        return []
+    return [f for f in sorted(redpen.glob("*.md")) if is_redpen_round(f)]
 
 
 def _redpen_directory():

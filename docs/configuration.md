@@ -965,9 +965,12 @@ and notes on your own Kindle copies there too, one file per export,
 holding only the marks no earlier export of that copy held. Declared,
 each round also reads as a session of your turns, one per mark, named
 `redpen-` and its file name, so `show`, the trail and its backfill reach
-words you typed on the page as well as in a conversation. A round
-records the day of each mark and no time of day, so a breadcrumb names
-the mark by its number. Nothing joins by default: the archive is
+words you typed on the page as well as in a conversation. Search, its
+semantic index and `provenance input` read only your own words in a
+mark: a note, a review-notes block you rewrote, text you inserted in a
+tracked edit, and never the book text a mark quotes or highlights. A
+round records the day of each mark and no time of day, so a breadcrumb
+names the mark by its number. Nothing joins by default: the archive is
 private, and an undeclared one stays out.
 
 `publish.reader_notes` names where `publish kindle notes` keeps the

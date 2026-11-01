@@ -765,6 +765,41 @@ def test_a_red_pen_round_reads_as_the_authors_turns(tmp_path):
         assert "## Human 2 · 2031-05-07" in two and "whistle" not in two
 
 
+def test_red_pen_words_keep_the_authors_and_drop_the_books():
+    """His notes, rewrites and insertions; never the text a mark quotes."""
+    note = (
+        "[A. Fictional Author] 2031-05-06  (on text)\n"
+        "  edit/anchor: “The kettle whistles.”\n"
+        "  -> opening.qmd:3\n"
+        "  note: A whistle is a report,\n"
+        "    - not a thought.\n"
+    )
+    assert show.redpen_words(note) == "A whistle is a report,\n- not a thought."
+    review = "[«book-wide»]\n  - was: THE OLD WORDING\n  + now: The new wording.\n"
+    assert show.redpen_words(review) == "The new wording."
+    kindle = "[Kindle] 2031-05-06  (highlight, page 3)\n  highlight: “It cools.”\n"
+    assert show.redpen_words(kindle) == ""
+    edit = "[opening.qmd:3-4]\n  The kettle ⟦+copper +⟧whistles.\n"
+    assert show.redpen_words(edit) == "copper"
+
+
+def test_a_red_pen_round_joins_search_with_only_the_authors_words(tmp_path):
+    from quirework.project import project_scope
+    from quirework.provenance import search
+
+    with project_scope(_redpen_project(tmp_path)):
+        hits, _ = search.search(["route"], highlights="")
+        assert [h["id"] for h in hits] == ["redpen-v3-2031-05-07"]
+        assert hits[0]["date"] == "2031-05-06"
+        assert hits[0]["title"] == "Red-pen round v3 (2031-05-07)"
+        assert (
+            search.search(["Steam"], highlights="")[0][0]["id"]
+            == "redpen-v3-2031-05-07"
+        )
+        # the book text a mark is anchored on is not his words
+        assert search.search(["cools"], highlights="")[0] == []
+
+
 def test_red_pen_rounds_join_only_by_the_projects_own_setting(tmp_path):
     from quirework.project import Project, project_scope
 

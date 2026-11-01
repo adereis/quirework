@@ -102,6 +102,9 @@ def _resolve(source, file):
     if source == "rulings":
         path = RULINGS.directory() / file
         return RULINGS.session_id(path), path, "e-rulings"
+    if source == "redpen":
+        path = next((p for p in SHOW.redpen_rounds() if p.name == file), None)
+        return (SHOW.session_id("redpen", path or file), path, "f-redpen")
     base = file
     for suf in (".raw.json", ".md"):
         if base.endswith(suf):
@@ -113,6 +116,12 @@ def _resolve(source, file):
 def _title_date(source, path):
     if path is None or not path.exists():
         return {"title": "(unknown)", "date": "?"}
+    if source == "redpen":
+        day = SHOW.session_date("redpen", path)
+        return {
+            "title": SHOW.session_title("redpen", path),
+            "date": str(day) if day else "?",
+        }
     if source == "rulings":
         found = RULINGS.read(path)
         day = found.day()

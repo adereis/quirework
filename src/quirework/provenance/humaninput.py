@@ -20,6 +20,9 @@ It reuses the same parsing/cleaning substrate as the rest of the toolchain:
                                 time per round); only the author's comments and
                                 notes, since an option's wording was written for
                                 him and is his decision, not his words
+  - red-pen rounds            : the declared provenance.redpen archive (dates,
+                                no times); only his own words in each mark,
+                                never the book text it quotes or highlights
 
 Two design points worth noting:
   * harness noise (system-reminders, slash-command plumbing, shell I/O, a
@@ -64,6 +67,7 @@ from quirework.provenance import store
 from quirework.provenance import ccfilter as FLT
 from quirework.provenance import codexfilter as CODEX_FLT
 from quirework.provenance import rulings as RULINGS
+from quirework.provenance import show as SHOW
 from quirework.provenance.metrics import words
 from quirework.provenance.metrics import parse_ts
 from quirework.provenance.metrics import _features
@@ -459,6 +463,39 @@ def _rulings_turns():
     return out
 
 
+def _redpen_turns():
+    """The author's own words in his red-pen and Kindle rounds, one turn a mark.
+
+    A round in the declared ``provenance.redpen`` archive is his marks on a
+    copy of the book. Only what he wrote is kept (``show.redpen_words``), so a
+    highlight alone, like a ruling with no comment, adds no turn here. Each
+    turn keeps the number ``show`` gives its mark, so a hit opens with
+    ``--turn``. A round records a day for its marks and no time of day, so the
+    turns are undated and the session takes the marks' day.
+    """
+    out = []
+    for path in SHOW.redpen_rounds():
+        for n, (block, _day) in enumerate(SHOW.redpen_marks(path), 1):
+            txt = _clean(SHOW.redpen_words(block))
+            if not txt:
+                continue
+            cls, w, authored = _classify_turn(txt)
+            out.append(
+                {
+                    "ts": None,
+                    "source": "redpen",
+                    "sid": SHOW.session_id("redpen", path),
+                    "file": path.name,
+                    "ordinal": n,
+                    "text": txt,
+                    "cls": cls,
+                    "words": w,
+                    "authored": authored,
+                }
+            )
+    return out
+
+
 def all_turns():
     return (
         _web_turns()
@@ -467,6 +504,7 @@ def all_turns():
         + _codex_turns()
         + _gemini_turns()
         + _rulings_turns()
+        + _redpen_turns()
     )
 
 
@@ -480,6 +518,7 @@ SOURCE_LABEL = {
     "codex": "Codex session",
     "gemini": "Gemini cross-model review",
     "rulings": "review-sheet ruling",
+    "redpen": "red-pen round",
 }
 
 
