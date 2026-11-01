@@ -76,6 +76,13 @@ jobs:
   site:
     needs: build
     uses: ./.github/workflows/site.yml
+    # The Cloudflare secrets belong to the `production` environment, which
+    # site.yml's deploy job names. A called workflow sees an environment's
+    # secrets only when its caller inherits secrets; without this, the
+    # first release deployed with both empty, though a hand run of site.yml
+    # had them. Only the deploy step names them, so the build job that
+    # renders the book still never holds the token.
+    secrets: inherit
 
   publish:
     needs: [build, site]
