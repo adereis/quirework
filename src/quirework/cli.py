@@ -7,9 +7,38 @@ import importlib
 import json
 import sys
 from dataclasses import dataclass
+from pathlib import Path
 
 from . import __version__
 from .project import ConfigurationError, Project, project_scope
+
+INSTALL_GUIDE = "https://github.com/adereis/quirework#install"
+# Shown by root help only where the running copy is not a checkout. A
+# companion reads root help when it first meets the tool, so this reaches
+# the reader who would act on it, and no command's output changes.
+VENDORING_NOTE = f"""\
+This Quirework runs from an installed package. For work driven by an AI
+companion, a checkout vendored into your project is recommended: the
+companion can fix the tool while it works, and the project pins the
+revision it runs. See {INSTALL_GUIDE}"""
+
+
+def source_checkout(package=None):
+    """The checkout this Quirework runs from, or None for an installed package.
+
+    A checkout keeps the package under `src/`, beside the `pyproject.toml`
+    that builds it, and an editable install or `PYTHONPATH=src` imports it
+    from there. A package pip copied into site-packages has neither, even
+    when it was built from a checkout, because editing that checkout no
+    longer changes what runs.
+    """
+    package = Path(__file__).resolve().parent if package is None else package
+    if (
+        package.parent.name == "src"
+        and (package.parent.parent / "pyproject.toml").is_file()
+    ):
+        return package.parent.parent
+    return None
 
 
 @dataclass(frozen=True)
@@ -229,6 +258,9 @@ def _parser(group=None):
         ]
         lines += ["", "Maintain:"]
         lines += [f"  {name:12} {GROUPS[name]}" for name in ("dev", "config", "usage")]
+        installed = source_checkout() is None
+        if installed:
+            lines += ["", VENDORING_NOTE]
         p = argparse.ArgumentParser(
             prog="quirework",
             description="Tools for writing, research, and supervised reviews.",
@@ -242,7 +274,10 @@ def _parser(group=None):
             help="project directory or configuration file",
         )
         p.add_argument(
-            "--version", action="version", version=f"quirework {__version__}"
+            "--version",
+            action="version",
+            version=f"quirework {__version__}"
+            + (" (installed package)" if installed else ""),
         )
         p.add_argument("group", nargs="?", choices=GROUPS, metavar="GROUP")
     else:
@@ -318,7 +353,6 @@ def main(argv=None):
             p = argparse.ArgumentParser(prog=f"quirework config {selected.command}")
             if selected.command == "template":
                 from importlib.resources import files
-                from pathlib import Path
 
                 # Not every template is TOML: the cache-cleanup rule is a
                 # systemd-tmpfiles drop-in and has to keep that extension.

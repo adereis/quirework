@@ -29,6 +29,13 @@ book you can read in every edition it was published in. AI wrote that
 book to test the tool, and no person reviewed its prose. Every deploy
 renders it again from the same commit of this repository.
 
+Quirework is under heavy development. Its commands, settings and file
+formats still change from one release to the next, and a project still
+finds rough edges in it. The recommended way to use it is a checkout
+vendored into your project, where your companion can fix or improve the
+tool while it works on the project
+([Install](https://github.com/adereis/quirework#install)).
+
 ## The default workflow
 
 The author sets the aim and keeps editorial authority. The AI companion
@@ -280,8 +287,36 @@ it current.
 
 ## Install
 
-Python 3.11 or later is required. A checkout of this repository brings
-the two examples along with the tool:
+Python 3.11 or later is required.
+
+### Vendored in your project
+
+The recommended install keeps a checkout of Quirework inside your
+project, installed from there in editable mode. A tool under heavy
+development meets each new project with something it does not handle
+yet. With the checkout in reach, your companion fixes that in place and
+carries on, and the fix is live at once, with no release to wait for. A
+fix worth keeping goes upstream as a pull request. In a project that is
+a git repository, a submodule does it:
+
+```bash
+git submodule add https://github.com/adereis/quirework.git vendor/quirework
+python3 -m venv --system-site-packages .venv
+.venv/bin/python -m pip install -e 'vendor/quirework[quarto]'
+```
+
+The submodule pins the revision of Quirework the project runs, so a
+fresh clone of the project, with `git clone --recurse-submodules`, gets
+the same tool. Moving the pin to a newer Quirework is a commit in the
+project, made when the project is ready for what changed. A fix your
+companion commits inside the submodule exists only on your machine until
+it is pushed. Push it somewhere a fresh clone can fetch, such as a fork
+of your own, before the project commits a pin that names it.
+
+### From a clone of this repository
+
+A clone of this repository brings the two examples along with the tool,
+and it is the way to work on Quirework itself:
 
 ```bash
 git clone https://github.com/adereis/quirework.git
@@ -291,8 +326,17 @@ python3 -m venv --system-site-packages .venv
 ```
 
 Put `.venv/bin` on your `PATH`, or copy `.envrc.example` to `.envrc` and
-let direnv do it. To install the released package into an environment of
-your own without a checkout, run `pip install 'quirework[quarto]'`.
+let direnv do it.
+
+### From PyPI
+
+The released package installs into an environment of your own without a
+checkout: `pip install 'quirework[quarto]'`. It suits running the
+commands yourself and trying the tool out. Your companion cannot fix an
+installed package where it stands, and `quirework --help` says so when
+it runs from one.
+
+### Extras and other programs
 
 The extras follow the work. `quarto` installs Quarto, which brings Typst
 for the PDF, and what a book's render needs besides. A site needs none.

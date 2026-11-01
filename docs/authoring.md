@@ -59,10 +59,12 @@ without the ones below it.
 
 ## 1. The manuscript
 
-Make a directory and put a `quirework.toml` at its root. That file is
-what makes the directory a project; Quirework finds it from any
-subdirectory, and the installed package's own location never selects a
-book.
+Make a directory, install Quirework in it, and put a `quirework.toml` at
+its root. The [README's Install section](../README.md#install)
+recommends a checkout vendored into the project, which your companion
+can fix while it works. The `quirework.toml` is what makes the directory
+a project; Quirework finds it from any subdirectory, and the installed
+package's own location never selects a book.
 
 ```toml
 schema = 2
