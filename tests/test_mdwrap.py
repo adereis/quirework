@@ -342,6 +342,55 @@ def test_column_no_spurious_list_marker_at_line_start():
     assert mdwrap.reflow_columns(out, width=40) == out  # idempotent
 
 
+def test_a_line_opening_on_an_anchor_is_prose_not_a_heading():
+    # "#anchor" with no space after the hash is a cross-reference, not a
+    # heading. Read as one, the line was frozen: never joined to its paragraph
+    # and never rewrapped, however far past the margin an edit had pushed it.
+    src = (
+        "Whether the kettle keeps its whistle is\n"
+        "#kettle-rules's question. The spout, the handle and the lid are "
+        "fitted at the factory and none of them is ever moved afterwards.\n"
+    )
+    out = mdwrap.reflow_columns(src)
+    assert "is #kettle-rules's question." in " ".join(out.split("\n"))
+    assert out.startswith("Whether the kettle keeps its whistle is #kettle-rules's")
+    assert all(len(line) <= 72 for line in out.split("\n"))
+    assert mdwrap.reflow_columns(out) == out
+    sentence = "The rule lives in\n#kettle-rules. The lid stays on."
+    assert (
+        mdwrap.rewrap(sentence) == "The rule lives in #kettle-rules.\nThe lid stays on."
+    )
+
+
+def test_real_headings_still_pass_through_in_both_modes():
+    for heading in ("# Kettles", "## The lid {#the-lid}", "###\tSpouts", "#"):
+        src = f"{heading}\nOne. Two."
+        assert mdwrap.rewrap(src).split("\n")[0] == heading
+        assert mdwrap.reflow_columns(src, width=10).split("\n")[0] == heading
+
+
+def test_column_never_leads_a_line_with_what_it_reads_as_a_block():
+    # Whatever the wrapper puts at the front of a line, its own reader must take
+    # as prose; otherwise the next reflow copies that line verbatim for good.
+    src = (
+        "The gauge read >0.5 on the second kettle, ![a lid](lid.png) beside it, "
+        "and [box]: was scrawled on the carton by someone in a hurry, |again|."
+    )
+    for width in range(12, 70):
+        out = mdwrap.reflow_columns(src, width=width)
+        for line in out.split("\n")[1:]:
+            assert not mdwrap._PASS_COL.match(line), (width, line)
+        assert mdwrap.reflow_columns(out, width=width) == out, width
+
+
+def test_check_fails_when_an_anchor_line_overflows(tmp_path):
+    repo = _repo(tmp_path)
+    f = repo / "ideas" / "note.md"
+    f.parent.mkdir()
+    f.write_text("The rule is\n#kettle-rules's. " + " ".join(["word"] * 20) + ".\n")
+    assert mdwrap.main(["--check", str(f)]) != 0
+
+
 def test_column_indented_block_kept_verbatim():
     # an indented code block (no fence) must not be dedented/reflowed into prose;
     # _canonical cannot guard this because it collapses leading whitespace.

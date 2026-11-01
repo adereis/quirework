@@ -231,9 +231,15 @@ def _is_blank(line: str) -> bool:
 
 # Lines that begin a non-prose block and must pass through verbatim (sentence
 # mode leaves list items alone, unlike column mode which reflows them).
+#
+# An ATX heading is one to six hashes and then a space or the end of the line,
+# in CommonMark and in Pandoc's default dialect alike. A line opening on "#5" or
+# on a "#anchor" cross-reference is prose. Reading it as a heading froze it:
+# the paragraph broke there, the line was never joined or rewrapped, and the
+# check could not see it run past the margin.
 _PASSTHROUGH = re.compile(
     r"""^\s*(
-        \#            |   # heading
+        \#{1,6}(?:[ \t]|$) |   # heading
         !\[           |   # block-level image (figure): caption + attrs stay verbatim
         :{3,}         |   # pandoc/quarto fenced div (::: callout)
         >             |   # blockquote
@@ -507,10 +513,11 @@ _UNSAFE_START = re.compile(
     r"^(#{1,6}|[-*+]|\d{1,9}[.)]|>|\|+|-{2,}|={2,}|_{3,}|\*{3,})$"
 )
 
-# Non-list blocks that pass through verbatim in column mode.
+# Non-list blocks that pass through verbatim in column mode. A heading needs
+# its space, as in `_PASSTHROUGH`.
 _PASS_COL = re.compile(
     r"""^\s*(
-        \#            |   # heading
+        \#{1,6}(?:[ \t]|$) |   # heading
         !\[           |   # block-level image
         :{3,}         |   # fenced div
         >             |   # blockquote (kept verbatim: often a quote)
@@ -523,6 +530,19 @@ _PASS_COL = re.compile(
     )""",
     re.VERBOSE,
 )
+
+
+def _starts_block(tok: str) -> bool:
+    """Whether a wrapped line led by `tok` would read as the start of a block.
+
+    Markdown's parse is `_UNSAFE_START`'s concern. This module's own reading is
+    `_PASS_COL`'s, and it is broader: it also passes through a line that opens
+    on ">0.5", an inline "![image](...)" or a "[label]:". A wrapped line that
+    the next reflow reads as a block is copied verbatim from then on, so it is
+    never joined or rewrapped and the check never sees it overflow. Guarding
+    both keeps what the wrapper writes inside what it can read back.
+    """
+    return bool(_UNSAFE_START.match(tok) or _PASS_COL.match(tok))
 
 
 def _tokenize(text: str) -> list[str]:
@@ -568,7 +588,7 @@ def _wrap_tokens(
     goes on its own line rather than being broken.
 
     `guard_line_start` keeps a block-starting token off the front of a wrapped
-    line (see `_UNSAFE_START`). Callers wrapping text that Markdown never parses
+    line (see `_starts_block`). Callers wrapping text that Markdown never parses
     as blocks — the inside of an HTML comment — pass False and get the width
     honored instead.
     """
@@ -580,7 +600,7 @@ def _wrap_tokens(
         # A break before a block-starting token would corrupt the render, so keep
         # such a token on the current line (accepting an over-width line) rather
         # than letting it lead a wrapped line.
-        unsafe = guard_line_start and _UNSAFE_START.match(tok)
+        unsafe = guard_line_start and _starts_block(tok)
         if len(cur) + 1 + len(tok) > width and not unsafe:
             lines.append(cur)
             cur = cont_prefix + tok

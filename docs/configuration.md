@@ -1421,7 +1421,12 @@ number of directories, and `*` stays inside one. An unmatched file falls
 back to the built-in rule, which puts `.qmd` in sentence mode and other
 Markdown in column mode. A file inside a saved run record is skipped
 whatever the table says. Both modes copy either frontmatter convention
-verbatim and pass a Hugo shortcode line through untouched.
+verbatim and pass a Hugo shortcode line through untouched. A heading is
+one to six hashes and then a space, as in CommonMark and Pandoc, so a
+line that opens on a `#anchor` cross-reference is prose and wraps with
+its paragraph. Column mode never starts a wrapped line with anything it
+would read back as a block, so no line it writes is frozen out of the
+next pass or the check.
 
 A project can select installed Python extensions. `checks.command` names
 its check-suite function as `module:function`. Without one,
