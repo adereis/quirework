@@ -574,19 +574,29 @@ def test_a_child_home_is_cloned_into_the_cache(setup):
 
 def test_a_failed_child_clone_leaves_no_home_in_the_cache(setup, monkeypatch):
     run = branched(setup)
-    before = set(blind.homes_root().iterdir()) if blind.homes_root().exists() else set()
     real = engine.shutil.copytree
+    # The cache is shared with every test running beside this one, so the
+    # test follows the home its clone was given, never the whole cache.
+    refused = []
 
-    def fails_into_the_cache(source, target, *a, **kw):
-        if Path(target).resolve().is_relative_to(blind.homes_root()):
+    def fails_cloning_the_child(source, target, *a, **kw):
+        # Only the child's copy, which comes from the checkpoint, fails: the
+        # parent's checkpoint has to be taken before the clone starts.
+        home = Path(target).resolve()
+        if Path(source).is_relative_to(run.root / "checkpoints") and (
+            home.is_relative_to(blind.homes_root())
+        ):
+            refused.append(home.parent)
             raise OSError("synthetic interruption")
         return real(source, target, *a, **kw)
 
-    monkeypatch.setattr(engine.shutil, "copytree", fails_into_the_cache)
+    monkeypatch.setattr(engine.shutil, "copytree", fails_cloning_the_child)
     with pytest.raises(OSError, match="interruption"):
         run.checkpoint("child")
+    assert (run.root / "checkpoints" / "reader").is_dir()
     assert not run.workspace("child").parent.exists()
-    assert set(blind.homes_root().iterdir()) == before
+    assert [home.parent for home in refused] == [blind.homes_root()]
+    assert not refused[0].exists()
 
 
 def test_a_parent_home_is_held_for_its_children_until_they_complete(setup):
@@ -624,11 +634,14 @@ def test_a_checkpoint_keeps_its_home_copy_in_the_cache(setup):
 
 def test_a_failed_checkpoint_leaves_no_home_copy(setup, monkeypatch):
     run = branched(setup)
-    before = set(blind.homes_root().iterdir())
     real = engine.shutil.copytree
+    # Followed by the home it was given, as the child clone's test does.
+    refused = []
 
     def fails_into_the_cache(source, target, *a, **kw):
-        if Path(target).resolve().is_relative_to(blind.homes_root()):
+        home = Path(target).resolve()
+        if home.is_relative_to(blind.homes_root()):
+            refused.append(home.parent)
             raise OSError("synthetic interruption")
         return real(source, target, *a, **kw)
 
@@ -636,7 +649,8 @@ def test_a_failed_checkpoint_leaves_no_home_copy(setup, monkeypatch):
     with pytest.raises(OSError, match="interruption"):
         run.checkpoint("child")
     assert not (run.root / "checkpoints" / "reader").exists()
-    assert set(blind.homes_root().iterdir()) == before
+    assert [home.parent for home in refused] == [blind.homes_root()]
+    assert not refused[0].exists()
 
 
 def test_a_lost_checkpoint_copy_is_named_rather_than_called_changed(setup):
