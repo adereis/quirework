@@ -7,6 +7,31 @@ from quirework.project import current_project
 from .models import codex_catalog, resolve
 
 
+def agy_catalog():
+    """What `agy models` prints, or a ValueError the command line reports.
+
+    agy fails when it is not signed in, and a failure here used to surface as
+    a traceback where the Codex listing names the failure and how to check the
+    login; the command line prints a ValueError as one clean line.
+    """
+    try:
+        value = subprocess.run(
+            ["agy", "models"], capture_output=True, text=True, timeout=45, check=True
+        )
+    except subprocess.CalledProcessError as exc:
+        said = (exc.stderr or exc.stdout or "").strip().splitlines()
+        reason = said[-1] if said else f"exit status {exc.returncode}"
+        raise ValueError(
+            f"agy models failed ({reason}); check that agy is signed in"
+        ) from exc
+    except subprocess.TimeoutExpired as exc:
+        raise ValueError(
+            "agy models did not answer within 45 seconds; check that agy is "
+            "signed in and can reach its service"
+        ) from exc
+    return value.stdout
+
+
 def main(argv=None):
     p = argparse.ArgumentParser(prog="quirework sop models", description=__doc__)
     sub = p.add_subparsers(dest="command", required=True)
@@ -30,10 +55,7 @@ def main(argv=None):
         models, source = codex_catalog()
         result = {"source": source, "models": models}
     elif args.provider == "agy":
-        value = subprocess.run(
-            ["agy", "models"], capture_output=True, text=True, timeout=45, check=True
-        )
-        result = {"source": "agy models", "catalog": value.stdout}
+        result = {"source": "agy models", "catalog": agy_catalog()}
     else:
         result = {
             "source": "project configuration",

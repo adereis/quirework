@@ -693,3 +693,27 @@ def test_a_declared_claude_seat_carries_its_gateway_env_into_the_record(tmp_path
     # A seat on an ordinary claude name keeps the empty default (a list,
     # because the frozen record is JSON).
     assert policies["writer"] == []
+
+
+def test_an_agy_listing_failure_is_a_clean_error(monkeypatch):
+    """A signed-out agy used to surface as a traceback; the command line
+    prints a ValueError as one line, as it does for Codex."""
+    import subprocess
+
+    from quirework.providers import catalog
+
+    def signed_out(*args, **kwargs):
+        raise subprocess.CalledProcessError(
+            1, args[0], output="", stderr="Error: not signed in\n"
+        )
+
+    monkeypatch.setattr(catalog.subprocess, "run", signed_out)
+    with pytest.raises(ValueError, match=r"not signed in\); check that agy"):
+        catalog.agy_catalog()
+
+    def silent(*args, **kwargs):
+        raise subprocess.TimeoutExpired(args[0], 45)
+
+    monkeypatch.setattr(catalog.subprocess, "run", silent)
+    with pytest.raises(ValueError, match="did not answer within 45 seconds"):
+        catalog.agy_catalog()
