@@ -1018,13 +1018,17 @@ do, the one the jail leaves open for the provider. An unjailed Codex
 reviewer keeps Codex's sandbox, with the report directory added as the
 one place outside the checkout it may write.
 
-A reviewer reaches no web by default. `--tools research` on a new run
-adds the harness's web search and page fetch, for a delta whose sources
-the reviewer should check for itself. The run records the policy, every
-later turn keeps it, and the canary proves it before launch. agy cannot
-confine a seat to a tool set, so an agy reviewer keeps agy's own web
-tools under any flags; its run records `unconfined` rather than claiming
-a policy, and `--tools review` is refused there.
+A reviewer reaches the web by default: a new run records
+`--tools research`, which adds the harness's web search and page fetch.
+A review is contextual, never a blind read, so nothing the web could
+show it is a first impression to protect, and a reviewer that wants
+context or a source checked can look it up. `--tools review` withholds
+the web. The run records the policy, every later turn keeps it, and the
+canary proves it before launch. A record from before the policy existed
+ran without the web and is read that way, never as having had the new
+default. agy cannot confine a seat to a tool set, so an agy reviewer
+keeps agy's own web tools under any flags; its run records `unconfined`
+rather than claiming a policy, and `--tools review` is refused there.
 
 A reviewer reaches no provenance store by default either: the jail
 blanks `$HOME`, which removes the store and the per-user file naming its

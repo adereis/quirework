@@ -425,9 +425,15 @@ def codex_sandbox(jailed):
 
 
 # What a reviewer may reach beyond the repository and its own report.
-# `research` adds the harness's web search and page fetch, for a delta that
-# rests on sources a reviewer should check for itself.
+# `research` adds the harness's web search and page fetch; `review` withholds
+# them. A review is contextual, never a blind read: it has the whole
+# repository, and nothing it might find on the web is a first impression to
+# protect. So a new run gets the web unless it asks for `review`, and a
+# reviewer that wants context, or a source checked, can look it up.
 TOOLS = ("review", "research")
+DEFAULT_TOOLS = "research"
+# What a record from before the policy existed ran with: no web.
+UNRECORDED_TOOLS = "review"
 
 
 def review_tools(harness, tools=None):
@@ -448,7 +454,19 @@ def review_tools(harness, tools=None):
                 "and the run records it as unconfined"
             )
         return "unconfined"
-    return tools or "review"
+    return tools or DEFAULT_TOOLS
+
+
+def recorded_tools(config):
+    """The tool policy a run actually ran with, read from its config.
+
+    A run opened since the policy existed records it. One opened before ran
+    with no web, and agy, as ever, unconfined. The new-run default is not
+    read into an old record: that would claim a policy the run never had.
+    """
+    if config.get("tools"):
+        return config["tools"]
+    return "unconfined" if config["harness"] == "agy" else UNRECORDED_TOOLS
 
 
 def command(config, mode, session_id, report_dir, *, jailed=True):
@@ -606,8 +624,9 @@ def canary(config, label, *, jailed=True):
     from quirework.providers import canary as canaries
 
     harness = config["harness"]
-    # A record from before the policy existed carries none: agy ran unconfined.
-    tools = config.get("tools") or review_tools(harness)
+    # A record from before the policy existed carries none and ran without the
+    # web, so the canary proves that rather than the new-run default.
+    tools = recorded_tools(config)
 
     def build(prompt, model, workdir, session):
         twin = {
@@ -1175,7 +1194,7 @@ def launch_summary(config, jailed):
     return (
         f"harness={harness} model={config.get('model_pinned') or config['model']} "
         f"effort={config['effort']} "
-        f"tools={config.get('tools') or review_tools(harness)} "
+        f"tools={recorded_tools(config)} "
         f"context={window or 'default'} "
         f"compaction={guard} jailed={str(bool(jailed)).lower()} "
         f"provenance={_provenance_reach(config, jailed)}"
@@ -2415,11 +2434,12 @@ New runs accept --persona ID (default: the configured project persona), --kind
 consistency|procedure, and --paths-file FILE for explicit target paths including
 new files. The persona is frozen; resume and fork cannot select another one.
 
-A new run also accepts --tools research, which adds the harness's web search
-and page fetch for a delta whose sources the reviewer should check. The
-policy is recorded and kept on every later turn. agy cannot confine a seat to
-a tool set, so an agy run is recorded as unconfined and --tools review is
-refused there.
+A new run gets the harness's web search and page fetch by default
+(--tools research), since a review is contextual and has no first impression
+to protect; --tools review withholds them. The policy is recorded and kept on
+every later turn, and a record from before it existed reads as having had no
+web. agy cannot confine a seat to a tool set, so an agy run is recorded as
+unconfined and --tools review is refused there.
 
 A new run also accepts --provenance, which binds this project's provenance
 store into the jail read-only, so a reviewer can open the sessions a spec
@@ -2492,8 +2512,9 @@ def main(argv=None):
                 "--tools",
                 choices=TOOLS,
                 default=None,
-                help="review (default): the repository and the report; "
-                "research adds web search and fetch. agy is always unconfined",
+                help="research (default): the repository, the report, and web "
+                "search and fetch; review withholds the web. agy is always "
+                "unconfined",
             )
             p.add_argument(
                 "--provenance",

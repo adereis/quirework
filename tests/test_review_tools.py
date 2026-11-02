@@ -18,7 +18,8 @@ def _claude_tools(args):
     return args[args.index("--tools") + 1], args[args.index("--allowedTools") + 1]
 
 
-def test_a_review_has_no_web_unless_it_asked_for_research(tmp_path):
+def test_a_review_that_withholds_the_web_gets_none(tmp_path):
+    # A record from before the policy existed ran with no web either.
     for config in (CODEX, {**CODEX, "tools": "review"}):
         args, _ = review.command(config, "run", None, tmp_path)
         assert 'web_search="disabled"' in args
@@ -44,7 +45,10 @@ def test_a_research_review_gets_each_harness_its_web_tools(tmp_path):
 
 
 def test_the_recorded_policy_is_true_of_the_runner():
-    assert review.review_tools("codex") == "review"
+    # A new run gets the web unless it asks for review.
+    assert review.review_tools("codex") == "research"
+    assert review.review_tools("claude") == "research"
+    assert review.review_tools("codex", "review") == "review"
     assert review.review_tools("claude", "research") == "research"
     # agy keeps its own tools under any flags, so its record says so.
     assert review.review_tools("agy") == "unconfined"
@@ -78,3 +82,11 @@ def test_the_launch_line_names_the_tools():
     )
     # A record from before the policy existed ran with no web tools.
     assert "tools=review" in review.launch_summary(CODEX, True)
+
+
+def test_an_old_record_reads_as_the_policy_it_ran_with():
+    # The new-run default is never read into a record that predates it.
+    assert review.recorded_tools(CODEX) == "review"
+    assert review.recorded_tools(CLAUDE) == "review"
+    assert review.recorded_tools({"harness": "agy", "model": "m"}) == "unconfined"
+    assert review.recorded_tools({**CODEX, "tools": "research"}) == "research"
