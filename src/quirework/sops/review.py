@@ -712,6 +712,7 @@ def launch_context(
     # operations in sequence and the working directory is the repository, not
     # the record.
     jail += repository_binds()
+    jail += provenance_binds(config)
     jail += ["--bind", str(report_dir), JAILED_REPORT]
     jail += [
         "--chdir",
@@ -808,7 +809,75 @@ def repository_binds():
     return argv
 
 
-def preflight(delta, record, env):
+def provenance_store():
+    """This project's provenance store, as a run that binds it records it.
+
+    Resolved once, when the run opens, and kept in its config, so every later
+    turn binds the store the first one did. ``open_store`` refuses a store that
+    is missing or belongs to another project, which is the check a reviewer
+    would otherwise fail inside the jail after the model was paid for.
+
+    A store named by ``provenance.store`` is found under the provenance home,
+    and inside the jail ``$HOME`` and the per-user file that names that home
+    are gone. The record therefore carries the home as well, and the jail sets
+    ``$QUIREWORK_PROVENANCE_HOME`` to it, which only points at the store
+    already bound: the other stores under the same home stay out of view. A
+    store named by ``provenance.store_dir`` is found from the project's own
+    configuration and needs nothing set.
+    """
+    from quirework.provenance import store as provenance
+
+    try:
+        opened = provenance.open_store()
+    except ValueError as exc:
+        _fail(f"--provenance: {exc}")
+    root = Path(opened.root).resolve()
+    bound = {"store": str(root)}
+    if current_project().get("provenance.store_dir") is None:
+        name = current_project().get("provenance.store")
+        if root.name != name:
+            _fail(
+                f"--provenance: the store {name!r} resolves to {root}, through a "
+                "link, so a jail that named its home could not find it there"
+            )
+        bound["home"] = str(root.parent)
+    project_root = Path(current_project().root).resolve()
+    if root.is_relative_to(project_root):
+        for path in hidden_paths():
+            if root.is_relative_to(path):
+                _fail(
+                    f"--provenance: the store lies inside {_shown(path)}, which "
+                    "review_policy.hidden keeps from the reviewer"
+                )
+    return bound
+
+
+def provenance_binds(config):
+    """The run's provenance store, read-only, when the run asked for it.
+
+    After the repository's binds and masks, so a later bind wins and nothing
+    the reviewer may write can shadow it. Read-only is what keeps a reviewer
+    find-only here too: it can read every session the store holds, and accept,
+    reject or remove none.
+    """
+    bound = (config or {}).get("provenance")
+    if not bound:
+        return []
+    from quirework.provenance.store import IDENTITY
+
+    root = Path(bound["store"])
+    if not (root / IDENTITY).is_file():
+        _fail(
+            f"the provenance store this run binds is gone: {root} holds no "
+            f"{IDENTITY}. Nothing was launched."
+        )
+    argv = ["--ro-bind", str(root), str(root)]
+    if bound.get("home"):
+        argv += ["--setenv", "QUIREWORK_PROVENANCE_HOME", bound["home"]]
+    return argv
+
+
+def preflight(delta, record, env, config=None):
     """Prove, inside a jail built like the reviewer's, that git reads the delta.
 
     Run before a model is paid for, because the failure it catches is quiet:
@@ -823,6 +892,7 @@ def preflight(delta, record, env):
     """
     root = str(current_project().root)
     jail = blind.jail_argv(record, expose_run_dir=False) + repository_binds()
+    jail += provenance_binds(config)
     jail += ["--chdir", root]
     if delta.get("kind") == "range":
         probe = ["git", "--no-optional-locks", "log", "--format=%H", delta["spec"]]
@@ -878,10 +948,32 @@ def preflight(delta, record, env):
                 f"inside the review jail, a hidden path is still readable: "
                 f"{leaks[0]}. Nothing was launched."
             )
+    bound = (config or {}).get("provenance")
+    if bound:
+        # The store is proved by its identity: the file that ties it to this
+        # project's ledger reads inside the jail exactly as it reads here.
+        from quirework.provenance.store import IDENTITY
+
+        identity = Path(bound["store"]) / IDENTITY
+        p = subprocess.run(
+            jail + ["cat", str(identity)],
+            capture_output=True,
+            text=True,
+            timeout=120,
+            env=env,
+            check=False,
+        )
+        if p.returncode or p.stdout != identity.read_text(encoding="utf-8"):
+            _fail(
+                "inside the review jail, the provenance store does not read as "
+                f"it does here: {(p.stderr.strip() or 'its identity differs')[:300]}. "
+                "Nothing was launched."
+            )
     return {
         "git_dirs": [str(d) for d in git_dirs()],
         "commits_readable": len(seen) if delta.get("kind") == "range" else None,
         "hidden": [_shown(h) for h in hidden],
+        "provenance": bound["store"] if bound else None,
     }
 
 
@@ -1085,8 +1177,20 @@ def launch_summary(config, jailed):
         f"effort={config['effort']} "
         f"tools={config.get('tools') or review_tools(harness)} "
         f"context={window or 'default'} "
-        f"compaction={guard} jailed={str(bool(jailed)).lower()}"
+        f"compaction={guard} jailed={str(bool(jailed)).lower()} "
+        f"provenance={_provenance_reach(config, jailed)}"
     )
+
+
+def _provenance_reach(config, jailed):
+    """What the launch line says of the provenance store.
+
+    Unjailed, the reviewer stands in the operator's own home, store included,
+    whatever the run asked for, so the line says that rather than a policy.
+    """
+    if not jailed:
+        return "unjailed"
+    return "read-only" if config.get("provenance") else "none"
 
 
 def start(
@@ -1105,6 +1209,7 @@ def start(
     kind="consistency",
     paths=None,
     tools=None,
+    provenance=False,
 ):
     """Open a review run and take its first turn."""
     if not SCOPE.match(scope):
@@ -1124,6 +1229,8 @@ def start(
         _fail(f"{run} already exists; resume it or pick another scope")
     config = drivers.resolve(harness, model, effort)
     config = {**config, "tools": review_tools(config["harness"], tools)}
+    if provenance:
+        config = {**config, "provenance": provenance_store()}
     profile = personas.resolve(persona)
     if kind not in ("consistency", "procedure"):
         _fail("review kind must be consistency or procedure")
@@ -1312,11 +1419,17 @@ def _turn(
                 record,
                 f"review {record.name} can be continued, resumed or forked at any time",
             )
-        history = preflight(delta, record, env) if jailed else None
+        history = preflight(delta, record, env, config) if jailed else None
         if history and history["commits_readable"] is not None:
             print(
                 f"review: inside the jail git reads all "
                 f"{history['commits_readable']} commit(s) of the range",
+                file=sys.stderr,
+            )
+        if history and history.get("provenance"):
+            print(
+                f"review: inside the jail the provenance store reads, "
+                f"read-only: {history['provenance']}",
                 file=sys.stderr,
             )
         hidden = hidden_paths()
@@ -2308,6 +2421,13 @@ policy is recorded and kept on every later turn. agy cannot confine a seat to
 a tool set, so an agy run is recorded as unconfined and --tools review is
 refused there.
 
+A new run also accepts --provenance, which binds this project's provenance
+store into the jail read-only, so a reviewer can open the sessions a spec
+trail points at with `quirework provenance show`. The store is resolved once
+and kept on every later turn, and the preflight proves from inside the jail
+that it reads as the host's before a model is paid for. Without it the jail
+blanks $HOME, and the store and the per-user file naming it are out of view.
+
 The reviewer must not be the model that made the edit. It runs read-only
 with the whole repository visible, and jailed by default so a Claude
 reviewer does not carry the operator's MEMORY.md; --no-jail is recorded and
@@ -2374,6 +2494,12 @@ def main(argv=None):
                 default=None,
                 help="review (default): the repository and the report; "
                 "research adds web search and fetch. agy is always unconfined",
+            )
+            p.add_argument(
+                "--provenance",
+                action="store_true",
+                help="also bind this project's provenance store, read-only, so "
+                "the reviewer can read the sessions the spec trail points at",
             )
         p.add_argument(
             "--effort",
@@ -2499,6 +2625,7 @@ def main(argv=None):
                     if args.paths_file
                     else None,
                     tools=args.tools,
+                    provenance=args.provenance,
                 )
             if args.action == "prompt":
                 print(result["prompt"])

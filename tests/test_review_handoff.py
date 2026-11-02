@@ -206,26 +206,29 @@ def test_only_the_last_status_line_counts(body, stated, flagged):
             {"harness": "codex", "model": "demo-model", "effort": "high"}
             | {"max_context_window": 400000},
             "harness=codex model=demo-model effort=high tools=review context=400000 "
-            "compaction=prevented jailed=true",
+            "compaction=prevented jailed=true provenance=none",
         ),
         (
             {"harness": "claude", "model": "opus", "effort": "xhigh"}
             | {"model_pinned": "claude-opus-5-5"},
             f"harness=claude model=claude-opus-5-5 effort=xhigh tools=review "
-            f"context={models.CLAUDE_MAX_WINDOW} compaction=prevented jailed=true",
+            f"context={models.CLAUDE_MAX_WINDOW} compaction=prevented jailed=true "
+            "provenance=none",
         ),
         (
             {"harness": "agy", "model": "gemini-pro-high", "effort": "high"},
             "harness=agy model=gemini-pro-high effort=high tools=unconfined "
             "context=default "
-            "compaction=detected jailed=true",
+            "compaction=detected jailed=true provenance=none",
         ),
     ],
 )
 def test_one_line_names_the_reviewer_before_the_argv(config, line):
     """The jail is a hundred lines of mounts; what gets checked is this."""
     assert review.launch_summary(config, True) == line
-    assert review.launch_summary(config, False).endswith("jailed=false")
+    assert review.launch_summary(config, False).endswith(
+        "jailed=false provenance=unjailed"
+    )
 
 
 def test_a_short_status_keeps_what_a_poll_asks_and_drops_the_rest(project):

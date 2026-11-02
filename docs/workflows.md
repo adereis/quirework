@@ -1026,6 +1026,17 @@ confine a seat to a tool set, so an agy reviewer keeps agy's own web
 tools under any flags; its run records `unconfined` rather than claiming
 a policy, and `--tools review` is refused there.
 
+A reviewer reaches no provenance store by default either: the jail
+blanks `$HOME`, which removes the store and the per-user file naming its
+home. `--provenance` on a new run binds this project's store back,
+read-only, for a review that should read the sessions a spec trail
+points at. It is resolved and checked once, when the run opens, and
+every later turn binds the same store. Only that store is bound, so
+other stores under the same home stay out of view, and a store inside a
+path the review policy hides is refused. The preflight proves from
+inside the jail that the store's identity reads as it does on the host,
+and the launch line says `provenance=read-only`.
+
 The checkout can hold the same kind of priors: scratch notes with
 rulings in them, or an earlier review of the same range, often in
 git-ignored directories. `sops.review_policy.hidden` lists such paths as
