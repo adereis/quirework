@@ -1018,6 +1018,26 @@ do, the one the jail leaves open for the provider. An unjailed Codex
 reviewer keeps Codex's sandbox, with the report directory added as the
 one place outside the checkout it may write.
 
+Every harness loads the project's instruction files into a reviewer's
+context before the prompt, and every request the reviewer makes carries
+them again, so a frame that asks for one of them doubles its cost for
+the whole turn. Codex reads `AGENTS.md` from the repository root down to
+the working directory, but only its first 32 KiB unless told otherwise,
+cut mid-word with nothing to say so; a reviewer handed a longer guide
+read it again to find the rest. A Codex run therefore records a limit
+sized to the project's own guides when it opens, and passes it on every
+turn, so they arrive whole. A frame may name `{preloaded}`, which says
+what the reviewer's harness has already loaded, whole: Codex's guides,
+or Claude Code's `CLAUDE.md` and the files it imports. Claude Code reads
+`AGENTS.md` only when `CLAUDE.md` imports it or the user's own plugin
+settings ask, and a jailed reviewer carries none of those, so the field
+then tells it to read the guide once. For agy, whose record does not
+show what it loaded, it asks the same. `review prompt` and every launch
+print any line of the prompt that still asks for a file the harness
+loaded. After the turn, the receipt reads the harness's own session
+record to say what it actually loaded, whole or cut, and how many times
+the reviewer read those files again.
+
 A reviewer reaches the web by default: a new run records
 `--tools research`, which adds the harness's web search and page fetch.
 A review is contextual, never a blind read, so nothing the web could
@@ -1084,20 +1104,21 @@ id.
 
 Each turn ends by printing where its report was banked, the receipt
 checks it already passed and the next step. The checks are the served
-model and effort, no compaction and find-only. A check the harness did
-not supply is reported as missing. For a completed turn the next step is
-to verify the findings, and it gives the `Reviewed-by:` trailer a commit
-using one carries. A turn can complete without finishing: the harness
-completing means the process ended with an answer, not that the answer
-covers the delta. When the reviewer's own report ends at a `STATUS:`
-other than `complete`, the checks say the review is not finished and the
-next step says so before anything else. A reviewer that never wrote its
-report file is flagged the same way, and what is banked is its final
-message. A reviewer whose tools all failed ends like this, having read
-nothing either, while every other check passes. For a quota stop the
-next step is the `continue` command, and for a failure it is the
-evidence to read before anything is launched again. The operator does
-not have to reconstruct any of this from the record.
+model and effort, no compaction, find-only, and what the harness loaded
+before the prompt. A check the harness did not supply is reported as
+missing. For a completed turn the next step is to verify the findings,
+and it gives the `Reviewed-by:` trailer a commit using one carries. A
+turn can complete without finishing: the harness completing means the
+process ended with an answer, not that the answer covers the delta. When
+the reviewer's own report ends at a `STATUS:` other than `complete`, the
+checks say the review is not finished and the next step says so before
+anything else. A reviewer that never wrote its report file is flagged
+the same way, and what is banked is its final message. A reviewer whose
+tools all failed ends like this, having read nothing either, while every
+other check passes. For a quota stop the next step is the `continue`
+command, and for a failure it is the evidence to read before anything is
+launched again. The operator does not have to reconstruct any of this
+from the record.
 
 The reviewer is asked to put anything it notices outside the delta in
 its own section, as a lead rather than a finding. A defect older than

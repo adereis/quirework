@@ -50,6 +50,7 @@ from quirework.providers import blind
 from quirework.providers import claude_login
 from quirework.providers import exits
 from quirework.providers import output_ceiling
+from quirework.providers import preload
 from quirework.sops import personas
 from quirework.providers import quota
 from quirework.providers import replies
@@ -88,7 +89,7 @@ def _options():
         .data("sops.review_policy", {})
         .get(
             "frame",
-            "Review the supplied material. Report findings with evidence. Put anything noticed outside the delta in a separate section, as a lead rather than a finding.\n\n{brief}\n\n{delta}\n\nWrite the report to {report}.",
+            "{preloaded}\n\nReview the supplied material. Report findings with evidence. Put anything noticed outside the delta in a separate section, as a lead rather than a finding.\n\n{brief}\n\n{delta}\n\nWrite the report to {report}.",
         )
     )
     PROCEDURE_FRAME = (
@@ -96,7 +97,7 @@ def _options():
         .data("sops.review_policy", {})
         .get(
             "procedure_frame",
-            "Review the supplied changes and their procedures. Report concrete findings. Put anything noticed outside the delta in a separate section, as a lead rather than a finding.\n\n{brief}\n\n{delta}\n\nWrite the report to {report}.",
+            "{preloaded}\n\nReview the supplied changes and their procedures. Report concrete findings. Put anything noticed outside the delta in a separate section, as a lead rather than a finding.\n\n{brief}\n\n{delta}\n\nWrite the report to {report}.",
         )
     )
     # Declared, `reviewable` is a list of path prefixes. Undeclared, it is the
@@ -346,7 +347,16 @@ change in `git diff --cached`. Nothing is committed yet.
 """
 
 
-def compose(brief_text, delta, report_path, *, persona=None, kind="consistency"):
+def compose(
+    brief_text, delta, report_path, *, persona=None, kind="consistency", harness=None
+):
+    """The prompt a reviewer receives: the frame, filled in, and its persona.
+
+    A frame may name `{preloaded}`, which says what ``harness`` already put in
+    the reviewer's context before the prompt (`preload.sentence`), so the
+    frame never has to ask for a file the harness loaded, nor assume one it
+    did not.
+    """
     if delta["kind"] == "range":
         listed = "\n".join("  " + c for c in delta["commits"])
         block = DELTA_RANGE.format(spec=delta["spec"], commits=listed)
@@ -367,6 +377,7 @@ def compose(brief_text, delta, report_path, *, persona=None, kind="consistency")
         delta=block.rstrip(),
         report=report_path,
         brief=brief_text.strip(),
+        preloaded=preload.sentence(harness, current_project().root),
     )
     return personas.compose(text, persona) if persona else text
 
@@ -517,7 +528,16 @@ def command(config, mode, session_id, report_dir, *, jailed=True):
             # inherits the prior transcript, so it compacts first.
             *drivers.window_flags(config),
             # NOT project_doc_max_bytes=0. The workshop zeroes it to keep the
-            # instruction stack out of a blind writer; a reviewer needs it.
+            # instruction stack out of a blind writer; a reviewer needs it,
+            # and needs it whole. Codex's own limit is 32 KiB of the joined
+            # guides, cut mid-word without a word to the seat, so a run sizes
+            # the limit to the chain when it opens (`preload.codex_doc_bytes`).
+            # A record from before that carries none and keeps Codex's.
+            *(
+                ["-c", f"project_doc_max_bytes={config['codex_doc_bytes']}"]
+                if config.get("codex_doc_bytes")
+                else []
+            ),
             # The sandbox travels as config as well as `-s`, because a resume
             # refuses `-s` and `--add-dir` alike; see `codex_sandbox`.
             "-c",
@@ -635,6 +655,7 @@ def canary(config, label, *, jailed=True):
             "effort": canaries.EFFORT,
             "max_context_window": canaries.WINDOW,
             "tools": tools,
+            "codex_doc_bytes": config.get("codex_doc_bytes"),
         }
         args, _ = command(twin, "run", None, workdir, jailed=jailed)
         return canaries.Twin(args, prompt.encode())
@@ -1248,6 +1269,11 @@ def start(
         _fail(f"{run} already exists; resume it or pick another scope")
     config = drivers.resolve(harness, model, effort)
     config = {**config, "tools": review_tools(config["harness"], tools)}
+    if config["harness"] == "codex":
+        config = {
+            **config,
+            "codex_doc_bytes": preload.codex_doc_bytes(current_project().root),
+        }
     if provenance:
         config = {**config, "provenance": provenance_store()}
     profile = personas.resolve(persona)
@@ -1479,7 +1505,31 @@ def _turn(
             )
         else:
             prompt = compose(
-                brief_text, delta, report_path / "report.md", persona=persona, kind=kind
+                brief_text,
+                delta,
+                report_path / "report.md",
+                persona=persona,
+                kind=kind,
+                harness=harness,
+            )
+        # A lead for the operator, never a refusal: whether a line asks for a
+        # second read is the frame author's to judge.
+        asked = (
+            []
+            if mode == "continue"
+            else preload.frame_leads(
+                prompt,
+                harness,
+                current_project().root,
+                skip=preload.sentence(harness, current_project().root),
+            )
+        )
+        for lead in asked:
+            print(
+                f"review: the prompt asks for {lead['file']}, which {harness} "
+                f"loads whole before it (prompt line {lead['line']}: "
+                f"{lead['text'][:80]})",
+                file=sys.stderr,
             )
         args, _ = command(
             config,
@@ -1496,6 +1546,7 @@ def _turn(
                 "argv": prefix + args,
                 "prompt": prompt,
                 "history": history,
+                "frame_leads": asked,
             }
 
         (turn_dir / "prompt.md").write_text(prompt)
@@ -1704,6 +1755,8 @@ def _collect(
     in_scope = sorted(p for p in moved if p in reviewed)
     verdict = _find_only_verdict(moved, in_scope, jailed)
 
+    loads = _preload(harness, receipt, private)
+
     out_name = f"{turn}-{harness}-{config['model']}.md"
     if body.strip():
         (run_dir_for(name) / out_name).write_text(
@@ -1747,6 +1800,7 @@ def _collect(
         "output_limit": receipt.get("output_limit"),
         "harness_text": receipt.get("harness_text", []),
         "red_flags": receipt.get("red_flags", []),
+        "preload": loads,
         "stopped_after_answer": exits.recorded(turn_dir),
         "seconds": round(time.time() - started, 1),
         "find_only": verdict["find_only"],
@@ -1834,6 +1888,55 @@ def _collect(
     )
 
 
+def _natives(harness, receipt, private):
+    """The harness's own session records for this turn's session.
+
+    A turn that failed has no receipt listing them, and a quota stop is
+    exactly the turn whose reading an operator wants to see, so a Codex
+    record is then found by the session id the event stream still carried.
+    """
+    if harness == "codex" and receipt.get("native_transcripts"):
+        return list(receipt["native_transcripts"])
+    if harness == "codex" and private is not None and receipt.get("session_id"):
+        return sorted(
+            str(p)
+            for p in (private / "sessions").rglob(f"*{receipt['session_id']}*.jsonl")
+        )
+    if harness == "claude" and private is not None and receipt.get("session_id"):
+        return sorted(
+            str(p)
+            for p in (private / "projects").rglob(f"*{receipt['session_id']}*.jsonl")
+        )
+    return []
+
+
+def _preload(harness, receipt, private):
+    """What the harness's record says it loaded before the prompt, and how
+    often the reviewer read those files again. Advisory, so a fault in it is
+    recorded and printed rather than allowed to cost the turn its record."""
+    try:
+        root = current_project().root
+        natives = _natives(harness, receipt, private)
+        files = preload.receipt(harness, natives, root)
+        counts = preload.rereads(
+            natives,
+            [f["path"] for f in files or [] if f.get("when", "start") == "start"],
+            root,
+        )
+        return {"files": files, "reread": counts}
+    except Exception as exc:  # noqa: BLE001 -- the turn's record comes first
+        return {"error": f"{type(exc).__name__}: {exc}"}
+
+
+def _preload_line(harness, loads):
+    """A turn's preload receipt as one line, or None for a turn without one."""
+    if not loads:
+        return None
+    if loads.get("error"):
+        return f"PRELOAD NOT CHECKED: {loads['error']}"
+    return preload.summary(harness, loads["files"], loads["reread"])
+
+
 def _report_status(body):
     """The last `STATUS:` line the reviewer wrote, or None if it wrote none."""
     found = re.findall(r"(?m)^\s*STATUS:[ \t]*(.*)$", body or "")
@@ -1915,6 +2018,9 @@ def handoff(entry, name, harness, record):
         ("find-only" if entry["find_only"] else "FIND-ONLY NOT ESTABLISHED")
         + f" (workspace: {entry['workspace']})"
     )
+    loads = _preload_line(harness, entry.get("preload"))
+    if loads:
+        checks.append(loads)
     turn_dir = record / "turns" / entry["turn"]
     if status == "completed":
         step = (
@@ -2212,6 +2318,10 @@ def status(name=None, store=None):
                     "red_flags",
                 )
             }
+            # One line: the files themselves are in the record.
+            | {
+                "preload": _preload_line(state["config"]["harness"], t.get("preload")),
+            }
             for t in state.get("turns", [])
         ],
         # Named here rather than left for the operator to infer, because the
@@ -2427,8 +2537,15 @@ name goes to claude and anything else to codex; agy is always named, with an
 explicit --effort of low, medium or high. --effort defaults to xhigh.
 
 Every turn prints where its report was banked, the receipt checks it already
-passed (served model and effort, no compaction, find-only), and the next step,
-including the Reviewed-by: trailer a commit using a finding carries.
+passed (served model and effort, no compaction, find-only), what the harness
+loaded into the reviewer's context before the prompt and how often the
+reviewer read it again, and the next step, including the Reviewed-by: trailer
+a commit using a finding carries.
+
+A frame may name {preloaded}, which tells the reviewer what its harness
+already loaded, so the frame need not ask for it; the prompt prints any line
+that still asks for such a file. A Codex run sizes Codex's limit on loaded
+guides to the project's own, so they arrive whole rather than cut at 32 KiB.
 
 New runs accept --persona ID (default: the configured project persona), --kind
 consistency|procedure, and --paths-file FILE for explicit target paths including

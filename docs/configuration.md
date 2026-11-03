@@ -1341,7 +1341,11 @@ and visual choices out of Quirework's implementation:
   prose.
 - `sops.persona_policy`: the optional `default` persona ID.
 - `sops.review_policy`: review frames, reviewable source paths, and
-  `hidden`, the checkout paths a jailed reviewer must not read.
+  `hidden`, the checkout paths a jailed reviewer must not read. A frame
+  (`frame`, or `procedure_frame` for a procedure review) is filled with
+  `{root}`, `{delta}`, `{brief}`, `{report}` and `{preloaded}`, the last
+  saying what the reviewer's harness already loaded into its context, so
+  the frame need not ask for those files.
 - `publish.variant_policy`: who drafts each derived edition, and how.
   `default_model`, `default_harness` and `default_effort` apply to every
   kind, and a `[kinds.KIND]` table overrides any of `model`, `harness`
