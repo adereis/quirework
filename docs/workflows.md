@@ -1104,21 +1104,39 @@ id.
 
 Each turn ends by printing where its report was banked, the receipt
 checks it already passed and the next step. The checks are the served
-model and effort, no compaction, find-only, and what the harness loaded
-before the prompt. A check the harness did not supply is reported as
-missing. For a completed turn the next step is to verify the findings,
-and it gives the `Reviewed-by:` trailer a commit using one carries. A
-turn can complete without finishing: the harness completing means the
-process ended with an answer, not that the answer covers the delta. When
-the reviewer's own report ends at a `STATUS:` other than `complete`, the
-checks say the review is not finished and the next step says so before
-anything else. A reviewer that never wrote its report file is flagged
-the same way, and what is banked is its final message. A reviewer whose
-tools all failed ends like this, having read nothing either, while every
-other check passes. For a quota stop the next step is the `continue`
-command, and for a failure it is the evidence to read before anything is
-launched again. The operator does not have to reconstruct any of this
-from the record.
+model and effort, no compaction, find-only, the report's quotations and
+what the harness loaded before the prompt. A check the harness did not
+supply is reported as missing. For a completed turn the next step is to
+verify the findings, and it gives the `Reviewed-by:` trailer a commit
+using one carries. A turn can complete without finishing: the harness
+completing means the process ended with an answer, not that the answer
+covers the delta. When the reviewer's own report ends at a `STATUS:`
+other than `complete`, the checks say the review is not finished and the
+next step says so before anything else. A reviewer that never wrote its
+report file is flagged the same way, and what is banked is its final
+message. A reviewer whose tools all failed ends like this, having read
+nothing either, while every other check passes. For a quota stop the
+next step is the `continue` command, and for a failure it is the
+evidence to read before anything is launched again. The operator does
+not have to reconstruct any of this from the record.
+
+A reviewer can put a sentence in quotation marks that no file holds,
+inside a finding whose substance is sound, and an operator who trusts
+the quotation then verifies the wrong text. So when a turn is banked,
+every quotation in its report is looked for in the sources its own
+paragraph cites: a file path, a bare `:12` meaning the file named last,
+or a backticked commit, whose message and diff are searched. A
+blockquote takes its sources from the paragraph that introduces it.
+Whitespace, case, quotation marks, emphasis and backticks are ignored,
+and an ellipsis splits a quotation into pieces that must each be found.
+The checks give the count, and the turn prints each quotation not found,
+with its report line and why: not in what it cites, in it only before
+the delta, or citing nothing that exists. These are leads, never
+verdicts. A paraphrase in quotation marks and a correct quotation under
+the wrong citation look the same to a script, and the operator tells
+them apart by reading the file. `review quotes RUN` checks a run again,
+and `--at REV` reads the cited files at the revision the review read, so
+later edits do not read as misquotations.
 
 The reviewer is asked to put anything it notices outside the delta in
 its own section, as a lead rather than a finding. A defect older than

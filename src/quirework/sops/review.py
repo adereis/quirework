@@ -52,6 +52,7 @@ from quirework.providers import exits
 from quirework.providers import output_ceiling
 from quirework.providers import preload
 from quirework.sops import personas
+from quirework.sops import quotes
 from quirework.providers import quota
 from quirework.providers import replies
 from quirework.providers import models as drivers
@@ -1755,6 +1756,7 @@ def _collect(
     in_scope = sorted(p for p in moved if p in reviewed)
     verdict = _find_only_verdict(moved, in_scope, jailed)
 
+    quotations = _quotations(body, delta)
     loads = _preload(harness, receipt, private)
 
     out_name = f"{turn}-{harness}-{config['model']}.md"
@@ -1800,6 +1802,7 @@ def _collect(
         "output_limit": receipt.get("output_limit"),
         "harness_text": receipt.get("harness_text", []),
         "red_flags": receipt.get("red_flags", []),
+        "quotations": quotations,
         "preload": loads,
         "stopped_after_answer": exits.recorded(turn_dir),
         "seconds": round(time.time() - started, 1),
@@ -1854,6 +1857,19 @@ def _collect(
             "what is banked is its final message",
             file=sys.stderr,
         )
+    if quotations and (quotations.get("leads") or quotations.get("error")):
+        print(f"review: turn {turn}: {quotes.summary(quotations)}", file=sys.stderr)
+        for lead in quotations.get("leads", [])[:8]:
+            print(
+                f"  report line {lead['line']}: {lead['why']}: {lead['quote'][:90]}",
+                file=sys.stderr,
+            )
+        if len(quotations.get("leads", [])) > 8:
+            print(
+                f"  … and {len(quotations['leads']) - 8} more: "
+                f"`quirework sop review quotes {name}`",
+                file=sys.stderr,
+            )
     if verdict["workspace"] != "unchanged":
         # Never quietly, and never louder than the evidence warrants.
         print(f"review: turn {turn}: {verdict['note']}", file=sys.stderr)
@@ -1888,6 +1904,23 @@ def _collect(
     )
 
 
+def _quotations(body, delta):
+    """The report's quotations, looked for in the tree the reviewer read.
+
+    Text not there now is looked for as it stood before the delta: the range's
+    base, or HEAD for a working-tree review. Advisory, so a fault in it is
+    recorded and printed rather than allowed to cost the turn its record.
+    """
+    if not body.strip():
+        return None
+    delta = delta or {}
+    base = delta.get("base") if delta.get("kind") == "range" else "HEAD"
+    try:
+        return quotes.check(body, current_project().root, base=base)
+    except Exception as exc:  # noqa: BLE001 -- the turn's record comes first
+        return {"error": f"{type(exc).__name__}: {exc}"}
+
+
 def _natives(harness, receipt, private):
     """The harness's own session records for this turn's session.
 
@@ -1912,8 +1945,7 @@ def _natives(harness, receipt, private):
 
 def _preload(harness, receipt, private):
     """What the harness's record says it loaded before the prompt, and how
-    often the reviewer read those files again. Advisory, so a fault in it is
-    recorded and printed rather than allowed to cost the turn its record."""
+    often the reviewer read those files again. Advisory, as quotations are."""
     try:
         root = current_project().root
         natives = _natives(harness, receipt, private)
@@ -1935,6 +1967,39 @@ def _preload_line(harness, loads):
     if loads.get("error"):
         return f"PRELOAD NOT CHECKED: {loads['error']}"
     return preload.summary(harness, loads["files"], loads["reread"])
+
+
+def requote(name, *, turn=None, at=None, store=None):
+    """Check a run's banked reports' quotations again (``quotes``).
+
+    Against the working tree by default, which may have moved since the turn
+    was banked; ``at`` reads every cited file at that revision instead, such
+    as the commit the review read, so later edits do not read as misquotes.
+    """
+    state = read_json(store_dir_for(name, store) / "run.json")
+    out = []
+    for entry in state.get("turns", []):
+        if (turn and entry["turn"] != turn) or not entry.get("report"):
+            continue
+        delta = entry.get("delta") or state.get("delta") or {}
+        base = (
+            delta.get("base")
+            if delta.get("kind") == "range"
+            else (entry.get("worktree_before") or {}).get("head") or "HEAD"
+        )
+        body = (run_dir_for(name) / entry["report"]).read_text()
+        result = quotes.check(body, current_project().root, at=at, base=base)
+        out.append(
+            {
+                "turn": entry["turn"],
+                "report": entry["report"],
+                "summary": quotes.summary(result),
+            }
+            | result
+        )
+    if turn and not out:
+        _fail(f"{name} has no banked report for turn {turn}")
+    return {"run": name, "read_at": at or "the working tree", "turns": out}
 
 
 def _report_status(body):
@@ -2018,9 +2083,13 @@ def handoff(entry, name, harness, record):
         ("find-only" if entry["find_only"] else "FIND-ONLY NOT ESTABLISHED")
         + f" (workspace: {entry['workspace']})"
     )
+    quoted = entry.get("quotations")
+    if quoted:
+        checks.append(quotes.summary(quoted))
     loads = _preload_line(harness, entry.get("preload"))
     if loads:
         checks.append(loads)
+    leads = len((quoted or {}).get("leads") or [])
     turn_dir = record / "turns" / entry["turn"]
     if status == "completed":
         step = (
@@ -2045,6 +2114,13 @@ def handoff(entry, name, harness, record):
                 "write, which is how a reviewer whose tools all failed ends. "
                 "Read its final message for the cause before counting it as "
                 "a review. " + step
+            )
+        if leads:
+            step += (
+                f" Start with the {leads} quotation{'s' if leads > 1 else ''} the "
+                "report carries that are not in the sources it cites "
+                f"(`quirework sop review quotes {name}`): a finding resting on "
+                "one is judged on the text that is there."
             )
         if entry["workspace"] == "reviewed-files-moved":
             step += " The files under review changed during the run."
@@ -2318,8 +2394,12 @@ def status(name=None, store=None):
                     "red_flags",
                 )
             }
-            # One line: the files themselves are in the record.
+            # One line each: the leads themselves are in the record, and in
+            # `quotes`, where they can be checked again at another revision.
             | {
+                "quotations": quotes.summary(t["quotations"])
+                if t.get("quotations")
+                else None,
                 "preload": _preload_line(state["config"]["harness"], t.get("preload")),
             }
             for t in state.get("turns", [])
@@ -2489,7 +2569,7 @@ def run_name(scope):
 
 
 HELP = """\
-usage: quirework sop review [run | resume | continue | fork | status | watch | audit | prompt] ...
+usage: quirework sop review [run | resume | continue | fork | status | watch | quotes | audit | prompt] ...
 
 Cross-model editorial review of a delta. Procedure: docs/workflows.md.
 
@@ -2520,6 +2600,11 @@ Cross-model editorial review of a delta. Procedure: docs/workflows.md.
       Follow a turn as it runs, from a second terminal: what the reviewer
       reads and runs, and each part of the report as it is written. Reads
       the record and changes nothing.
+  quirework sop review quotes RUN [--turn TURN] [--at REV]
+      Look for every quotation in the run's banked reports in the sources
+      its paragraph cites, and list those not found: leads to read before
+      weighing a finding, never verdicts. --at reads the cited files at a
+      revision, such as the one reviewed, instead of the working tree.
   quirework sop review audit [--since REF]
       Commits touching the configured reviewable paths since the last commit
       carrying a Reviewed-by: trailer that carry none themselves. Advisory:
@@ -2537,10 +2622,11 @@ name goes to claude and anything else to codex; agy is always named, with an
 explicit --effort of low, medium or high. --effort defaults to xhigh.
 
 Every turn prints where its report was banked, the receipt checks it already
-passed (served model and effort, no compaction, find-only), what the harness
-loaded into the reviewer's context before the prompt and how often the
-reviewer read it again, and the next step, including the Reviewed-by: trailer
-a commit using a finding carries.
+passed (served model and effort, no compaction, find-only), the quotations the
+report carries that are not in the sources it cites, what the harness loaded
+into the reviewer's context before the prompt and how often the reviewer read
+it again, and the next step, including the Reviewed-by: trailer a commit using
+a finding carries.
 
 A frame may name {preloaded}, which tells the reviewer what its harness
 already loaded, so the frame need not ask for it; the prompt prints any line
@@ -2707,6 +2793,18 @@ def main(argv=None):
     )
     p.add_argument("--poll", type=float, default=1.0)
     p.add_argument("--width", type=int, default=None)
+    p = sub.add_parser(
+        "quotes", help="check a run's quotations against the sources they cite"
+    )
+    p.add_argument("run")
+    p.add_argument("--turn", default=None, metavar="TURN")
+    p.add_argument(
+        "--at",
+        default=None,
+        metavar="REV",
+        help="read the cited files at this revision, such as the one reviewed",
+    )
+    p.add_argument("--store", default=None)
     p = sub.add_parser("audit", help="reviewable commits that carry no review")
     p.add_argument(
         "--since",
@@ -2820,6 +2918,15 @@ def main(argv=None):
             result = status(args.run, args.store)
             if args.short:
                 result = short_status(result)
+        elif args.action == "quotes":
+            result = requote(
+                resolve_run(args.run, args.store),
+                turn=args.turn,
+                at=args.at,
+                store=args.store,
+            )
+            print(json.dumps(result, indent=2, ensure_ascii=False))
+            return 0
         elif args.action == "audit":
             result = audit(args.since)
             print(json.dumps(result, indent=2, ensure_ascii=False))

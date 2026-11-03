@@ -215,7 +215,8 @@ frozen packet and never another writer's draft, and keeps the drafts
 anonymous under a sealed key. A blind-reader panel (`sop panel`) shows
 each reader only the reader-facing material. A consistency review
 (`sop review`) gives an independent reviewer the project guide, the
-spec, the marks, a brief and a Git range, with the repository read-only.
+spec, the marks, a brief and a Git range, with the repository read-only,
+and looks for every quotation in its report in the file it cites.
 
 ### Publishes a book in four formats, or a site through its generator
 
