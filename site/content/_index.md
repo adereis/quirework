@@ -101,7 +101,7 @@ You can run every command yourself, and the
 for the other way of working: describing the job, and judging what comes
 back.
 
-## Independent views, with a record {#any-model-in-any-seat}
+## Independent views from other models {#any-model-in-any-seat}
 
 The companion you talk to is not tied to the models it calls on. One
 procedure can seat models from different makers, through different
