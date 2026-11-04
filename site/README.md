@@ -15,6 +15,19 @@ The build reads the example book's cover and figure from
 `../examples/side-quest`, so it runs in a full checkout of the
 repository.
 
+## Review a change
+
+Build with `hugo --panicOnWarning` before committing. Preview the home,
+getting-started, spec, procedures and examples pages at phone and
+desktop widths, in light and dark mode. Check the navigation, in-page
+contents, diagram labels and keyboard focus. Sample downloads need the
+staged renders described below.
+
+The production build includes page descriptions, canonical links and a
+sharing image. Inspect these in `public/`, since the preview server uses
+local URLs. The drawing and regeneration command for the sharing image
+are documented in `AGENTS.md`.
+
 ## Refresh what the site shows
 
 Every listing and screenshot on the site is captured from the examples.

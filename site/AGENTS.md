@@ -163,6 +163,31 @@ page's fonts. After changing it, regenerate the others:
     rsvg-convert -w 32 -h 32 favicon.svg -o ~/tmp/fav-32.png
     magick ~/tmp/fav-16.png ~/tmp/fav-32.png favicon.ico
 
+## Navigation and search previews
+
+The home page introduces the tool and links three routes through it.
+Installation lives at `/get-started/`; keep the home page's
+`#get-started` anchor as a route there. Detail pages have a native,
+collapsible table of contents drawn from level-two headings. Keep
+headings descriptive and stable, since they are also link targets.
+
+A page's `seo_title` supplies its search and sharing title; `title`
+stays its visible heading. Every page has its own description. Canonical
+URLs come from Hugo's production base URL. The error page is `noindex`.
+
+`assets/images/social.svg` is the source for the shared 1200 by 630
+preview, drawn in the site's palette. It is a general diagram, not a
+sample cover. After editing it, render its PNG with Spectral installed:
+
+    rsvg-convert assets/images/social.svg -o assets/images/social.png
+
+Hugo fingerprints the PNG for sharing metadata and immutable caching.
+The social image is a standalone drawing with presentation attributes;
+inline mechanism diagrams keep using the stylesheet's theme colors.
+`seeing-narrow.svg` and `trail-general-narrow.svg` give the procedures
+and the trail upright readings on phones. Keep both orientations in
+step.
+
 ## Links into the repository
 
 A link written `repo:docs/workflows.md` opens that file on GitHub, and

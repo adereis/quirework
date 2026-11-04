@@ -5,10 +5,11 @@ lede: >-
   sample book and a sample site. Both are test fixtures, not showcases. AI
   wrote them, and no person edited or reviewed their prose, so read them for
   the structure the tool keeps, not for the writing.
+seo_title: Example book and blog projects
 description: >-
-  Side Quest, a short book with a spec, a trail, four formats and three
-  derived editions, and the Lighthouse Log, a Hugo site with a spec per
-  post: the two test fixtures in Quirework's repository, written by AI.
+  Explore a book and a blog built as Quirework test fixtures. AI wrote
+  both; no person reviewed their prose. Inspect their structure, formats
+  and records.
 ---
 
 ## Side Quest

@@ -1,13 +1,18 @@
 ---
 title: Quirework
-headline: Write and research with an AI companion, and keep the work agreeing with itself.
+seo_title: AI writing and research tools
+headline: Keep a growing work together.
 lede: >-
-  Quirework sits under the AI companion you already work with in a terminal.
-  It gives the collaboration a spec of what the work holds, procedures the
-  companion follows, checks that catch drift between chapters, and a record
-  of how the work was made. You set the aim and make the calls. The
-  companion does the work and brings back the evidence.
+  Write and research with your AI companion. Quirework keeps track of what
+  your book or site commits to, where it says it, and why you chose it.
+  Change your mind in one chapter without losing the thread in another.
+description: >-
+  Tools for writing and researching with an AI companion. Keep books and
+  sites consistent with a shared spec, independent reviews and a record of
+  your decisions.
 ---
+
+{{< overview >}}
 
 ## The spec holds the center
 
@@ -43,7 +48,7 @@ changed your mind. A pointer is never a copy, so your words are read
 from the session itself. Before a companion changes a commitment, it
 reads your own turns about it, oldest first.
 
-{{< diagram name="trail-general" caption="The trail of one commitment, oldest first. Each breadcrumb points at the turn where you shaped it, and says what that turn did. A change of mind is added to the trail and never replaces what came before." >}}
+{{< diagram name="trail-general" narrow="trail-general-narrow" caption="The trail of one commitment, oldest first. Each breadcrumb points at the turn where you shaped it, and says what that turn did. A change of mind is added to the trail and never replaces what came before." >}}
 
 The trail is context, never authority. The spec states what the work
 holds, and what you ask for now outranks anything on it.
@@ -59,7 +64,7 @@ pointed at one by name. The procedure stays the source of truth.
 Five patterns recur, and Quirework supplies their mechanics. What tells
 them apart is who sees what.
 
-{{< diagram name="seeing" caption="Five procedures, by what each seat may see." >}}
+{{< diagram name="seeing" narrow="seeing-narrow" caption="Five procedures, by what each seat may see." >}}
 
 [The procedures, and what each one is for](/procedures/)
 
@@ -96,7 +101,7 @@ You can run every command yourself, and the
 for the other way of working: describing the job, and judging what comes
 back.
 
-## Any model, in any seat
+## Independent views, with a record {#any-model-in-any-seat}
 
 The companion you talk to is not tied to the models it calls on. One
 procedure can seat models from different makers, through different
@@ -118,7 +123,7 @@ Your sessions are captured from each harness's own records into a store
 outside your repository. They wait there until you read and accept them.
 The repository keeps only the decision: which sessions count, each with
 a hash of its bytes. The transcripts never bloat the work's history, and
-the record still proves what was said.
+the hashes let you verify that the accepted records have not changed.
 
 {{< diagram name="provenance" caption="The record stays out of the repository, and the repository can still prove which sessions it stands on." >}}
 
@@ -168,8 +173,6 @@ it was written in.
 You can [read it in the browser, or download it](/examples/#read-it), in
 every format and edition.
 
-{{< diagram name="bind" narrow="bind-narrow" caption="One commitment in Side Quest, about where the tool's name came from, and the four documents that carry it. When the invented author corrected the story, an independent review found that one edition now defined a word its notes say to show. The circle marks that finding." >}}
-
 [The Lighthouse Log](/examples/#the-lighthouse-log) is the site version,
 and invented too: the log of a lighthouse keeper who does not exist. It
 is a small Hugo blog with a spec for each post, a shared spec for what
@@ -181,32 +184,10 @@ working project fails there first.
 
 ## Get started
 
-Quirework is under heavy development. Its commands and settings still
-change between releases, and a new project can find rough edges in it.
-So install it inside your project, as a checkout your companion can fix
-or improve while it works.
+Bring a book, a site, or a body of writing that needs to stay consistent
+as it grows. Quirework works with your companion in a terminal, inside
+your project's repository. You keep the editorial decisions.
 
-{{% aside %}}
-The project pins the revision of Quirework it runs. A fresh clone gets
-the same tool, and moving to a newer one is a commit of its own.
-{{% /aside %}}
-
-Quirework needs Python 3.11 or later. In your book's or site's
-repository, add it as a submodule and install it from there:
-
-```
-git submodule add https://github.com/adereis/quirework.git vendor/quirework
-python3 -m venv --system-site-packages .venv
-.venv/bin/python -m pip install -e 'vendor/quirework[quarto]'
-```
-
-The `quarto` extra installs what a book needs to render; leave it out
-for a site. Then open your companion there and ask it to start a book,
-or a site, by the [authoring guide](repo:docs/authoring.md). The
-[configuration guide](repo:docs/configuration.md) connects a project you
-already have.
-
-The released package is on PyPI as `quirework`, for running the commands
-yourself or trying the tool out. The
-[install instructions](repo:README.md#install) cover both, and a clone
-for working on Quirework itself.
+[Set up your project](/get-started/) with the installation steps and a
+first request for your companion. Quirework is under heavy development;
+expect commands and settings to change between releases.

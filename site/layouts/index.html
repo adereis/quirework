@@ -1,8 +1,14 @@
 {{ define "main" }}
 <article class="frame page home">
   <header class="page-head hero">
+    <p class="eyebrow">Writing &amp; research with an AI companion</p>
     <h1>{{ .Params.headline }}</h1>
     <div class="lede">{{ .Params.lede | .RenderString (dict "display" "block") }}</div>
+    <div class="hero-actions">
+      <a class="button" href="{{ "get-started/" | relURL }}">Get started <span aria-hidden="true">↗</span></a>
+      <a href="#the-spec-holds-the-center">Explore how it works <span aria-hidden="true">↓</span></a>
+    </div>
+    <p class="hero-note">Open source · Books and sites · Your editorial judgment</p>
   </header>
   <div class="prose">
     {{ .Content }}

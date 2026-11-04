@@ -4,10 +4,11 @@ lede: >-
   The spec states what the work holds now. The trail keeps how it got there.
   Between them, a companion can change a commitment everywhere it is
   carried, and read why it was made before it does.
+seo_title: Keep chapters consistent with a spec and trail
 description: >-
-  How Quirework keeps a work's commitments in a spec, binds every chapter,
-  post and edition to them, checks the structure, and keeps a trail from
-  each commitment back to the conversations that shaped it.
+  Keep a book or site consistent as it grows. Connect chapters to shared
+  commitments and trace decisions back to the conversations that shaped
+  them.
 ---
 
 ## The problem it was built for
@@ -141,7 +142,7 @@ section, and what that turn did:
 - **accept**: took a wording the companion drafted
 - **probe**: tried something without settling it
 
-{{< diagram name="trail-general" caption="The trail of one commitment, oldest first. Each breadcrumb points at the turn where you shaped it, and says what that turn did." >}}
+{{< diagram name="trail-general" narrow="trail-general-narrow" caption="The trail of one commitment, oldest first. Each breadcrumb points at the turn where you shaped it, and says what that turn did." >}}
 
 A breadcrumb is a pointer, never a copy. It names a session and the time
 the harness logged your turn, which anyone can find again, with

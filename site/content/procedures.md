@@ -4,10 +4,11 @@ lede: >-
   A procedure is how your project does one kind of job. Quirework makes
   procedures findable and followable, and supplies the mechanics for the
   five that recur when a work is written with more than one model.
+seo_title: AI writing workshops, blind reads and reviews
 description: >-
-  How Quirework catalogs a project's procedures, and the mechanics it
-  supplies for writers rooms, roundtables, prose workshops, blind reads and
-  consistency reviews across models and harnesses.
+  Give each model a defined role and context. Explore writing workshops,
+  blind reads, writers rooms, roundtables and independent consistency
+  reviews.
 ---
 
 ## What a procedure is
@@ -50,7 +51,7 @@ supplies the mechanics for five patterns, and what sets them apart is
 who sees what. Each pattern below closes with how the sample book used
 it, marked as such, since that book and its author are invented.
 
-{{< diagram name="seeing" caption="The five patterns, by what each seat may see." >}}
+{{< diagram name="seeing" narrow="seeing-narrow" caption="The five patterns, by what each seat may see." >}}
 
 | You want | Use | Each seat sees |
 |---|---|---|

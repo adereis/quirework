@@ -6,6 +6,10 @@ enableRobotsTXT = true
 # A handful of standalone pages. No feeds, sections or taxonomies.
 disableKinds = ["rss", "section", "taxonomy", "term"]
 
+[markup.tableOfContents]
+  startLevel = 2
+  endLevel = 2
+
 [markup.goldmark.renderer]
   # The paired shortcodes (`aside`, `band`) wrap Markdown in an element,
   # which Goldmark drops as raw HTML unless this is on. Every page here is
@@ -39,6 +43,11 @@ disableKinds = ["rss", "section", "taxonomy", "term"]
     name = "Examples"
     pageRef = "/examples"
     weight = 30
+
+  [[menus.main]]
+    name = "Get started"
+    pageRef = "/get-started"
+    weight = 40
 
 # The example book's own cover and figure, read where the book keeps
 # them, so the site shows whatever the book currently ships. Mounting

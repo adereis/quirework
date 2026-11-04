@@ -4,8 +4,18 @@
     <h1>{{ .Title }}</h1>
     {{ with .Params.lede }}<div class="lede">{{ . | $.RenderString (dict "display" "block") }}</div>{{ end }}
   </header>
+  <details class="page-contents" open>
+    <summary>On this page</summary>
+    {{ .TableOfContents }}
+  </details>
   <div class="prose">
     {{ .Content }}
   </div>
+  {{ if ne .RelPermalink "/get-started/" }}
+  <nav class="next-step" aria-label="Next step">
+    <p>Put it to work in your project.</p>
+    <a class="button" href="{{ "get-started/" | relURL }}">Get started <span aria-hidden="true">↗</span></a>
+  </nav>
+  {{ end }}
 </article>
 {{ end }}

@@ -1,0 +1,29 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 360 620" role="img" aria-labelledby="seeingn-title seeingn-desc">
+<title id="seeingn-title">Five ways to get another view</title>
+<desc id="seeingn-desc">Each procedure controls what its participants see. Workshops separate drafts, rooms share a board between rounds, roundtables share each turn, blind reads withhold author context, and consistency reviews include the change and its context.</desc>
+<rect class="dg-soft" x="1" y="1" width="358" height="110" rx="3"/>
+<text class="dg-mono dg-faint" x="18" y="29">01</text>
+<text class="dg-text dg-label" x="53" y="29">Prose workshop</text>
+<text class="dg-text" x="18" y="61">One packet. Separate drafts.</text>
+<text class="dg-text dg-small dg-faint" x="18" y="87">Writers cannot see one another’s work.</text>
+<rect class="dg-soft" x="1" y="125" width="358" height="110" rx="3"/>
+<text class="dg-mono dg-faint" x="18" y="153">02</text>
+<text class="dg-text dg-label" x="53" y="153">Writers room</text>
+<text class="dg-text" x="18" y="185">Separate packets. A shared board.</text>
+<text class="dg-text dg-small dg-faint" x="18" y="211">Seats read the board between rounds.</text>
+<rect class="dg-soft" x="1" y="249" width="358" height="110" rx="3"/>
+<text class="dg-mono dg-faint" x="18" y="277">03</text>
+<text class="dg-text dg-label" x="53" y="277">Roundtable</text>
+<text class="dg-text" x="18" y="309">One packet. Every turn visible.</text>
+<text class="dg-text dg-small dg-faint" x="18" y="335">Models and people take turns together.</text>
+<rect class="dg-soft" x="1" y="373" width="358" height="110" rx="3"/>
+<text class="dg-mono dg-faint" x="18" y="401">04</text>
+<text class="dg-text dg-label" x="53" y="401">Blind read</text>
+<text class="dg-text" x="18" y="433">Only what a reader would see.</text>
+<text class="dg-text dg-small dg-faint" x="18" y="459">No spec or author’s explanation by default.</text>
+<rect class="dg-soft" x="1" y="497" width="358" height="110" rx="3"/>
+<text class="dg-mono dg-faint" x="18" y="525">05</text>
+<text class="dg-text dg-label" x="53" y="525">Consistency review</text>
+<text class="dg-text" x="18" y="557">The context and the exact change.</text>
+<text class="dg-text dg-small dg-faint" x="18" y="583">A reviewer reads the work without editing.</text>
+</svg>

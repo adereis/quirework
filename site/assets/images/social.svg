@@ -1,0 +1,29 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="630" viewBox="0 0 1200 630" role="img" aria-labelledby="title desc">
+  <title id="title">Quirework. Keep a growing work together.</title>
+  <desc id="desc">A commitment connects chapters, posts and editions.</desc>
+  <rect width="1200" height="630" fill="#faf7f2"/>
+  <g fill="#1c1815" font-family="Spectral, Georgia, serif">
+    <text x="72" y="98" font-size="34" font-weight="700">Quirework</text>
+    <text x="72" y="252" font-size="68">Keep a growing</text>
+    <text x="72" y="330" font-size="68">work together.</text>
+    <text x="72" y="418" font-size="27" fill="#5a524a">Writing and research with an AI companion.</text>
+    <text x="72" y="558" font-size="23" fill="#5a524a">quirework.com</text>
+  </g>
+  <g stroke="#1c1815" stroke-width="2" fill="none">
+    <path d="M890 233 V300 M770 300 H1010 M770 300 V350 M890 300 V350 M1010 300 V350"/>
+    <rect x="780" y="153" width="220" height="80" rx="4" fill="#f2ece1"/>
+    <rect x="723" y="350" width="94" height="116" rx="3"/>
+    <rect x="843" y="350" width="94" height="116" rx="3"/>
+    <rect x="963" y="350" width="94" height="116" rx="3"/>
+  </g>
+  <g fill="#1c1815" font-family="Spectral, Georgia, serif" text-anchor="middle">
+    <text x="890" y="202" font-size="26">A commitment</text>
+    <text x="770" y="502" font-size="22">Chapters</text>
+    <text x="890" y="502" font-size="22">Posts</text>
+    <text x="1010" y="502" font-size="22">Editions</text>
+  </g>
+  <g stroke="#e4dccd" stroke-width="5">
+    <path d="M739 378 H801 M739 396 H801 M739 414 H786 M859 378 H921 M859 396 H921 M859 414 H906 M979 378 H1041 M979 396 H1041 M979 414 H1026"/>
+  </g>
+  <path d="M72 128 H1128 M72 530 H1128" stroke="#e4dccd"/>
+</svg>
