@@ -1,12 +1,15 @@
-"""Capture selection honors the project's store and delegated actions."""
+"""Codex capture: what a sweep selects, skips and reports, on synthetic
+rollouts in a synthetic Codex home and store."""
 
 import json
 from pathlib import Path
+from types import SimpleNamespace
 
 import pytest
 
+from conftest import capture_project, linked_worktree
 from quirework.project import Project, project_scope
-from quirework.provenance import codexfilter
+from quirework.provenance import codexfilter, store
 from quirework.provenance.ingestion import codex
 
 SID = "00000000-0000-4000-8000-000000000001"
@@ -105,3 +108,53 @@ def test_tool_inputs_keep_call_order_and_ignore_prose(tmp_path):
         ],
     )
     assert list(codexfilter.tool_inputs(path)) == ["first", '{"cmd": "second"}']
+
+
+# --------------------------------------------------------------------------- #
+# the sweep, on a synthetic Codex home
+# --------------------------------------------------------------------------- #
+ROOT = "0c0dec00-0000-4000-8000-000000000001"
+SIDE = "0c0dec00-0000-4000-8000-000000000002"
+
+
+@pytest.fixture
+def rollouts(tmp_path, monkeypatch):
+    """A book with a linked worktree, a Codex home, and a store."""
+    base = tmp_path.resolve()
+    repo = base / "book"
+    (repo / ".git").mkdir(parents=True)
+    worktree = linked_worktree(repo, base / "book-draft")
+    home = base / "codex-home"
+    monkeypatch.setenv("CODEX_HOME", str(home))
+    with capture_project(repo, base / "store"):
+        yield SimpleNamespace(
+            base=base,
+            repo=repo,
+            worktree=worktree,
+            home=home,
+            day=home / "sessions" / "2031" / "04" / "02",
+            pending=store.open_store().pending_dir(store.CODEX),
+        )
+
+
+def saved(directory, sid, cwd, source="cli"):
+    """A rollout as Codex saves it; ``cwd`` of ``None`` records none."""
+    payload = {"id": sid, "session_id": sid, "source": source}
+    if cwd is not None:
+        payload["cwd"] = str(cwd)
+    path = directory / f"rollout-2031-04-02T10-00-00-{sid}.jsonl"
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(json.dumps({"type": "session_meta", "payload": payload}) + "\n")
+    return path
+
+
+def test_a_rollout_recording_no_working_directory_is_counted(rollouts, capsys):
+    """It belongs to no project anyone can name, so it is counted rather than
+    passed over as another project's."""
+    placed = saved(rollouts.day, ROOT, rollouts.repo)
+    bare = saved(rollouts.day, SIDE, None)
+    keep, _system, _evaluation, unplaced = codex.sweep()
+    assert keep == [placed]
+    assert unplaced == [bare]
+    assert codex.main([]) == 0
+    assert "1 recording no working directory" in capsys.readouterr().out

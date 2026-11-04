@@ -702,12 +702,41 @@ def _normal_id(value):
     return value.lower() if _UUID.fullmatch(value.lower()) else value
 
 
+# The suffixes a capture's file carries, longest first. A list names a session,
+# never its file, so an id ending in one names nothing.
+_FILE_SUFFIXES = (".raw.json", ".raw.html", ".jsonl", ".json", ".html", ".md")
+
+
+def _never_matches(kind, session):
+    """Why an id can never name a session of its kind, or ``None``.
+
+    Claude Code, Codex and Antigravity name every session by a UUID, and a
+    list is matched by the whole id, so a prefix or a file name there matches
+    nothing. A web id is a conversation's UUID, or the name a review or a
+    ruling is listed under, so only the file suffix is certain to be wrong.
+    """
+    sid = session.lower()
+    if kind == "web":
+        suffix = next((x for x in _FILE_SUFFIXES if sid.endswith(x)), None)
+        if suffix:
+            return f"names a file; write it without {suffix!r}"
+        return None
+    if _UUID.fullmatch(sid):
+        return None
+    head = _UUID.match(sid)
+    if head:
+        return f"is not a session id; write {head.group(0)} alone"
+    return f"is not a whole {kind} session id, which is a UUID"
+
+
 def listed(name, project=None):
     """The entries of one of the ledger's lists, in file order.
 
     A line that names no session is reported and skipped, never guessed at:
     every reader of the list goes through here, so none of them can disagree
-    with another about what a line means.
+    with another about what a line means. So is a line whose id can never
+    match a session of its kind, such as a file name in place of an id, which
+    would otherwise sit in the list curating nothing.
     """
     path = ledger(project) / name
     out = []
@@ -725,6 +754,14 @@ def listed(name, project=None):
                 file=sys.stderr,
             )
             continue
+        why = _never_matches(fields[0], fields[1])
+        if why:
+            print(
+                f"{name}:{lineno}: {fields[1]!r} {why}, so the line can never "
+                f"match a session; ignoring {entry.strip()!r}",
+                file=sys.stderr,
+            )
+            continue
         out.append(Listed(fields[0], _normal_id(fields[1]), reason.strip()))
     return out
 
@@ -738,6 +775,9 @@ def removed_ids(kind=None, project=None):
 
 def add_to_list(name, kind, session, reason, project=None):
     """Append one entry unless the session is already listed; True if added."""
+    why = _never_matches(kind, session)
+    if why:
+        raise ValueError(f"{session!r} {why}; {name} would never match it")
     if any(e.session == session for e in listed(name, project)):
         return False
     path = ledger(project) / name

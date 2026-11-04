@@ -558,6 +558,30 @@ def test_a_list_line_names_its_kind_or_is_reported(book, capsys):
     assert store.add_to_list(store.MAKING, "cc", KETTLE, "again") is False
 
 
+def test_a_list_line_that_can_never_match_is_reported(book, capsys):
+    """A line naming a file, or an id cut short, parses as a session id and
+    then matches nothing, so the list would curate nothing in silence."""
+    (store.ledger() / store.REMOVED).write_text(
+        f"cc {KETTLE}.jsonl  # a file name\n"
+        f"codex {KETTLE[:8]}  # an id cut short\n"
+        f"web {STORM}.raw.json  # a web capture's file\n"
+        "web gemini-5e1fab  # a gemini review\n"
+        f"agy {STORM.upper()}  # fine, in capitals\n"
+    )
+    assert store.listed(store.REMOVED) == [
+        store.Listed("web", "gemini-5e1fab", "a gemini review"),
+        store.Listed("agy", STORM, "fine, in capitals"),
+    ]
+    err = capsys.readouterr().err
+    assert f"removed-sessions.txt:1: '{KETTLE}.jsonl' is not a session id" in err
+    assert f"write {KETTLE} alone" in err
+    assert "removed-sessions.txt:2" in err and "which is a UUID" in err
+    assert "removed-sessions.txt:3" in err and "without '.raw.json'" in err
+    assert "can never match a session" in err
+    with pytest.raises(ValueError, match="would never match"):
+        store.add_to_list(store.REMOVED, "cc", f"{KETTLE}.jsonl", "a file name")
+
+
 # --------------------------------------------------------------------------- #
 # capture
 # --------------------------------------------------------------------------- #

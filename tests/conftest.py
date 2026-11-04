@@ -5,6 +5,7 @@ import shutil
 import stat
 import tempfile
 import time
+from contextlib import contextmanager
 from pathlib import Path
 from types import SimpleNamespace
 import pytest
@@ -30,6 +31,43 @@ def project_at(root):
 def corpus_settings(root="private/corpus", store="private/store", **extra):
     """A `[provenance]` section whose store sits in the test's own directory."""
     return {"enabled": True, "root": root, "store_dir": store, **extra}
+
+
+def linked_worktree(repo, checkout, name=None):
+    """Wire ``checkout`` to ``repo`` as ``git worktree add`` would.
+
+    The two plain files git records are all `worktrees.checkouts` reads, so
+    they are written directly, with no git call.
+    """
+    admin = repo / ".git" / "worktrees" / (name or checkout.name)
+    admin.mkdir(parents=True)
+    checkout.mkdir(parents=True, exist_ok=True)
+    (admin / "gitdir").write_text(f"{checkout / '.git'}\n")
+    (checkout / ".git").write_text(f"gitdir: {admin}\n")
+    return checkout
+
+
+@contextmanager
+def capture_project(repo, store_dir, **sessions):
+    """A project with an empty store outside it, current for the block.
+
+    Each keyword names where one harness keeps its sessions (``claude=``,
+    ``agy=``); Codex is found through ``$CODEX_HOME`` instead. The store's
+    location is checked before the block runs, so no capture can land in a
+    store the test did not make.
+    """
+    from quirework.provenance import store
+
+    settings = {"provenance": corpus_settings(store=str(store_dir))}
+    if sessions:
+        settings["providers"] = {
+            name: {"sessions": str(path)} for name, path in sessions.items()
+        }
+    project = Project.from_settings(repo, settings)
+    with project_scope(project):
+        store.init()
+        assert store.location() == Path(store_dir).resolve()
+        yield project
 
 
 def keep_session(project, reference, content, *, pending=False, mtime=None):

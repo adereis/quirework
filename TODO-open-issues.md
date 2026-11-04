@@ -6,14 +6,6 @@ would need to do, not how to do it. Some were seen weeks ago, so check
 that each one still holds before working on it, and delete its entry
 when it is fixed or no longer applies.
 
-## Ledger lists accept an entry that can never match
-
-`store.listed` keeps a line such as `cc <uuid>.jsonl`: the id then
-matches no session, and nothing says so. The agy sweep likewise skips a
-transcript that names no checkout path without counting or reporting it.
-Requirement: an entry or transcript that cannot be matched is reported,
-never silently kept or skipped.
-
 ## The live capture rules are tested only in a consumer
 
 About 40 tests of the capture rules (guardian skip, archived codex

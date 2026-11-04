@@ -117,6 +117,8 @@ def main(argv=None):
         review=0,
         evals=0,
         unreadable=0,
+        elsewhere=0,
+        untranscribed=0,
     )
     for directory in sorted(brain.iterdir()):
         if not directory.is_dir():
@@ -125,10 +127,18 @@ def main(argv=None):
         source = logs / "transcript_full.jsonl"
         if not source.is_file():
             source = logs / "transcript.jsonl"
+        # Antigravity records no working directory, so a session is placed by
+        # the checkout paths its transcript names. One that names none, or has
+        # no transcript to name them, belongs to no project anyone can tell;
+        # most are other projects' sessions, but each is counted, so a
+        # session of this one that never named its checkout is not lost in
+        # silence.
         if not source.is_file():
+            counts["untranscribed"] += 1
             continue
         text = source.read_text()
         if not any(str(root) in text for root in roots):
+            counts["elsewhere"] += 1
             continue
         # A damaged transcript is read around, not skipped. Antigravity can
         # write a record over another one, leaving a line that does not parse,
@@ -184,7 +194,7 @@ def main(argv=None):
             why = agyfilter.why_not_current(source, captures[0])
             print(f"  ! {sid} is not current: {why} (kept)")
     print(
-        "agy-sessions: {new} new, {replaced} replaced, {unchanged} unchanged, {differ} differ, {curated} curated out, {review} review run(s), {evals} evaluation seat(s), {unreadable} unreadable -> ".format(
+        "agy-sessions: {new} new, {replaced} replaced, {unchanged} unchanged, {differ} differ, {curated} curated out, {review} review run(s), {evals} evaluation seat(s), {unreadable} unreadable, {elsewhere} naming no checkout of this project, {untranscribed} without a transcript -> ".format(
             **counts
         )
         + shown(dest)

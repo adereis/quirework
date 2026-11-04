@@ -652,7 +652,11 @@ this ledger, and lists the session in the ledger's
 session on that list. The ledger's `making-sessions.txt` lists sessions
 about the apparatus rather than the work. Both lists hold one session
 per line, as `<kind> <session id>  # reason`, where the kind is `cc`,
-`codex`, `agy` or `web`.
+`codex`, `agy` or `web`. A Claude Code, Codex or Antigravity session is
+named by its whole UUID, and no list line names a file. A line that can
+never match a session, such as `cc <id>.jsonl` or an id cut short, is
+reported each time the list is read and ignored, so it cannot sit in the
+list curating nothing, and nothing adds one.
 
 `quirework provenance store verify` hashes every accepted file and names
 any that is missing or no longer matches `accepted.txt`. A command that
@@ -847,6 +851,15 @@ in prose. A store directory's bare name, such as
 `cc-sessions/<id>.jsonl`, counts only where it starts a path, so a
 matching directory name inside another project's absolute path does not
 establish an evaluation of this project's corpus.
+
+A session that cannot be placed is counted, never passed over in
+silence. Antigravity records no working directory, so its sweep places a
+session by the checkout paths its transcript names. Its summary counts
+the transcripts that name none of this project's checkouts, most of them
+other projects' sessions, and the session directories that hold no
+transcript. A session of this project that never named its checkout
+shows up in that count. Codex records each rollout's working directory,
+and its summary counts the rollouts that record none.
 
 A Claude Code session's sub-agents are part of it. Claude Code writes
 each sub-agent to its own transcript, in a `subagents` directory beside

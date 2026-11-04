@@ -157,20 +157,26 @@ def evaluation_seat(path, meta, pattern):
 def sweep(repo=None):
     """Every saved rollout recorded as running in one of this project's trees.
 
-    Returns ``(keep, system, evaluation)``: selected rollouts, runtime
-    subagents, and delegated capture-evaluation seats. Exclusions remain
-    available to the caller so every selection rule can be reported.
+    Returns ``(keep, system, evaluation, unplaced)``: selected rollouts,
+    runtime subagents, delegated capture-evaluation seats, and rollouts that
+    record no working directory, so belong to no project anyone can name.
+    Exclusions remain available to the caller so every selection rule can be
+    reported, the last one included: a rollout that cannot be placed is
+    counted rather than passed over as another project's.
     """
     roots = worktrees.project_trees(repo or current_project().root)
     excluding = worktrees.excluded_trees(current_project(), roots)
     home = codex_home()
-    keep, system, evaluation = [], [], []
+    keep, system, evaluation, unplaced = [], [], [], []
     pattern = _capture_pattern()
     for root in (home / "sessions", home / "archived_sessions"):
         if not root.is_dir():
             continue
         for path in root.rglob("*.jsonl"):
             meta = read_meta(path)
+            if not meta.get("cwd"):
+                unplaced.append(path)
+                continue
             if not worktrees.contains(roots, meta.get("cwd"), excluding):
                 continue
             if system_subagent(meta):
@@ -179,7 +185,12 @@ def sweep(repo=None):
                 evaluation.append(path)
             else:
                 keep.append(path)
-    return sorted(set(keep)), sorted(set(system)), sorted(set(evaluation))
+    return (
+        sorted(set(keep)),
+        sorted(set(system)),
+        sorted(set(evaluation)),
+        sorted(set(unplaced)),
+    )
 
 
 def captured_source_fingerprint(dst: Path) -> tuple[int, str] | None:
@@ -259,7 +270,7 @@ def main(argv=None):
     pending.mkdir(parents=True, exist_ok=True)
     for tree in trees.record(current_project()):
         print(f"codex-sessions: recorded project tree {shown(tree)}")
-    sources, system, evaluation = sweep()
+    sources, system, evaluation, unplaced = sweep()
     removed = store.removed_ids("codex")
     accepted = accepted_versions()
     copied = []
@@ -287,7 +298,8 @@ def main(argv=None):
         f"codex-sessions: {len(copied)} updated, {unchanged} unchanged, "
         f"{skipped} on removed-list, {len(system)} system subagent(s), "
         f"{len(evaluation)} evaluation seat(s), "
-        f"{invalid} without a usable id -> {shown(pending)}"
+        f"{invalid} without a usable id, "
+        f"{len(unplaced)} recording no working directory -> {shown(pending)}"
     )
     return 0
 
