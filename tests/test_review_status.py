@@ -172,3 +172,46 @@ def test_a_record_is_replaced_whole_and_never_rewritten_in_place(tmp_path):
     # The same bytes as before the change: only how they land differs.
     assert path.read_text() == json.dumps(value, indent=2, ensure_ascii=False) + "\n"
     assert [p.name for p in tmp_path.iterdir()] == ["run.json"]
+
+
+def test_an_uncollected_turn_shows_its_saved_report_and_claims_nothing_more(record):
+    """A turn the record does not list may still be running, or may be dead.
+
+    `status` shows what its report has saved so far, says it cannot tell
+    which, and writes nothing while it looks.
+    """
+    claude = {"harness": "claude", "model": "opus", "effort": "high"}
+    open_run(record, claude, turns=[{"turn": "01", "status": "completed"}])
+    (record / "turns" / "01").mkdir(parents=True)
+    pending_turn(record, "02", "", report="STATUS: partial\nPROGRESS: chapters 2/7\n")
+    kept = (record / "run.json").read_bytes()
+    out = review.status(RUN, store=record.parent)
+    assert [t["turn"] for t in out["turns"]] == ["01"]
+    (turn,) = out["uncollected_turns"]
+    assert turn["turn"] == "02"
+    assert turn["report_status"] == "partial"
+    assert turn["progress"] == "PROGRESS: chapters 2/7"
+    report = record / "turns" / "02" / "report" / "report.md"
+    assert turn["report_path"] == str(report)
+    assert turn["process_state"].startswith("unknown")
+    report.write_text("STATUS: complete\nPROGRESS: chapters 7/7\n")
+    assert uncollected(record)[0]["report_status"] == "complete"
+    assert (record / "run.json").read_bytes() == kept
+    # Once collected, the turn is listed as a turn and no longer as pending.
+    open_run(
+        record,
+        claude,
+        turns=[{"turn": t, "status": "completed"} for t in ("01", "02")],
+    )
+    assert uncollected(record) == []
+
+
+def test_an_uncollected_turn_with_no_report_still_names_where_to_look(record):
+    open_run(record, {"harness": "claude", "model": "opus", "effort": "high"})
+    (record / "turns" / "01").mkdir(parents=True)
+    (turn,) = uncollected(record)
+    assert turn["report_status"] is None
+    assert turn["progress"] is None
+    folder = record / "turns" / "01"
+    assert turn["events_path"] == str(folder / "events.jsonl")
+    assert turn["stderr_path"] == str(folder / "stderr.log")

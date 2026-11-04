@@ -4,10 +4,14 @@ import json
 import shutil
 import subprocess
 import sys
+from pathlib import Path
+from types import SimpleNamespace
 
 import pytest
 
 from quirework.project import Project, project_scope
+from quirework.provenance import store
+from quirework.providers import blind
 from quirework.sops import review
 
 ENV = {
@@ -244,3 +248,123 @@ def test_a_jailed_codex_turn_proves_the_sandbox_it_was_served(tmp_path):
     rows = _codex_turn(ignored, "s-2", ("2026-01-02T09:00:00.000Z", "workspace-write"))
     with pytest.raises(ValueError, match="served sandbox 'workspace-write'"):
         review._answer("codex", CODEX, rows, ignored)
+
+
+RUN = "2026-01-01-review-a-fictional-edit"
+CONFIGS = {
+    "codex": CODEX,
+    "claude": {"harness": "claude", "model": "demo-model", "effort": "high"},
+}
+
+
+def _pairs(argv, flag):
+    return [(argv[i + 1], argv[i + 2]) for i, a in enumerate(argv) if a == flag]
+
+
+@pytest.fixture
+def jail(tmp_path, monkeypatch):
+    """Build a reviewer's jail for inspection, on a synthetic checkout.
+
+    The checkout hides a file and lends the reviewer its provenance store, so
+    the jail holds a mask and a second read-only bind beside the checkout's
+    own. Nothing starts: the bubblewrap check and the runners' install trees
+    are faked away, and a probe reads no credentials.
+    """
+    monkeypatch.setattr(review.blind, "backend_error", lambda: None)
+    monkeypatch.setattr(review.blind, "runner_binds", lambda names: ([], []))
+    main = tmp_path / "book"
+    main.mkdir()
+    subprocess.run(["git", "init", "-q", str(main)], check=True)
+    _commit(main, "first")
+    (main / "notes.md").write_text("The operator's priors.\n")
+    (main / "review.toml").write_text('hidden = ["notes.md"]\n')
+    settings = {
+        "sops": {"review_policy": "review.toml"},
+        "provenance": {"enabled": True, "store_dir": str(tmp_path / "store")},
+    }
+    record = tmp_path / "state" / RUN
+
+    def build(harness="codex", turn="01"):
+        report = record / "turns" / turn / "report"
+        report.mkdir(parents=True, exist_ok=True)
+        config = {**CONFIGS[harness], "provenance": review.provenance_store()}
+        argv, _, private, path = review.launch_context(
+            config, record, report, jailed=True, probe=True
+        )
+        return SimpleNamespace(
+            argv=argv,
+            private=private,
+            path=path,
+            record=record,
+            report=report,
+            root=review.current_project().root,
+        )
+
+    with project_scope(Project.from_settings(main, settings)):
+        store.init()
+        yield build
+
+
+def test_the_checkout_is_bound_read_only_at_its_real_path(jail):
+    """At its real path, so the report's `file:line` citations are the
+    operator's own; read-only, so nothing under it is ever writable."""
+    seen = jail()
+    root = str(seen.root)
+    assert (root, root) in _pairs(seen.argv, "--ro-bind")
+    for source, target in _pairs(seen.argv, "--bind"):
+        assert not Path(source).is_relative_to(seen.root)
+        assert not Path(target).is_relative_to(seen.root)
+
+
+def test_the_reviewer_stands_in_the_checkout_not_in_its_record(jail):
+    seen = jail()
+    root = str(seen.root)
+    assert seen.argv.count("--chdir") == 1
+    assert seen.argv[seen.argv.index("--chdir") + 1] == root
+    assert seen.argv[seen.argv.index("PWD") + 1] == root
+    bound = _pairs(seen.argv, "--bind") + _pairs(seen.argv, "--ro-bind")
+    assert str(seen.record) not in [source for source, _ in bound]
+
+
+@pytest.mark.parametrize("harness", ["codex", "claude"])
+def test_the_report_is_the_one_place_the_reviewer_may_write(jail, harness):
+    """Besides the runner's private home, which holds its session."""
+    seen = jail(harness)
+    report = (str(seen.report), review.JAILED_REPORT)
+    writable = _pairs(seen.argv, "--bind")
+    assert report in writable
+    assert str(seen.path) == review.JAILED_REPORT
+    home = blind.state_root(seen.record).resolve()
+    others = [source for source, target in writable if (source, target) != report]
+    assert others
+    assert all(Path(source).resolve().is_relative_to(home) for source in others)
+
+
+@pytest.mark.parametrize("harness", ["codex", "claude"])
+def test_the_report_bind_comes_after_every_read_only_bind_and_mask(jail, harness):
+    """bwrap applies its operations in order. A read-only bind or a tmpfs
+    placed after the report's, a mask or the blanked `/tmp` among them,
+    would shadow the one directory the reviewer may write."""
+    seen = jail(harness)
+    argv = seen.argv
+    # The mask and the store are there to be ordered.
+    assert ("/dev/null", str(seen.root / "notes.md")) in _pairs(argv, "--ro-bind")
+    held = str(store.location())
+    assert (held, held) in _pairs(argv, "--ro-bind")
+    report = max(
+        i
+        for i, a in enumerate(argv)
+        if a == "--bind" and argv[i + 2] == review.JAILED_REPORT
+    )
+    covering = [i for i, a in enumerate(argv) if a in ("--ro-bind", "--tmpfs")]
+    assert max(covering) < report
+
+
+def test_a_runs_private_home_is_shared_by_all_its_turns(jail):
+    """`codex exec resume` looks for the session in the home it is given. A
+    home per turn would hand turn two an empty one, and lose the very
+    session it was asked to resume."""
+    first, second = jail(turn="01"), jail(turn="02")
+    assert first.private == second.private
+    assert first.private == blind.state_root(first.record) / "codex"
+    assert "turns" not in first.private.parts
