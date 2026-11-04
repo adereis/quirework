@@ -1,24 +1,45 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 360 520" role="img" aria-labelledby="trailn-title trailn-desc">
-<title id="trailn-title">The trail of a commitment</title>
-<desc id="trailn-desc">Six moments, oldest first. Each points to a turn in a conversation. A change of mind is added without replacing earlier decisions.</desc>
-<path class="dg-thin" d="M20 38 V438"/>
-<circle class="dg-box" cx="20" cy="38" r="6"/>
-<text class="dg-text dg-label" x="44" y="43">Seed</text>
-<text class="dg-text dg-small dg-faint" x="44" y="67">First stated, in passing</text>
-<circle class="dg-box" cx="20" cy="118" r="6"/>
-<text class="dg-text dg-label" x="44" y="123">Sharpen</text>
-<text class="dg-text dg-small dg-faint" x="44" y="147">Made precise</text>
-<circle class="dg-box" cx="20" cy="198" r="6"/>
-<text class="dg-text dg-label" x="44" y="203">Correct</text>
-<text class="dg-text dg-small dg-faint" x="44" y="227">Refused a drafted wording</text>
-<circle class="dg-box" cx="20" cy="278" r="6"/>
-<text class="dg-text dg-label" x="44" y="283">Probe</text>
-<text class="dg-text dg-small dg-faint" x="44" y="307">Tried a stronger version</text>
-<circle class="dg-box" cx="20" cy="358" r="6"/>
-<text class="dg-text dg-label" x="44" y="363">Reverse</text>
-<text class="dg-text dg-small dg-faint" x="44" y="387">Changed position on new evidence</text>
-<circle class="dg-box" cx="20" cy="438" r="6"/>
-<text class="dg-text dg-label" x="44" y="443">Accept</text>
-<text class="dg-text dg-small dg-faint" x="44" y="467">Took your companion’s wording</text>
-<text class="dg-text dg-small" x="44" y="505">Each moment points to your own words.</text>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 360 572" role="img" aria-labelledby="trailn-title trailn-desc">
+  <title id="trailn-title">The trail of a commitment</title>
+  <desc id="trailn-desc">Six breadcrumbs from three sessions, oldest first, under one commitment. In a session in June, the author first stated it in passing, then made it precise. In one in August, the author refused a drafted wording, and tried a stronger version without settling it. Last week, the author changed position on new evidence, and took a wording the companion drafted.</desc>
+
+  <text class="dg-text dg-label" x="20" y="30">A commitment</text>
+  <text class="dg-mono" x="20" y="52">{#the-claim}   6 breadcrumbs, 3 sessions</text>
+
+  <line class="dg-thin" x1="30" y1="62" x2="30" y2="96"/>
+  <line class="dg-line" x1="30" y1="96" x2="30" y2="528"/>
+
+  <text class="dg-text dg-small dg-it" x="52" y="118">a session in June</text>
+  <line class="dg-rule" x1="52" y1="256" x2="340" y2="256"/>
+  <text class="dg-text dg-small dg-it" x="52" y="280">one in August</text>
+  <line class="dg-rule" x1="52" y1="418" x2="340" y2="418"/>
+  <text class="dg-text dg-small dg-it" x="52" y="442">one last week</text>
+
+  <text class="dg-text dg-label" x="52" y="153">seed</text>
+  <text class="dg-text dg-small" x="52" y="174">First stated, in passing</text>
+  <text class="dg-text dg-label" x="52" y="209">sharpen</text>
+  <text class="dg-text dg-small" x="52" y="230">Made precise</text>
+  <text class="dg-text dg-label" x="52" y="315">correct</text>
+  <text class="dg-text dg-small" x="52" y="336">Refused a drafted wording</text>
+  <text class="dg-text dg-label" x="52" y="371">probe</text>
+  <text class="dg-text dg-small" x="52" y="392">Tried a stronger version, unsettled</text>
+  <text class="dg-text dg-label" x="52" y="477">reverse</text>
+  <text class="dg-text dg-small" x="52" y="498">Changed position on new evidence</text>
+  <text class="dg-text dg-label" x="52" y="533">accept</text>
+  <text class="dg-text dg-small" x="52" y="554">Took the companion’s wording</text>
+
+  <g text-anchor="end">
+    <text class="dg-text dg-small dg-faint" x="340" y="153">turn 2</text>
+    <text class="dg-text dg-small dg-faint" x="340" y="209">turn 9</text>
+    <text class="dg-text dg-small dg-faint" x="340" y="315">turn 4</text>
+    <text class="dg-text dg-small dg-faint" x="340" y="371">turn 11</text>
+    <text class="dg-text dg-small dg-faint" x="340" y="477">turn 1</text>
+    <text class="dg-text dg-small dg-faint" x="340" y="533">turn 3</text>
+  </g>
+
+  <circle class="dg-ink" cx="30" cy="148" r="6"/>
+  <circle class="dg-ink" cx="30" cy="204" r="6"/>
+  <circle class="dg-ink" cx="30" cy="310" r="6"/>
+  <circle class="dg-ink" cx="30" cy="366" r="6"/>
+  <path class="dg-box" d="M30 461 L41 472 L30 483 L19 472 z"/>
+  <circle class="dg-ink" cx="30" cy="528" r="6"/>
 </svg>

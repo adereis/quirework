@@ -1,29 +1,39 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 360 620" role="img" aria-labelledby="seeingn-title seeingn-desc">
-<title id="seeingn-title">Five ways to get another view</title>
-<desc id="seeingn-desc">Each procedure controls what its participants see. Workshops separate drafts, rooms share a board between rounds, roundtables share each turn, blind reads withhold author context, and consistency reviews include the change and its context.</desc>
-<rect class="dg-soft" x="1" y="1" width="358" height="110" rx="3"/>
-<text class="dg-mono dg-faint" x="18" y="29">01</text>
-<text class="dg-text dg-label" x="53" y="29">Prose workshop</text>
-<text class="dg-text" x="18" y="61">One packet. Separate drafts.</text>
-<text class="dg-text dg-small dg-faint" x="18" y="87">Writers cannot see one another’s work.</text>
-<rect class="dg-soft" x="1" y="125" width="358" height="110" rx="3"/>
-<text class="dg-mono dg-faint" x="18" y="153">02</text>
-<text class="dg-text dg-label" x="53" y="153">Writers room</text>
-<text class="dg-text" x="18" y="185">Separate packets. A shared board.</text>
-<text class="dg-text dg-small dg-faint" x="18" y="211">Seats read the board between rounds.</text>
-<rect class="dg-soft" x="1" y="249" width="358" height="110" rx="3"/>
-<text class="dg-mono dg-faint" x="18" y="277">03</text>
-<text class="dg-text dg-label" x="53" y="277">Roundtable</text>
-<text class="dg-text" x="18" y="309">One packet. Every turn visible.</text>
-<text class="dg-text dg-small dg-faint" x="18" y="335">Models and people take turns together.</text>
-<rect class="dg-soft" x="1" y="373" width="358" height="110" rx="3"/>
-<text class="dg-mono dg-faint" x="18" y="401">04</text>
-<text class="dg-text dg-label" x="53" y="401">Blind read</text>
-<text class="dg-text" x="18" y="433">Only what a reader would see.</text>
-<text class="dg-text dg-small dg-faint" x="18" y="459">No spec or author’s explanation by default.</text>
-<rect class="dg-soft" x="1" y="497" width="358" height="110" rx="3"/>
-<text class="dg-mono dg-faint" x="18" y="525">05</text>
-<text class="dg-text dg-label" x="53" y="525">Consistency review</text>
-<text class="dg-text" x="18" y="557">The context and the exact change.</text>
-<text class="dg-text dg-small dg-faint" x="18" y="583">A reviewer reads the work without editing.</text>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 360 678" role="img" aria-labelledby="seeingn-title seeingn-desc">
+  <title id="seeingn-title">What each seat sees, in five procedures</title>
+  <desc id="seeingn-desc">A prose workshop gives several writers one frozen packet, walled off from one another, and seals their drafts under letters. A writers room gives each seat its own packet, then a shared board between rounds. A roundtable seats models as themselves, taking turns, with every turn visible and a shared folder. A blind read gives a reader only the pages, never the spec. A consistency review gives a reviewer the guide, the spec, the notes and the exact change, with the work read-only.</desc>
+
+  <rect class="dg-soft" x="1" y="1" width="358" height="124" rx="3"/>
+  <text class="dg-mono dg-faint" x="18" y="29">01</text>
+  <text class="dg-text dg-label" x="53" y="29">Prose workshop</text>
+  <text class="dg-text" x="18" y="59">One frozen packet,</text>
+  <text class="dg-text" x="18" y="81">never another draft</text>
+  <text class="dg-text dg-small dg-faint" x="18" y="107">Drafts sealed under letters</text>
+
+  <rect class="dg-soft" x="1" y="139" width="358" height="124" rx="3"/>
+  <text class="dg-mono dg-faint" x="18" y="167">02</text>
+  <text class="dg-text dg-label" x="53" y="167">Writers room</text>
+  <text class="dg-text" x="18" y="197">Its own packet, then the</text>
+  <text class="dg-text" x="18" y="219">board between rounds</text>
+  <text class="dg-text dg-small dg-faint" x="18" y="245">Personas, and a chair</text>
+
+  <rect class="dg-soft" x="1" y="277" width="358" height="124" rx="3"/>
+  <text class="dg-mono dg-faint" x="18" y="305">03</text>
+  <text class="dg-text dg-label" x="53" y="305">Roundtable</text>
+  <text class="dg-text" x="18" y="335">Every turn as it happens,</text>
+  <text class="dg-text" x="18" y="357">and a shared folder</text>
+  <text class="dg-text dg-small dg-faint" x="18" y="383">Models as themselves</text>
+
+  <rect class="dg-soft" x="1" y="415" width="358" height="124" rx="3"/>
+  <text class="dg-mono dg-faint" x="18" y="443">04</text>
+  <text class="dg-text dg-label" x="53" y="443">Blind read</text>
+  <text class="dg-text" x="18" y="473">Only the pages a</text>
+  <text class="dg-text" x="18" y="495">reader would see</text>
+  <text class="dg-text dg-small dg-faint" x="18" y="521">One chapter at a time</text>
+
+  <rect class="dg-soft" x="1" y="553" width="358" height="124" rx="3"/>
+  <text class="dg-mono dg-faint" x="18" y="581">05</text>
+  <text class="dg-text dg-label" x="53" y="581">Consistency review</text>
+  <text class="dg-text" x="18" y="611">The work read-only,</text>
+  <text class="dg-text" x="18" y="633">and the exact change</text>
+  <text class="dg-text dg-small dg-faint" x="18" y="659">A findings report</text>
 </svg>
