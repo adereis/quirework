@@ -222,6 +222,11 @@ def test_a_generated_skill_is_at_the_wrapper_s_fixed_point(notebook):
     assert mdwrap.at_fixed_point(str(path))
 
 
+def test_with_no_option_the_whole_procedure_prints_verbatim(notebook, capsys):
+    assert invoke(("sop", "show"), ["tidy"], project=notebook) == 0
+    assert capsys.readouterr().out == PROCEDURE
+
+
 def test_a_partial_read_is_still_recorded_as_a_read_of_the_procedure(notebook, capsys):
     assert (
         invoke(("sop", "show"), ["tidy", "--section", "One page"], project=notebook)
