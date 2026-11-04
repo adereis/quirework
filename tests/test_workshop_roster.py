@@ -109,3 +109,65 @@ def test_the_roster_command_names_the_missing_setting(project):
     with project_scope(Project.from_settings(project, {})):
         with pytest.raises(ConfigurationError, match="sops.roster"):
             workshop.roster()
+
+
+def test_a_plan_without_writers_freezes_the_rosters_seats(project, tmp_path):
+    """Frozen into the plan, so a later edit to the roster leaves a prepared
+    experiment's seats as they were."""
+    roster = project / "roster.json"
+    seats = [
+        dict(WRITER),
+        {"harness": "codex", "model": "tide-model", "effort": "high"},
+    ]
+    roster.write_text(
+        json.dumps({"persona": {"inline": profile("house")}, "writers": seats})
+    )
+    settings = {"sops": {"roster": "roster.json"}}
+    with project_scope(Project.from_settings(project, settings)):
+        frozen = workshop.prepare(
+            plan_at(tmp_path), tmp_path / "run", resolve_models=False
+        )
+        roster.write_text(json.dumps({"writers": [dict(WRITER, model="haiku")]}))
+        _, plan = workshop.load(tmp_path / "run")
+    assert frozen["writers_from_roster"] is True
+    names = [w["id"] for w in plan["writers"]]
+    assert names == ["claude-sonnet", "codex-tide-model"]
+    for name in names:
+        assert (tmp_path / "run" / "writers" / name / "START.md").is_file()
+
+
+def test_the_roster_check_resolves_a_plan_seat_naming_only_its_request(
+    tmp_path, monkeypatch
+):
+    asked = []
+
+    def resolve(harness, requested, effort, model):
+        asked.append((harness, requested, effort, model))
+        return {"model": requested}
+
+    monkeypatch.setattr(workshop.drivers, "resolve", resolve)
+    plan = tmp_path / "plan.json"
+    seat = {"harness": "codex", "requested_model": "tide-model", "effort": "high"}
+    plan.write_text(json.dumps({"writers": [seat]}))
+    checked = workshop.roster(check=True, plan=plan)
+    assert checked["writers"][0]["resolved"] == "tide-model"
+    assert checked["unavailable"] == []
+    assert asked == [("codex", "tide-model", "high", "tide-model")]
+
+
+def test_the_roster_check_resolves_a_plan_seat_without_an_effort(tmp_path, monkeypatch):
+    """The plan template calls the effort optional, so the check asks the
+    resolver without one rather than failing on its absence."""
+    asked = []
+
+    def resolve(harness, requested, effort, model):
+        asked.append(effort)
+        return {"model": requested}
+
+    monkeypatch.setattr(workshop.drivers, "resolve", resolve)
+    plan = tmp_path / "plan.json"
+    plan.write_text(json.dumps({"writers": [{"harness": "codex", "model": "tide"}]}))
+    item = workshop.roster(check=True, plan=plan)["writers"][0]
+    assert item["model"] == "tide" and item["effort"] is None
+    assert item["resolved"] == "tide"
+    assert asked == [None]

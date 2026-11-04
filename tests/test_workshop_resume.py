@@ -6,7 +6,7 @@ import subprocess
 import pytest
 
 from quirework.project import Project, project_scope
-from quirework.providers import blind
+from quirework.providers import blind, quota
 from quirework.sops import workshop
 from conftest import native_session
 
@@ -32,6 +32,22 @@ CUT = [
         "modelUsage": {"m": {"outputTokens": 9100}},
     },
 ]
+
+# The same limit met before the model had produced anything.
+REFUSED = [
+    {"type": "system", "subtype": "init", "session_id": "sid-1"},
+    {
+        "type": "result",
+        "is_error": True,
+        "session_id": "sid-1",
+        "result": "You've hit your session limit",
+        "modelUsage": {},
+    },
+]
+
+
+def write_stream(record, rows):
+    (record / "events.jsonl").write_text("".join(json.dumps(r) + "\n" for r in rows))
 
 
 @pytest.fixture
@@ -168,3 +184,127 @@ def test_a_failed_writer_keeps_its_home_until_it_is_retried(stopped):
     assert blind.held(blind.state_root(work))
     workshop.retry(run, writer, "second-try")
     assert blind.held(blind.state_root(work)) is None
+
+
+def test_a_quota_stop_continues_its_own_session_with_a_notice(
+    stopped, monkeypatch, canaries_pass
+):
+    """The session already holds the assignment and the reasoning, so the
+    writer is told only that it was cut off, in that same session, and the
+    stopped attempt is kept whole beside the new one."""
+    run, writer, record = stopped
+    work = run / "writers" / writer
+    native_session(work, "claude", "sid-1")
+    stream = (record / "events.jsonl").read_text()
+    (record / "stderr.log").write_text("cut off\n")
+    (record / "prompt.md").write_text("The first prompt.\n")
+    # `true` stands in for the jail, so the real argv is built and recorded
+    # and no runner is started.
+    monkeypatch.setattr(
+        workshop.drivers,
+        "launch_context",
+        lambda *a, **k: (["true"], {}, blind.state_root(work) / "claude"),
+    )
+    monkeypatch.setattr(blind, "runner_version", lambda name: None)
+    with pytest.raises(RuntimeError, match="no successful completed result"):
+        workshop.resume(run, writer)
+    argv = json.loads((record / "launch.json").read_text())["argv"]
+    assert argv[argv.index("--resume") + 1] == "sid-1"
+    prompt = (record / "prompt.md").read_text()
+    assert prompt.startswith(quota.CONTINUATION) and "START.md" not in prompt
+    kept = record / "attempts" / "01"
+    assert (kept / "events.jsonl").read_text() == stream
+    assert (kept / "stderr.log").read_text() == "cut off\n"
+    assert (kept / "prompt.md").read_text() == "The first prompt.\n"
+    state = json.loads((record / "state.json").read_text())
+    assert state["resumed_from"] == "sid-1"
+    assert state["attempts"][0]["reason"].startswith("quota interrupted")
+
+
+def test_a_refusal_before_the_model_ran_is_relaunched_not_continued(
+    stopped, monkeypatch
+):
+    """Nothing was generated, so there is nothing to continue, and no
+    session has to survive for the writer to go again."""
+    run, writer, record = stopped
+    write_stream(record, REFUSED)
+    launched = []
+    monkeypatch.setattr(
+        workshop, "run_writer", lambda *a, **kw: launched.append(kw["resume"])
+    )
+    workshop.resume(run, writer)
+    assert launched == [None]
+    state = json.loads((record / "state.json").read_text())
+    assert state["status"] == "prepared" and state["resumed_from"] is None
+    assert state["attempts"][0]["reason"].startswith("quota refused")
+
+
+@pytest.mark.parametrize(
+    "rows, phase, resumable", [(CUT, "interrupted", True), (REFUSED, "refused", False)]
+)
+def test_inspect_calls_only_an_interrupted_writer_resumable(
+    stopped, rows, phase, resumable
+):
+    """A refused turn records a session id too, so the id alone cannot be
+    what makes a writer resumable."""
+    run, writer, record = stopped
+    write_stream(record, rows)
+    item = workshop.inspect(run)["writers"][writer]
+    assert item["quota_stop"] == phase
+    assert item["resumable"] is resumable
+
+
+def test_a_stop_that_is_not_a_limit_is_never_resumed(stopped):
+    """A crash leaves unknown what ran, and continuing from an unknown state
+    is worse than starting over."""
+    run, writer, record = stopped
+    write_stream(
+        record,
+        [
+            {
+                "type": "result",
+                "subtype": "error_during_execution",
+                "is_error": True,
+                "session_id": "sid-1",
+                "result": "connection reset",
+                "modelUsage": {},
+            }
+        ],
+    )
+    native_session(run / "writers" / writer, "claude", "sid-1")
+    state = (record / "state.json").read_text()
+    with pytest.raises(RuntimeError, match="does not carry a provider quota stop"):
+        workshop.resume(run, writer)
+    assert (record / "state.json").read_text() == state
+    assert not (record / "attempts").exists()
+
+
+def test_a_resume_that_lands_in_another_session_is_refused(stopped):
+    """A harness that opened a new conversation would return a cold draft
+    wearing a continuation's receipt."""
+    run, writer, record = stopped
+    state = json.loads((record / "state.json").read_text())
+    state.update(status="running", ended_at=1.0, resumed_from="sid-1")
+    (record / "state.json").write_text(json.dumps(state))
+    write_stream(
+        record,
+        [
+            {"type": "system", "subtype": "init", "session_id": "sid-9"},
+            {
+                "type": "assistant",
+                "session_id": "sid-9",
+                "message": {"model": "claude-sonnet-5", "content": []},
+            },
+            {
+                "type": "result",
+                "subtype": "success",
+                "is_error": False,
+                "session_id": "sid-9",
+                "result": "Done.",
+                "modelUsage": {"claude-sonnet-5": {"outputTokens": 5}},
+            },
+        ],
+    )
+    with pytest.raises(RuntimeError, match="did not continue its own session"):
+        workshop.collect(run, writer)
+    assert json.loads((record / "state.json").read_text())["status"] == "failed"
