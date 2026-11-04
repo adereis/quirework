@@ -23,10 +23,3 @@ the cold-read triage tests and parts of the review tests. Under an empty
 project they fail (about 50 failures and 36 errors when last measured).
 Requirement: each runs against a synthetic project, so the mechanism is
 tested without any one book's configuration.
-
-## Trail import matches flags against a pending capture
-
-Importing a trail reader's flags matches them against sessions through
-the corpus's captured view, which includes a capture still pending
-review. Requirement: decide whether a flag on a session not yet accepted
-is held until acceptance, and make the import say which it did.

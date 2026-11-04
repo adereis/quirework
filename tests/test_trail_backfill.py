@@ -54,8 +54,9 @@ EVENING_TURNS = [
 ]
 
 
-def _session(project, sid, day, turns):
-    """A captured session, accepted into the project's corpus."""
+def _session(project, sid, day, turns, *, pending=False):
+    """A captured session, accepted into the project's corpus unless
+    ``pending``, which leaves the capture waiting for review."""
     lines = []
     for role, text, clock in turns:
         if role == "human":
@@ -67,7 +68,9 @@ def _session(project, sid, day, turns):
             }
         record["timestamp"] = f"{day}T{clock}Z"
         lines.append(json.dumps(record))
-    keep_session(project, f"cc-sessions/{sid}.jsonl", "\n".join(lines) + "\n")
+    keep_session(
+        project, f"cc-sessions/{sid}.jsonl", "\n".join(lines) + "\n", pending=pending
+    )
 
 
 def _book(tmp_path, *, leads="private/spec-trail-leads"):
@@ -628,6 +631,38 @@ def test_a_finished_session_is_recorded_as_read_with_its_checked_flags(book, tmp
     assert first["logged"] == "2031-04-02T10:00:05.120000+00:00"
     assert [s["slug"] for s in third["sections"]] == ["cooling-asymmetry"]
     assert path.stat().st_mode & 0o077 == 0, "the ledger is its owner's alone"
+    assert read["capture"] == "accepted" and report[0]["pending"] == []
+
+
+def test_a_read_checked_against_a_pending_capture_is_recorded_and_marked(
+    book, tmp_path
+):
+    """The session grew after the plan, and its newer capture waits for
+    review. The plan read the accepted capture and the import checks the
+    flags against the newer one; the read is kept, and both it and the
+    report say which capture it was checked against."""
+    grown = [
+        *MORNING_TURNS,
+        ("human", "The lid rattles before the whistle.", "10:12:00"),
+    ]
+    _session(book, MORNING, "2031-04-02", grown, pending=True)
+    report = _read(tmp_path, ["```jsonl\n" + ANSWER + "```\n"])
+    assert report[0]["read"] == 1 and report[0]["pending"] == [MORNING]
+    [path] = (book.path("manuscript.spec_trail_leads") / "reads" / MORNING).glob(
+        "*.json"
+    )
+    read = json.loads(path.read_text())
+    assert read["capture"] == "pending"
+    assert [c["turn"] for c in read["candidates"]] == [1, 3]
+    lines = backfill.import_lines(report)
+    assert (
+        f"    {MORNING[:8]}: checked against a capture still pending review; "
+        "recorded, and marked so" in lines
+    )
+    assert (
+        "  1 read(s) checked against a capture still pending review, "
+        "recorded and marked so" in lines
+    )
 
 
 KEYRING = (

@@ -1173,8 +1173,16 @@ def import_run(record, accept=()):
     for a later plan to hand out again. What an answer held that could not
     be checked is kept beside the reads, in the seat's own record, for
     audit.
+
+    Flags are checked against each session's newest capture, as the trail
+    reads it. That can be a capture still pending review: one taken since
+    the plan, of a session that grew, or a session this branch has not
+    accepted. Such a read is recorded all the same, since the turns it
+    flagged are found by key wherever they sit, and it says so: each read
+    records under ``capture`` whether the capture it was checked against was
+    ``accepted`` or ``pending``, and the report names every pending one.
     """
-    from quirework.provenance import show
+    from quirework.provenance import show, store
     from quirework.runs.engine import ACCEPTABLE_FLAGS, Run, flag_code
 
     unknown = set(accept) - set(ACCEPTABLE_FLAGS)
@@ -1207,6 +1215,7 @@ def import_run(record, accept=()):
             "sessions": [],
             "cut": None,
             "handed": len(meta["sessions"]),
+            "pending": [],
             "status": None,
             "why": None,
         }
@@ -1264,6 +1273,11 @@ def import_run(record, accept=()):
             target = root / "reads" / sid / f"{tag}-{name}.json"
             if target.exists():
                 continue
+            area = store.area(captured[sid][1])
+            if area == "pending":
+                row["pending"].append(sid)
+            if area:
+                read["capture"] = area
             read.update(
                 packet_version=meta["packet_version"],
                 slugs=meta["slugs"],
@@ -1327,6 +1341,11 @@ def import_lines(report):
         )
         for sid in row["unread"]:
             lines.append(f"    {_short(sid)}: no done line, so not recorded as read")
+        for sid in row.get("pending", ()):
+            lines.append(
+                f"    {_short(sid)}: checked against a capture still pending "
+                "review; recorded, and marked so"
+            )
         if row.get("cut"):
             spent = row["cut"]
             used = (
@@ -1402,6 +1421,12 @@ def import_lines(report):
     bare = sum(1 for r in rows for s in r["sessions"] if not s["about"])
     if bare:
         lines.append(f"  {bare} done line(s) without an about sentence")
+    pending = sum(len(r.get("pending", ())) for r in rows)
+    if pending:
+        lines.append(
+            f"  {pending} read(s) checked against a capture still pending "
+            "review, recorded and marked so"
+        )
     return lines
 
 

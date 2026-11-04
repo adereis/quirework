@@ -535,6 +535,17 @@ files. A reader that wrote no answer file has no answer: the run engine
 banks no turn without the file it names, so the turn stays pending with
 its session, and import says so, with the engine's reason.
 
+A plan hands out accepted sessions, and import checks each flag against
+the session's newest capture, as the trail reads it. That capture can
+still be pending review. A session that grew after the plan has a newer
+capture waiting, and a branch that has not accepted a session has only
+its pending one. Import records such a read anyway, because it finds
+each flagged turn by when it was logged, or by its words where nothing
+logs a time, wherever the turn sits now. It also marks the read: each
+read records under `capture` whether its capture was `accepted` or
+`pending`, and import names every session it checked against a pending
+one.
+
 Import says when a reader was cut off: an answer that stops partway
 through a line, in its file or its reply, with sessions left unfinished,
 is reported with the seat's output and thinking tokens. Those sessions
