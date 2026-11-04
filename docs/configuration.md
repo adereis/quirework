@@ -1523,10 +1523,24 @@ edition's blind drafts run as seats of a run, with its receipts.
 `quirework sop blind canary` runs the canary on demand under the shared
 blind flag set, the set a command written by hand for `sop blind run` is
 proven under, and `sop blind check` reports which releases have been
-canaried without failing on one that has not. A command written by hand
-has to carry that set itself. A Codex command without
-`-c features.apps=false`, for example, holds the account's connected
-apps however its canary passed. `providers.validation_record`, which
+canaried without failing on one that has not. The canary proves a
+release, not the command, so a command written by hand has to carry the
+set itself. `sop blind run` checks the switches every seat carries
+whatever else its launcher gives it: Codex's apps, plugins, sub-agents
+and image generation turned off, and Claude's empty strict MCP config. A
+Codex command without `-c features.apps=false`, for example, would hold
+the account's connected apps however its canary passed. The run reads
+each runner's arguments and refuses a command that lacks a switch,
+naming what is missing, including a switch a later override turns back
+on. A runner named only by `--runner`, as one launched through a script,
+shows no arguments to read and is refused the same way. `--unswitched`
+runs such a command anyway, with a warning, and the blind receipt
+records what each runner lacked. The tools a command grants are its own
+choice and are not checked, the web among them. Codex turns its web
+search on by default, and Claude Code's default tool set includes its
+web tools, so a seat that must have no web says so itself, as the shared
+set does: `-c web_search="disabled"` for Codex, and a `--tools` list
+that names no web tool for Claude. `providers.validation_record`, which
 kept a record in the repository and failed `check` on a minor version
 change, is retired, and a project that still sets it is refused with
 that explanation.

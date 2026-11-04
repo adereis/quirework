@@ -1546,6 +1546,128 @@ def detect_runners(cmd) -> list[str]:
     return [n for n in RUNNERS if any(Path(t).name == n for t in cmd)]
 
 
+# A command written by hand for `blind run` is proven under the shared blind
+# flag set, but the canary proves the RELEASE, not the command: a hand-written
+# line that drops a switch launches without it however its canary passed. The
+# tools a command grants are its launcher's choice. These are not: every seat
+# carries them whatever else it is given (`CODEX_SEAT`, `NO_MCP`), and most
+# close a door the ACCOUNT opens, which neither the private home nor the jail
+# closes. So `blind run` refuses a command that lacks one.
+def _codex_overrides(args) -> dict[str, str]:
+    """Each ``-c``/``--config`` key a codex command sets, at its last value.
+
+    Codex reads the overrides in order and a later one replaces an earlier
+    one, so a command that turns a switch off and then on again holds it on.
+    """
+    found = {}
+    rest = list(args)
+    while rest:
+        token = rest.pop(0)
+        if token in ("-c", "--config") and rest:
+            value = rest.pop(0)
+        elif token.startswith("--config="):
+            value = token.removeprefix("--config=")
+        elif token.startswith("-c") and not token.startswith("--") and len(token) > 2:
+            value = token[2:]
+        else:
+            continue
+        key, eq, setting = value.partition("=")
+        if eq:
+            found[key.strip()] = setting.strip()
+    return found
+
+
+def _codex_lacks(args, run_dir) -> list[str]:
+    """The seat switches a codex command does not leave in force."""
+    held = _codex_overrides(args)
+    lacking = []
+    for switch in CODEX_SEAT[1::2]:
+        key, _, setting = switch.partition("=")
+        if held.get(key) != setting:
+            lacking.append(f"-c {switch}")
+    return lacking
+
+
+def _names_no_server(value, run_dir) -> bool:
+    """Whether one ``--mcp-config`` value is a config that names no server.
+
+    The value is inline JSON or a file; a file is read where the seat would
+    read it, from the run directory, and one that cannot be read proves
+    nothing.
+    """
+    text = value
+    if not value.lstrip().startswith("{"):
+        try:
+            text = (run_dir / Path(value).expanduser()).read_text(encoding="utf-8")
+        except (OSError, UnicodeDecodeError):
+            return False
+    try:
+        config = json.loads(text)
+    except ValueError:
+        return False
+    return isinstance(config, dict) and config.get("mcpServers") == {}
+
+
+def _claude_lacks(args, run_dir) -> list[str]:
+    """What a claude command lacks of the empty strict MCP config (``NO_MCP``).
+
+    ``--mcp-config`` takes every value up to the next option, as Claude Code
+    reads it, and each must name no server: a second config that names one
+    hands the seat that server beside the empty one.
+    """
+    strict, configs = False, []
+    rest = list(args)
+    while rest:
+        token = rest.pop(0)
+        if token == "--strict-mcp-config":
+            strict = True
+        elif token.startswith("--mcp-config="):
+            configs.append(token.removeprefix("--mcp-config="))
+        elif token == "--mcp-config":
+            while rest and not rest[0].startswith("-"):
+                configs.append(rest.pop(0))
+    lacking = []
+    if not configs:
+        lacking.append(f"--mcp-config '{NO_MCP[1]}'")
+    lacking += [
+        f"--mcp-config {value!r} names a server or cannot be read"
+        for value in configs
+        if not _names_no_server(value, run_dir)
+    ]
+    if not strict:
+        lacking.append("--strict-mcp-config")
+    return lacking
+
+
+SEAT_SWITCHES = {"claude": _claude_lacks, "codex": _codex_lacks}
+
+
+def lacking_switches(cmd, runners, run_dir) -> dict[str, list[str]]:
+    """``{runner: [what it lacks]}`` for each runner a command leaves open.
+
+    A runner's arguments are the tokens after the first one that names it,
+    the same whole-token rule ``detect_runners`` uses. A runner named only by
+    ``--runner``, as one launched through a script, shows no arguments to
+    check, and is reported as such rather than passed.
+    """
+    lacking = {}
+    for name in runners:
+        check = SEAT_SWITCHES.get(name)
+        if check is None:
+            continue
+        at = next((i for i, t in enumerate(cmd) if Path(t).name == name), None)
+        if at is None:
+            lacking[name] = [
+                "its arguments: no token of the command names it, so its "
+                "switches cannot be read"
+            ]
+            continue
+        missing = check(cmd[at + 1 :], run_dir)
+        if missing:
+            lacking[name] = missing
+    return lacking
+
+
 def write_receipt(
     path: Path,
     *,
@@ -1557,6 +1679,7 @@ def write_receipt(
     reason: str = "",
     bus: Bus | None = None,
     canary=None,
+    unswitched=None,
 ) -> None:
     """Stamp what confined this run, **outside the run dir**.
 
@@ -1564,7 +1687,8 @@ def write_receipt(
     blind seat in an experiment, and names the operator's home layout. The
     parent of the run dir is not bound into the jail, so a file written there
     is invisible from inside. ``canary`` is the record, or records, the
-    launch relied on.
+    launch relied on. ``unswitched`` is what each runner lacked of its seat
+    switches, on a run told to go ahead without them.
     """
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(
@@ -1581,6 +1705,7 @@ def write_receipt(
                 "read_only_binds": [str(b) for b in binds],
                 "command": list(cmd),
                 "canary": canary,
+                "unswitched": unswitched or {},
             },
             indent=2,
         )
@@ -1595,7 +1720,8 @@ def write_receipt(
 
 USAGE = """\
 usage: quirework sop blind run   [--run-dir DIR] [--runner NAME]... [--allow PATH]...
-                              [--receipt PATH] [--unconfined] [--dry-run] -- CMD...
+                              [--receipt PATH] [--unconfined] [--unswitched]
+                              [--dry-run] -- CMD...
        quirework sop blind check  [--runner NAME]...
        quirework sop blind canary [--runner NAME]... [--model M]
        quirework sop blind prune  [PATH]... [--grace SECONDS] [--force] [--dry-run]
@@ -1607,7 +1733,8 @@ not a wall".
   run     run CMD inside the jail; the exit status is CMD's own. A
           runner not yet proven blind at its installed version is
           canaried first (one short exchange on the cheapest model),
-          and a breach refuses the run
+          and a breach refuses the run. A command that lacks its
+          runner's seat switches is refused before either
   check   FREE self-test: every flag a blind run depends on is still
           live, each runner starts inside the jail, and the tree, the
           global briefs and a sibling seat's dir are all unreachable
@@ -1645,6 +1772,12 @@ options for `run`:
   --unconfined    run without a jail. Stamps confined:false and warns;
                   a run that cannot be confined otherwise FAILS rather
                   than quietly degrading.
+  --unswitched    run a command that lacks a runner's seat switches
+                  (codex: apps, plugins, sub-agents and image generation
+                  off; claude: an empty strict MCP config). Stamps what it
+                  lacked and warns; such a command otherwise FAILS, since
+                  every seat carries them and the jail cannot stand in
+                  for them.
   --dry-run       print the argv that would run, and exit
 """
 
@@ -1675,6 +1808,7 @@ def cmd_run(argv) -> int:
     p.add_argument("--allow", action="append", default=[])
     p.add_argument("--receipt", default=None)
     p.add_argument("--unconfined", action="store_true")
+    p.add_argument("--unswitched", action="store_true")
     p.add_argument("--dry-run", action="store_true")
     a, cmd = (p.parse_args(ours), cmd) if cmd else p.parse_known_args(argv)
     if not cmd:
@@ -1700,6 +1834,28 @@ def cmd_run(argv) -> int:
         if a.receipt
         else run_dir.parent / f"{run_dir.name}.blind-receipt.json"
     )
+
+    unswitched = lacking_switches(cmd, runners, run_dir)
+    for name, missing in unswitched.items():
+        print(
+            f"blind run: the {name} command lacks {'; '.join(missing)}",
+            file=sys.stderr,
+        )
+    if unswitched and not a.unswitched:
+        # Never degrade in silence: the jail cannot close what these close,
+        # so a seat without them holds what every seat is meant to lack.
+        print(
+            "  Add them to the command, or re-run with --unswitched to accept "
+            "a seat without them; the receipt will say which it lacked.",
+            file=sys.stderr,
+        )
+        return 2
+    if unswitched:
+        print(
+            "blind run: WARNING -- running without the seat switches above; "
+            "the seat can reach what they close.",
+            file=sys.stderr,
+        )
 
     err = backend_error()
     if err and not a.unconfined:
@@ -1728,6 +1884,7 @@ def cmd_run(argv) -> int:
                 runners=runners,
                 binds=[],
                 reason=err or "",
+                unswitched=unswitched,
             )
         if a.dry_run:
             print(" ".join(cmd))
@@ -1765,6 +1922,7 @@ def cmd_run(argv) -> int:
             binds=binds,
             bus=bus,
             canary=proven,
+            unswitched=unswitched,
         )
         proc = popen(argv_full, bus, cwd=run_dir)
         try:

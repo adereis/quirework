@@ -5,6 +5,7 @@ No model is called. Two tests start a real bubblewrap jail, and one of
 them a real bus proxy, when the machine has them.
 """
 
+import json
 import os
 import shutil
 import subprocess
@@ -791,3 +792,93 @@ def test_a_keyring_login_needs_no_login_file_and_a_file_login_does(
     (gemini / "oauth_creds.json").write_text("{}")
     assert blind.RUNNERS["agy"].login == "keyring"
     assert "~/.gemini/oauth_creds.json" in blind.RUNNERS["agy"].creds
+
+
+# --------------------------------------------------------------------------- #
+# a command written by hand carries its seat switches
+# --------------------------------------------------------------------------- #
+def test_the_shared_flag_set_lacks_no_seat_switch(tmp_path):
+    """The set a hand-written command is proven under passes its own check,
+    so the check asks nothing the canary did not prove."""
+    for name in blind.SEAT_SWITCHES:
+        cmd = blind.CANARY_ARGV[name]("Say hello.", "a-model")
+        assert blind.lacking_switches(cmd, [name], tmp_path) == {}
+
+
+def test_a_codex_command_without_its_seat_switches_is_named(tmp_path):
+    cmd = ["timeout", "900", "codex", "exec", "-m", "a-model", "Say hello."]
+    lacking = blind.lacking_switches(cmd, ["codex"], tmp_path)
+    assert lacking == {"codex": [f"-c {s}" for s in blind.CODEX_SEAT[1::2]]}
+
+
+def test_a_switch_turned_back_on_later_is_lacking(tmp_path):
+    """Codex reads its overrides in order, so the last one is the one that
+    holds; each spelling of an override counts."""
+    spelled = [
+        "--config=features.apps=false",
+        "-cfeatures.plugins=false",
+        "--config",
+        "features.remote_plugin=false",
+        "-c",
+        "features.multi_agent_v2.max_concurrent_threads_per_session=1",
+        "-c",
+        "features.image_generation=false",
+    ]
+    cmd = ["codex", "exec", *spelled, "Say hello."]
+    assert blind.lacking_switches(cmd, ["codex"], tmp_path) == {}
+    reopened = [*cmd[:-1], "-c", "features.apps=true", "Say hello."]
+    assert blind.lacking_switches(reopened, ["codex"], tmp_path) == {
+        "codex": ["-c features.apps=false"]
+    }
+
+
+def test_a_claude_command_needs_an_empty_strict_mcp_config(tmp_path):
+    bare = ["claude", "-p", "Say hello.", "--model", "a-model"]
+    assert blind.lacking_switches(bare, ["claude"], tmp_path) == {
+        "claude": [
+            "--mcp-config '{\"mcpServers\":{}}'",
+            "--strict-mcp-config",
+        ]
+    }
+    # A second config that names a server hands the seat that server.
+    served = '{"mcpServers":{"mail":{"command":"mailer"}}}'
+    both = [*bare, *blind.NO_MCP[:2], served, "--strict-mcp-config"]
+    (finding,) = blind.lacking_switches(both, ["claude"], tmp_path)["claude"]
+    assert "names a server" in finding and "mailer" in finding
+    # A file is read where the seat would read it, from the run directory.
+    (tmp_path / "empty.json").write_text('{"mcpServers": {}}')
+    from_file = [*bare, "--mcp-config", "empty.json", "--strict-mcp-config"]
+    assert blind.lacking_switches(from_file, ["claude"], tmp_path) == {}
+    absent = [*bare, "--mcp-config", "gone.json", "--strict-mcp-config"]
+    assert blind.lacking_switches(absent, ["claude"], tmp_path)
+
+
+def test_a_runner_no_token_names_cannot_be_read_and_is_not_passed(tmp_path):
+    lacking = blind.lacking_switches(["./seat.sh"], ["codex"], tmp_path)
+    assert "cannot be read" in lacking["codex"][0]
+    # A runner without account-side doors has nothing to check.
+    assert blind.lacking_switches(["agy", "-p", "x"], ["agy"], tmp_path) == {}
+
+
+def test_blind_run_refuses_a_command_lacking_its_switches(tmp_path, capsys):
+    """Refused before confinement is even looked at, and run only when the
+    operator says so out loud."""
+    run = tmp_path / "run"
+    run.mkdir()
+    cmd = ["codex", "exec", "-m", "a-model", "Say hello."]
+    base = ["--run-dir", str(run), "--unconfined", "--dry-run", "--"]
+    assert blind.cmd_run(base[:-1] + ["--unswitched", "--"] + cmd) == 0
+    assert "running without the seat switches" in capsys.readouterr().err
+    assert blind.cmd_run(base + cmd) == 2
+    err = capsys.readouterr().err
+    assert "the codex command lacks -c features.apps=false" in err
+    assert "--unswitched" in err
+
+
+def test_a_run_without_its_switches_says_so_in_its_receipt(tmp_path):
+    run = tmp_path / "run"
+    run.mkdir()
+    argv = ["--run-dir", str(run), "--runner", "codex", "--unconfined"]
+    assert blind.cmd_run([*argv, "--unswitched", "--", "true"]) == 0
+    receipt = json.loads((tmp_path / "run.blind-receipt.json").read_text())
+    assert list(receipt["unswitched"]) == ["codex"]

@@ -6,16 +6,6 @@ would need to do, not how to do it. Some were seen weeks ago, so check
 that each one still holds before working on it, and delete its entry
 when it is fixed or no longer applies.
 
-## A hand-written blind codex run is not checked for the seat switches
-
-A `quirework sop blind run -- codex …` command written by hand is proven
-under the shared blind flag set, but nothing checks that it carries the
-codex seat switches (apps, plugins, sub-agents and the image tool off).
-The run engine and the review driver add those switches themselves; a
-hand-written command can leave them out and still pass. Requirement: a
-blind codex run that lacks the seat switches is refused or flagged,
-whoever wrote the command.
-
 ## Ledger lists accept an entry that can never match
 
 `store.listed` keeps a line such as `cc <uuid>.jsonl`: the id then
