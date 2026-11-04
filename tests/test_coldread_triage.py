@@ -48,3 +48,32 @@ def test_triage_all_reads_accepted_sessions_too(tmp_path, monkeypatch, capsys):
         coldread.cmd_triage(["--all"])
     out = capsys.readouterr().out
     assert "cc-sessions/accepted.jsonl" in out and "cc-sessions/pending.jsonl" in out
+
+
+def test_an_edit_is_the_works_in_every_recorded_checkout_and_nowhere_else(
+    tmp_path, monkeypatch
+):
+    """A session records absolute paths, from whichever checkout it ran in,
+    so each is read relative to the deepest recorded tree that holds it: a
+    worktree inside a checkout claims its own files. The trees are the ones
+    the corpus recorded, so a removed worktree still classifies. A sibling
+    whose name merely extends a checkout's is no checkout, and a path that
+    climbs out of one is not the work."""
+    from quirework.provenance import trees
+
+    (tmp_path / "coldread.toml").write_text(
+        'doc_dirs = ["chapters/"]\ndoc_prefixes = ["outline"]\n'
+    )
+    settings = {"provenance": {**corpus_settings(), "coldread_policy": "coldread.toml"}}
+    recorded = ("/w/book", "/w/book-draft", "/w/book/.claude/worktrees/side")
+    monkeypatch.setattr(trees, "recorded", lambda project: recorded)
+    with project_scope(Project.from_settings(tmp_path, settings)):
+        assert coldread._classify_edit("chapters/one.md") == "doc"
+        assert coldread._classify_edit("outline-second-pass.md") == "doc"
+        assert coldread._classify_edit("README.md") == "meta"
+        assert coldread._classify_edit("/w/book/chapters/one.md") == "doc"
+        assert coldread._classify_edit("/w/book-draft/chapters/one.md") == "doc"
+        side = "/w/book/.claude/worktrees/side/chapters/one.md"
+        assert coldread._classify_edit(side) == "doc"
+        assert coldread._classify_edit("/w/book-draft/../tool/src/x.py") == "meta"
+        assert coldread._classify_edit("/w/book-elsewhere/chapters/one.md") == "meta"

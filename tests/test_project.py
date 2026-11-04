@@ -71,6 +71,18 @@ def test_a_replaced_setting_is_a_new_view_that_resolves_from_the_root(tmp_path):
     assert view.path("manuscript.source") == configured.path("manuscript.source")
 
 
+def test_a_command_run_below_a_project_finds_its_configuration(tmp_path, monkeypatch):
+    """Without a project named, the nearest `quirework.toml` at or above the
+    working directory decides, so a command run from a chapter folder still
+    reads its own book. `QUIREWORK_PROJECT` names one outright."""
+    a, b = book(tmp_path / "a", "arrival"), book(tmp_path / "b", "departure")
+    monkeypatch.delenv("QUIREWORK_PROJECT", raising=False)
+    monkeypatch.chdir(a.root / "manuscript" / "sections")
+    assert Project.load().root == a.root
+    monkeypatch.setenv("QUIREWORK_PROJECT", str(b.root))
+    assert Project.load().root == b.root
+
+
 def test_project_selection_is_restored_after_errors(tmp_path):
     a, b = book(tmp_path / "a", "arrival"), book(tmp_path / "b", "departure")
     with project_scope(a):
