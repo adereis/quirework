@@ -158,3 +158,149 @@ def test_a_rollout_recording_no_working_directory_is_counted(rollouts, capsys):
     assert unplaced == [bare]
     assert codex.main([]) == 0
     assert "1 recording no working directory" in capsys.readouterr().out
+
+
+def said(path, payload):
+    """One more record in a rollout."""
+    with path.open("a", encoding="utf-8") as fh:
+        fh.write(json.dumps({"type": "response_item", "payload": payload}) + "\n")
+
+
+THIRD = "0c0dec00-0000-4000-8000-000000000003"
+FOURTH = "0c0dec00-0000-4000-8000-000000000004"
+
+
+def test_the_sweep_reaches_every_checkout_and_stops_at_a_lookalike(rollouts):
+    """The linked worktree is a sibling directory, found because git says it
+    is a checkout; a sibling whose name merely extends the book's is another
+    project."""
+    root = saved(rollouts.day, ROOT, rollouts.repo)
+    nested = saved(rollouts.day, SIDE, rollouts.worktree / "chapters")
+    saved(rollouts.day, THIRD, rollouts.base / "book-elsewhere")
+    keep, system, evaluation, unplaced = codex.sweep()
+    assert keep == sorted([root, nested])
+    assert (system, evaluation, unplaced) == ([], [], [])
+
+
+def test_codexs_own_risk_judge_is_skipped_and_a_delegation_is_kept(rollouts):
+    """A `guardian` rollout is the harness judging a command, not a session;
+    a sub-agent the author directed is evidence like any other."""
+    root = saved(rollouts.day, ROOT, rollouts.repo)
+    guard = saved(
+        rollouts.day, SIDE, rollouts.repo, {"subagent": {"other": "guardian"}}
+    )
+    helper = saved(
+        rollouts.day, THIRD, rollouts.repo, {"subagent": {"other": "proofreader"}}
+    )
+    keep, system, evaluation, _ = codex.sweep()
+    assert keep == sorted([root, helper])
+    assert system == [guard]
+    assert evaluation == []
+
+
+@pytest.mark.parametrize("area", ["pending", "accepted"])
+def test_an_evaluation_seat_is_reported_and_never_captured(rollouts, capsys, area):
+    """A delegated seat handed a stored capture would seed the next ingest
+    with one transcript per session it judged. The session that delegated
+    it opens captures too, and stays."""
+    root = store.location()
+    target = {
+        "pending": root / "pending" / store.CC / f"{FOURTH}.jsonl",
+        "accepted": root
+        / "accepted"
+        / store.CC
+        / "0123456789abcdef"
+        / f"{FOURTH}.jsonl",
+    }[area]
+    seat = saved(rollouts.day, SIDE, rollouts.repo, delegated()["source"])
+    said(
+        seat,
+        {
+            "type": "function_call",
+            "name": "exec_command",
+            "input": {"cmd": f"quirework provenance show {target}"},
+        },
+    )
+    driver = saved(rollouts.day, ROOT, rollouts.repo)
+    said(
+        driver,
+        {
+            "type": "custom_tool_call",
+            "name": "exec",
+            "input": f'await tools.exec_command({{"cmd":"cat {target}"}})',
+        },
+    )
+    keep, system, evaluation, _ = codex.sweep()
+    assert (keep, system, evaluation) == ([driver], [], [seat])
+    assert codex.main([]) == 0
+    out = capsys.readouterr().out
+    assert f"{SIDE}.jsonl was sent a session capture to evaluate" in out
+    assert "1 evaluation seat(s)" in out
+    assert not (rollouts.pending / f"{SIDE}.jsonl").exists()
+
+
+def test_archived_rollouts_are_swept_too(rollouts):
+    archived = saved(rollouts.home / "archived_sessions", ROOT, rollouts.repo)
+    assert codex.sweep()[0] == [archived]
+
+
+def test_a_capture_is_named_by_its_id_honours_the_removed_list_and_waits(
+    rollouts, capsys
+):
+    source = saved(rollouts.day, ROOT, rollouts.repo)
+    saved(rollouts.day, SIDE, rollouts.repo)
+    (store.ledger() / store.REMOVED).write_text(f"codex {SIDE}  # a dry run\n")
+    assert codex.main([]) == 0
+    out = capsys.readouterr().out
+    assert "1 updated" in out and "1 on removed-list" in out
+    captured = rollouts.pending / f"{ROOT}.jsonl"
+    meta = codexfilter.session_meta(captured)
+    assert meta["capture_schema"] == codexfilter.CAPTURE_SCHEMA
+    assert meta["source_bytes"] == source.stat().st_size
+    assert not (rollouts.pending / f"{SIDE}.jsonl").exists()
+    assert store.files(store.CODEX) == [], "captured, never accepted"
+
+
+def test_an_unknown_argument_is_refused_rather_than_swept_past(rollouts, capsys):
+    with pytest.raises(SystemExit) as stopped:
+        codex.main(["--hook"])
+    assert stopped.value.code == 2
+    assert "unrecognized arguments" in capsys.readouterr().err
+
+
+def test_a_grown_rollout_is_captured_again_and_a_settled_one_is_not(rollouts):
+    source = saved(rollouts.day, ROOT, rollouts.repo)
+    assert codex.copy_if_changed(source, ROOT) is True
+    assert codex.copy_if_changed(source, ROOT) is False
+    said(source, {"type": "message", "role": "user", "content": "One more."})
+    assert codex.copy_if_changed(source, ROOT) is True
+    captured = rollouts.pending / f"{ROOT}.jsonl"
+    assert codexfilter.session_meta(captured)["source_bytes"] == source.stat().st_size
+    assert not list(rollouts.pending.glob(f".{ROOT}.jsonl.*")), "no temporary file"
+
+
+def test_an_edit_that_keeps_the_size_is_still_seen(rollouts):
+    source = saved(rollouts.day, ROOT, rollouts.repo)
+    assert codex.copy_if_changed(source, ROOT) is True
+    captured = rollouts.pending / f"{ROOT}.jsonl"
+    before = codexfilter.session_meta(captured)["source_sha256"]
+    raw = source.read_text()
+    source.write_text(raw.replace('"source": "cli"', '"source": "tui"'))
+    assert source.stat().st_size == len(raw.encode())
+    assert codex.copy_if_changed(source, ROOT) is True
+    assert codexfilter.session_meta(captured)["source_sha256"] != before
+
+
+def test_a_capture_of_an_older_schema_is_made_again(rollouts):
+    """Nothing in an older capture's bytes says what it misreads, so its
+    schema is the tell: it is no capture, and the rollout is normalized
+    again rather than called current."""
+    source = saved(rollouts.day, ROOT, rollouts.repo)
+    assert codex.copy_if_changed(source, ROOT) is True
+    captured = rollouts.pending / f"{ROOT}.jsonl"
+    current = captured.read_bytes()
+    schema = codexfilter.CAPTURE_SCHEMA.encode()
+    captured.write_bytes(current.replace(schema, b"quirework-codex-v0"))
+    assert codex.captured_source_fingerprint(captured) is None
+    assert codex.copy_if_changed(source, ROOT) is True
+    assert captured.read_bytes() == current

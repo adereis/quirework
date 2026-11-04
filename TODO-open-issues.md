@@ -6,14 +6,6 @@ would need to do, not how to do it. Some were seen weeks ago, so check
 that each one still holds before working on it, and delete its entry
 when it is fixed or no longer applies.
 
-## The live capture rules are tested only in a consumer
-
-About 40 tests of the capture rules (guardian skip, archived codex
-rollouts, review runs, `--force`, unreadable transcripts) live in a
-consuming project's suite, rewritten there for the store. For most of
-those rules they are the only coverage anywhere. Requirement: Quirework
-covers its own capture rules in its own suite.
-
 ## Some mechanism tests depend on one project's configuration
 
 Several tests of Quirework mechanisms run in a consuming project and use

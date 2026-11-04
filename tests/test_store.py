@@ -558,6 +558,18 @@ def test_a_list_line_names_its_kind_or_is_reported(book, capsys):
     assert store.add_to_list(store.MAKING, "cc", KETTLE, "again") is False
 
 
+def test_a_list_reads_past_comments_blank_lines_and_indentation(book):
+    removed = store.ledger() / store.REMOVED
+    assert not removed.exists() and store.removed_ids("cc") == set()
+    removed.write_text(
+        "# a header comment\n\n"
+        f"   cc   {KETTLE}   # indented, with a reason\n"
+        f"codex {STORM}\n"
+    )
+    assert store.removed_ids("cc") == {KETTLE}
+    assert store.removed_ids() == {KETTLE, STORM}
+
+
 def test_a_list_line_that_can_never_match_is_reported(book, capsys):
     """A line naming a file, or an id cut short, parses as a session id and
     then matches nothing, so the list would curate nothing in silence."""
