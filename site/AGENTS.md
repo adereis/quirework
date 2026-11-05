@@ -16,16 +16,19 @@ links the guide that develops it, with a `repo:` link (below). When a
 feature the site describes changes, change the page in the same series
 of commits.
 
-## What it may say about mindwright
+## What it may say about the book at AndNotNothing.com
 
 The home page names one project written with Quirework, the book at
-mindwright.dev. It may say what that site says publicly:
+AndNotNothing.com. It may say what that site says publicly:
 
 - that a book by Ademar Reis, with the subtitle *A software engineer's
   philosophy of mind*, is due in early 2027;
 - the page's paragraph on how the book is being made, quoted word for
   word;
-- the link to mindwright.dev.
+- the link to `https://andnotnothing.com/`.
+
+The copy writes the site's name as the site writes it,
+AndNotNothing.com, and links the lowercase address.
 
 It may also say two things of its own. The book is being written with
 Quirework. It is not published yet, and once it is, it will be the
@@ -34,15 +37,15 @@ Quirework, made by its maintainer, and neither describes the book.
 
 It says nothing else about the book:
 
-- **no title and no cover**, since mindwright.dev shows neither.
-  "mindwright" is the site's name, never the book's, so it is never set
-  in italics as a title.
+- **no title and no cover**, since AndNotNothing.com shows neither. The
+  copy names AndNotNothing.com only as the book's site, and never sets
+  it in italics as a title.
 - **nothing about how the book uses Quirework**, beyond that it is
   written with it. A connection drawn here between the book and one of
   the tool's features is read as a fact about the book, and only
-  mindwright.dev may state one.
+  AndNotNothing.com may state one.
 
-When mindwright.dev's page changes, this section changes with it.
+When AndNotNothing.com's page changes, this section changes with it.
 Nothing links the two but this rule.
 
 ## Models and harnesses
@@ -64,7 +67,7 @@ they never lead.
   caption says how an edition was made, never how well it reads.
 - **Wherever a reader reaches a sample, it says who wrote it.** Each
   mention says that AI wrote it and that no person reviewed its prose.
-  The home page also says that the book at mindwright.dev, once
+  The home page also says that the book at AndNotNothing.com, once
   published, will be the measure of the tool.
 - **The home page reaches them only in their own section**, near its
   end, after the spec, the trail, the procedures and the book written
@@ -119,11 +122,12 @@ scripts and review the diff like any other.
 
 ## Design
 
-**The palette and the text face are mindwright.dev's**, so the tool and
-the book being written with it read as one author's work: `--paper`,
+**The palette and the text face are AndNotNothing.com's**, so the tool
+and the book being written with it read as one author's work: `--paper`,
 `--paper-2`, `--ink`, `--ink-soft`, `--rule` and the Spectral files in
-`static/fonts/`, copied by hand. `OFL.txt` ships beside the fonts
-because redistributing them requires it.
+`static/fonts/`, copied by hand. That site has no dark mode, so the dark
+values of those tokens are this site's own. `OFL.txt` ships beside the
+fonts because redistributing them requires it.
 
 **`--signal` means one thing**: Quirework caught this. It is the orange
 of Side Quest's cover, used only in a diagram, where a finding is

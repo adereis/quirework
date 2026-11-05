@@ -3,9 +3,10 @@
    Plain CSS on purpose: no Sass step, so the site builds with the single
    Hugo binary and nothing to rot.
 
-   The paper, the ink and the text face are mindwright.dev's, so the tool
-   and the book being written with it read as one author's work. They are
-   copied by hand from that site's stylesheet; nothing links the two.
+   The paper, the ink and the text face are AndNotNothing.com's, so the
+   tool and the book being written with it read as one author's work.
+   They are copied by hand from that site's stylesheet; nothing links the
+   two. That site has no dark mode, so the dark values are this site's.
 
    One color is the site's own: --signal, the orange of the example
    book's cover. It means one thing, "Quirework caught this", and appears

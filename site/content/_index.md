@@ -138,7 +138,7 @@ caveats attached.
 
 A book by Ademar Reis, with the subtitle *A software engineer's
 philosophy of mind*, is due in early 2027. It is being written with
-Quirework, and its site, mindwright.dev, describes the collaboration
+Quirework, and its site, AndNotNothing.com, describes the collaboration
 this way.
 
 > Human-directed, AI-articulated. The book is being written by a human and
@@ -149,7 +149,7 @@ this way.
 The book is not published yet. When it is, it will be the measure of the
 tool. The two samples below are not.
 
-[Read about the book at mindwright.dev](https://mindwright.dev/)
+[Read about the book at AndNotNothing.com](https://andnotnothing.com/)
 
 {{% /band %}}
 
