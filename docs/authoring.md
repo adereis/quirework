@@ -55,7 +55,7 @@ without the ones below it.
 | Private material | ignored sources and records that must not publish | project policy |
 | Procedures | the playbooks an AI companion follows, with personas and questions | `sop list`, `sop explain`, `sop skills` |
 | Provenance | the sessions the book was written in | `provenance search`, `provenance metrics` |
-| Spec trail | pointers from each spec section to the turns that shaped it | `spec trail` |
+| Spec trail | pointers from each spec section to the turns that shaped it | `spec trail`, `spec diff` |
 
 ## 1. The manuscript
 
@@ -428,6 +428,13 @@ not. `--session ID --turn N` takes the number `provenance search`
 printed. An `--excerpt` is optional: it highlights words in a long turn
 where they would otherwise be buried, and it must be words the turn
 holds.
+
+`spec diff A..B` lists the spec sections a range of commits changed,
+which is where a turn that steered a whole round is due a breadcrumb.
+`--by-commit` names each commit and the sections it changed. A section
+whose change touched only its `#slug` pointers, as renaming another
+section does, is listed apart from one whose words changed, and a rewrap
+or a mark is no change at all.
 
 `--harness H --session ID --at TIME` writes a pointer by hand, for a
 conversation Quirework may not be able to read. A breadcrumb leads only

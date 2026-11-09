@@ -88,6 +88,11 @@ COMMANDS = {
         "Rename a spec section everywhere its slug is written",
         "manuscript",
     ),
+    ("spec", "diff"): Command(
+        "manuscript.specdiff",
+        "List the spec sections a range of commits changed",
+        "manuscript",
+    ),
     ("publish", "build"): Command(
         "publish.build", "Render the manuscript through its backend", "publish"
     ),
