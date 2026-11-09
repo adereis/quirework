@@ -51,6 +51,7 @@ import hashlib
 import os
 import re
 import shutil
+import subprocess
 import sys
 import tempfile
 import time
@@ -283,9 +284,12 @@ def read_manifest(path):
     return identity, entries
 
 
-def _parse_manifest(path):
+def _parse_manifest(path, text=None):
+    """``(identity, entries)`` from ``path``, or from ``text`` as another
+    revision of it held it; ``path`` then only names it in a problem."""
     identity, entries, seen = None, [], set()
-    for lineno, line in enumerate(path.read_text(encoding="utf-8").splitlines(), 1):
+    text = path.read_text(encoding="utf-8") if text is None else text
+    for lineno, line in enumerate(text.splitlines(), 1):
         text = line.strip()
         if not text or text.startswith("#"):
             continue
@@ -1017,6 +1021,58 @@ def elsewhere(store, entries=None):
                     )
                     if key not in mine:
                         found.add(key)
+    return found
+
+
+def accepted_on_branches(units, project=None):
+    """``{unit: [(branch, commit)]}``: the other local branches accepting each unit.
+
+    Every checkout shares one store, and each branch keeps its own ledger, so
+    a session accepted on one branch has its bytes in the store while another
+    branch's ledger does not list it. Read from that second branch, the
+    session looks uncaptured, which sends an agent to wait for an ingest that
+    already happened. This names the branches whose committed ledger lists the
+    session, with the commit that last changed its line there, so the reader
+    can bring that ledger change across instead. The current branch is left
+    out, and so is a ledger outside any repository, which has no branches.
+    A branch whose ledger does not parse names nothing here: this is a hint
+    for a reader on another branch, and that ledger's own checks report it.
+    """
+    project = current_project() if project is None else project
+    units = set(units)
+    listing = ledger(project) / "accepted.txt"
+    top = versioned(listing.parent)
+    if not units or top is None:
+        return {}
+
+    def git(*args):
+        return subprocess.run(
+            ["git", "-C", str(top), *args],
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+
+    rel = listing.resolve().relative_to(Path(top).resolve()).as_posix()
+    here = git("symbolic-ref", "--quiet", "--short", "HEAD").stdout.strip()
+    branches = git("for-each-ref", "--format=%(refname:short)", "refs/heads").stdout
+    found = {}
+    for branch in branches.split():
+        if branch == here:
+            continue
+        listed = git("show", f"{branch}:{rel}")
+        if listed.returncode != 0:
+            continue
+        try:
+            _, entries = _parse_manifest(Path(f"{branch}:{rel}"), listed.stdout)
+        except ConfigurationError:
+            continue
+        held = {entry.unit for entry in entries}
+        for unit in units & held:
+            commit = git(
+                "log", "-1", "--format=%h", f"-S{unit}", branch, "--", rel
+            ).stdout.strip()
+            found.setdefault(unit, []).append((branch, commit))
     return found
 
 

@@ -429,6 +429,24 @@ printed. An `--excerpt` is optional: it highlights words in a long turn
 where they would otherwise be buried, and it must be words the turn
 holds.
 
+One turn often shapes several sections, as a ruling does when it changes
+a commitment that many sections state. Name them all in one command, and
+they take the same breadcrumb, all or none: a misspelled section, or a
+turn already on one of the trails, leaves every trail as it was.
+
+```bash
+quirework spec trail add kettle-signal cooling-asymmetry --kind accept \
+  --session 0badc0de --turn 4 --note "Confirms the notebook's plan."
+```
+
+One turn can also carry several answers, as a reply to a question with
+options does, and two of them can shape the same section differently.
+Each takes its own breadcrumb on that section, told apart by an
+`--excerpt` of the answer it points at. Two breadcrumbs on one turn
+point apart only when both have an excerpt and neither excerpt holds the
+other; one without an excerpt points at the whole turn, so it meets
+every other breadcrumb there and is refused beside them.
+
 `spec diff A..B` lists the spec sections a range of commits changed,
 which is where a turn that steered a whole round is due a breadcrumb.
 `--by-commit` names each commit and the sections it changed. A section
@@ -449,8 +467,18 @@ breadcrumb for every turn that seeds, sharpens, corrects, reverses,
 accepts or probes what a section holds, since a reader can skip one but
 cannot recover a turn nobody pointed at. Point at your turn, not the
 reply. Never delete a breadcrumb because you moved on: add a `reverse`,
-because the earlier position is part of the story. Delete one only when
-it was wrong about which section the turn shaped.
+because the earlier position is part of the story.
+
+A breadcrumb that is wrong is corrected with a command, never by editing
+the file. `spec trail edit SLUG --session ID --turn N` with
+`--set-kind`, `--set-note` or `--set-excerpt` changes what it says and
+keeps where it points; a new excerpt must be words the turn holds, and
+must still point apart from the turn's other breadcrumbs.
+`spec trail drop SLUG --session ID --turn N` takes off one that names
+the wrong section, misreads its turn, or was written twice. Either finds
+the breadcrumb by `--turn` or by the logged time it stores (`--at`), and
+by `--excerpt` among several on one turn; a selector that matches more
+than one is refused with the candidates.
 
 `spec notes --check` fails a trail heading that names a section the spec
 no longer has, so a renamed section takes its trail along in the same
@@ -459,7 +487,11 @@ every breadcrumb to your turn. It fails a pointer that leads to no turn,
 one into a session that curation removed, and one that names its session
 by a prefix. It only warns about a session not captured yet, or captured
 before the turn was made, which is what pointing at a live conversation
-costs until that session is captured.
+costs until that session is captured. Every checkout shares one store,
+and each branch keeps its own ledger, so a session another branch
+accepted can look uncaptured from this one. The warning then names that
+branch and the commit that accepted it, so the ledger change can be
+brought across instead of waiting for an ingest that already happened.
 
 A breadcrumb is easiest to forget in the very edit that needed it.
 `quirework.manuscript.trail.staged_without_breadcrumb()` is for a

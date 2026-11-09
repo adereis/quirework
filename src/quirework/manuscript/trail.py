@@ -31,7 +31,9 @@ names the turn.
 
 The note is the agent's reading of the turn. The excerpt is optional: a
 highlight for a long turn whose relevant words would otherwise be buried, and
-it has to appear in that turn.
+it has to appear in that turn. It also tells apart the answers of a turn that
+holds several, as a reply to a question with options does: each answer that
+shaped a section takes its own breadcrumb there, with its own excerpt.
 
 The sidecar is context, never authority. It lives wherever `manuscript.spec_trail`
 puts it, normally beside the private corpus, and the spec carries none of it:
@@ -57,7 +59,7 @@ import re
 import subprocess
 import sys
 import tempfile
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
@@ -117,6 +119,10 @@ def _whole(session):
 
 
 _SEPARATORS = {"·", "—", "-", "|"}
+_APART = (
+    "two breadcrumbs on one turn each need an excerpt, and neither excerpt "
+    "may hold the other"
+)
 _CONTEXT = (
     "The trail is context, never authority: the spec states what the work "
     "holds now, and a request made now outranks anything on it."
@@ -172,6 +178,23 @@ class Crumb:
         if self.stamp and other.stamp:
             return self.holds(other.instant) or other.holds(self.instant)
         return self.turn is not None and self.turn == other.turn
+
+    def same_point(self, other):
+        """Whether two breadcrumbs point at the same thing: one turn, one part.
+
+        A turn can carry several answers, as a reply to a question with options
+        does, and each can shape the same section differently. Each then takes
+        its own breadcrumb, told apart by an excerpt of the answer it points
+        at. Two excerpts point apart only when neither holds the other, and a
+        breadcrumb without one points at the whole turn, so it meets every
+        other breadcrumb on that turn.
+        """
+        if not self.same_turn(other):
+            return False
+        if not (self.excerpt and other.excerpt):
+            return True
+        mine, theirs = _squash(self.excerpt), _squash(other.excerpt)
+        return mine in theirs or theirs in mine
 
     def header(self):
         return f"- {self.when} · {self.kind} · {self.harness} {self.session}"
@@ -518,10 +541,10 @@ def structure_problems(slugs=None, sidecar=None):
                 f"section{hint} A renamed section takes its trail with it"
             )
         for i, crumb in enumerate(section.crumbs):
-            if any(crumb.same_turn(other) for other in section.crumbs[:i]):
+            if any(crumb.same_point(other) for other in section.crumbs[:i]):
                 problems.append(
                     f"{where}:{crumb.line}: {crumb.harness} {crumb.short} "
-                    f"{crumb.when} is already on this section's trail"
+                    f"{crumb.when} is already on this section's trail; {_APART}"
                 )
             if not _whole(crumb.session):
                 problems.append(
@@ -1004,28 +1027,51 @@ def _full_session(corpus, harness, session):
 
 def append(slug, crumbs, titles=None):
     """Write checked breadcrumbs onto one section's trail, all or none."""
+    append_all({slug: crumbs}, titles)
+
+
+def append_all(plan, titles=None):
+    """Write checked breadcrumbs onto several sections' trails, all or none.
+
+    ``plan`` maps a slug to the breadcrumbs it takes. Every collision is
+    reported at once, and nothing is written while any remains, so a turn
+    fanned out across many sections never lands on some of them only.
+    """
     titles = _spec_titles() if titles is None else titles
     path = sidecar_path()
     with _locked(path):
-        sidecar = load(path)
-        trouble = structure_problems(titles, sidecar)
-        if trouble:
-            raise LookupError(
-                "the trail has problems to fix before it is rewritten:\n  "
-                + "\n  ".join(trouble)
-            )
-        section = sidecar.section(slug)
-        if section is None:
-            section = Section(slug, titles[slug], 0)
-            sidecar.sections.append(section)
-        for i, crumb in enumerate(crumbs):
-            if any(crumb.same_turn(other) for other in [*section.crumbs, *crumbs[:i]]):
-                raise LookupError(
-                    f"{crumb.harness} {crumb.short} {crumb.when} is already on "
-                    f"#{slug}'s trail"
-                )
-        section.crumbs.extend(crumbs)
+        sidecar = _loaded_sound(path, titles)
+        clashes = []
+        for slug, crumbs in plan.items():
+            section = sidecar.section(slug)
+            held = section.crumbs if section else []
+            for i, crumb in enumerate(crumbs):
+                if any(crumb.same_point(other) for other in [*held, *crumbs[:i]]):
+                    clashes.append(
+                        f"{crumb.harness} {crumb.short} {crumb.when} is already on "
+                        f"#{slug}'s trail"
+                    )
+        if clashes:
+            raise LookupError("; ".join(clashes) + f"; {_APART}")
+        for slug, crumbs in plan.items():
+            section = sidecar.section(slug)
+            if section is None:
+                section = Section(slug, titles[slug], 0)
+                sidecar.sections.append(section)
+            section.crumbs.extend(crumbs)
         _write(path, dump(sidecar))
+
+
+def _loaded_sound(path, titles):
+    """The sidecar at ``path``, refused while it has problems to fix first."""
+    sidecar = load(path)
+    trouble = structure_problems(titles, sidecar)
+    if trouble:
+        raise LookupError(
+            "the trail has problems to fix before it is rewritten:\n  "
+            + "\n  ".join(trouble)
+        )
+    return sidecar
 
 
 def add(slug, kind, **pointer):
@@ -1033,10 +1079,159 @@ def add(slug, kind, **pointer):
 
     ``pointer`` names the turn as ``prepare`` takes it.
     """
+    return add_to([slug], kind, **pointer)
+
+
+def add_to(slugs, kind, **pointer):
+    """Put one turn's breadcrumb on several sections' trails, all or none.
+
+    The turn is looked up once. Every slug is checked before anything is
+    written, so a misspelled section or a turn already on one of the trails
+    leaves every trail as it was. Returns the breadcrumb and where it leads.
+    """
+    slugs = list(dict.fromkeys(slugs))
+    if not slugs:
+        raise ValueError("name at least one spec section")
     titles = _spec_titles()
-    crumb, target = prepare(slug, kind, titles=titles, **pointer)
-    append(slug, [crumb], titles)
+    for slug in slugs:
+        _known_slug(slug, titles)
+    crumb, target = prepare(slugs[0], kind, titles=titles, **pointer)
+    append_all({slug: [crumb] for slug in slugs}, titles)
     return crumb, target
+
+
+# --------------------------------------------------------------------------- #
+# correcting a breadcrumb
+# --------------------------------------------------------------------------- #
+def _describe(crumb):
+    what = f" ({_opening(crumb.excerpt, 50)})" if crumb.excerpt else ""
+    return f"{crumb.kind} {crumb.harness} {crumb.short} {crumb.when}{what}"
+
+
+def select(section, *, session, turn=None, at=None, excerpt=None, corpus=None):
+    """The one breadcrumb on ``section`` a selector names, or ``LookupError``.
+
+    ``session`` is a session id or a prefix of one. ``turn`` is the author's
+    turn number as `show` prints it, ``at`` the logged time a breadcrumb
+    stores, and ``excerpt`` words of the excerpt that tells apart several
+    breadcrumbs on one turn. A breadcrumb that points by time is matched to a
+    turn number by reading its session, so ``turn`` needs provenance there;
+    ``at`` never does.
+    """
+    if not session:
+        raise ValueError("name the breadcrumb's session with --session ID")
+    if turn is not None and at is not None:
+        raise ValueError("--turn and --at each name a turn; give one")
+    picked = [c for c in section.crumbs if c.session.startswith(session)]
+    if at is not None:
+        instant = datetime.fromisoformat(_normal_stamp(at))
+        picked = [c for c in picked if c.holds(instant)]
+    elif turn is not None:
+        timed = [c for c in picked if c.turn is None]
+        if timed and not current_project().get("provenance.enabled", False):
+            raise ValueError(
+                "this breadcrumb points by logged time, and without provenance its "
+                "turn number cannot be read; name it with --at TIME"
+            )
+        corpus = corpus or (Corpus() if timed else None)
+        picked = [
+            c
+            for c in picked
+            if c.turn == turn
+            or (
+                c.turn is None
+                and (found := locate(c, corpus)).turn is not None
+                and found.turn.number == turn
+            )
+        ]
+    if excerpt:
+        picked = [c for c in picked if c.excerpt and contains(c.excerpt, excerpt)]
+    if not picked:
+        raise LookupError(f"no breadcrumb on #{section.slug}'s trail matches")
+    if len(picked) > 1:
+        rows = "\n".join(f"  {_describe(c)}" for c in picked)
+        raise LookupError(
+            f"{len(picked)} breadcrumbs on #{section.slug}'s trail match; narrow "
+            f"with --turn, --at or --excerpt:\n{rows}"
+        )
+    return picked[0]
+
+
+def drop(slug, **selector):
+    """Take one breadcrumb off a section's trail and return it.
+
+    For a breadcrumb that was wrong: it names the wrong section, misreads its
+    turn, or was written twice. A position the author moved off keeps its
+    breadcrumb and gains a ``reverse``, because the earlier position is part
+    of the story.
+    """
+    titles = _spec_titles()
+    _known_slug(slug, titles)
+    path = sidecar_path()
+    with _locked(path):
+        sidecar = _loaded_sound(path, titles)
+        section = sidecar.section(slug)
+        if section is None:
+            raise LookupError(f"#{slug} has no breadcrumbs")
+        crumb = select(section, **selector)
+        section.crumbs.remove(crumb)
+        _write(path, dump(sidecar))
+    return crumb
+
+
+def edit(slug, *, kind=None, note=None, set_excerpt=None, **selector):
+    """Change one breadcrumb's kind, note or excerpt; return it as it now reads.
+
+    The pointer itself never changes: a breadcrumb that points at the wrong
+    turn is dropped and added again. A new excerpt has to be words the turn
+    holds, checked where the session can be read, and the breadcrumb must
+    still point apart from every other one on the same turn. An empty
+    ``set_excerpt`` removes the excerpt.
+    """
+    if kind is None and note is None and set_excerpt is None:
+        raise ValueError(
+            "nothing to change: give --set-kind, --set-note or --set-excerpt"
+        )
+    if kind is not None and kind not in KINDS:
+        raise ValueError(f"unknown kind '{kind}' (kinds: {', '.join(KINDS)})")
+    titles = _spec_titles()
+    _known_slug(slug, titles)
+    path = sidecar_path()
+    with _locked(path):
+        sidecar = _loaded_sound(path, titles)
+        section = sidecar.section(slug)
+        if section is None:
+            raise LookupError(f"#{slug} has no breadcrumbs")
+        old = select(section, **selector)
+        changes = {}
+        if kind is not None:
+            changes["kind"] = kind
+        if note is not None:
+            changes["note"] = " ".join(note.split())
+        if set_excerpt is not None:
+            changes["excerpt"] = " ".join(set_excerpt.split())
+        new = replace(old, **changes)
+        if (
+            new.excerpt
+            and new.excerpt != old.excerpt
+            and current_project().get("provenance.enabled", False)
+        ):
+            found = locate(new, selector.get("corpus") or Corpus())
+            if found.turn is not None and not contains(found.turn.text, new.excerpt):
+                raise LookupError(
+                    f"the excerpt is not in {new.harness} {new.short} Human "
+                    f"{found.turn.number}; an excerpt highlights words the turn "
+                    f"holds"
+                )
+        others = [c for c in section.crumbs if c is not old]
+        if any(new.same_point(other) for other in others):
+            raise LookupError(
+                f"{new.harness} {new.short} {new.when} would meet another "
+                f"breadcrumb on #{slug}'s trail; {_APART}"
+            )
+        section.crumbs[section.crumbs.index(old)] = new
+        _write(path, dump(sidecar))
+    return new
 
 
 # --------------------------------------------------------------------------- #
@@ -1321,7 +1516,7 @@ def check():
     """
     sidecar = load()
     problems = structure_problems(sidecar=sidecar)
-    advisories = []
+    advisories, uncaptured = [], []
     project = current_project()
     if not project.get("provenance.enabled", False):
         if sidecar.crumbs():
@@ -1332,21 +1527,12 @@ def check():
         from quirework.provenance import store
 
         corpus, removed = Corpus(), _removed()
-        live = None
         for section, crumb in sidecar.crumbs():
             found = locate(crumb, corpus, removed)
             at = f"{_rel(sidecar.path)}:{crumb.line}"
             if found.state == "uncaptured":
-                live = corpus.live() if live is None else live
-                still = (
-                    "its live transcript is still on this machine"
-                    if crumb.session in live
-                    else "no live transcript for it is on this machine"
-                )
-                advisories.append(
-                    f"  {at}: {crumb.harness} {crumb.short} is not in the corpus "
-                    f"yet; {still}"
-                )
+                uncaptured.append((at, crumb))
+                advisories.append(None)
             elif found.state != "turn":
                 problems.append(f"{at}: {_explain(crumb, found)}")
             else:
@@ -1366,6 +1552,15 @@ def check():
                         f"  {at}: {crumb.harness} {crumb.short} is captured but "
                         f"not yet accepted into the corpus"
                     )
+    if uncaptured:
+        live = corpus.live()
+        elsewhere = store.accepted_on_branches({c.session for _, c in uncaptured})
+        lines = iter(
+            f"  {at}: {crumb.harness} {crumb.short} is not in the corpus yet; "
+            + _uncaptured_why(crumb.session, live, elsewhere)
+            for at, crumb in uncaptured
+        )
+        advisories = [line if line is not None else next(lines) for line in advisories]
     if advisories:
         print(
             f"advisory ({len(advisories)} breadcrumb(s) could not be followed "
@@ -1382,6 +1577,22 @@ def check():
     count = len(sidecar.crumbs())
     print(f"✓ trail --check: {count} breadcrumb(s) in {_rel(sidecar.path)}.")
     return 0
+
+
+def _uncaptured_why(session, live, elsewhere):
+    """Why a session is missing here: another branch's ledger, or its capture."""
+    branches = elsewhere.get(session)
+    if branches:
+        named = ", ".join(
+            f"{branch} ({commit})" if commit else branch for branch, commit in branches
+        )
+        return (
+            f"the ledger on {named} accepts it and this branch's does not; bring "
+            f"that ledger change onto this branch to follow the breadcrumb here"
+        )
+    if session in live:
+        return "its live transcript is still on this machine"
+    return "no live transcript for it is on this machine"
 
 
 # --------------------------------------------------------------------------- #
@@ -1437,7 +1648,7 @@ def unbreadcrumbed(before_specs, after_specs, before_trail, after_trail):
         slug
         for slug in changed
         if all(
-            any(crumb.same_turn(old) for old in then.get(slug, ()))
+            any(crumb.same_point(old) for old in then.get(slug, ()))
             for crumb in now.get(slug, ())
         )
     ]
@@ -1867,11 +2078,21 @@ views:
   quirework spec trail --check              the gate
 
 writing:
-  quirework spec trail add SLUG --kind K --find PHRASE [--session ID]
-  quirework spec trail add SLUG --kind K --session ID --turn N
-  quirework spec trail add SLUG --kind K --harness H --session ID --at TIME
+  quirework spec trail add SLUG... --kind K --find PHRASE [--session ID]
+  quirework spec trail add SLUG... --kind K --session ID --turn N
+  quirework spec trail add SLUG... --kind K --harness H --session ID --at TIME
       options: --note TEXT (your reading of the turn), --excerpt TEXT
-      (words the turn holds, when they would be buried in it)
+      (words the turn holds, when they would be buried in it, and the
+      answer a breadcrumb points at when one turn holds several); several
+      SLUGs take the same breadcrumb, all or none
+
+correcting:
+  quirework spec trail edit SLUG --session ID [--turn N | --at TIME]
+      [--excerpt TEXT] --set-kind K | --set-note TEXT | --set-excerpt TEXT
+  quirework spec trail drop SLUG --session ID [--turn N | --at TIME]
+      [--excerpt TEXT]
+      for a breadcrumb that was wrong; a position the author moved off
+      keeps its breadcrumb and gains a reverse
 
 backfill:
   quirework spec trail suggest SLUG         leads from the commits that
@@ -1889,19 +2110,23 @@ kinds, what the turn did to the section:
 def _add_main(argv):
     ap = argparse.ArgumentParser(
         prog="quirework spec trail add",
-        description="Put a breadcrumb to one of the author's turns on a "
-        "spec section's trail.",
+        description="Put a breadcrumb to one of the author's turns on one or "
+        "more spec sections' trails.",
     )
     ap.add_argument(
-        "slug",
-        help="the spec section: a shared anchor, or UNIT/ANCHOR for a unit's own",
+        "slugs",
+        nargs="+",
+        metavar="SLUG",
+        help="a spec section: a shared anchor, or UNIT/ANCHOR for a unit's own; "
+        "several take the same breadcrumb, all or none",
     )
     ap.add_argument("--kind", required=True, choices=tuple(KINDS))
     ap.add_argument(
         "--find",
         metavar="PHRASE",
-        help="words the author typed in the turn; found in the corpus, then in "
-        "this project's live Claude Code and Codex transcripts",
+        help="words the author typed in the turn; found in the corpus, pending "
+        "captures included, then in this project's live Claude Code and Codex "
+        "transcripts",
     )
     ap.add_argument("--session", metavar="ID", help="a session id or its prefix")
     ap.add_argument("--turn", type=int, metavar="N", help="the author's turn number")
@@ -1913,12 +2138,15 @@ def _add_main(argv):
     )
     ap.add_argument("--note", default="", help="the agent's reading of the turn")
     ap.add_argument(
-        "--excerpt", default="", help="words the turn holds, to highlight them"
+        "--excerpt",
+        default="",
+        help="words the turn holds, to highlight them, or to say which of a "
+        "turn's several answers this breadcrumb points at",
     )
     args = ap.parse_args(argv)
     try:
-        crumb, target = add(
-            args.slug,
+        crumb, target = add_to(
+            args.slugs,
             args.kind,
             find=args.find,
             session=args.session,
@@ -1931,19 +2159,31 @@ def _add_main(argv):
     except (LookupError, ValueError) as exc:
         print(f"trail add: {exc}", file=sys.stderr)
         return 2
-    print(f"added to #{args.slug}: {crumb.header()[2:]}")
+    where = ", ".join(f"#{slug}" for slug in dict.fromkeys(args.slugs))
+    print(f"added to {where}: {crumb.header()[2:]}")
     if target is None:
         print("  not verified: Quirework cannot read this session")
     elif target.live:
-        held = (
-            "was captured before this turn"
-            if target.session in Corpus().captured()
-            else "is not in the corpus yet"
-        )
-        print(
-            f"  Human {target.number}, read from the live transcript: the "
-            f"session {held}, so capture it before relying on this breadcrumb"
-        )
+        captured = target.session in Corpus().captured()
+        if captured:
+            print(
+                f"  Human {target.number}, read from the live transcript: the "
+                f"session was captured before this turn, so capture it again "
+                f"before relying on this breadcrumb"
+            )
+        else:
+            from quirework.provenance import store
+
+            elsewhere = store.accepted_on_branches({target.session})
+            print(
+                f"  Human {target.number}, read from the live transcript: the "
+                f"session is not in this branch's corpus; "
+                + (
+                    _uncaptured_why(target.session, {}, elsewhere)
+                    if elsewhere
+                    else "capture it before relying on this breadcrumb"
+                )
+            )
     else:
         print(
             f"  Human {target.number}: quirework provenance show {crumb.short} "
@@ -1952,10 +2192,86 @@ def _add_main(argv):
     return 0
 
 
+def _selector_args(ap):
+    ap.add_argument("slug", help="the spec section whose trail holds the breadcrumb")
+    ap.add_argument(
+        "--session", required=True, metavar="ID", help="its session id or a prefix"
+    )
+    ap.add_argument("--turn", type=int, metavar="N", help="the author's turn number")
+    ap.add_argument("--at", metavar="TIME", help="the logged time it stores")
+    ap.add_argument(
+        "--excerpt",
+        metavar="TEXT",
+        help="words of its excerpt, to choose among breadcrumbs on one turn",
+    )
+
+
+def _selector(args):
+    return {
+        "session": args.session,
+        "turn": args.turn,
+        "at": args.at,
+        "excerpt": args.excerpt,
+    }
+
+
+def _drop_main(argv):
+    ap = argparse.ArgumentParser(
+        prog="quirework spec trail drop",
+        description="Take a wrong breadcrumb off a section's trail: one that "
+        "names the wrong section, misreads its turn, or was written twice. A "
+        "position the author moved off keeps its breadcrumb and gains a reverse.",
+    )
+    _selector_args(ap)
+    args = ap.parse_args(argv)
+    try:
+        crumb = drop(args.slug, **_selector(args))
+    except (LookupError, ValueError) as exc:
+        print(f"trail drop: {exc}", file=sys.stderr)
+        return 2
+    print(f"dropped from #{args.slug}: {crumb.header()[2:]}")
+    return 0
+
+
+def _edit_main(argv):
+    ap = argparse.ArgumentParser(
+        prog="quirework spec trail edit",
+        description="Correct one breadcrumb's kind, note or excerpt. The "
+        "pointer stays; a breadcrumb at the wrong turn is dropped and added "
+        "again.",
+    )
+    _selector_args(ap)
+    ap.add_argument("--set-kind", choices=tuple(KINDS), help="its new kind")
+    ap.add_argument("--set-note", metavar="TEXT", help="its new note")
+    ap.add_argument(
+        "--set-excerpt",
+        metavar="TEXT",
+        help="its new excerpt, words the turn holds; an empty one removes it",
+    )
+    args = ap.parse_args(argv)
+    try:
+        crumb = edit(
+            args.slug,
+            kind=args.set_kind,
+            note=args.set_note,
+            set_excerpt=args.set_excerpt,
+            **_selector(args),
+        )
+    except (LookupError, ValueError) as exc:
+        print(f"trail edit: {exc}", file=sys.stderr)
+        return 2
+    print(f"edited on #{args.slug}: {crumb.header()[2:]}")
+    return 0
+
+
 def main(argv=None):
     argv = list(sys.argv[1:] if argv is None else argv)
     if argv and argv[0] == "add":
         return _add_main(argv[1:])
+    if argv and argv[0] == "drop":
+        return _drop_main(argv[1:])
+    if argv and argv[0] == "edit":
+        return _edit_main(argv[1:])
     if argv and argv[0] == "backfill":
         from quirework.manuscript import backfill
 

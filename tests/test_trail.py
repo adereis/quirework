@@ -77,7 +77,14 @@ def _keep(project, sid, turns):
     return keep_session(project, f"cc-sessions/{sid}.jsonl", _lines(turns))
 
 
-def _book(tmp_path, *, provenance=True, trail_file="private/spec-trail.md", **extra):
+def _book(
+    tmp_path,
+    *,
+    provenance=True,
+    trail_file="private/spec-trail.md",
+    store="private/store",
+    **extra,
+):
     root = tmp_path / "book"
     sections = root / "manuscript" / "sections"
     (sections / "_marks").mkdir(parents=True)
@@ -99,7 +106,7 @@ def _book(tmp_path, *, provenance=True, trail_file="private/spec-trail.md", **ex
         book["spec_trail"] = trail_file
     settings = {"manuscript": book, **extra}
     if provenance:
-        settings["provenance"] = corpus_settings()
+        settings["provenance"] = corpus_settings(store=store)
     # Live transcripts are looked for under a harness home; point it at an
     # empty directory of the test's own, never the contributor's.
     settings.setdefault("providers", {})["claude"] = {
@@ -976,3 +983,258 @@ def test_a_project_directory_can_be_named_for_the_staged_comparison(tmp_path):
         "cooling-asymmetry",
         "steam-not-smoke",
     ], "with no commit yet, every staged section is new"
+
+
+# --------------------------------------------------------------------------- #
+# one turn, several answers; several sections, one turn
+# --------------------------------------------------------------------------- #
+def test_two_answers_in_one_turn_each_take_a_breadcrumb_told_apart_by_excerpt(book):
+    trail.add(
+        "cooling-asymmetry", "correct", session=SESSION, turn=3, excerpt="not slower"
+    )
+    trail.add(
+        "cooling-asymmetry",
+        "sharpen",
+        session=SESSION,
+        turn=3,
+        excerpt="A route, not a speed",
+    )
+    assert trail.counts() == {"cooling-asymmetry": 2}
+    assert trail.structure_problems() == []
+
+
+def test_an_excerpt_inside_another_points_at_the_same_answer(book):
+    trail.add(
+        "cooling-asymmetry", "sharpen", session=SESSION, turn=3, excerpt="a route"
+    )
+    with pytest.raises(LookupError, match="already on.*neither excerpt"):
+        trail.add(
+            "cooling-asymmetry",
+            "correct",
+            session=SESSION,
+            turn=3,
+            excerpt="A route, not a speed",
+        )
+
+
+def test_a_breadcrumb_without_an_excerpt_meets_every_other_on_its_turn(book):
+    trail.add(
+        "cooling-asymmetry", "correct", session=SESSION, turn=3, excerpt="not slower"
+    )
+    with pytest.raises(LookupError, match="already on"):
+        trail.add("cooling-asymmetry", "sharpen", session=SESSION, turn=3)
+
+
+def test_one_turn_goes_on_several_sections_in_one_write(book):
+    crumb, turn = trail.add_to(
+        ["kettle-signal", "cooling-asymmetry"], "seed", session=SESSION, turn=1
+    )
+    assert turn.number == 1
+    assert trail.counts() == {"kettle-signal": 1, "cooling-asymmetry": 1}
+
+
+def test_several_sections_take_the_breadcrumb_all_or_none(book):
+    trail.add("cooling-asymmetry", "seed", session=SESSION, turn=1)
+    before = _text(book)
+    with pytest.raises(LookupError, match="already on #cooling-asymmetry"):
+        trail.add_to(
+            ["kettle-signal", "cooling-asymmetry"], "seed", session=SESSION, turn=1
+        )
+    with pytest.raises(LookupError, match="no section '#kettle-signals'"):
+        trail.add_to(["cooling-asymmetry", "kettle-signals"], "seed", find="route, not")
+    assert _text(book) == before, "nothing half-written"
+
+
+def test_the_command_line_takes_several_sections(book, capsys):
+    code = trail.main(
+        [
+            "add",
+            "kettle-signal",
+            "cooling-asymmetry",
+            "--kind",
+            "seed",
+            "--session",
+            SESSION,
+            "--turn",
+            "1",
+        ]
+    )
+    assert code == 0
+    assert "added to #kettle-signal, #cooling-asymmetry" in capsys.readouterr().out
+
+
+# --------------------------------------------------------------------------- #
+# correcting a breadcrumb
+# --------------------------------------------------------------------------- #
+def test_a_wrong_breadcrumb_is_dropped_by_its_turn(book):
+    trail.add("kettle-signal", "seed", session=SESSION, turn=1)
+    trail.add("kettle-signal", "probe", session=SESSION, turn=2)
+    dropped = trail.drop("kettle-signal", session=SESSION[:8], turn=2)
+    assert dropped.kind == "probe"
+    assert trail.counts() == {"kettle-signal": 1}
+    assert trail.check() == 0
+
+
+def test_dropping_one_of_a_turns_answers_needs_its_excerpt(book):
+    for excerpt in ("not slower", "A route, not a speed"):
+        trail.add(
+            "cooling-asymmetry", "sharpen", session=SESSION, turn=3, excerpt=excerpt
+        )
+    with pytest.raises(LookupError, match="2 breadcrumbs.*--excerpt"):
+        trail.drop("cooling-asymmetry", session=SESSION, turn=3)
+    trail.drop("cooling-asymmetry", session=SESSION, turn=3, excerpt="slower")
+    (left,) = trail.load().section("cooling-asymmetry").crumbs
+    assert left.excerpt == "A route, not a speed"
+
+
+def test_a_breadcrumb_is_dropped_by_its_logged_time_too(book):
+    crumb, _ = trail.add("kettle-signal", "seed", session=SESSION, turn=1)
+    trail.drop("kettle-signal", session=SESSION, at=crumb.stamp)
+    assert trail.counts() == {}
+
+
+def test_nothing_matching_is_said_and_nothing_written(book):
+    trail.add("kettle-signal", "seed", session=SESSION, turn=1)
+    before = _text(book)
+    with pytest.raises(LookupError, match="no breadcrumb"):
+        trail.drop("kettle-signal", session=OTHER)
+    assert _text(book) == before
+
+
+def test_an_edit_changes_the_kind_and_note_and_keeps_the_pointer(book):
+    crumb, _ = trail.add("kettle-signal", "seed", session=SESSION, turn=1, note="Old.")
+    edited = trail.edit(
+        "kettle-signal", session=SESSION, turn=1, kind="sharpen", note="New reading."
+    )
+    assert (edited.kind, edited.note, edited.stamp) == (
+        "sharpen",
+        "New reading.",
+        crumb.stamp,
+    )
+    assert "New reading." in _text(book) and "Old." not in _text(book)
+    assert trail.check() == 0
+
+
+def test_an_edited_excerpt_must_be_in_the_turn_and_stay_apart(book):
+    trail.add(
+        "cooling-asymmetry", "correct", session=SESSION, turn=3, excerpt="not slower"
+    )
+    trail.add(
+        "cooling-asymmetry", "sharpen", session=SESSION, turn=3, excerpt="not a speed"
+    )
+    with pytest.raises(LookupError, match="not in claude-code"):
+        trail.edit(
+            "cooling-asymmetry",
+            session=SESSION,
+            turn=3,
+            excerpt="slower",
+            set_excerpt="boiling backwards",
+        )
+    with pytest.raises(LookupError, match="would meet another"):
+        trail.edit(
+            "cooling-asymmetry",
+            session=SESSION,
+            turn=3,
+            excerpt="slower",
+            set_excerpt="",
+        )
+    trail.edit(
+        "cooling-asymmetry",
+        session=SESSION,
+        turn=3,
+        excerpt="slower",
+        set_excerpt="No, not slower",
+    )
+    assert trail.check() == 0
+
+
+def test_an_edit_with_nothing_to_change_is_refused(book):
+    trail.add("kettle-signal", "seed", session=SESSION, turn=1)
+    with pytest.raises(ValueError, match="nothing to change"):
+        trail.edit("kettle-signal", session=SESSION, turn=1)
+
+
+def test_drop_and_edit_run_from_the_command_line(book, capsys):
+    trail.add("kettle-signal", "seed", session=SESSION, turn=1)
+    assert (
+        trail.main(
+            [
+                "edit",
+                "kettle-signal",
+                "--session",
+                SESSION,
+                "--turn",
+                "1",
+                "--set-kind",
+                "probe",
+            ]
+        )
+        == 0
+    )
+    assert (
+        trail.main(["drop", "kettle-signal", "--session", SESSION, "--turn", "1"]) == 0
+    )
+    out = capsys.readouterr().out
+    assert "edited on #kettle-signal" in out and "dropped from #kettle-signal" in out
+    assert trail.counts() == {}
+
+
+# --------------------------------------------------------------------------- #
+# a session another branch's ledger accepts
+# --------------------------------------------------------------------------- #
+EVENING = [
+    ("human", "The lid rattles before the whistle.", "2031-04-03T19:00:00Z"),
+    ("assistant", "A second signal, then.", "2031-04-03T19:01:00Z"),
+]
+
+
+def test_a_session_another_branch_accepts_is_named_with_its_commit(
+    tmp_path, monkeypatch, capsys
+):
+    """Every checkout shares one store, and each branch keeps its own ledger.
+
+    A session accepted on main has its bytes in the store while a branch made
+    before that acceptance does not list it, so from the branch the session
+    looks uncaptured. The gate names the branch and the commit instead of
+    sending the reader to wait for an ingest that already happened.
+    """
+    from quirework.provenance import store
+
+    monkeypatch.setenv("CODEX_HOME", str(tmp_path / "codex-home"))
+    project = _book(tmp_path, store=str(tmp_path / "shared-store"))
+    root = project.root
+    _git(root, "init", "-q", "-b", "main")
+    _git(root, "add", "manuscript", "private")
+    _git(root, "commit", "-q", "-m", "Draft the notebook")
+    _git(root, "branch", "side")
+    _keep(project, OTHER, EVENING)
+    _git(root, "add", "private")
+    _git(root, "commit", "-q", "-m", "Accept the evening session")
+    accepted = subprocess.run(
+        ["git", "-C", str(root), "rev-parse", "--short", "HEAD"],
+        capture_output=True,
+        text=True,
+        check=True,
+    ).stdout.strip()
+    _git(root, "checkout", "-q", "side")
+
+    with project_scope(project):
+        assert store.accepted_on_branches({OTHER}) == {OTHER: [("main", accepted)]}
+        trail.add(
+            "kettle-signal",
+            "seed",
+            harness="claude-code",
+            session=OTHER,
+            at="2031-04-03T19:00:00Z",
+        )
+        capsys.readouterr()
+        assert trail.check() == 0
+    err = capsys.readouterr().err
+    assert f"the ledger on main ({accepted}) accepts it" in err
+    assert "bring that ledger change onto this branch" in err
+
+
+def test_no_other_branch_is_looked_for_outside_a_repository(book):
+    from quirework.provenance import store
+
+    assert store.accepted_on_branches({SESSION}) == {}
