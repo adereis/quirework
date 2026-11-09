@@ -153,6 +153,60 @@ def _session_date(source, path, file, utc, stamps=(), undated="?"):
     return SHOW.shown_date(start, utc) if start else undated
 
 
+def unsearched():
+    """``(pending, live)``: the sessions a corpus search does not read.
+
+    Search reads the accepted corpus, which is what an author has reviewed. A
+    capture waiting for review, and a conversation whose transcript holds
+    turns no capture has, are outside it, and a miss says nothing about them.
+    Each is ``[(family, session id)]``; a session both pending and grown since
+    that capture is listed once, as pending.
+    """
+    from quirework.provenance import live
+
+    pending = sorted(
+        (store.KIND_OF[family], unit)
+        for family, unit in store.open_store().pending_units()
+    )
+    captured = {
+        SHOW.session_id(kind, path): (kind, path)
+        for kind, path in SHOW.sessions(pending=True)
+    }
+    held = {unit for _, unit in pending}
+    ahead = sorted(
+        (family, sid)
+        for sid, (family, _) in live.ahead(captured).items()
+        if sid not in held
+    )
+    return pending, ahead
+
+
+_LISTED = 6
+
+
+def unsearched_lines(pending, ahead):
+    """What to print after a search's results about what it left out."""
+    if not (pending or ahead):
+        return []
+    parts = []
+    if pending:
+        parts.append(f"{len(pending)} pending capture(s)")
+    if ahead:
+        parts.append(f"{len(ahead)} live transcript(s) holding turns no capture has")
+    named = [f"{family} {sid[:8]}" for family, sid in [*pending, *ahead]]
+    more = f", and {len(named) - _LISTED} more" if len(named) > _LISTED else ""
+    reach = "`quirework provenance show ID` reads a pending capture"
+    if current_project().get("manuscript.spec_trail") is not None:
+        reach += (
+            ", and `quirework spec trail add --find PHRASE` reaches pending and "
+            "live turns alike"
+        )
+    return [
+        f"not searched: {' and '.join(parts)} ({', '.join(named[:_LISTED])}{more}).",
+        f"  A miss is no proof a turn does not exist there: {reach}.",
+    ]
+
+
 def search(keywords, substr=False, regex=False, turns=None, highlights=None, utc=False):
     """Return (hits, n_searched). ``turns``/``highlights`` injectable for tests."""
     pats = _compile(keywords, substr, regex)
@@ -366,12 +420,17 @@ def _run_keyword(kws, o):
         return 2
     mode = "regex" if o["regex"] else ("substring" if o["substr"] else "whole-word")
     print(f"human turns matching {', '.join(kws)}  ({mode}, case-insensitive)\n")
+    left_out = unsearched_lines(*unsearched())
     if not hits:
         print(f"no matches in {n_searched} sessions searched.")
+        if left_out:
+            print("\n" + "\n".join(left_out))
         return 0
     _print_hits(hits, semantic=False, show=o["show"])
     tail = "" if o["show"] else "  (--show for snippets)"
     print(f"\n{len(hits)} session(s) matched of {n_searched} searched.{tail}")
+    if left_out:
+        print("\n".join(left_out))
     print("read one: quirework provenance show <id>")
     return 0
 
@@ -410,8 +469,11 @@ def _run_semantic(q, o):
         print(f"search: {e}", file=sys.stderr)
         return 2
     print(f"human turns closest in meaning to: {q}\n")
+    left_out = unsearched_lines(*unsearched())
     if not hits:
         print("no sessions indexed.")
+        if left_out:
+            print("\n" + "\n".join(left_out))
         return 0
     _print_hits(hits, semantic=True, show=o["show"])
     spread = hits[0]["score"] - hits[-1]["score"]
@@ -427,6 +489,8 @@ def _run_semantic(q, o):
             "thing (a scene, an example, a\n  term you'd have used at the "
             "time) discriminates better; so does keyword mode."
         )
+    if left_out:
+        print("\n".join(left_out))
     print("read one: quirework provenance show <id>")
     return 0
 

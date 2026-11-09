@@ -134,12 +134,21 @@ def isolated_project(tmp_path):
 
 
 @pytest.fixture
-def corpus_project(tmp_path):
-    """The current project, given an empty provenance store of its own."""
+def corpus_project(tmp_path, monkeypatch):
+    """The current project, given an empty provenance store of its own.
+
+    Live transcripts are looked for under harness homes of the test's own,
+    empty, never the contributor's.
+    """
     from quirework.provenance import store
 
+    monkeypatch.setenv("CODEX_HOME", str(tmp_path / "codex-home"))
     project = Project.from_settings(
-        tmp_path / "project", {"provenance": corpus_settings()}
+        tmp_path / "project",
+        {
+            "provenance": corpus_settings(),
+            "providers": {"claude": {"sessions": str(tmp_path / "claude-home")}},
+        },
     )
     with project_scope(project):
         store.init()

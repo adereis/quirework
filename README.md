@@ -147,7 +147,9 @@ names, through rclone, a mounted directory, git or a script of your own.
 It never deletes a session at a destination before the copy that
 replaced it has arrived. `provenance search` then reads the human's own
 turns, by keyword or by meaning; the semantic index is built and stored
-locally, so corpus text never leaves the machine.
+locally, so corpus text never leaves the machine. It reads the accepted
+corpus, and says which pending captures and live conversations it left
+out, so a miss is never taken for proof that a turn does not exist.
 
 `spec trail` connects that record to the spec without putting any of it
 in the spec. A trail sidecar, kept beside the private corpus, points

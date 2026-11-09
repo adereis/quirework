@@ -84,3 +84,73 @@ def test_a_review_with_no_times_keeps_the_date_it_states(tmp_path):
         "gemini", review, review.name, False, undated="2031-04-02"
     )
     assert dated == "2031-04-02"
+
+
+# --------------------------------------------------------------------------- #
+# what a search leaves out
+# --------------------------------------------------------------------------- #
+WAITING = "0badc0de-0000-4000-8000-0000000000a1"
+ONGOING = "0badc0de-0000-4000-8000-0000000000a2"
+
+
+def _jsonl(records):
+    return "\n".join(json.dumps(r) for r in records) + "\n"
+
+
+def test_a_search_says_which_pending_captures_it_did_not_read(capsys):
+    _cc_session(LATE_EVENING)
+    keep_session(
+        current_project(),
+        f"cc-sessions/{WAITING}.jsonl",
+        _jsonl(LATE_EVENING),
+        pending=True,
+    )
+    assert search.main(["whistle"]) == 0
+    out = capsys.readouterr().out
+    assert "no matches in 1 sessions searched." in out
+    assert "not searched: 1 pending capture(s) (cc 0badc0de)" in out
+    assert "A miss is no proof a turn does not exist there" in out
+    assert "spec trail" not in out, "this project keeps no trail"
+
+
+def test_a_search_names_a_live_transcript_no_capture_holds(capsys):
+    """A conversation still going on has turns only its transcript holds."""
+    from quirework.provenance.ingestion import claude
+
+    project = current_project()
+    directory = claude.encoded_project_dir(project.root)
+    directory.mkdir(parents=True)
+    records = [{**r, "cwd": str(project.root)} for r in LATE_EVENING]
+    (directory / f"{ONGOING}.jsonl").write_text(_jsonl(records))
+    _cc_session(LATE_EVENING)
+    assert search.unsearched() == ([], [("cc", ONGOING)])
+    assert search.main(["kettle"]) == 0
+    out = capsys.readouterr().out
+    assert "1 session(s) matched of 1 searched." in out
+    assert "not searched: 1 live transcript(s) holding turns no capture has" in out
+
+
+def test_a_corpus_with_nothing_waiting_adds_no_notice(capsys):
+    _cc_session(LATE_EVENING)
+    assert search.unsearched() == ([], [])
+    assert search.main(["kettle"]) == 0
+    assert "not searched" not in capsys.readouterr().out
+
+
+def test_the_notice_points_at_the_trail_where_the_project_keeps_one():
+    lines = search.unsearched_lines([("cc", WAITING)], [])
+    assert "spec trail add" not in " ".join(lines)
+    from conftest import corpus_settings
+    from quirework.project import Project, project_scope
+
+    with project_scope(
+        Project.from_settings(
+            current_project().root,
+            {
+                "provenance": corpus_settings(),
+                "manuscript": {"spec_trail": "private/trail.md"},
+            },
+        )
+    ):
+        lines = search.unsearched_lines([("cc", WAITING)], [])
+    assert "`quirework spec trail add --find PHRASE` reaches" in " ".join(lines)

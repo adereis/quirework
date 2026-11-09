@@ -603,27 +603,6 @@ def _probe(phrase):
     return max(words, key=len).casefold() if words else None
 
 
-def _grown(family, path, captured_family, capture):
-    """Whether a live transcript holds dialogue its newest capture lacks.
-
-    Read off the fingerprint each capture records of its source, so a settled
-    session costs a stat and a short read. A capture that records none is
-    treated as behind, which only means its transcript is read instead: a
-    transcript holds everything a capture made from it does.
-    """
-    if family != captured_family:
-        return False
-    path, capture = Path(path), Path(capture)
-    if family == "cc":
-        from quirework.provenance.ingestion import claude
-
-        return not claude.dialogue_unchanged(path, capture)
-    from quirework.provenance.ingestion import codex
-
-    recorded = codex.captured_source_fingerprint(capture)
-    return recorded is None or codex.source_fingerprint(path) != recorded
-
-
 class Corpus:
     """The sessions one command reads: the captured corpus, then live logs.
 
@@ -675,25 +654,9 @@ class Corpus:
         captures, so its sessions are found once captured.
         """
         if self._live is None:
-            from quirework.provenance import worktrees
-            from quirework.provenance.ingestion import claude, codex
+            from quirework.provenance import live
 
-            roots = worktrees.project_trees(current_project().root)
-            found = {}
-            for directory in claude.sibling_session_dirs():
-                for path in sorted(directory.glob("*.jsonl")):
-                    if claude.belongs(path, roots):
-                        found.setdefault(path.stem, ("cc", path))
-            for path in codex.sweep()[0]:
-                sid = codex.session_id(path)
-                if sid:
-                    found.setdefault(sid, ("codex", path))
-            captured = self.captured()
-            self._live = {
-                k: v
-                for k, v in found.items()
-                if k not in captured or _grown(*v, *captured[k])
-            }
+            self._live = live.ahead(self.captured())
         return self._live
 
     def grown(self, sid):
