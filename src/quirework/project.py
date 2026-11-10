@@ -136,7 +136,9 @@ RETIRED = {
 
 # Settings a release renamed, each with its new name and any setting the old
 # name implied. Refused under the old name, with the new one: a project still
-# using it would otherwise have its register read as absent.
+# using it would otherwise have its register read as absent. A tool reading a
+# revision committed before the rename translates it instead
+# (`translate_renamed`), so older history stays readable.
 RENAMED = {
     "manuscript.sources": (
         "manuscript.related_work",
@@ -156,6 +158,38 @@ def _setting(values, key):
     for part in key.split("."):
         node = node.get(part) if isinstance(node, dict) else None
     return node
+
+
+def translate_renamed(values):
+    """``values``, a parsed configuration, with each renamed setting under its
+    new name and the settings its old name implied. For a tool reading a
+    revision committed before a rename, where today's names would refuse it.
+    An old and a new name that cannot both hold, such as two old registers
+    renamed into one, raise ``ValueError``."""
+    out = copy.deepcopy(values)
+    claimed: dict[str, str] = {}
+    for key, (new, implied) in RENAMED.items():
+        old = _setting(out, key)
+        if old is None:
+            continue
+        for target, value in ((new, old), *implied.items()):
+            held = _setting(out, target)
+            if target in claimed or (held is not None and held != value):
+                raise ValueError(
+                    f"{key} is renamed {target}, which the configuration already sets"
+                )
+            claimed[target] = key
+            *parents, leaf = target.split(".")
+            node = out
+            for part in parents:
+                node = node.setdefault(part, {})
+            node[leaf] = value
+        *parents, leaf = key.split(".")
+        node = out
+        for part in parents:
+            node = node[part]
+        del node[leaf]
+    return out
 
 
 def _check_retired(values, origins):

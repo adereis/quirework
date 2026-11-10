@@ -456,6 +456,17 @@ whose change touched only its `#slug` pointers, as renaming another
 section does, is listed apart from one whose words changed, and a rewrap
 or a mark is no change at all.
 
+Each end of the range is read through the configuration it was committed
+with, so a spec file that moved, or split into one file per section, is
+found where that revision kept it, and a section carried unchanged
+across the move is no change. A revision whose configuration cannot be
+read, because it predates the project's `quirework.toml` or uses an
+older schema, is placed through the project's map of moved paths
+instead, and the listing says so. A spec file that neither places stops
+the comparison with the file's name, rather than reporting every section
+of that revision as new. A setting a release has since renamed is read
+under its new name.
+
 `--harness H --session ID --at TIME` writes a pointer by hand, for a
 conversation Quirework may not be able to read. A breadcrumb leads only
 to a whole session id, so the id is taken whole: given a prefix, such as

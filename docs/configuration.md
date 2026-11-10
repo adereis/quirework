@@ -247,7 +247,9 @@ binds.
 One trail serves the whole register, because breadcrumbs are kept by a
 section's full name. `spec trail why-the-lamp-turns/thesis` reads one,
 and `spec trail suggest` follows the history of whichever file holds the
-section.
+section. Where the section came into that file by a move, the history
+goes on in the file the commit before kept it in, found through that
+commit's configuration, and the commit that only moved it is no lead.
 
 ###### Related work
 
@@ -1290,13 +1292,28 @@ Policy files are commented TOML data referenced by configuration.
 Existing JSON policy files remain readable. They keep project vocabulary
 and visual choices out of Quirework's implementation:
 
-- `manuscript.chapter_policy`: `metadata_layers`. The metadata layers
-  default to the sidecar directories under `manuscript.source`, so a
-  project declares this only to scan something else. An extension that
-  runs a guard of its own over the same files asks
-  `manuscript.units.layer_files()` for them and blanks fenced examples
-  with `manuscript.notes.mask_fences()`, so it reads exactly what
-  `spec units --check` reads.
+- `manuscript.chapter_policy`: `metadata_layers` and `moved_paths`. The
+  metadata layers default to the sidecar directories under
+  `manuscript.source`, so a project declares this only to scan something
+  else. An extension that runs a guard of its own over the same files
+  asks `manuscript.units.layer_files()` for them and blanks fenced
+  examples with `manuscript.notes.mask_fences()`, so it reads exactly
+  what `spec units --check` reads. `moved_paths` maps each path the
+  project once used to the path it moved to, both relative to the
+  project root, and a path ending in `/` names a directory and
+  everything below it. A file split into a directory maps to the
+  directory. `spec diff` and `spec trail suggest` read it only for a
+  revision whose own configuration cannot be read, so a project that has
+  always had one needs no entry:
+
+  ```toml
+  [moved_paths]
+  "notes/claims.md" = "spec/"
+  "drafts/" = "manuscript/"
+  ```
+
+  Never add a path that was never moved: the map is the only record that
+  places a file at an older revision without its configuration.
 - `publish.layout_policy`: `typst_prologues` and `typst_epilogues`.
 - `publish.render_policy`: `print_drops`, `noparts_drops`,
   `folio_sides`, `epub_style_headers` requiring CSS-comment cleanup in

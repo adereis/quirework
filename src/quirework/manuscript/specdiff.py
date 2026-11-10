@@ -17,8 +17,12 @@ section does, is reported apart from a change to what the section says,
 because the two call for different follow-up: the second is a change to a
 commitment, the first is bookkeeping.
 
-The spec files are the ones the project configures now. A unit's own spec that
-the current tree no longer holds is not read at either end.
+Each end is read through the configuration it was committed with, so a spec
+file that moved, or split into several, is found where that revision kept it,
+and its sections compare as the same sections (`manuscript.history`). Where a
+revision's configuration cannot be read, the project's map of moved paths
+places its spec files, and the comparison says so; where neither does, it
+stops and names the file rather than report every section as new.
 """
 
 from __future__ import annotations
@@ -28,10 +32,8 @@ import re
 import subprocess
 import sys
 from dataclasses import dataclass
-from pathlib import Path
 
-from quirework.manuscript import notes
-from quirework.project import current_project
+from quirework.manuscript import history, notes
 
 # Pointers to sections, as the spec writes them in its prose.
 _POINTER = re.compile(r"#[a-z0-9][a-z0-9/_-]*")
@@ -65,49 +67,24 @@ def _git(top, *args):
     ).stdout
 
 
-def _top():
-    root = current_project().root
+def _read(top, ref, said):
+    """``{slug: (title, body)}`` at ``ref``, bodies normalized for comparison.
+
+    A revision read through the map of moved paths, rather than its own
+    configuration, is noted in ``said`` once, so the reader knows how its
+    files were placed."""
     try:
-        return Path(_git(root, "rev-parse", "--show-toplevel").strip())
-    except (OSError, subprocess.CalledProcessError) as exc:
-        raise LookupError("the project is not in a git repository") from exc
-
-
-def _files():
-    """Every spec file the project configures, shared files first."""
-    docs = current_project().path("manuscript.source")
-    shared = notes._configured_book_files(docs, "manuscript.spec")
-    return list(dict.fromkeys([*shared, *notes.spec_files()]))
-
-
-def _commit(top, ref):
-    """``ref`` once git confirms it names a commit, or ``LookupError``.
-
-    Checked first, because a spec file ``git show`` cannot read at a commit is
-    a file that commit does not hold, and an unknown ref must not read as an
-    empty spec.
-    """
-    try:
-        _git(top, "rev-parse", "--verify", "--quiet", f"{ref}^{{commit}}")
-    except subprocess.CalledProcessError:
-        raise LookupError(f"'{ref}' names no commit in this repository") from None
-    return ref
-
-
-def _sections(top, ref, files):
-    """``{slug: (title, body)}`` for every spec section at ``ref``, a commit."""
-    out = {}
-    for path in files:
-        name = Path(path).resolve().relative_to(top).as_posix()
-        try:
-            text = _git(top, "show", f"{ref}:{name}")
-        except subprocess.CalledProcessError:
-            continue
-        for section in notes._sections_of(Path(path), text):
-            if section.slug:
-                body = notes._COMMENT.sub(" ", section.body)
-                out[section.slug] = (section.title, " ".join(body.split()))
-    return out
+        spec = history.spec_at(ref, top)
+    except LookupError:
+        if ref.endswith("^"):
+            return {}  # a root commit has no parent: nothing came before it
+        raise
+    if spec.how != "configuration" and ref not in said:
+        said[ref] = f"note: {ref} was read through the moved paths, because {spec.why}"
+    return {
+        slug: (title, " ".join(notes._COMMENT.sub(" ", body).split()))
+        for slug, (title, body) in history.sections_at(ref, top, spec).items()
+    }
 
 
 def compare(before, after):
@@ -135,24 +112,35 @@ def _range(spec):
     return base, (head or "HEAD") if sep else "HEAD"
 
 
-def diff(spec):
-    """The sections changed between the two ends of ``spec`` (``A..B`` or ``A``)."""
+def diff(spec, said=None):
+    """The sections changed between the two ends of ``spec`` (``A..B`` or ``A``).
+
+    ``said`` collects a note for each end read through the moved paths."""
     base, head = _range(spec)
-    top, files = _top(), _files()
-    base, head = _commit(top, base), _commit(top, head)
-    return compare(_sections(top, base, files), _sections(top, head, files))
+    top, said = history.top(), {} if said is None else said
+    return compare(_read(top, base, said), _read(top, head, said))
 
 
-def by_commit(spec):
+def _paths(top, base, head):
+    """Every path a spec file was kept at in the range: the files at each end
+    and both sides of every moved path, so the log misses no commit that
+    changed a section while it lived somewhere in between."""
+    prefix = history._prefix(top)
+    names = {n for ref in (base, head) for n, _ in history.spec_at(ref, top).files}
+    for old, new in history.moved_paths().items():
+        names |= {history._join(prefix, old), history._join(prefix, new)}
+    return sorted(names)
+
+
+def by_commit(spec, said=None):
     """Each non-merge commit in the range that changed a section, oldest first.
 
-    A commit is read against its first parent. A merge is left out, because
-    what it brings in is already listed under the commits it merged.
+    A commit is read against its first parent, each through its own
+    configuration. A merge is left out, because what it brings in is already
+    listed under the commits it merged.
     """
     base, head = _range(spec)
-    top, files = _top(), _files()
-    base, head = _commit(top, base), _commit(top, head)
-    names = [Path(f).resolve().relative_to(top).as_posix() for f in files]
+    top, said = history.top(), {} if said is None else said
     log = _git(
         top,
         "log",
@@ -161,12 +149,12 @@ def by_commit(spec):
         "--format=%H%x1f%as%x1f%s",
         f"{base}..{head}",
         "--",
-        *names,
+        *_paths(top, base, head),
     )
     out = []
     for line in log.splitlines():
         sha, day, subject = line.split("\x1f", 2)
-        changes = compare(_sections(top, f"{sha}^", files), _sections(top, sha, files))
+        changes = compare(_read(top, f"{sha}^", said), _read(top, sha, said))
         if changes:
             out.append(Commit(sha, day, subject, changes))
     return out
@@ -192,9 +180,10 @@ def main(argv=None):
         help="each commit that changed a section, with the sections it changed",
     )
     args = ap.parse_args(sys.argv[1:] if argv is None else argv)
+    said = {}
     try:
         if args.by_commit:
-            commits = by_commit(args.range)
+            commits = by_commit(args.range, said)
             lines = []
             for commit in commits:
                 lines.append(f"{commit.sha[:8]} {commit.day} {commit.subject}")
@@ -202,7 +191,7 @@ def main(argv=None):
             if not commits:
                 lines = [f"no commit in {args.range} changed a spec section"]
         else:
-            changes = diff(args.range)
+            changes = diff(args.range, said)
             lines = [_row(change) for change in changes] or [
                 f"no spec section changed in {args.range}"
             ]
@@ -212,6 +201,8 @@ def main(argv=None):
     except subprocess.CalledProcessError as exc:
         print(f"spec diff: git refused: {exc.stderr.strip()}", file=sys.stderr)
         return 2
+    for note in said.values():
+        print(note, file=sys.stderr)
     print("\n".join(lines))
     return 0
 

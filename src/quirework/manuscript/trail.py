@@ -63,7 +63,7 @@ from dataclasses import dataclass, field, replace
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
-from quirework.manuscript import notes
+from quirework.manuscript import history, notes
 from quirework.project import (
     ConfigurationError,
     Project,
@@ -1717,51 +1717,19 @@ def _git(root, *args):
 
 def _section_range(text, slug):
     """``(first, last)`` 1-based lines of the section anchored ``slug``."""
-    masked = notes._mask_nonprose(notes.mask_fences(text))
-    heads = [m for m in notes._HEADING.finditer(masked) if len(m.group(1)) == 2]
-    stops = notes.section_stops(masked)
-    for m in heads:
-        anchor = notes._ATTR_ID.search(m.group(3) or "")
-        if anchor and anchor.group(1) == slug:
-            first = text.count("\n", 0, m.start()) + 1
-            stop = next((s for s in stops if s > m.start()), None)
-            last = (
-                text.count("\n", 0, stop)
-                if stop is not None
-                else text.count("\n") + (not text.endswith("\n"))
-            )
-            return first, last
-    return None
+    return history.section_range(text, slug)
 
 
-def _commits(slug, *, patches=False):
-    """The commits that changed the section, oldest first, or a reason there are none.
-
-    Each is ``(sha, when, subject, body, patch)``; ``patch`` is the change to
-    the section's lines when ``patches`` is asked for, and empty otherwise.
-    """
-    spec = notes.spec_file_of(slug)
-    if spec is None:
-        return [], f"'#{slug}' is in no spec file"
-    spec = spec.resolve()
-    try:
-        root = Path(_git(spec.parent, "rev-parse", "--show-toplevel").strip())
-    except (subprocess.CalledProcessError, OSError):
-        return [], "the spec is not in a git repository"
-    relative = spec.relative_to(root).as_posix()
-    try:
-        head = _git(root, "show", f"HEAD:{relative}")
-    except subprocess.CalledProcessError:
-        return [], "the spec has no committed history"
-    lines = _section_range(head, notes.anchor_of(slug))
-    if lines is None:
-        return [], f"'#{slug}' is not in the committed spec yet"
+def _log(root, location, patches):
+    """The commits ``git log -L`` finds for one placement of a section, newest
+    first, each ``(sha, when, subject, body, patch)``."""
     out = _git(
         root,
         "log",
         *(() if patches else ("-s",)),
-        f"-L{lines[0]},{lines[1]}:{relative}",
+        f"-L{location.first},{location.last}:{location.path}",
         "--format=%x1e%H%x1f%aI%x1f%s%x1f%b%x1f",
+        location.rev,
     )
     commits = []
     for record in out.split("\x1e"):
@@ -1771,6 +1739,56 @@ def _commits(slug, *, patches=False):
             commits.append(
                 (sha, datetime.fromisoformat(when), subject, body, _changed(patch))
             )
+    return commits
+
+
+def _commits(slug, *, patches=False):
+    """The commits that changed the section, oldest first, or a reason there are none.
+
+    Each is ``(sha, when, subject, body, patch)``; ``patch`` is the change to
+    the section's lines when ``patches`` is asked for, and empty otherwise.
+
+    Line history ends where the section's lines entered their file. When that
+    is a move, the section stood somewhere else in the commit before, so the
+    history goes on from there, found through that commit's own configuration
+    (`manuscript.history`); it ends where the commit before holds no such
+    section. A history the configuration and the moved paths cannot place
+    further back stops there, with the reason.
+    """
+    if notes.spec_file_of(slug) is None:
+        return [], f"'#{slug}' is in no spec file"
+    try:
+        root = history.top()
+    except LookupError:
+        return [], "the spec is not in a git repository"
+    try:
+        location = history.locate(slug, "HEAD", root)
+    except LookupError:
+        return [], "the spec has no committed history"
+    if location is None:
+        return [], f"'#{slug}' is not in the committed spec yet"
+    commits, seen = [], set()
+    while location is not None:
+        found = [c for c in _log(root, location, patches) if c[0] not in seen]
+        if not found:
+            break
+        commits += found
+        seen |= {c[0] for c in found}
+        before = f"{found[-1][0]}^"
+        try:
+            earlier = history.locate(slug, before, root)
+        except history.Unplaced as exc:
+            return commits[::-1], f"its history stops at {found[-1][0][:8]}: {exc}"
+        except LookupError:
+            break  # the oldest commit has no parent
+        if earlier is None or earlier.path == location.path:
+            break
+        # The commit the lines entered this file with moved the section here.
+        # Moved unchanged, it shaped nothing, so it is no lead.
+        moved = history.locate(slug, found[-1][0], root)
+        if moved and history.body(moved, root) == history.body(earlier, root):
+            commits.pop()
+        location = earlier
     return commits[::-1], None
 
 

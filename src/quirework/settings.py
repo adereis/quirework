@@ -147,7 +147,7 @@ SETTINGS: tuple[str, ...] = (
 )
 
 POLICIES: dict[str, tuple[str, ...]] = {
-    "manuscript.chapter_policy": ("metadata_layers",),
+    "manuscript.chapter_policy": ("metadata_layers", "moved_paths.*"),
     "provenance.coldread_policy": ("cli_model", "doc_dirs", "doc_prefixes", "model"),
     "provenance.metrics_policy": (
         "canonical_dir",
