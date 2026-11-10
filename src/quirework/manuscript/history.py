@@ -252,9 +252,19 @@ def _pairs(today: dict, then: dict, stem=""):
             isinstance(value, (list, tuple))
             and isinstance(other, (list, tuple))
             and len(value) == len(other)
-            and all(isinstance(v, str) for v in (*value, *other))
         ):
-            yield from zip(value, other)
+            # A list of paths, or of tables that each name one under `path`,
+            # such as `manuscript.supplements`: pair them by position.
+            now, was = [_listed(v) for v in value], [_listed(v) for v in other]
+            if all(isinstance(p, str) for p in (*now, *was)):
+                yield from zip(now, was)
+
+
+def _listed(entry):
+    """The path a list entry names: the entry itself, or a table's `path`."""
+    if isinstance(entry, Mapping):
+        return entry.get("path")
+    return entry
 
 
 def file_at(rel: str, rev: str, top_: Path | None = None) -> str:

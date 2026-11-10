@@ -330,3 +330,55 @@ def test_a_file_split_by_its_configuration_names_the_section_directory(tmp_path)
     settings = {"manuscript": {"source": "spec", "spec": "spec/manifest.toml"}}
     with project_scope(Project.from_settings(root, settings)):
         assert history.path_today("spec/claims.md", first) == "spec/"
+
+
+def _relocated_drills(tmp_path, then_setting):
+    """The lamp drills sit in old-drills/ at the first commit, declared by
+    ``then_setting``, and in drills/ today, declared as a tests supplement."""
+    root = tmp_path / "book"
+    (root / "chapters").mkdir(parents=True)
+    (root / "chapters" / "lamp.qmd").write_text(LAMP)
+    (root / "old-drills").mkdir()
+    (root / "old-drills" / "fog.md").write_text("# Fog\n\nSound the horn.\n")
+    (root / "quirework.toml").write_text(
+        'schema = 2\n\n[manuscript]\nsource = "chapters"\n' + then_setting
+    )
+    git(root, "init", "-q")
+    git(root, "add", "-A")
+    git(root, "commit", "-qm", "Write the fog drill")
+    first = git(root, "rev-parse", "HEAD")
+    git(root, "mv", "old-drills", "drills")
+    (root / "quirework.toml").write_text(
+        'schema = 2\n\n[manuscript]\nsource = "chapters"\n'
+        'supplements = [{ path = "drills", role = "tests" }]\n'
+    )
+    git(root, "add", "-A")
+    git(root, "commit", "-qm", "Move the drills")
+    settings = {
+        "manuscript": {
+            "source": "chapters",
+            "supplements": [{"path": "drills", "role": "tests"}],
+        }
+    }
+    return root, first, settings
+
+
+@pytest.mark.parametrize(
+    "then_setting",
+    [
+        'supplements = [{ path = "old-drills", role = "tests" }]\n',
+        # The setting's earlier name and shape, translated on reading.
+        'companion_dirs = ["old-drills"]\n',
+    ],
+    ids=["supplements", "companion_dirs"],
+)
+def test_a_relocated_supplement_is_followed_through_its_configuration(
+    tmp_path, then_setting
+):
+    """A supplement is a table naming its directory under `path`, so a
+    relocation the two configurations record pairs those paths, as a list
+    of directory names always did."""
+    root, first, settings = _relocated_drills(tmp_path, then_setting)
+    with project_scope(Project.from_settings(root, settings)):
+        assert history.file_at("drills/fog.md", first) == "old-drills/fog.md"
+        assert history.path_today("old-drills/fog.md", first) == "drills/fog.md"
