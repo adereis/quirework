@@ -191,3 +191,22 @@ def test_notes_since_checks_a_revision_from_before_a_move(tmp_path, capsys):
     new = err[err.index("new since") : err.index("standing")]
     assert "author's call" in new
     assert "2031-04-02" not in new
+
+
+def test_a_file_nothing_places_is_read_as_new_and_said(tmp_path, capsys):
+    """Without a configuration at the revision and without a map entry, one
+    file is read as one the revision did not have yet, and a note says so,
+    since an unrecorded move would read the same way."""
+    root = tmp_path / "book"
+    (root / "drafts").mkdir(parents=True)
+    (root / "drafts" / "lamp.qmd").write_text(LAMP)
+    git(root, "init", "-q")
+    git(root, "add", "-A")
+    git(root, "commit", "-qm", "Write the lamp")
+    first = git(root, "rev-parse", "HEAD")
+    with project_scope(Project.from_settings(root, _settings("drafts"))):
+        assert history.file_at("drafts/horn.qmd", first) == "drafts/horn.qmd"
+        history.file_at("drafts/horn.qmd", first)
+    err = capsys.readouterr().err
+    assert err.count("note: drafts/horn.qmd is read as a file") == 1
+    assert "holds no quirework.toml" in err

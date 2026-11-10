@@ -1336,7 +1336,11 @@ and visual choices out of Quirework's implementation:
   `spec trail suggest`, `spec notes --check --since`,
   `text tells --since`, the Kindle notes' anchoring and the trail
   backfill) reads it only for a revision whose own configuration cannot
-  be read, so a project that has always had one needs no entry:
+  be read, so a project that has always had one needs no entry. There, a
+  whole register a path cannot be placed for stops with an error naming
+  it, and a single file the map does not place is read as one that
+  revision did not have yet, with a note naming the file, since an
+  unrecorded move would read the same way:
 
   ```toml
   [moved_paths]

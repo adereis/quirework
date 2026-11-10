@@ -30,6 +30,7 @@ from __future__ import annotations
 import copy
 import re
 import subprocess
+import sys
 import tomllib
 from collections.abc import Mapping
 from dataclasses import dataclass
@@ -43,6 +44,9 @@ from quirework.project import (
     current_project,
     translate_renamed,
 )
+
+# Each (file, revision) read as not yet made, so its note is printed once.
+_GUESSED: set[tuple[str, str]] = set()
 
 
 class Unplaced(LookupError):
@@ -263,18 +267,29 @@ def file_at(rel: str, rev: str, top_: Path | None = None) -> str:
     the map of moved paths is asked, and the configured answer stands if it
     cannot say, since a file created after ``rev`` was simply not there.
     Where ``rev``'s configuration cannot be read, the map alone answers, and
-    a file it cannot place keeps today's path. That is the one place a
-    lookup reads today's path, and it is safe only for one file: a whole
+    a file it cannot place is read as one ``rev`` did not have yet, with a
+    note on stderr naming it, since a move the map does not record would
+    read the same way. That guess is made only for one file: a whole
     register read that way is what `spec_at` and `settings_for` refuse."""
     top_ = top_ or top()
     sha, prefix = _resolve(top_, rev), _prefix(top_)
-    values, _ = _settings(top_, sha, prefix)
+    values, why = _settings(top_, sha, prefix)
     if values is None:
         # One file, not a whole register: one the map cannot place is read
-        # as not yet made, as a configured answer the revision lacks is.
+        # as not yet made, as a configured answer the revision lacks is, and
+        # the guess is said once, since a move the map does not record would
+        # read the same way.
         try:
             return _back_to(top_, sha, prefix, rel, "the file")
         except Unplaced:
+            if (rel, sha) not in _GUESSED:
+                _GUESSED.add((rel, sha))
+                print(
+                    f"note: {rel} is read as a file {sha[:8]} did not have yet: "
+                    f"{sha[:8]}'s configuration cannot be read ({why}), and no "
+                    f"moved path places it (manuscript.chapter_policy, moved_paths)",
+                    file=sys.stderr,
+                )
             return _join(prefix, rel)
     today = {
         k: v for k, v in current_project().settings.items() if k != "extensions"
