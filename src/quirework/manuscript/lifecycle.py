@@ -31,7 +31,7 @@ import subprocess
 from dataclasses import dataclass
 from pathlib import Path
 
-from quirework.manuscript import notes, units
+from quirework.manuscript import history, notes, units
 from quirework.project import ConfigurationError, current_project
 
 
@@ -170,19 +170,35 @@ def unrevised() -> list[str] | None:
         spec_rel = spec.relative_to(root).as_posix()
         if redating.search(_git(root, "diff", "HEAD", "-U0", "--", u.rel).stdout):
             continue  # being redated now
+        # Both histories follow their file across a move, and each revision
+        # is read where it kept the file (`manuscript.history`).
         last_dated = _git(
-            root, "log", "-1", "--format=%H", "-G", dated, "--", u.rel
+            root, "log", "-1", "--follow", "--format=%H", "-G", dated, "--", u.rel
         ).stdout.strip()
         if not last_dated:
             continue  # the page has no dated history yet
-        then = _git(root, "show", f"{last_dated}:./{spec_rel}")
-        if then.returncode:
-            first = _git(
-                root, "log", "--diff-filter=A", "--format=%H", "--", spec_rel
-            ).stdout.split()
-            if not first:
-                continue  # being written, not revised
-            then = _git(root, "show", f"{first[-1]}:./{spec_rel}")
+        try:
+            then = _git(
+                root, "show", f"{last_dated}:{history.file_at(spec_rel, last_dated)}"
+            )
+            if then.returncode:
+                first = _git(
+                    root,
+                    "log",
+                    "--follow",
+                    "--diff-filter=A",
+                    "--format=%H",
+                    "--",
+                    spec_rel,
+                ).stdout.split()
+                if not first:
+                    continue  # being written, not revised
+                then = _git(
+                    root, "show", f"{first[-1]}:{history.file_at(spec_rel, first[-1])}"
+                )
+        except history.Unplaced as exc:
+            out.append(f"  {u.rel}: {spec_rel} cannot be compared: {exc}")
+            continue
         if _claims(then.stdout) != _claims(spec.read_text(encoding="utf-8")):
             out.append(
                 f"  {u.rel}: {spec_rel} changed after the {units.noun()} was last "

@@ -778,7 +778,10 @@ to lose among the standing ones. `--check --since REF` compares the
 working tree with the book at a revision and lists the advisories that
 are new first, then only a count of the rest. `--since HEAD` is what a
 pre-commit hook wants: what this change is about to add. An advisory
-that merely moved down because of an edit above it is not new.
+that merely moved down because of an edit above it is not new, and
+neither is one in a file that moved since the revision: the revision is
+read through its own configuration, and its findings named as today
+names their files.
 
 `quirework spec quotes` checks that wording a mark quotes is still in
 the book, and it is narrow on purpose. It checks only a long quotation

@@ -816,23 +816,25 @@ def _files_now(chapters: Path) -> list[tuple[str, str]]:
 
 
 def _files_at(commit: str, chapters: Path) -> list[tuple[str, str]]:
-    root = current_project().root
-    try:
-        rel_dir = str(chapters.relative_to(root))
-        names = subprocess.run(
-            ["git", "ls-tree", "-r", "--name-only", commit, "--", rel_dir],
-            cwd=root,
-            capture_output=True,
-            text=True,
-            check=True,
-        ).stdout.split()
-    except (ValueError, OSError, subprocess.CalledProcessError):
-        return []
+    """The chapters as the copy's commit held them, where that commit kept
+    them: read through its own configuration (`manuscript.history`), so a
+    chapter directory that has moved since is still found, and refused with
+    `history.Unplaced` rather than read as empty where it cannot be placed."""
+    from quirework.manuscript import history
+
+    top = history.top()
+    rel_dir = history.path_at("manuscript.chapters", commit, top)
+    names = subprocess.run(
+        ["git", "-C", str(top), "ls-tree", "-r", "--name-only", "--full-tree"]
+        + [commit, "--", rel_dir],
+        capture_output=True,
+        text=True,
+        check=True,
+    ).stdout.split()
     out = []
     for name in sorted(n for n in names if n.endswith(".qmd")):
         shown = subprocess.run(
-            ["git", "show", f"{commit}:{name}"],
-            cwd=root,
+            ["git", "-C", str(top), "show", f"{commit}:{name}"],
             capture_output=True,
             text=True,
         )

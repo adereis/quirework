@@ -27,9 +27,11 @@ would report every section of the older revision as new.
 
 from __future__ import annotations
 
+import copy
 import re
 import subprocess
 import tomllib
+from collections.abc import Mapping
 from dataclasses import dataclass
 from functools import lru_cache
 from pathlib import Path, PurePosixPath
@@ -116,9 +118,17 @@ def _join(prefix: PurePosixPath, path: str) -> str:
     return (prefix / path).as_posix() if str(prefix) != "." else path
 
 
-def _configured(top_, rev, prefix) -> tuple[tuple | None, str]:
-    """The spec files ``rev``'s own configuration names, or (None, why)."""
-    text = _show(top_, rev, _join(prefix, "quirework.toml"))
+def _settings(top_, sha, prefix) -> tuple[dict | None, str]:
+    """``sha``'s own configuration, renamed settings under their new names,
+    or (None, why it cannot be read). Each call gets its own copy."""
+    values, why = _cached_settings(str(top_), sha, str(prefix))
+    return copy.deepcopy(values), why
+
+
+@lru_cache(maxsize=64)
+def _cached_settings(top_, sha, prefix) -> tuple[dict | None, str]:
+    prefix = PurePosixPath(prefix)
+    text = _show(top_, sha, _join(prefix, "quirework.toml"))
     if text is None:
         return None, "it holds no quirework.toml"
     try:
@@ -128,9 +138,197 @@ def _configured(top_, rev, prefix) -> tuple[tuple | None, str]:
     if values.get("schema") != SCHEMA:
         return None, f"its quirework.toml is not schema {SCHEMA}"
     try:
-        values = translate_renamed(values)
+        return translate_renamed(values), ""
     except ValueError as exc:
         return None, str(exc)
+
+
+def settings_at(rev: str, top_: Path | None = None) -> tuple[dict | None, str]:
+    """The configuration committed at ``rev``, read as today's tool reads
+    it, or (None, why it cannot be read)."""
+    top_ = top_ or top()
+    return _settings(top_, _resolve(top_, rev), _prefix(top_))
+
+
+def settings_for(rev: str, top_: Path | None = None) -> tuple[dict, str]:
+    """Settings that read ``rev`` where it kept its files, and how they were
+    found: ``configuration`` or ``moved paths``.
+
+    ``rev``'s own configuration where it can be read. Otherwise today's
+    settings, with every path they name that exists today placed at ``rev``
+    through the map of moved paths: a path that never moved is placed as
+    itself, and one the map cannot place stops the read (`Unplaced`)."""
+    top_ = top_ or top()
+    sha, prefix = _resolve(top_, rev), _prefix(top_)
+    values, _ = _settings(top_, sha, prefix)
+    if values is not None:
+        return values, "configuration"
+    project = current_project()
+    root = project.root
+
+    def place(value):
+        if isinstance(value, Mapping):
+            return {k: place(v) for k, v in value.items()}
+        if isinstance(value, (list, tuple)):
+            return [place(v) for v in value]
+        if isinstance(value, str) and value and (root / value).exists():
+            placed = _back_to(top_, sha, prefix, value.rstrip("/"), "the path")
+            placed = placed[len(str(prefix)) + 1 :] if str(prefix) != "." else placed
+            return placed + ("/" if value.endswith("/") else "")
+        return value
+
+    return place(project.settings), "moved paths"
+
+
+def _value(values: dict, key: str):
+    node = values
+    for part in key.split("."):
+        node = node.get(part) if isinstance(node, dict) else None
+    return node
+
+
+def _back_to(top_, sha, prefix, today: str, what: str) -> str:
+    """``today``, a project-relative path, as the map of moved paths places
+    it at ``sha``, or `Unplaced`."""
+    moves, tree = moved_paths(), _tree(top_, sha)
+    here, seen = today, {today}
+    while not _held(tree, _join(prefix, here)):
+        back = _back(here, moves)
+        if back is None or back in seen:
+            raise Unplaced(
+                f"{what} {today} is not at {sha[:8]}, and no moved path places it "
+                f"there (manuscript.chapter_policy, moved_paths)"
+            )
+        here = back
+        seen.add(here)
+    return _join(prefix, here)
+
+
+def _held(tree: frozenset[str], name: str) -> bool:
+    """Whether ``tree`` holds the file or directory ``name``."""
+    name = name.rstrip("/")
+    return name in tree or any(p.startswith(name + "/") for p in tree)
+
+
+def path_at(key: str, rev: str, top_: Path | None = None, slug=None) -> str:
+    """The path setting ``key`` named at ``rev``, repository-relative.
+
+    Read from ``rev``'s own configuration; where that cannot be read, today's
+    value placed through the map of moved paths; where neither can, or the
+    configuration of ``rev`` sets no such key, `Unplaced`. ``slug`` fills a
+    `{slug}` pattern, such as `manuscript.unit_spec`."""
+    top_ = top_ or top()
+    sha, prefix = _resolve(top_, rev), _prefix(top_)
+    values, _ = _settings(top_, sha, prefix)
+    if values is not None:
+        found = _value(values, key)
+        if not isinstance(found, str):
+            raise Unplaced(f"{rev}'s configuration sets no {key}")
+        return _join(prefix, found.replace("{slug}", slug or "{slug}"))
+    today = current_project().get(key)
+    if not isinstance(today, str):
+        raise Unplaced(f"{rev}'s configuration cannot be read, and {key} is unset")
+    return _back_to(top_, sha, prefix, today.replace("{slug}", slug or "{slug}"), key)
+
+
+def _pairs(today: dict, then: dict, stem=""):
+    """(today's path, then's path) for every path setting both name."""
+    for key, value in today.items():
+        other = then.get(key) if isinstance(then, Mapping) else None
+        if isinstance(value, Mapping):
+            yield from _pairs(value, other or {}, f"{stem}{key}.")
+        elif isinstance(value, str) and isinstance(other, str):
+            if "{" not in value:
+                yield value, other
+            elif value.partition("{")[2] == other.partition("{")[2]:
+                # A pattern such as `notes/{slug}/marks.md` moved by its
+                # fixed part: pair the parts before the placeholder.
+                yield value.partition("{")[0], other.partition("{")[0]
+        elif (
+            isinstance(value, (list, tuple))
+            and isinstance(other, (list, tuple))
+            and len(value) == len(other)
+            and all(isinstance(v, str) for v in (*value, *other))
+        ):
+            yield from zip(value, other)
+
+
+def file_at(rel: str, rev: str, top_: Path | None = None) -> str:
+    """Where today's file ``rel`` (project-relative) stood at ``rev``,
+    repository-relative.
+
+    Through ``rev``'s own configuration: the longest path setting that holds
+    ``rel`` today is swapped for what that setting named at ``rev``, and a
+    file under no setting keeps its path. Where that path is not at ``rev``,
+    the map of moved paths is asked, and the configured answer stands if it
+    cannot say, since a file created after ``rev`` was simply not there.
+    Where ``rev``'s configuration cannot be read, the map alone answers, and
+    a file it cannot place keeps today's path. That is the one place a
+    lookup reads today's path, and it is safe only for one file: a whole
+    register read that way is what `spec_at` and `settings_for` refuse."""
+    top_ = top_ or top()
+    sha, prefix = _resolve(top_, rev), _prefix(top_)
+    values, _ = _settings(top_, sha, prefix)
+    if values is None:
+        # One file, not a whole register: one the map cannot place is read
+        # as not yet made, as a configured answer the revision lacks is.
+        try:
+            return _back_to(top_, sha, prefix, rel, "the file")
+        except Unplaced:
+            return _join(prefix, rel)
+    today = {
+        k: v for k, v in current_project().settings.items() if k != "extensions"
+    }  # an extension's settings are its own, and may name anything
+    best = None
+    for now, then in _pairs(today, values):
+        now, then = now.rstrip("/"), then.rstrip("/")
+        if (rel == now or rel.startswith(now + "/")) and (
+            best is None or len(now) > len(best[0])
+        ):
+            best = (now, then)
+    placed = best[1] + rel[len(best[0]) :] if best else rel
+    if _held(_tree(top_, sha), _join(prefix, placed)):
+        return _join(prefix, placed)
+    try:
+        return _back_to(top_, sha, prefix, rel, "the file")
+    except Unplaced:
+        return _join(prefix, placed)
+
+
+def path_today(rel: str, rev: str, top_: Path | None = None) -> str:
+    """Today's name for ``rel``, a project-relative path as ``rev`` named it:
+    the inverse of `file_at`, for a tool comparing what it found at ``rev``
+    with what it finds now. A path under no setting that moved keeps its
+    name."""
+    top_ = top_ or top()
+    sha, prefix = _resolve(top_, rev), _prefix(top_)
+    values, _ = _settings(top_, sha, prefix)
+    pairs = []
+    if values is not None:
+        today = {
+            k: v for k, v in current_project().settings.items() if k != "extensions"
+        }
+        pairs = [
+            (now.rstrip("/"), then.rstrip("/")) for now, then in _pairs(today, values)
+        ]
+    else:
+        pairs = [
+            (new.rstrip("/"), old.rstrip("/")) for old, new in moved_paths().items()
+        ]
+    best = None
+    for now, then in pairs:
+        if (rel == then or rel.startswith(then + "/")) and (
+            best is None or len(then) > len(best[1])
+        ):
+            best = (now, then)
+    return best[0] + rel[len(best[1]) :] if best else rel
+
+
+def _configured(top_, rev, prefix) -> tuple[tuple | None, str]:
+    """The spec files ``rev``'s own configuration names, or (None, why)."""
+    values, why = _settings(top_, rev, prefix)
+    if values is None:
+        return None, why
     manuscript = values.get("manuscript") or {}
     shared = manuscript.get("spec")
     shared = [shared] if isinstance(shared, str) else list(shared or [])
@@ -184,7 +382,9 @@ def _back(path: str, moves: dict[str, str]) -> str | None:
     """The path ``path`` had before the most specific move that produced it."""
     best = None
     for old, new in moves.items():
-        if new.endswith("/"):
+        if new.endswith("/") and path == new.rstrip("/"):
+            found = old.rstrip("/")  # the directory itself
+        elif new.endswith("/"):
             if path.startswith(new):
                 # A file split into a directory maps back to the file; a
                 # directory moved whole keeps the rest of the path.
@@ -204,23 +404,14 @@ def _back(path: str, moves: dict[str, str]) -> str | None:
 def _mapped(top_, rev, prefix, only=None) -> tuple:
     """Today's spec files placed at ``rev`` through the map of moved paths:
     every one, or the ones in ``only``."""
-    moves = moved_paths()
-    tree = _tree(top_, rev)
     root = current_project().root.resolve()
     out = []
     for path in notes.spec_files() if only is None else only:
         today = path.resolve().relative_to(root).as_posix()
-        here, seen = today, {today}
-        while _join(prefix, here) not in tree:
-            back = _back(here, moves)
-            if back is None or back in seen:
-                raise Unplaced(
-                    f"the spec file {today} is not at {rev}, and no moved path "
-                    f"places it there (manuscript.chapter_policy, moved_paths)"
-                )
-            here = back
-            seen.add(here)
-        name = (_join(prefix, here), notes.spec_owner(path))
+        name = (
+            _back_to(top_, rev, prefix, today, "the spec file"),
+            notes.spec_owner(path),
+        )
         if name not in out:
             out.append(name)
     return tuple(out)

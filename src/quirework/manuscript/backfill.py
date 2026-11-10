@@ -187,20 +187,28 @@ def _folded(text):
 
 
 @functools.lru_cache(maxsize=16)
-def _book_at(root, source, revision):
-    """The book's source text at ``revision``, folded; ``None`` if git cannot say."""
+def _book_at(root, revision):
+    """The book's source text at ``revision``, folded; ``None`` if git cannot say.
+
+    The source is found where ``revision`` kept it, through its own
+    configuration (`manuscript.history`), so a book directory that has moved
+    since is still read; one that cannot be placed reads as unknown, which
+    drops nothing, rather than as an empty book, which would drop nothing
+    for the wrong reason."""
+    from quirework.manuscript import history
+
     try:
         top = trail._git(root, "rev-parse", "--show-toplevel").strip()
-        where = os.path.relpath(source, top)
+        where = history.path_at("manuscript.source", revision, Path(top))
         names = trail._git(
-            top, "ls-tree", "-r", "--name-only", revision, "--", where
+            top, "ls-tree", "-r", "--name-only", "--full-tree", revision, "--", where
         ).split()
         texts = [
             trail._git(top, "show", f"{revision}:{name}")
             for name in names
             if name.endswith((".md", ".qmd"))
         ]
-    except (OSError, subprocess.CalledProcessError):
+    except (OSError, subprocess.CalledProcessError, history.Unplaced):
         return None
     return _folded("\n".join(texts)) if texts else None
 
@@ -211,9 +219,7 @@ def _round_book(path):
     if not found:
         return None, None
     project = current_project()
-    held = _book_at(
-        str(project.root), str(project.path("manuscript.source")), found.group(1)
-    )
+    held = _book_at(str(project.root), found.group(1))
     return found.group(1), held
 
 

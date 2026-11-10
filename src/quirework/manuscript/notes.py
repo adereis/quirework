@@ -1937,13 +1937,22 @@ def _extract(top: Path, ref: str, prefix: str, dest: Path) -> None:
         raise ValueError(f"--since {ref}: git cat-file failed")
 
 
+# The path a finding's line starts with, as `_findings` writes it.
+_LEADING_PATH = re.compile(r"^(\s*)([^\s:]+\.[A-Za-z0-9]+)(?=:)")
+
+
 def _findings_at(ref: str, docs: Path):
     """The same findings for the book as it stood at a git revision.
 
     The tree at `ref` is written into a private directory that does not
-    outlive the call, and checked in a project rooted there with today's
-    settings, so both trees answer to the same rules and name their files
-    relative to their own root. Nothing touches the index or adds a worktree.
+    outlive the call, and checked in a project rooted there with the
+    settings `ref` was committed with (`manuscript.history.settings_for`),
+    so a revision from before a move is read where it kept its files, and
+    both trees name their files relative to their own root. Where those
+    settings cannot be read, today's are placed at `ref` through the map of
+    moved paths, and a path neither places is refused rather than checked
+    where it no longer is. Nothing touches the index
+    or adds a worktree.
 
     The project is rebuilt from its settings rather than copied with a new
     root: a copy keeps each setting's origin, so every configured path would
@@ -1953,6 +1962,7 @@ def _findings_at(ref: str, docs: Path):
     """
     import tempfile
 
+    from quirework.manuscript import history
     from quirework.project import Project, private_tmp_parent, project_scope
 
     project = current_project()
@@ -1978,9 +1988,30 @@ def _findings_at(ref: str, docs: Path):
     ) as tmp:
         root = Path(tmp).resolve()
         _extract(top, ref, prefix, root)
-        then = Project.from_settings(root, project.describe()["settings"])
+        try:
+            values, _ = history.settings_for(ref, top)
+        except history.Unplaced as exc:
+            raise ValueError(f"--since {ref}: {exc}") from None
+        placed = history.file_at(inside.as_posix(), ref, top)
+        placed = placed[len(prefix) + 1 :] if prefix else placed
+        then = Project.from_settings(root, values)
         with project_scope(then):
-            return _findings(root / inside)
+            problems, groups = _findings(root / placed)
+    # Each line names its file as the revision named it; a file that has
+    # moved since would otherwise read as a new advisory, so the lines are
+    # put in today's names before they are compared with today's.
+
+    def renamed(line):
+        found = _LEADING_PATH.match(line)
+        if not found:
+            return line
+        lead, rel = found.groups()
+        return lead + history.path_today(rel, ref, top) + line[found.end() :]
+
+    return (
+        [renamed(p) for p in problems],
+        [(header, [renamed(line) for line in lines]) for header, lines in groups],
+    )
 
 
 def check(docs: Path | None = None, since: str | None = None) -> int:

@@ -369,8 +369,13 @@ def _git(*args: str) -> subprocess.CompletedProcess:
 
 
 def _at(rev: str, rel: str) -> str:
-    """The file at `rev`, or nothing where `rev` does not have it."""
-    res = _git("show", f"{rev}:{rel}")
+    """The file at `rev`, where `rev` kept it, or nothing where `rev` does
+    not have it. A file that has moved since is found through `rev`'s own
+    configuration or the map of moved paths (`manuscript.history`), so its
+    standing hits are not counted as added."""
+    from quirework.manuscript import history
+
+    res = _git("show", f"{rev}:{history.file_at(rel, rev)}")
     return res.stdout if res.returncode == 0 else ""
 
 

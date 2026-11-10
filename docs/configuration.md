@@ -1332,9 +1332,11 @@ and visual choices out of Quirework's implementation:
   project once used to the path it moved to, both relative to the
   project root, and a path ending in `/` names a directory and
   everything below it. A file split into a directory maps to the
-  directory. `spec diff` and `spec trail suggest` read it only for a
-  revision whose own configuration cannot be read, so a project that has
-  always had one needs no entry:
+  directory. Every command that reads an earlier revision (`spec diff`,
+  `spec trail suggest`, `spec notes --check --since`,
+  `text tells --since`, the Kindle notes' anchoring and the trail
+  backfill) reads it only for a revision whose own configuration cannot
+  be read, so a project that has always had one needs no entry:
 
   ```toml
   [moved_paths]
