@@ -465,7 +465,10 @@ older schema, is placed through the project's map of moved paths
 instead, and the listing says so. A spec file that neither places stops
 the comparison with the file's name, rather than reporting every section
 of that revision as new. A setting a release has since renamed is read
-under its new name.
+under its new name. `--by-commit` follows every home the spec had in the
+range, read from each configuration the range committed, so an edit made
+while the spec lived at a third path is not missed, and only a root
+commit's missing parent reads as an empty spec.
 
 `--harness H --session ID --at TIME` writes a pointer by hand, for a
 conversation Quirework may not be able to read. A breadcrumb leads only

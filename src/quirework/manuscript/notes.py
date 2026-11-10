@@ -1938,7 +1938,7 @@ def _extract(top: Path, ref: str, prefix: str, dest: Path) -> None:
 
 
 # The path a finding's line starts with, as `_findings` writes it.
-_LEADING_PATH = re.compile(r"^(\s*)([^\s:]+\.[A-Za-z0-9]+)(?=:)")
+_LEADING_PATH = re.compile(r"^(\s*)([^\s:#]+\.[A-Za-z0-9]+)(?=[:#])")
 
 
 def _findings_at(ref: str, docs: Path):
@@ -2006,7 +2006,13 @@ def _findings_at(ref: str, docs: Path):
         if not found:
             return line
         lead, rel = found.groups()
-        return lead + history.path_today(rel, ref, top) + line[found.end() :]
+        today, rest = history.path_today(rel, ref, top), line[found.end() :]
+        if today.endswith("/") and rest.startswith("#"):
+            # A spec file split into a directory since `ref`: a section's
+            # advisory names its section, which is the file `<slug>.md`.
+            anchor = re.split(r"[\s:]", rest[1:], maxsplit=1)[0].rsplit("/", 1)[-1]
+            today = f"{today}{anchor}.md"
+        return lead + today + rest
 
     return (
         [renamed(p) for p in problems],

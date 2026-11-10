@@ -32,8 +32,9 @@ import re
 import subprocess
 import sys
 from dataclasses import dataclass
+from pathlib import Path, PurePosixPath
 
-from quirework.manuscript import history, notes
+from quirework.manuscript import history, manifest, notes
 
 # Pointers to sections, as the spec writes them in its prose.
 _POINTER = re.compile(r"#[a-z0-9][a-z0-9/_-]*")
@@ -67,18 +68,23 @@ def _git(top, *args):
     ).stdout
 
 
+def _has_parent(top, rev):
+    """Whether ``rev``, which must name a commit, has a parent. Only a root
+    commit has none; any other failure to read a parent is the caller's to
+    report, never an empty spec."""
+    sha = history._resolve(top, rev)
+    return len(_git(top, "rev-list", "--parents", "-n", "1", sha).split()) > 1
+
+
 def _read(top, ref, said):
     """``{slug: (title, body)}`` at ``ref``, bodies normalized for comparison.
 
     A revision read through the map of moved paths, rather than its own
     configuration, is noted in ``said`` once, so the reader knows how its
     files were placed."""
-    try:
-        spec = history.spec_at(ref, top)
-    except LookupError:
-        if ref.endswith("^"):
-            return {}  # a root commit has no parent: nothing came before it
-        raise
+    if ref.endswith("^") and not _has_parent(top, ref[:-1]):
+        return {}  # a root commit has no parent: nothing came before it
+    spec = history.spec_at(ref, top)
     if spec.how != "configuration" and ref not in said:
         said[ref] = f"note: {ref} was read through the moved paths, because {spec.why}"
     return {
@@ -122,11 +128,28 @@ def diff(spec, said=None):
 
 
 def _paths(top, base, head):
-    """Every path a spec file was kept at in the range: the files at each end
-    and both sides of every moved path, so the log misses no commit that
-    changed a section while it lived somewhere in between."""
+    """Every path a spec file was kept at in the range, so the log misses no
+    commit that changed a section while it lived somewhere in between.
+
+    The layout changes only where the configuration does, so the files are
+    read at each end and at every commit in the range that changed the
+    project's quirework.toml. A spec kept as section files contributes its
+    whole directory, since a section added and removed between two of those
+    commits is named nowhere else. Both sides of every moved path are added
+    for the revisions no configuration describes."""
     prefix = history._prefix(top)
-    names = {n for ref in (base, head) for n, _ in history.spec_at(ref, top).files}
+    config = history._join(prefix, "quirework.toml")
+    layouts = [base, head] + _git(
+        top, "log", "--format=%H", f"{base}..{head}", "--", config
+    ).split()
+    names = set()
+    for ref in layouts:
+        names |= {n for n, _ in history.spec_at(ref, top).files}
+        values, _ = history.settings_at(ref, top)
+        shared = ((values or {}).get("manuscript") or {}).get("spec") or []
+        for entry in [shared] if isinstance(shared, str) else shared:
+            if manifest.is_manifest(Path(entry)):
+                names.add(str(PurePosixPath(history._join(prefix, entry)).parent))
     for old, new in history.moved_paths().items():
         names |= {history._join(prefix, old), history._join(prefix, new)}
     return sorted(names)

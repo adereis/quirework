@@ -310,33 +310,67 @@ def file_at(rel: str, rev: str, top_: Path | None = None) -> str:
         return _join(prefix, placed)
 
 
+def _forward(path: str, moves: dict[str, str]) -> str:
+    """Where ``path`` went through every move the map records after it, as
+    `_back` follows them the other way: the most specific row each time,
+    until none applies. A file split into a directory ends at the
+    directory, with a trailing slash, since the map cannot say which file."""
+    seen = {path}
+    while True:
+        best = None
+        for old, new in moves.items():
+            if old.endswith("/") and path == old.rstrip("/"):
+                found = new.rstrip("/")
+            elif old.endswith("/") and path.startswith(old):
+                found = new + path[len(old) :] if new.endswith("/") else new
+            elif path == old:
+                found = new
+            else:
+                continue
+            if best is None or len(old) > best[0]:
+                best = (len(old), found)
+        if best is None or best[1] in seen or best[1].endswith("/"):
+            return best[1] if best and best[1].endswith("/") else path
+        path = best[1]
+        seen.add(path)
+
+
 def path_today(rel: str, rev: str, top_: Path | None = None) -> str:
     """Today's name for ``rel``, a project-relative path as ``rev`` named it:
     the inverse of `file_at`, for a tool comparing what it found at ``rev``
-    with what it finds now. A path under no setting that moved keeps its
-    name."""
+    with what it finds now.
+
+    ``rev``'s own configuration pairs each of its path settings with
+    today's, and the map of moved paths is followed forward through every
+    row after it, so a file renamed and then moved with its directory is
+    found under its name today. The first candidate that exists today is
+    taken; where none does, the configured answer, else the map's. A path
+    under nothing that moved keeps its name; a file the map split into a
+    directory comes back as that directory, with a trailing slash."""
     top_ = top_ or top()
     sha, prefix = _resolve(top_, rev), _prefix(top_)
     values, _ = _settings(top_, sha, prefix)
-    pairs = []
+    moves = moved_paths()
+    paired = rel
     if values is not None:
         today = {
             k: v for k, v in current_project().settings.items() if k != "extensions"
         }
-        pairs = [
-            (now.rstrip("/"), then.rstrip("/")) for now, then in _pairs(today, values)
-        ]
-    else:
-        pairs = [
-            (new.rstrip("/"), old.rstrip("/")) for old, new in moved_paths().items()
-        ]
-    best = None
-    for now, then in pairs:
-        if (rel == then or rel.startswith(then + "/")) and (
-            best is None or len(then) > len(best[1])
-        ):
-            best = (now, then)
-    return best[0] + rel[len(best[1]) :] if best else rel
+        best = None
+        for now, then in _pairs(today, values):
+            now, then = now.rstrip("/"), then.rstrip("/")
+            if (rel == then or rel.startswith(then + "/")) and (
+                best is None or len(then) > len(best[1])
+            ):
+                best = (now, then)
+        if best:
+            paired = best[0] + rel[len(best[1]) :]
+    root = current_project().root
+    candidates = [paired, _forward(paired, moves), _forward(rel, moves)]
+    for found in candidates:
+        if (root / found).exists():
+            return found
+    return paired if paired != rel else candidates[2]
 
 
 def _configured(top_, rev, prefix) -> tuple[tuple | None, str]:

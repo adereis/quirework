@@ -173,7 +173,9 @@ def test_notes_since_checks_a_revision_from_before_a_move(tmp_path, capsys):
     (root / "specs" / "lamp" / "marks.md").write_text(
         "## The light\n\n<!-- @guidance as settled 2031-04-02 -->\n"
     )
-    (root / "specs" / "_site.md").write_text("# Site\n\n## The lamp {#flash}\n\nIt.\n")
+    (root / "specs" / "_site.md").write_text(
+        "# Site\n\n## The lamp {#flash}\n\nIt must NEVER go dark.\n"
+    )
     (root / "quirework.toml").write_text(toml("specs"))
     git(root, "init", "-q")
     git(root, "add", "-A")
@@ -191,6 +193,8 @@ def test_notes_since_checks_a_revision_from_before_a_move(tmp_path, capsys):
     new = err[err.index("new since") : err.index("standing")]
     assert "author's call" in new
     assert "2031-04-02" not in new
+    # A section's advisory names it `file#slug`, and is standing too.
+    assert "NEVER" not in new
 
 
 def test_a_file_nothing_places_is_read_as_new_and_said(tmp_path, capsys):
@@ -210,3 +214,91 @@ def test_a_file_nothing_places_is_read_as_new_and_said(tmp_path, capsys):
     err = capsys.readouterr().err
     assert err.count("note: drafts/horn.qmd is read as a file") == 1
     assert "holds no quirework.toml" in err
+
+
+def test_a_parent_that_cannot_be_placed_is_an_error_not_an_empty_spec(tmp_path, capsys):
+    """Only a root commit has no parent. A parent whose spec cannot be placed,
+    or a ref that names nothing, stops the comparison."""
+    from quirework.manuscript import specdiff
+
+    root = tmp_path / "site"
+    (root / "notes").mkdir(parents=True)
+    (root / "notes" / "claims.md").write_text(
+        "# C\n\n" + "## The lamp {#flash}\n\nIt.\n"
+    )
+    git(root, "init", "-q")
+    git(root, "add", "-A")
+    git(root, "commit", "-qm", "Write the claims")
+    git(root, "mv", "notes", "spec")
+    (root / "quirework.toml").write_text(
+        'schema = 2\n\n[manuscript]\nsource = "spec"\nspec = "spec/claims.md"\n'
+    )
+    git(root, "add", "-A")
+    git(root, "commit", "-qm", "Configure")
+    second = git(root, "rev-parse", "HEAD")
+    settings = {"manuscript": {"source": "spec", "spec": "spec/claims.md"}}
+    with project_scope(Project.from_settings(root, settings)):
+        assert specdiff.main([f"{second}^..HEAD"]) == 2
+        assert specdiff.main(["no-such-ref^..HEAD"]) == 2
+    err = capsys.readouterr().err
+    assert "no moved path places it" in err and "names no commit" in err
+
+
+def test_today_s_name_follows_a_rename_and_then_a_directory_move(tmp_path):
+    root = tmp_path / "book"
+    (root / "notes").mkdir(parents=True)
+    (root / "notes" / "claims.md").write_text(LAMP)
+    git(root, "init", "-q")
+    git(root, "add", "-A")
+    git(root, "commit", "-qm", "Write the claims")
+    first = git(root, "rev-parse", "HEAD")
+    git(root, "mv", "notes/claims.md", "notes/lamp.md")
+    git(root, "commit", "-qm", "Rename the claims")
+    git(root, "mv", "notes", "spec")
+    (root / "policy.toml").write_text(
+        '[moved_paths]\n"notes/claims.md" = "notes/lamp.md"\n"notes/" = "spec/"\n'
+    )
+    git(root, "add", "-A")
+    git(root, "commit", "-qm", "Move the notes")
+    settings = {"manuscript": {"source": "spec", "chapter_policy": "policy.toml"}}
+    with project_scope(Project.from_settings(root, settings)):
+        assert history.file_at("spec/lamp.md", first) == "notes/claims.md"
+        assert history.path_today("notes/claims.md", first) == "spec/lamp.md"
+
+
+def test_by_commit_finds_an_edit_made_at_a_home_between_the_ends(tmp_path):
+    """The spec lived at a third path between the two ends, and no map row
+    names it: the configuration of the commit that moved it there does."""
+    from quirework.manuscript import specdiff
+
+    def toml(spec):
+        return f'schema = 2\n\n[manuscript]\nsource = "."\nspec = "{spec}"\n'
+
+    root = tmp_path / "site"
+    root.mkdir()
+    git(root, "init", "-q")
+    lamp = "# C\n\n## The lamp {#flash}\n\nIt flashes.\n"
+    for name, text, spec, message in (
+        ("a.md", lamp, "a.md", "Write the claims"),
+        ("b.md", lamp, "b.md", "Move them to b"),
+        ("b.md", lamp.replace("flashes", "flashes white"), "b.md", "Sharpen the lamp"),
+        ("c.md", lamp.replace("flashes", "flashes white"), "c.md", "Move them to c"),
+    ):
+        for old in root.glob("*.md"):
+            if old.name != name:
+                old.unlink()
+        (root / name).write_text(text)
+        (root / "quirework.toml").write_text(toml(spec))
+        git(root, "add", "-A")
+        git(root, "commit", "-qm", message)
+        if message == "Write the claims":
+            first = git(root, "rev-parse", "HEAD")
+    settings = {"manuscript": {"source": ".", "spec": "c.md"}}
+    with project_scope(Project.from_settings(root, settings)):
+        found = specdiff.by_commit(f"{first}..HEAD")
+        # A root commit has no parent, so all of it is new.
+        root_diff = specdiff.diff(f"{first}^..{first}")
+    assert [(c.state, c.slug) for c in root_diff] == [("new", "flash")]
+    assert [(c.subject, [x.slug for x in c.changes]) for c in found] == [
+        ("Sharpen the lamp", ["flash"])
+    ]
