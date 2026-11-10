@@ -43,7 +43,7 @@ A project that renders elsewhere declares no `[publish]` section, and
 its spec commands work the same.
 
 `manuscript.quarto` names the Quarto project file. The manuscript can
-also name `manuscript.spec`, `manuscript.references` and
+also name `manuscript.spec`, `manuscript.related_work` and
 `manuscript.review_notes`, the book-wide annotations a red-pen review
 copy carries, when the project uses those features. `manuscript.spec`
 takes one path or an ordered list of paths, read as one register whose
@@ -51,10 +51,10 @@ anchors are unique across every file; each listed file must exist, and
 an empty list or a file listed twice is refused.
 `manuscript.spec_public` names the ones a reader of the published work
 can see, each also listed in `manuscript.spec`; left unset, every spec
-file is published. `manuscript.references_public`, true or false, says
-whether the references register is published beside them; it requires
-`manuscript.references`, and left unset the references register counts
-as unpublished. The [authoring guide](authoring.md#2-the-spec) says what
+file is published. `manuscript.related_work_public`, true or false, says
+whether the related-work register is published beside them; it requires
+`manuscript.related_work`, and left unset the register counts as
+unpublished. The [authoring guide](authoring.md#2-the-spec) says what
 the boundary refuses. `publish.typst_template` names the Typst file that
 sets the printed page. Quirework reads it and never writes it. It takes
 from it the faces `publish fonts` checks and the text block
@@ -249,39 +249,75 @@ section's full name. `spec trail why-the-lamp-turns/thesis` reads one,
 and `spec trail suggest` follows the history of whichever file holds the
 section.
 
-### Sources
+###### Related work
 
-`manuscript.sources` declares a register of what the work stands on, the
-research half of the spec. It is a file, where each level-2 section
-`## Title {#slug}` is one source and its body says what the source is:
+`manuscript.related_work` declares a register of the related work: the
+other work this one reads, builds on, agrees with or argues against, the
+research half of the spec. `manuscript.related_work_shape` says which of
+two shapes it has, since one file reads either way.
+
+A `prose` register is one file written as an essay about the related
+work, the way a paper's related-work section is. Its paragraphs are not
+separate records, so it holds no works a mark can cite by slug:
 
 ```toml
 [manuscript]
-sources = "research/sources.md"
-source_copies = "research/copies/{slug}.txt"
+related_work = "research/related-work.md"
+related_work_shape = "prose"
 ```
 
-Or it is a glob with one file per source, such as `"research/*.md"`,
-each named by its file stem, or by its directory when the glob names a
-fixed file (`"research/*/notes.md"`). A file's title is its frontmatter
-`title` or its first heading. A `README.md` and a `_`-prefixed file are
-not sources.
+An `entries` register holds one record per work. It is a file, where
+each level-2 section `## Title {#slug}` is one work and its body says
+what the work is and what it holds, like a spec section:
 
-A mark cites a source as `<!-- @source(slug) what it supports -->`.
-`spec notes --check` refuses a slug the register does not hold, and two
-sources with one slug. A `@source` with no slug stays free prose, since
-a passing reference need not be registered. `spec sources` lists each
-source with the units that cite it; `--slug S` and `-c UNIT` narrow the
-list, and `--check` adds two advisories: a source no unit cites, and a
-quotation that is not in the source.
+```toml
+[manuscript]
+related_work = "research/related-work.md"
+related_work_shape = "entries"
+related_work_copies = "research/copies/{slug}.txt"
+```
 
-`source_copies` is a path pattern with `{slug}` naming a plain-text
-capture of each source as it was read. A quoted span of five words or
-more in a mark citing that source is checked against it, with case,
-whitespace and closing punctuation ignored. A source without a capture
-is not checked, and `--check` says how many quotations that left.
+Or it is a glob with one file per work, such as `"research/*.md"`, each
+named by its file stem, or by its directory when the glob names a fixed
+file (`"research/*/notes.md"`). A glob is always entries, so its shape
+may go unsaid. A file's title is its frontmatter `title` or its first
+heading. A `README.md` and a `_`-prefixed file are not works.
 
-## Publishing backends
+In either shape the register cites the spec with the slug in a code
+span, `` `#slug` ``, and `spec notes --check` refuses a citation that
+names no spec section. With `related_work_public` set, it also refuses
+one naming a section the reader cannot open
+([authoring guide](authoring.md#2-the-spec)). `spec rename` rewrites
+these citations with the rest of a section's slugs.
+
+Two marks point outside the unit, and one test separates them: could it
+appear in a bibliography? Published work, anyone's, the author's own
+included, is cited as `<!-- @cite(slug) what it supports -->`. A pointer
+to unpublished material, such as a conversation, a private note, a
+commit or another file of the project, is an `@ref`. With an entries
+register, `spec notes --check` refuses a `@cite` slug the register does
+not hold, and two works with one slug. With a prose register it refuses
+any `@cite` slug, since there is no work to name. A `@cite` with no slug
+stays free prose, since a passing citation need not be registered.
+
+`spec related-work` lists each work with the units that cite it;
+`--slug S` and `-c UNIT` narrow the list. `--check` runs the register's
+gate and adds two advisories: a work no unit cites, and a quotation that
+is not in the work.
+
+`related_work_copies` is a path pattern with `{slug}` naming a
+plain-text capture of each work as it was read, so it needs an entries
+register. A quoted span of five words or more in a mark citing that work
+is checked against it, with case, whitespace and closing punctuation
+ignored. A work without a capture is not checked, and `--check` says how
+many quotations that left.
+
+Earlier releases called the entries shape `manuscript.sources`, with
+`manuscript.source_copies` and the `@source` mark, and the prose shape
+`manuscript.references`, with `manuscript.references_public`. Each old
+name is refused with the one that replaced it.
+
+Publishing backends
 
 `publish.backend` names what renders the manuscript. `quarto`, the
 default, stages a book and renders the formats its Quarto file lists,

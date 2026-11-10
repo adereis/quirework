@@ -134,12 +134,42 @@ RETIRED = {
 }
 
 
+# Settings a release renamed, each with its new name and any setting the old
+# name implied. Refused under the old name, with the new one: a project still
+# using it would otherwise have its register read as absent.
+RENAMED = {
+    "manuscript.sources": (
+        "manuscript.related_work",
+        {"manuscript.related_work_shape": "entries"},
+    ),
+    "manuscript.source_copies": ("manuscript.related_work_copies", {}),
+    "manuscript.references": (
+        "manuscript.related_work",
+        {"manuscript.related_work_shape": "prose"},
+    ),
+    "manuscript.references_public": ("manuscript.related_work_public", {}),
+}
+
+
+def _setting(values, key):
+    node = values
+    for part in key.split("."):
+        node = node.get(part) if isinstance(node, dict) else None
+    return node
+
+
 def _check_retired(values, origins):
+    for key, (new, implied) in RENAMED.items():
+        if _setting(values, key) is not None:
+            where = origins.get(key, "configuration")
+            also = "".join(
+                f', with {k.rpartition(".")[2]} = "{v}" beside it, which the '
+                "old name meant"
+                for k, v in implied.items()
+            )
+            raise ConfigurationError(f"{where}: {key} is renamed {new}{also}")
     for key, why in RETIRED.items():
-        node = values
-        for part in key.split("."):
-            node = node.get(part) if isinstance(node, dict) else None
-        if node is not None:
+        if _setting(values, key) is not None:
             where = origins.get(key, "configuration")
             raise ConfigurationError(f"{where}: {key} is retired: {why}")
 
@@ -262,6 +292,54 @@ class Project:
                 raise ConfigurationError(f"{key} names {entry} twice")
             out.append(resolved)
         return out
+
+    def _check_related_work(self):
+        """The related-work settings, each of which needs the register and
+        some of which need its shape: a file is prose or entries, and says
+        which, since the same file reads either way; a glob is entries."""
+        key = "manuscript.related_work"
+        found = self.get(key)
+        shape = self.get(f"{key}_shape")
+        for dependent in (f"{key}_shape", f"{key}_copies", f"{key}_public"):
+            if found is None and self.get(dependent) is not None:
+                raise ConfigurationError(
+                    f"{dependent} describes a related-work register, and {key} "
+                    "names none"
+                )
+        if found is None:
+            return
+        glob = any(c in str(found) for c in "*?[")
+        if shape is not None and shape not in ("prose", "entries"):
+            raise ConfigurationError(f"{key}_shape must be 'prose' or 'entries'")
+        if glob and shape == "prose":
+            raise ConfigurationError(
+                f"{key} is a glob, one file per work, so its shape is entries"
+            )
+        if not glob:
+            if shape is None:
+                raise ConfigurationError(
+                    f"{key} names one file: set {key}_shape to 'prose' (an "
+                    "essay about the related work, with no works to cite) or "
+                    "'entries' (one work per ## section)"
+                )
+            if not self.path(key).is_file():
+                raise ConfigurationError(
+                    f"configured related-work register is missing: {self.path(key)}"
+                )
+        copies = self.get(f"{key}_copies")
+        if copies is not None:
+            if "{slug}" not in str(copies):
+                raise ConfigurationError(
+                    f"{key}_copies must contain {{slug}}, e.g. "
+                    "'research/copies/{slug}.txt'"
+                )
+            if shape == "prose":
+                raise ConfigurationError(
+                    f"{key}_copies captures works, and a prose register holds none"
+                )
+        shown = self.get(f"{key}_public")
+        if shown is not None and not isinstance(shown, bool):
+            raise ConfigurationError(f"{key}_public must be true or false")
 
     def path_at(self, root, key, default=None):
         """Apply a configured layout to an explicitly supplied project root."""
@@ -396,42 +474,14 @@ class Project:
                             f"manuscript.spec_public names {path}, which "
                             f"manuscript.spec does not list"
                         )
-            # The references register cites the spec, so `spec notes --check`
+            # The related-work register cites the spec, so `spec notes --check`
             # reads it; whether it is published beside the spec is the
             # project's to say, and nothing is published by default.
-            key = "manuscript.references"
-            if self.get(key) is not None and not self.path(key).is_file():
-                raise ConfigurationError(
-                    f"configured references register is missing: {self.path(key)}"
-                )
-            shown = self.get("manuscript.references_public")
-            if shown is not None:
-                if not isinstance(shown, bool):
-                    raise ConfigurationError(
-                        "manuscript.references_public must be true or false"
-                    )
-                if shown and self.get(key) is None:
-                    raise ConfigurationError(
-                        "manuscript.references_public publishes a references "
-                        "register, and manuscript.references names none"
-                    )
+            self._check_related_work()
             key = "manuscript.review_notes"
             if self.get(key) is not None and not self.path(key).is_file():
                 raise ConfigurationError(
                     f"configured review-notes file is missing: {self.path(key)}"
-                )
-            sources = self.get("manuscript.sources")
-            if sources is not None and not any(c in str(sources) for c in "*?["):
-                if not self.path("manuscript.sources").is_file():
-                    raise ConfigurationError(
-                        f"configured sources register is missing: "
-                        f"{self.path('manuscript.sources')}"
-                    )
-            copies = self.get("manuscript.source_copies")
-            if copies is not None and "{slug}" not in str(copies):
-                raise ConfigurationError(
-                    "manuscript.source_copies must contain {slug}, e.g. "
-                    "'research/copies/{slug}.txt'"
                 )
             unit_spec = self.get("manuscript.unit_spec")
             if unit_spec is not None and "{slug}" not in str(unit_spec):

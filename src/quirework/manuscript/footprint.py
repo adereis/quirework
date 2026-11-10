@@ -9,8 +9,8 @@ site that keeps them outside the tree its generator renders. This module is
 the one answer, and it is built from what the project already declares:
 
 - the units and their marks, as the format lays them out;
-- the register: the shared spec files, each unit's own spec, the sources,
-  the references and the review notes;
+- the register: the shared spec files, each unit's own spec, the related
+  work and the review notes;
 - the companion collections;
 - and, kept apart, the working roots (`manuscript.noncanonical_roots`), which
   are writing without authority. A caller measuring effort counts them; a
@@ -32,7 +32,7 @@ from quirework.project import Project, current_project
 @dataclass(frozen=True)
 class Footprint:
     units: tuple[str, ...]  # the prose and its marks, as the format lays them out
-    register: tuple[str, ...]  # spec files, references, review notes
+    register: tuple[str, ...]  # spec files, related work, review notes
     companions: tuple[str, ...]  # reader-facing collections beside the work
     working: tuple[str, ...]  # working material: writing, but no authority
 
@@ -78,15 +78,15 @@ def footprint(project: Project | None = None) -> Footprint:
     units = formats.get(project.get("manuscript.format", "quarto")).footprint(project)
     register = _spec_files(project) + tuple(
         found
-        for key in ("manuscript.references", "manuscript.review_notes")
+        for key in ("manuscript.review_notes",)
         if (found := formats.relative(project, key)) is not None
     )
     unit_spec = project.get("manuscript.unit_spec")
     if unit_spec:
         register += (str(unit_spec).replace("{slug}", "*"),)
-    from quirework.manuscript import sources
+    from quirework.manuscript import related_work
 
-    register += sources.footprint_patterns(project)
+    register += related_work.footprint_patterns(project)
     return Footprint(
         units,
         register,

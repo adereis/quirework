@@ -56,12 +56,12 @@ def test_a_published_post_s_open_to_do_is_reported(site, capsys):
     assert "clockwork" in err
 
 
-def test_every_citation_names_a_source_and_every_quotation_holds(site, capsys):
-    assert run(site, "spec sources", "--check") == 0
+def test_every_citation_names_a_work_and_every_quotation_holds(site, capsys):
+    assert run(site, "spec related-work", "--check") == 0
     err = capsys.readouterr().err
     assert "not in the captured copy" not in err
-    assert "research/sources.md: station-log" in err  # cited by no post
-    assert run(site, "spec sources", "--slug", "coast-pilot") == 0
+    assert "research/related-work.md: station-log" in err  # cited by no post
+    assert run(site, "spec related-work", "--slug", "coast-pilot") == 0
     assert "cited by: why-the-lamp-turns" in capsys.readouterr().out
 
 

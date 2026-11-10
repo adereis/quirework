@@ -122,17 +122,19 @@ with the files on disk. `spec quotes` checks that a phrase quoted in
 metadata still exists in the work, and `--grep TERM` lists every
 quotation of a term you just retired from the prose.
 
-### Keeps track of what the work stands on
+### Keeps track of the related work
 
-Research gets a register too. Each source has a slug, in one file of
-sections or one file per source, and a mark cites it as `@source(slug)`.
-`spec sources --slug S` then lists every chapter or post that leans on a
-source, and the gate refuses a citation of a source the register does
-not hold. A source can keep a plain-text capture of itself, and a
-quotation from it is checked against that capture, so a misremembered
-line is caught the way a misquoted chapter is. A references register,
-which says where the work stands on each source, cites the spec by slug,
-and the gate holds each of those citations to a section that exists.
+Research gets a register too: the related work, the other work this one
+reads, builds on or argues against. It is an essay, as a paper's
+related-work section is, or one record per work, each with a slug, in
+one file of sections or one file per work. Either way it cites the spec
+by slug, and the gate holds each of those citations to a section that
+exists. A mark cites a work as `@cite(slug)`, and
+`spec related-work --slug S` then lists every chapter or post that leans
+on it; the gate refuses a citation of a work the register does not hold.
+A work can keep a plain-text capture of itself, and a quotation from it
+is checked against that capture, so a misremembered line is caught the
+way a misquoted chapter is.
 
 ### Remembers how the work was written
 
@@ -370,7 +372,7 @@ You normally work by describing the job to your AI companion. The
 command groups below are the vocabulary it uses to carry out that job:
 
 ```text
-quirework spec        Read and check the spec, marks, sources, quotations and trail
+quirework spec        Read and check the spec, marks, related work, quotations and trail
 quirework publish     Render the manuscript and inspect its editions
 quirework text        Format and inspect writing
 quirework provenance  Capture, organize, and search source history

@@ -19,7 +19,7 @@ and three are correct:
      the offending words in capitals, and those phrases are supposed to be
      absent.
   2. quotations of things outside the book -- a person quoted, a paper,
-     the author's own conversation -- which live in @source and @ref.
+     the author's own conversation -- which live in @cite and @ref.
   3. spans carrying an elision, where the quotation is deliberately partial.
   4. real drift.
 
@@ -68,7 +68,7 @@ from pathlib import Path
 
 from quirework.manuscript import notes, units
 
-# Kinds whose bodies assert that something IS in the book. @source and @ref
+# Kinds whose bodies assert that something IS in the book. @cite and @ref
 # quote the world outside it; @todo is working state and may quote anything,
 # including wording being proposed and not yet written.
 ASSERTING_KINDS = ("figure", "guidance", "variant", "see")

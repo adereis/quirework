@@ -48,7 +48,7 @@ without the ones below it.
 | Spec | numbered commitments, each with a slug, in one file or one per unit | `spec notes --primer` |
 | Marks | per-chapter sidecars of `@`-annotations, including which spec section a chapter expresses | `spec notes`, `spec notes bind` |
 | Companion documents | reader-facing material that cites the spec or canon | `spec notes --check` |
-| Sources | a register of what the work stands on, cited by slug from the marks | `spec sources` |
+| Related work | a register of the work this one is placed against, cited by slug from the marks | `spec related-work` |
 | Variants | derived editions whose master remains the canon | `publish variant` |
 | Figures | the book's illustration set, materialized into the build | `publish figures` |
 | Scratchpad | disposable working material with no authority | project policy |
@@ -304,20 +304,22 @@ Every `#slug` written in a spec file, bare or as a `](#slug)` link, must
 name a section of the register, as a binding must. A heading's own
 `{#slug}`, code, comments and frontmatter are not read as references.
 
-A references register (`manuscript.references`) cites the spec as a
+A related-work register (`manuscript.related_work`) cites the spec as a
 companion entry does, with the slug in a code span, `` `#slug` ``, since
 its own `](#anchor)` links point at its own headings. Each citation must
-name a spec section. When the references register is published beside
-the spec, say so, and its citations are held to the boundary too:
+name a spec section. When the register is published beside the spec, say
+so, and its citations are held to the boundary too:
 
 ```toml
 [manuscript]
-references = "spec/references.md"
-references_public = true
+related_work = "spec/related-work.md"
+related_work_shape = "prose"
+related_work_public = true
 ```
 
-Left unset, the references register counts as unpublished and may cite
-any section.
+Left unset, the register counts as unpublished and may cite any section.
+The [configuration guide](configuration.md#related-work) says what each
+shape holds.
 
 The slugs are the whole mechanism. A chapter does not restate a
 commitment; it names the section it expresses, so changing a commitment
@@ -329,7 +331,7 @@ says and its slug may now say the opposite. The slug is written in the
 spec's heading, in its links and in its bare `#slug` references, in
 every sidecar that binds the section or names it in a mark's body, a
 derived edition's included, in an edition's `@omit` marks, in companion
-citations and the references register's, in the trail's heading and in
+citations and the related-work register's, in the trail's heading and in
 the backfill ledger, so renaming it by hand means finding all of them.
 `quirework spec rename OLD NEW` renames it in every one, and refuses
 before writing anything if it cannot: a new name already in use, an

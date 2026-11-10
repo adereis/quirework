@@ -2,7 +2,7 @@
 
 A section's slug is its permanent name, and the spec is only one of the
 places it is written. Each sidecar that binds the section names it, a
-companion entry and the references register cite it, the spec links to it,
+companion entry and the related-work register cite it, the spec links to it,
 the trail heads its history with it, and the backfill ledger files its flags
 and rulings under it.
 `spec notes --check` fails on any of those a hand rename misses, so renaming
@@ -25,7 +25,7 @@ import sys
 from dataclasses import dataclass
 from pathlib import Path
 
-from quirework.manuscript import editions, notes, trail, units
+from quirework.manuscript import editions, notes, related_work, trail, units
 from quirework.project import current_project
 
 _ANCHOR = re.compile(r"[A-Za-z][\w-]*")
@@ -208,13 +208,8 @@ def plan(old: str, new: str) -> tuple[str, list[Edit]]:
     for f in notes.companion_files():
         change(f, lambda t: _binds(t, None, old, new, known), "@bind")
         change(f, lambda t: _code_refs(t, old, new), "citation")
-    project = current_project()
-    if project.get("manuscript.references") is not None:
-        change(
-            project.path("manuscript.references"),
-            lambda t: _code_refs(t, old, new),
-            "citation",
-        )
+    for f in related_work.files():
+        change(f, lambda t: _code_refs(t, old, new), "citation")
     if trail.configured() and trail.sidecar_path().exists():
         change(trail.sidecar_path(), lambda t: _heading(t, old, new), "trail heading")
 
@@ -287,7 +282,7 @@ def main(argv=None) -> int:
         prog="quirework spec rename",
         description="Rename a spec section everywhere its slug is written: the "
         "spec's heading and its links, every @bind that names the section, "
-        "companion and references-register citations, the trail's heading and "
+        "companion and related-work citations, the trail's heading and "
         "the backfill ledger. "
         "Nothing is written unless every change can be made.",
     )

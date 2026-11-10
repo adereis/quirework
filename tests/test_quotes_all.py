@@ -21,7 +21,7 @@ MARKS = """\
      after the rewrite -->
 <!-- @guidance keep the "breaker" out of the opening -->
 <!-- @guidance the curly form “the lights went out” is quoted too -->
-<!-- @source the electrician said "a fuse is a promise" -->
+<!-- @cite the electrician said "a fuse is a promise" -->
 """
 
 

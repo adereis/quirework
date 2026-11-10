@@ -349,12 +349,13 @@ def test_a_published_file_must_be_a_spec_file(tmp_path):
         _published(root, ["manuscript/sections/_other.md"]).require("manuscript")
 
 
-# The references register. It cites the spec as a companion entry does, with
-# the slug in a code span, and its own `](#anchor)` links point inside it.
-# Each citation names a spec section; where the register is published beside
-# the spec (`manuscript.references_public`), a published one.
+# The related-work register, here in its prose shape. It cites the spec as a
+# companion entry does, with the slug in a code span, and its own `](#anchor)`
+# links point inside it. Each citation names a spec section; where the register
+# is published beside the spec (`manuscript.related_work_public`), a published
+# one.
 
-REFERENCES = """# Where the notebook's ideas come from
+RELATED = """# Where the notebook's ideas come from
 
 ## The whistle {#whistle-maker}
 
@@ -364,33 +365,34 @@ https://example.invalid/notes#whistle.
 """
 
 
-def _with_references(root, public=None, text=REFERENCES, shown=None):
+def _with_related_work(root, public=None, text=RELATED, shown=None):
     (root / "companion" / "entry.md").unlink()
     (root / "manuscript" / "sections" / "_bibliography.md").write_text(text)
     settings = _settings()
-    settings["manuscript"]["references"] = "manuscript/sections/_bibliography.md"
+    settings["manuscript"]["related_work"] = "manuscript/sections/_bibliography.md"
+    settings["manuscript"]["related_work_shape"] = "prose"
     if public is not None:
         settings["manuscript"]["spec_public"] = public
     if shown is not None:
-        settings["manuscript"]["references_public"] = shown
+        settings["manuscript"]["related_work_public"] = shown
     return Project.from_settings(root, settings)
 
 
-def test_a_references_register_citing_a_section_passes(tmp_path, capsys):
+def test_a_related_work_register_citing_a_section_passes(tmp_path, capsys):
     """Its own link, a code span naming its own heading and a URL fragment
     each carry a `#` without citing a section."""
     root = tmp_path / "book"
     _book(root)
-    with project_scope(_with_references(root, SPEC[:1], shown=True)):
+    with project_scope(_with_related_work(root, SPEC[:1], shown=True)):
         assert notes.check() == 0, capsys.readouterr().err
 
 
 @pytest.mark.parametrize("shown", [None, True])
-def test_a_references_register_citation_must_resolve(tmp_path, capsys, shown):
+def test_a_related_work_citation_must_resolve(tmp_path, capsys, shown):
     root = tmp_path / "book"
     _book(root)
-    text = REFERENCES + "\nIts cooling is in `#cooling-silence`.\n"
-    with project_scope(_with_references(root, text=text, shown=shown)):
+    text = RELATED + "\nIts cooling is in `#cooling-silence`.\n"
+    with project_scope(_with_related_work(root, text=text, shown=shown)):
         assert notes.check() == 1
     assert (
         "manuscript/sections/_bibliography.md:9: cites '#cooling-silence', which "
@@ -398,13 +400,13 @@ def test_a_references_register_citation_must_resolve(tmp_path, capsys, shown):
     )
 
 
-def test_a_published_references_register_may_not_cite_an_unpublished_section(
+def test_a_published_related_work_register_may_not_cite_an_unpublished_section(
     tmp_path, capsys
 ):
     root = tmp_path / "book"
     _book(root)
-    text = REFERENCES + "\nHow it is said follows `#whistle-first`.\n"
-    with project_scope(_with_references(root, SPEC[:1], text, shown=True)):
+    text = RELATED + "\nHow it is said follows `#whistle-first`.\n"
+    with project_scope(_with_related_work(root, SPEC[:1], text, shown=True)):
         assert notes.check() == 1
     assert (
         "manuscript/sections/_bibliography.md:9: cites '#whistle-first', a "
@@ -414,13 +416,13 @@ def test_a_published_references_register_may_not_cite_an_unpublished_section(
 
 
 @pytest.mark.parametrize("shown", [None, False])
-def test_an_unpublished_references_register_may_cite_any_section(
+def test_an_unpublished_related_work_register_may_cite_any_section(
     tmp_path, capsys, shown
 ):
     root = tmp_path / "book"
     _book(root)
-    text = REFERENCES + "\nHow it is said follows `#whistle-first`.\n"
-    with project_scope(_with_references(root, SPEC[:1], text, shown=shown)):
+    text = RELATED + "\nHow it is said follows `#whistle-first`.\n"
+    with project_scope(_with_related_work(root, SPEC[:1], text, shown=shown)):
         assert notes.check() == 0, capsys.readouterr().err
 
 
@@ -430,10 +432,10 @@ def test_a_check_of_another_tree_reads_that_trees_register(tmp_path, capsys):
     root = tmp_path / "book"
     _book(root)
     staged = tmp_path / "staged"
-    with project_scope(_with_references(root, shown=True)):
+    with project_scope(_with_related_work(root, shown=True)):
         shutil.copytree(root / "manuscript", staged)
         register = staged / "sections" / "_bibliography.md"
-        register.write_text(REFERENCES + "\nIts cooling is in `#cooling-silence`.\n")
+        register.write_text(RELATED + "\nIts cooling is in `#cooling-silence`.\n")
         assert notes.check() == 0, capsys.readouterr().err
         assert notes.check(staged) == 1
         assert "cites '#cooling-silence'" in capsys.readouterr().err
@@ -441,10 +443,10 @@ def test_a_check_of_another_tree_reads_that_trees_register(tmp_path, capsys):
         assert notes.check(staged) == 0, capsys.readouterr().err
 
 
-def test_a_rename_reaches_the_references_register(tmp_path):
+def test_a_rename_reaches_the_related_work_register(tmp_path):
     root = tmp_path / "book"
     _book(root)
-    with project_scope(_with_references(root, shown=True)):
+    with project_scope(_with_related_work(root, shown=True)):
         assert rename.main(["kettle-signal", "whistle-signal"]) == 0
         text = (root / "manuscript" / "sections" / "_bibliography.md").read_text()
         assert "`#whistle-signal`" in text
@@ -453,23 +455,24 @@ def test_a_rename_reaches_the_references_register(tmp_path):
 
 
 @pytest.mark.parametrize(
-    "references, shown, why",
+    "related, shown, why",
     [
-        ("manuscript/sections/_gone.md", None, "references register is missing"),
-        (None, True, "manuscript.references names none"),
+        ("manuscript/sections/_gone.md", None, "related-work register is missing"),
+        (None, True, "manuscript.related_work names none"),
         ("manuscript/sections/_claims.md", "yes", "must be true or false"),
     ],
 )
-def test_a_references_setting_that_cannot_hold_is_refused(
-    tmp_path, references, shown, why
+def test_a_related_work_setting_that_cannot_hold_is_refused(
+    tmp_path, related, shown, why
 ):
     root = tmp_path / "book"
     _book(root)
     settings = _settings()
-    if references is not None:
-        settings["manuscript"]["references"] = references
-    settings["manuscript"]["references_public"] = shown
+    if related is not None:
+        settings["manuscript"]["related_work"] = related
+        settings["manuscript"]["related_work_shape"] = "prose"
+    settings["manuscript"]["related_work_public"] = shown
     if shown is None:
-        del settings["manuscript"]["references_public"]
+        del settings["manuscript"]["related_work_public"]
     with pytest.raises(ConfigurationError, match=why):
         Project.from_settings(root, settings).require("manuscript")

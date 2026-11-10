@@ -38,9 +38,11 @@ unit_spec = "specs/{slug}/spec.md"
 noncanonical_roots = ["ideas/"]
 # The frontmatter field a published post's revision is recorded in.
 # revision_field = "lastmod"
-# The sources the posts stand on, and plain-text captures of them.
-# sources = "research/sources.md"
-# source_copies = "research/copies/{slug}.txt"
+# The related work the posts are placed against: one file of works, each a
+# `## Title {#slug}` section, and plain-text captures of what was read.
+# related_work = "research/related-work.md"
+# related_work_shape = "entries"
+# related_work_copies = "research/copies/{slug}.txt"
 # With a spec, point each section at the conversations that shaped it.
 # spec_trail = "private/spec-trail.md"
 

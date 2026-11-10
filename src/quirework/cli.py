@@ -52,7 +52,7 @@ class Command:
 
 
 GROUPS = {
-    "spec": "Read and check the spec, marks, sources, quotations and trail",
+    "spec": "Read and check the spec, marks, related work, quotations and trail",
     "publish": "Render the manuscript and inspect its editions",
     "text": "Format and inspect writing",
     "provenance": "Capture, organize, and search source history",
@@ -73,9 +73,9 @@ COMMANDS = {
     ("spec", "quotes"): Command(
         "manuscript.quotes", "Check quotations in annotations", "manuscript"
     ),
-    ("spec", "sources"): Command(
-        "manuscript.sources",
-        "List the sources the work stands on and check citations of them",
+    ("spec", "related-work"): Command(
+        "manuscript.related_work",
+        "List the related work and check citations of it",
         "manuscript",
     ),
     ("spec", "units"): Command(

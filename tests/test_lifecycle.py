@@ -156,7 +156,7 @@ def test_an_idea_named_by_its_directory_is_taken_up_by_the_directory(site):
     _write(
         site / "specs" / "the-kettle" / "marks.md",
         "<!-- @genesis the brief in ideas/steam, as its angle A -->\n"
-        "<!-- @source the notes in ideas/whistle. -->\n"
+        "<!-- @ref the notes in ideas/whistle. -->\n"
         "<!-- @guidance compare ideas/lid.md, a file of another name -->\n",
     )
     project = _project(site, pages="posts/*/index.md", ideas="ideas/*/brief.md")

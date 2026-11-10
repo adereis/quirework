@@ -6,7 +6,7 @@ Parsing and presentation stay outside the reusable execution engine.
 
 | Namespace | Responsibility |
 |---|---|
-| `manuscript` | Formats and units, spec, marks, sources, quotations, trail, lifecycle, footprint: the written work in any format |
+| `manuscript` | Formats and units, spec, marks, related work, quotations, trail, lifecycle, footprint: the written work in any format |
 | `publish` | Backends and targets; for Quarto, rendering, figures, editions, rendered review artifacts |
 | `text` | Formatting and editorial inspection |
 | `provenance` | Runtime readers, capture, the session store, its ledger and its backups, catalog, retrieval, measurements |

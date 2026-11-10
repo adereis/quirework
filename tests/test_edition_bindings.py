@@ -8,7 +8,7 @@ are named `KIND/STEM`, so the children's `tides` is never the canon's.
 
 import pytest
 
-from quirework.manuscript import editions, notes, rename, sources, units
+from quirework.manuscript import editions, notes, related_work, rename, units
 from quirework.project import Project, project_scope
 
 SPEC = """\
@@ -189,11 +189,11 @@ def test_counts_and_citations_keep_an_edition_to_itself(book):
     memo = book / "variants" / "memo" / "_marks" / "memo.md"
     memo.write_text(
         memo.read_text() + "<!-- @count(two chapters) the canon's -->\n"
-        "<!-- @source(ledger) the harbour ledger -->\n"
+        "<!-- @cite(ledger) the harbour ledger -->\n"
     )
     # An edition's @count exempts nothing in the canon it is not part of.
     assert units.count_marks() == {}
-    assert sources.cited_by().get("ledger") == ["memo/memo"]
+    assert related_work.cited_by().get("ledger") == ["memo/memo"]
     assert editions.unit_of(memo) == "memo/memo"
     assert editions.unit_of(book / "variants" / "memo" / "memo.qmd") == "memo/memo"
     assert editions.unit_of(book / "variants" / "memo" / "_raw" / "memo.md") is None
