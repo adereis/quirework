@@ -59,15 +59,22 @@ def _directories(project: Project, key: str) -> tuple[str, ...]:
 
 def _spec_files(project: Project) -> tuple[str, ...]:
     """The shared spec files, one or a list, as project-relative globs; one
-    outside the project has no such name and is left out, as `relative` does."""
+    outside the project has no such name and is left out, as `relative` does.
+    A manifest stands for itself and the section files beside it."""
     if project.get("manuscript.spec") is None:
         return ()
+    from quirework.manuscript import manifest
+
     out = []
     for path in project.paths("manuscript.spec"):
         try:
-            out.append(path.relative_to(project.root).as_posix())
+            name = path.relative_to(project.root).as_posix()
         except ValueError:
             continue
+        out.append(name)
+        if manifest.is_manifest(path):
+            # A spec kept as section files is every file beside its manifest.
+            out.append(f"{name.rpartition('/')[0] or '.'}/*.md".removeprefix("./"))
     return tuple(out)
 
 

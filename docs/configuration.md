@@ -49,6 +49,32 @@ copy carries, when the project uses those features. `manuscript.spec`
 takes one path or an ordered list of paths, read as one register whose
 anchors are unique across every file; each listed file must exist, and
 an empty list or a file listed twice is refused.
+
+A listed path ending in `.toml` is a spec manifest: the spec is kept as
+a directory of section files, one per section, and the manifest beside
+them gives their order and the parts that group them:
+
+```toml
+# spec/manifest.toml
+opening = "opening.md"
+
+[[parts]]
+title = "What the light is for"
+sections = ["flash", "horn"]
+```
+
+Each section is `<slug>.md` in the manifest's directory and holds that
+one level-2 section, anchored `{#slug}`; `opening`, if given, is the
+text before the first part, and a spec without parts lists `sections` at
+the top level. `spec notes --check` refuses a listed file that is
+missing, a file holding any section but the one its name says, and a
+Markdown file beside the manifest that it does not list (a `README.md`
+or `AGENTS.md` excepted). The primer groups the sections by part, and
+`spec rename` moves a section's file and its manifest entry with its
+slug. No command prints the spec whole: a caller that needs the joined
+text calls `quirework.manuscript.manifest.join`, which puts each part's
+title as a level-1 heading and one blank line between pieces, so a
+single-file spec split along its headings joins back to the same bytes.
 `manuscript.spec_public` names the ones a reader of the published work
 can see, each also listed in `manuscript.spec`; left unset, every spec
 file is published. `manuscript.related_work_public`, true or false, says

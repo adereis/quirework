@@ -36,7 +36,7 @@ from pathlib import Path
 from typing import NamedTuple
 
 from quirework.core import frontmatter
-from quirework.manuscript import editions, formats, units
+from quirework.manuscript import editions, formats, manifest, units
 from quirework.project import ConfigurationError, current_project
 
 # <!-- @kind(args)  body --> , possibly multi-line.
@@ -481,11 +481,29 @@ def _configured_book_file(docs, key):
 
 
 def _configured_book_files(docs, key):
-    """The files a key names, one path or an ordered list of them."""
+    """The files a key names, one path or an ordered list of them. A spec
+    manifest among them stands for the files it lists, in its order."""
     project = current_project()
     if project.get(key) is None:
         return []
-    return [_in_docs(docs, configured) for configured in project.paths(key)]
+    out = []
+    for configured in project.paths(key):
+        path = _in_docs(docs, configured)
+        if manifest.is_manifest(path):
+            out += manifest.read(path).files() if path.is_file() else []
+        else:
+            out.append(path)
+    return out
+
+
+def spec_manifests(docs=None) -> list[manifest.Manifest]:
+    """The spec manifests `manuscript.spec` names, read from ``docs``."""
+    project = current_project()
+    if project.get("manuscript.spec") is None:
+        return []
+    docs = Path(docs) if docs is not None else project.path("manuscript.source")
+    paths = [_in_docs(docs, p) for p in project.paths("manuscript.spec")]
+    return [manifest.read(p) for p in paths if manifest.is_manifest(p) and p.is_file()]
 
 
 class Section(NamedTuple):
@@ -814,16 +832,30 @@ def _print_spec_toc(docs: Path | None = None, only: set[str] | None = None) -> N
     from quirework.manuscript import trail
 
     held = trail.counts()
-    by_file: dict[Path, list[Section]] = {}
+    # A spec kept as section files is grouped by the manifest's parts, since
+    # a heading per file would list every section twice.
+    placed = {
+        path: (found, title)
+        for found in spec_manifests(docs)
+        for path, title in found.part_of().items()
+    }
+    groups: dict[object, list[Section]] = {}
     for s in sections:
-        by_file.setdefault(s.path, []).append(s)
+        key = placed.get(s.path, s.path)
+        groups.setdefault(key, []).append(s)
     width = max((len(s.slug or "") + 3 for s in sections), default=0)
     width = max(width, 26)
-    for path, group in by_file.items():
-        owner = spec_owner(path)
-        whose = f"{units.noun()} {owner}" if owner else "shared"
+    for key, group in groups.items():
+        if isinstance(key, tuple):
+            found, title = key
+            where = f"{_rel(found.directory)}/" + (f" · {title}" if title else "")
+            whose = "shared"
+        else:
+            owner = spec_owner(key)
+            where = _rel(key)
+            whose = f"{units.noun()} {owner}" if owner else "shared"
         print(
-            f"spec — {_rel(path)} ({whose}; {len(group)} section(s); "
+            f"spec — {where} ({whose}; {len(group)} section(s); "
             f"read it before the marks):"
         )
         for s in group:
@@ -1269,7 +1301,7 @@ def companion_check(
 
 def _findings(docs: Path) -> tuple[list[str], list[tuple[str, list[str]]]]:
     """Lint the split-metadata layout; replaces physical co-location as the
-    drift guard. Fourteen hard invariants (any failure → exit 1):
+    drift guard. Fifteen hard invariants (any failure → exit 1):
 
       1. no prose file carries an @-mark (marks live in sidecars), a derived
          edition's documents included;
@@ -1316,6 +1348,8 @@ def _findings(docs: Path) -> tuple[list[str], list[tuple[str, list[str]]]]:
          every citation in a companion entry, and every citation in a
          related-work register published beside the spec
          (`manuscript.related_work_public`), names a published section.
+     15. a spec manifest lists each section file that exists beside it, each
+         holding the one section its file name anchors, and no other.
 
     Plus seven advisories, printed but never fatal. The seventh names each
     section the canon binds that a composed edition neither binds nor omits.
@@ -1485,6 +1519,15 @@ def _findings(docs: Path) -> tuple[list[str], list[tuple[str, list[str]]]]:
     from quirework.manuscript import related_work
 
     problems += related_work.spec_citation_problems(docs, spec)
+
+    # 15. a spec kept as section files is the files its manifest lists, each
+    # the one section its name says. A section file the manifest forgot would
+    # otherwise drop out of the spec without a word.
+    for found in spec_manifests(docs):
+        problems += [
+            f"{_rel(path)}: {what}"
+            for path, what in manifest.problems(found, _sections_of)
+        ]
 
     # 11. the trail sidecar, where the project keeps one, mirrors the spec. A
     # renamed or retired section breaks its trail in the same edit that breaks

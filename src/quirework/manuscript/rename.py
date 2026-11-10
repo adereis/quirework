@@ -22,7 +22,7 @@ import difflib
 import json
 import re
 import sys
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from pathlib import Path
 
 from quirework.manuscript import editions, notes, related_work, trail, units
@@ -216,8 +216,36 @@ def plan(old: str, new: str) -> tuple[str, list[Edit]]:
     for path, (before, after, whats) in texts.items():
         if after != before:
             edits.append(Edit(path, before, after, ", ".join(whats)))
+    edits = _section_file(section, old_anchor, new_anchor, edits)
     edits += _ledger(old, new)
     return new, edits
+
+
+def _section_file(section, old, new, edits):
+    """In a spec kept as section files, the section's file is named by its
+    slug, so the rename moves the file and renames it in the manifest."""
+    for found in notes.spec_manifests():
+        if section.path.resolve() not in {p.resolve() for p in found.part_of()}:
+            continue
+        target = found.section_file(new)
+        if target.exists():
+            raise LookupError(f"{_rel(target)} already exists; merge them by hand")
+        edits = [
+            replace(e, move=target, what=f"{e.what}, file")
+            if e.path.resolve() == section.path.resolve()
+            else e
+            for e in edits
+        ]
+        text = found.path.read_text(encoding="utf-8")
+        listed = re.compile(rf"""(["']){re.escape(old)}\1""")
+        if len(listed.findall(text)) != 1:
+            raise LookupError(
+                f"{_rel(found.path)} does not list '{old}' exactly once; rename "
+                f"it there by hand"
+            )
+        after = listed.sub(lambda m: f"{m.group(1)}{new}{m.group(1)}", text)
+        edits.append(Edit(found.path, text, after, "manifest"))
+    return edits
 
 
 def _ledger(old: str, new: str) -> list[Edit]:

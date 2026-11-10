@@ -34,8 +34,13 @@ from dataclasses import dataclass
 from functools import lru_cache
 from pathlib import Path, PurePosixPath
 
-from quirework.manuscript import notes
-from quirework.project import SCHEMA, current_project, translate_renamed
+from quirework.manuscript import manifest, notes
+from quirework.project import (
+    SCHEMA,
+    ConfigurationError,
+    current_project,
+    translate_renamed,
+)
 
 
 class Unplaced(LookupError):
@@ -138,7 +143,21 @@ def _configured(top_, rev, prefix) -> tuple[tuple | None, str]:
                 f"{rev}'s configuration names the spec file {path}, which {rev} "
                 f"does not hold"
             )
-        files.append((name, None))
+        if not manifest.is_manifest(Path(name)):
+            files.append((name, None))
+            continue
+        try:
+            found = manifest.parse(Path(name), _show(top_, rev, name) or "")
+        except ConfigurationError as exc:
+            return None, f"its spec manifest cannot be read ({exc})"
+        for listed in found.files():
+            listed = listed.as_posix()
+            if listed not in tree:
+                raise Unplaced(
+                    f"{rev}'s spec manifest {path} lists {listed}, which {rev} "
+                    f"does not hold"
+                )
+            files.append((listed, None))
     pattern = manuscript.get("unit_spec")
     if pattern:
         regex = re.compile(
