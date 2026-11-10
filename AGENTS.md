@@ -104,10 +104,17 @@ be reviewed without reading around a consumer's content. The site's
 commits stay apart from an example's for the same reason. Keep commit
 subjects within 50 columns and prose body lines within 72 columns.
 Non-trivial commits explain their motivation and important invariants.
-End commits with a Co-Authored-By trailer identifying the model
-established by the harness. Do not push unless the user authorizes it. A
-pushed `v*` tag publishes that version to PyPI, where its number can
-never be used again, so an authorization to push a branch never covers a
-tag. The release workflow is the tool's, and its changes travel with the
-tool's (`docs/development.md`, "Releasing"). Preserve unrelated
-concurrent changes.
+Every AI-assisted commit carries one
+`Assisted-by: <harness> (<model-id>)` trailer per model that wrote,
+designed or reviewed it, with the versioned API id the harness or a
+run's receipt reports: never a display name, an alias, a gateway route,
+or an effort or context suffix. The body says what each model did. A
+model is never a co-author, reviewer or signer, so `Co-authored-by`,
+`Reviewed-by`, `Acked-by`, `Tested-by` and `Signed-off-by` never name
+one. A session-link trailer the harness documents goes after the
+`Assisted-by` lines. Do not push unless the user authorizes it. A pushed
+`v*` tag publishes that version to PyPI, where its number can never be
+used again, so an authorization to push a branch never covers a tag. The
+release workflow is the tool's, and its changes travel with the tool's
+(`docs/development.md`, "Releasing"). Preserve unrelated concurrent
+changes.
