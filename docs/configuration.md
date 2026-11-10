@@ -1003,7 +1003,14 @@ one round's ruling as `NAME.md` in this directory, and never overwrites
 one. RECORD is JSON written by whatever built the sheet: `title`,
 `round`, `sheet`, `ruled_at` (an ISO-8601 time), `notes`, and `items`,
 each with a unique `label`, the `presented` text, the option `ruled` and
-your `comment`. Declared, each round reads as a session named `rulings-`
+your `comment`. Two fields are optional. `kind` is `rulings`, the
+default, for a sheet of choices, or `notes` for a page you read and
+reacted to, where the reaction beside each item says how it read to you
+and chooses nothing; the archive's opening lines and its label in `show`
+follow it, so a reaction is never read as a decision. An item's `quoted`
+lists the passages of its `presented` text that quote your own words
+verbatim, such as a comment carried onto a later sheet, and each must
+occur there. Declared, each round reads as a session named `rulings-`
 and its file name, one author turn per item with what the sheet
 presented as the text it answered, and your notes as a last turn. So
 `show`, the trail and its backfill reach your rulings as they reach your
@@ -1022,7 +1029,10 @@ cold-read reads each round as a source of its own era, `e-rulings`,
 redacted like a local session, in the work scope, since the making list
 names only captured sessions. `provenance metrics` counts each item
 ruled as one of your turns, with only your comment and notes as your
-words. Red-pen marks still join only `show` and the trail.
+words. What the sheet presented counts as the assistant's words, except
+the passages marked as quoting you, which the report counts apart as
+your words quoted back, on neither side, since your own turn already
+counted them. Red-pen marks still join only `show` and the trail.
 
 ### Blind cold-reads
 

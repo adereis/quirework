@@ -158,6 +158,10 @@ class Acc:
         self.ai_turns = 0
         self.human_chars = self.human_words = 0
         self.ai_text_chars = self.ai_text_words = 0
+        # The author's own words that assistant prose quotes back, counted
+        # apart: neither the assistant wrote them nor did the author type them
+        # again, so they are in neither side's words.
+        self.quoted_words = 0
         self.think_chars = self.think_words = 0
         self.tool_calls = 0
         self.gated_tools = 0  # tool calls issued under permissionMode=default
@@ -181,10 +185,29 @@ class Acc:
         self.human_chars += len(text)
         self.human_words += words(text)
 
-    def ai(self, text):
+    def ai(self, text, quoted=()):
+        """Count one assistant turn, less the ``quoted`` passages it holds.
+
+        Each passage is the author's verbatim, found in ``text`` with runs of
+        whitespace taken as one space. Its words move from the assistant's to
+        ``quoted_words``, counted as the passage counts on its own, so the
+        quotation marks around it stay with the prose that holds them.
+        """
         self.ai_turns += 1
-        self.ai_text_chars += len(text)
-        self.ai_text_words += words(text)
+        chars, count = len(text), words(text)
+        if quoted:
+            from quirework.provenance.rulings import squeeze
+
+            flat = squeeze(text)
+            for passage in quoted:
+                passage = squeeze(passage)
+                if passage and passage in flat:
+                    flat = flat.replace(passage, " ", 1)
+                    chars -= len(passage)
+                    count -= words(passage)
+                    self.quoted_words += words(passage)
+        self.ai_text_chars += chars
+        self.ai_text_words += count
 
     def think(self, text):
         self.think_blocks += 1
@@ -238,6 +261,7 @@ class Acc:
             "human_words",
             "ai_text_chars",
             "ai_text_words",
+            "quoted_words",
             "think_chars",
             "think_words",
             "tool_calls",
@@ -556,8 +580,10 @@ def rulings_rounds(acc, scope=None, making=None):
     Each item ruled is one human turn, because choosing is the author's act
     even when he writes nothing; its human words are only his comment, since
     the option he chose was worded for him. The round's notes are one more
-    turn. What the sheet presented is the assistant's prose. A round records
-    one time, so it adds a date to the span and nothing to engaged time.
+    turn. What the sheet presented is the assistant's prose, except the
+    passages the record marks as quoting the author, which count as neither
+    side's words. A round records one time, so it adds a date to the span and
+    nothing to engaged time.
     """
     from quirework.provenance import rulings as RULINGS
 
@@ -569,7 +595,7 @@ def rulings_rounds(acc, scope=None, making=None):
         for item in found.items:
             acc.human(item.comment)
             if item.presented:
-                acc.ai(item.presented)
+                acc.ai(item.presented, item.quoted)
         if found.notes:
             acc.human(found.notes)
         moment = found.instant()
@@ -1000,6 +1026,8 @@ def report(accs, total, pst=None, scope=None):
     print()
     row("human words", lambda a: a.human_words)
     row("AI words (resp)", lambda a: a.ai_text_words)
+    if total.quoted_words:
+        row("human words quoted", lambda a: a.quoted_words)
     row("AI words (think)", lambda a: a.think_words)
     print()
     print("Text volume (chars) and token estimate (chars/4):")

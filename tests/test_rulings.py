@@ -122,6 +122,71 @@ def test_the_command_archives_and_names_the_session(tmp_path, capsys):
         assert "already exists" in capsys.readouterr().err
 
 
+def test_a_round_of_reading_notes_says_what_it_is(tmp_path):
+    """A reaction is how an item read, so the archive never calls it a choice."""
+    project = _rulings_book(tmp_path)
+    plain = _archived(project).read_text(encoding="utf-8")
+    assert "kind:" not in plain, "a review sheet, the default, reads as before"
+    notes = {**RECORD, "kind": "notes", "title": "Notes on the kettle page"}
+    path = _archived(project, notes, name="kettle-notes")
+    text = path.read_text(encoding="utf-8")
+    assert "reading notes" in text and "never a\nchoice about its content" in text
+    assert "the option the author chose" not in text
+    back = rulings.read(path)
+    assert back.kind == "notes" and back.label == "reading notes"
+    assert rulings.read(
+        project.root / "private" / "rulings" / "round-two.md"
+    ).label == ("review-sheet ruling")
+    with project_scope(project):
+        kind, found = show.resolve("rulings-kettle-notes")
+        shown = show.render(kind, found, utc=True)
+        assert "reading notes · ruled 2031-05-07" in shown
+    with pytest.raises(ValueError, match="'kind' is 'votes'"):
+        _archived(project, {**RECORD, "kind": "votes"}, name="bad-kind")
+
+
+QUOTED = {
+    **RECORD,
+    "items": [
+        {
+            "label": "C1",
+            "presented": (
+                "Your note on the last round said\n“keep the  route, lose the\n"
+                "slowly”, so the line now reads: It cools by a route."
+            ),
+            "quoted": ["keep the route, lose the slowly"],
+            "ruled": "confirm",
+            "comment": "",
+        },
+        RECORD["items"][1],
+    ],
+}
+
+
+def test_a_quoted_passage_of_the_authors_survives_the_archive(tmp_path):
+    project = _rulings_book(tmp_path)
+    path = _archived(project, QUOTED, name="quoted")
+    back = rulings.read(path)
+    assert back == rulings.validate(QUOTED)
+    assert back.items[0].quoted == ("keep the route, lose the slowly",)
+    assert back.items[1].quoted == ()
+    text = path.read_text(encoding="utf-8")
+    assert "```quoted\nkeep the route, lose the slowly\n```" in text
+    assert "quotes the author's own words" in text
+    stray = {
+        **QUOTED,
+        "items": [{**QUOTED["items"][0], "quoted": ["lose the kettle"]}],
+    }
+    with pytest.raises(ValueError, match="does not hold"):
+        _archived(project, stray, name="stray")
+    with pytest.raises(ValueError, match="not a list of passages"):
+        _archived(
+            project,
+            {**QUOTED, "items": [{**QUOTED["items"][0], "quoted": "keep"}]},
+            name="not-a-list",
+        )
+
+
 # --------------------------------------------------------------------------- #
 # reading it as a session
 # --------------------------------------------------------------------------- #
@@ -303,6 +368,25 @@ def test_metrics_count_each_item_ruled_as_a_turn(tmp_path):
         metrics.words(t) for t in (COMMENT, item[2]["comment"], RECORD["notes"])
     )
     assert [str(t.date()) for t in acc.times] == ["2031-05-07"]
+    assert acc.quoted_words == 0
+
+
+def test_metrics_count_the_authors_quoted_words_on_neither_side(tmp_path):
+    """A passage quoting the author left the assistant's words, and was
+    counted as his where he first wrote it, so it is counted apart."""
+    from quirework.provenance import metrics
+
+    project = _rulings_book(tmp_path)
+    _archived(project, QUOTED, name="quoted")
+    acc = metrics.Acc("rulings")
+    with project_scope(project):
+        metrics.rulings_rounds(acc)
+    shown = [it["presented"] for it in QUOTED["items"]]
+    assert acc.quoted_words == metrics.words("keep the route, lose the slowly")
+    assert acc.ai_text_words == sum(metrics.words(t) for t in shown) - acc.quoted_words
+    total = metrics.Acc("TOTAL")
+    total.merge(acc)
+    assert total.quoted_words == acc.quoted_words
 
 
 def test_the_input_stats_list_rulings_as_a_source(tmp_path):

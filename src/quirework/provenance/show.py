@@ -708,11 +708,12 @@ def _header(kind, path):
         )
     if kind == "rulings":
         day = session_date(kind, path)
+        found = RULINGS.read(path)
         return (
             session_id(kind, path),
-            RULINGS.read(path).title,
+            found.title,
             day.isoformat() if day else "?",
-            "review-sheet ruling",
+            found.label,
         )
     meta = (
         CAT._web_scan(path)

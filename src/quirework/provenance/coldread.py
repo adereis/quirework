@@ -311,7 +311,9 @@ def sources(scope=SCOPE.WORK):
     ]
     # A review sheet's ruling is the author deciding, item by item, what the
     # assistant put to him, with his reasons in his own words: evidence of who
-    # directed the work as much as any conversation. It is read only where the
+    # directed the work as much as any conversation. A round of reading notes
+    # is his reaction to a page instead, and its archive says so in its
+    # opening lines, which the analyst reads. Either is read only where the
     # project declares its archive, and it is never a pending capture.
     out += [(p, "e-rulings") for p in RULINGS.rounds() if SCOPE.wants(p, scope, making)]
     return out, resumed

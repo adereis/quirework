@@ -24,11 +24,25 @@ The record is tool-neutral JSON, written by whatever built the sheet:
 
     {"title": "Round two", "round": "r2", "sheet": "https://…",
      "ruled_at": "2031-05-07T14:08:57Z", "notes": "…",
-     "items": [{"label": "E1", "presented": "…", "ruled": "…", "comment": "…"}]}
+     "items": [{"label": "E1", "presented": "…", "ruled": "…", "comment": "…",
+                "quoted": ["…"]}]}
 
 ``label`` and ``ruled`` are required for every item, and labels are unique.
 ``presented``, ``comment``, ``notes``, ``sheet`` and ``round`` may be empty.
 A non-empty ``notes`` becomes a last turn.
+
+``kind`` says what the page asked of the author. ``rulings``, the default, is
+a review sheet: each item is a choice. ``notes`` is a page he read and reacted
+to, a reading reaction and a note beside each item, where a reaction is how
+the item read to him and never a choice about its content. The archive says
+which in its opening lines and its label, so neither ``show`` nor an analyst
+reading the file takes a reaction for a decision.
+
+``quoted`` lists the passages of ``presented`` that quote the author's own
+words verbatim, such as an earlier comment carried onto a later sheet. Each
+must occur in ``presented``, compared with runs of whitespace taken as one
+space. The sheet's prose is the assistant's, but those passages are not, and
+metrics counts them apart rather than as the assistant's words.
 
 The sheet records one instant for the whole ruling, the moment it was marked
 final, and none for any one item. So a round logs no time per turn, and a
@@ -64,6 +78,7 @@ _ITEM = re.compile(r"^### (\S.*?)\s*$")
 _SECTION = re.compile(r"^## (\S.*?)\s*$")
 _META = re.compile(r"^([a-z][\w-]*):\s*(.*?)\s*$")
 _FIELDS = ("presented", "ruled", "comment")
+KINDS = {"rulings": "review-sheet ruling", "notes": "reading notes"}
 _NAME = re.compile(r"[A-Za-z0-9][\w.-]*")
 
 
@@ -75,6 +90,8 @@ class Item:
     ruled: str
     presented: str = ""
     comment: str = ""
+    # Passages of ``presented`` that quote the author verbatim.
+    quoted: tuple[str, ...] = ()
 
     def turn(self):
         """The author's turn: the label, the option chosen, the comment."""
@@ -92,8 +109,15 @@ class Round:
     sheet: str = ""
     ruled_at: str = ""
     notes: str = ""
+    # What the page asked of the author: a key of ``KINDS``.
+    kind: str = "rulings"
     # The day the file was written: what dates a round with no ruled_at.
     archived: str = field(default="", compare=False)
+
+    @property
+    def label(self):
+        """What the round is, as a listing names it."""
+        return KINDS.get(self.kind, KINDS["rulings"])
 
     def instant(self):
         """When the ruling was marked final, aware, or ``None``."""
@@ -188,8 +212,8 @@ def _blocks(lines):
     """``(kind, value)`` for each heading and fenced block, in order.
 
     ``kind`` is ``section`` or ``item`` for a heading, and the fence's info
-    word for a block (``meta``, ``presented``, ``ruled``, ``comment`` or
-    ``notes``), whose value is its text exactly as written between the
+    word for a block (``meta``, ``presented``, ``quoted``, ``ruled``,
+    ``comment`` or ``notes``), whose value is its text exactly as written between the
     fences. A heading inside a block is the block's text, not a heading.
     """
     out, i = [], 0
@@ -243,6 +267,8 @@ def parse(text, name="the archive"):
                     meta[found.group(1)] = found.group(2)
         elif kind in _FIELDS and section == "RULINGS" and current is not None:
             current[kind] = value
+        elif kind == "quoted" and section == "RULINGS" and current is not None:
+            current.setdefault("quoted", []).append(value)
         elif kind == "notes" and section == "NOTES":
             notes = value
     parsed = []
@@ -255,16 +281,21 @@ def parse(text, name="the archive"):
                 raw["ruled"],
                 raw.get("presented", ""),
                 raw.get("comment", ""),
+                tuple(raw.get("quoted", ())),
             )
         )
+    kind = meta.get("kind", "rulings")
+    if kind not in KINDS:
+        raise ValueError(f"{name}: unknown kind {kind!r}")
     return Round(
         title,
         parsed,
-        meta.get("round", ""),
-        meta.get("sheet", ""),
-        meta.get("ruled-at", ""),
-        notes,
-        meta.get("archived", ""),
+        round=meta.get("round", ""),
+        sheet=meta.get("sheet", ""),
+        ruled_at=meta.get("ruled-at", ""),
+        notes=notes,
+        kind=kind,
+        archived=meta.get("archived", ""),
     )
 
 
@@ -286,6 +317,12 @@ def _plain(text):
     """``text`` with ``\n`` line endings and no whitespace ending a line."""
     lines = text.replace("\r\n", "\n").replace("\r", "\n").split("\n")
     return "\n".join(line.rstrip() for line in lines)
+
+
+def squeeze(text):
+    """``text`` with every run of whitespace as one space, ends trimmed: the
+    form in which a quoted passage is found in what the sheet presented."""
+    return " ".join(text.split())
 
 
 def validate(record):
@@ -320,15 +357,28 @@ def validate(record):
         for key in ("presented", "comment"):
             if not isinstance(raw.get(key, ""), str):
                 raise ValueError(f"item {label}'s {key} is not text")
+        presented = _plain(raw.get("presented", ""))
+        quoted = raw.get("quoted", [])
+        if not isinstance(quoted, list) or not all(
+            isinstance(q, str) and q.strip() for q in quoted
+        ):
+            raise ValueError(f"item {label}'s quoted is not a list of passages")
+        for q in quoted:
+            if squeeze(q) not in squeeze(presented):
+                raise ValueError(
+                    f"item {label} quotes a passage its presented text does "
+                    f"not hold: {squeeze(q)[:60]!r}"
+                )
         parsed.append(
             Item(
                 label,
                 _plain(ruled),
-                _plain(raw.get("presented", "")),
+                presented,
                 _plain(raw.get("comment", "")),
+                tuple(_plain(q) for q in quoted),
             )
         )
-    for key in ("title", "round", "sheet", "ruled_at", "notes"):
+    for key in ("title", "round", "sheet", "ruled_at", "notes", "kind"):
         if not isinstance(record.get(key, ""), str):
             raise ValueError(f"'{key}' is not text")
     for key in ("round", "sheet", "ruled_at"):
@@ -337,23 +387,41 @@ def validate(record):
     title = (record.get("title") or "").strip() or "Rulings"
     if "\n" in title:
         raise ValueError("'title' must be one line")
+    kind = record.get("kind") or "rulings"
+    if kind not in KINDS:
+        raise ValueError(f"'kind' is {kind!r}; it is one of {', '.join(KINDS)}")
     found = Round(
         title,
         parsed,
-        record.get("round", ""),
-        record.get("sheet", ""),
-        record.get("ruled_at", ""),
-        _plain(record.get("notes", "")),
+        round=record.get("round", ""),
+        sheet=record.get("sheet", ""),
+        ruled_at=record.get("ruled_at", ""),
+        notes=_plain(record.get("notes", "")),
+        kind=kind,
     )
     if found.ruled_at and found.instant() is None:
         raise ValueError(f"'ruled_at' is not an ISO-8601 time: {found.ruled_at!r}")
     return found
 
 
-_INTRO = (
-    "Durable record of one review sheet's ruling: each item the sheet put "
-    "to the author, the option the author chose, and the author's comment, "
-    "verbatim. The sheet's own storage is not kept, so this file is the record."
+_INTRO = {
+    "rulings": (
+        "Durable record of one review sheet's ruling: each item the sheet put "
+        "to the author, the option the author chose, and the author's comment, "
+        "verbatim. The sheet's own storage is not kept, so this file is the "
+        "record."
+    ),
+    "notes": (
+        "Durable record of one page's reading notes: each item the page showed "
+        "the author, the author's reaction to it, and the author's note, "
+        "verbatim. A reaction says how the item read to the author, never a "
+        "choice about its content. The page's own storage is not kept, so this "
+        "file is the record."
+    ),
+}
+_QUOTED = (
+    "A quoted block under an item marks a passage of what was presented that "
+    "quotes the author's own words."
 )
 
 
@@ -367,9 +435,16 @@ def render(found, *, archived=None):
         f"archived:  {archived.isoformat()}",
         f"items:     {len(found.items)}",
     ]
+    # A review sheet is the default and leaves the line out, so every round
+    # archived before kinds existed reads exactly as it did.
+    if found.kind != "rulings":
+        meta.insert(0, f"kind:      {found.kind}")
+    intro = _INTRO[found.kind]
+    if any(item.quoted for item in found.items):
+        intro += " " + _QUOTED
     parts = [
         f"# {found.title}",
-        _INTRO,
+        intro,
         _block("meta", "\n".join(meta)),
         "## RULINGS",
     ]
@@ -377,6 +452,7 @@ def render(found, *, archived=None):
         parts.append(f"### {item.label}")
         if item.presented:
             parts.append(_block("presented", item.presented))
+        parts += [_block("quoted", q) for q in item.quoted]
         parts.append(_block("ruled", item.ruled))
         if item.comment:
             parts.append(_block("comment", item.comment))
@@ -438,10 +514,11 @@ def main(argv=None):
         "archive",
         help="write one round's ruling into the provenance.rulings archive",
         description=(
-            "Write RECORD (JSON: title, round, sheet, ruled_at, notes, and "
-            "items of label, presented, ruled and comment) as NAME.md in the "
-            "directory provenance.rulings declares. It then reads as the "
-            "session rulings-NAME. An existing file is never overwritten."
+            "Write RECORD (JSON: title, round, sheet, ruled_at, notes, kind, "
+            "and items of label, presented, quoted, ruled and comment) as "
+            "NAME.md in the directory provenance.rulings declares. It then "
+            "reads as the session rulings-NAME. An existing file is never "
+            "overwritten."
         ),
     )
     arc.add_argument("record", type=Path, help="the ruling as JSON; '-' reads stdin")
