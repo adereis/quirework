@@ -2016,13 +2016,15 @@ def suggest(slug, *, utc=False, diff=False):
     leads, reason = suggest_leads(slug, patches=diff)
     on_trail = [c for s, c in load().crumbs() if s.slug == slug]
     lines = [f"#{slug} — {titles[slug]}"]
-    if reason:
+    if reason and not leads:
         lines.append(f"no commit history to follow: {reason}.")
     else:
         lines.append(
             f"{len(leads)} commit(s) changed this section, oldest first. These "
             f"are leads, not breadcrumbs: read each turn before adding it."
         )
+        if reason:
+            lines.append(f"The history may go further back: {reason}.")
     zone = timezone.utc if utc else None
     for lead in leads:
         lines += [

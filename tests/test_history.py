@@ -216,3 +216,26 @@ def test_a_file_nothing_places_stops_the_read_and_is_named(tmp_path, capsys):
         # Never today's files, which would report the lamp as new.
         assert specdiff.main([f"{first}..HEAD"]) == 2
     assert "no moved path places it there" in capsys.readouterr().err
+
+
+def test_one_section_is_followed_past_a_file_created_later(tmp_path):
+    """A revision with no configuration cannot place a spec file created
+    after it, so its whole spec is unplaced; a section of an older file is
+    still found, because only its own file needs placing."""
+    _, first, project = _unconfigured(tmp_path, {"notes/claims.md": "spec/claims.md"})
+    root = project.root
+    _commit(
+        root,
+        "Add the keeper's file",
+        {"spec/keeper.md": "# K\n\n## Someone keeps it {#keeper}\n\nNightly.\n"},
+        _toml(["spec/claims.md", "spec/keeper.md"]),
+    )
+    settings = {**SITE, "spec": ["spec/claims.md", "spec/keeper.md"]}
+    settings["chapter_policy"] = "policy.toml"
+    with project_scope(Project.from_settings(root, {"manuscript": settings})):
+        with pytest.raises(history.Unplaced, match="spec/keeper.md"):
+            history.spec_at(first)
+        assert history.locate("flash", first).path == "notes/claims.md"
+        commits, reason = trail._commits("flash")
+        assert reason is None
+        assert [c[2] for c in commits] == ["Write the claims"]

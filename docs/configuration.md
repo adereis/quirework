@@ -276,6 +276,10 @@ and `spec trail suggest` follows the history of whichever file holds the
 section. Where the section came into that file by a move, the history
 goes on in the file the commit before kept it in, found through that
 commit's configuration, and the commit that only moved it is no lead.
+Where that configuration cannot be read, only the file holding the
+section today needs a place in the moved paths, so a spec file created
+later does not cut the history short; a history that still cannot be
+placed ends with the reason beside the commits already found.
 
 ###### Related work
 

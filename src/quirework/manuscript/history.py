@@ -201,13 +201,14 @@ def _back(path: str, moves: dict[str, str]) -> str | None:
     return best[1] if best else None
 
 
-def _mapped(top_, rev, prefix) -> tuple[str, ...]:
-    """Today's spec files placed at ``rev`` through the map of moved paths."""
+def _mapped(top_, rev, prefix, only=None) -> tuple:
+    """Today's spec files placed at ``rev`` through the map of moved paths:
+    every one, or the ones in ``only``."""
     moves = moved_paths()
     tree = _tree(top_, rev)
     root = current_project().root.resolve()
     out = []
-    for path in notes.spec_files():
+    for path in notes.spec_files() if only is None else only:
         today = path.resolve().relative_to(root).as_posix()
         here, seen = today, {today}
         while _join(prefix, here) not in tree:
@@ -225,16 +226,23 @@ def _mapped(top_, rev, prefix) -> tuple[str, ...]:
     return tuple(out)
 
 
-def spec_at(rev: str, top_: Path | None = None) -> Spec:
+def spec_at(rev: str, top_: Path | None = None, only=None) -> Spec:
     """Where ``rev`` kept its spec: through its own configuration, else the
-    map of moved paths, else `Unplaced`."""
+    map of moved paths, else `Unplaced`.
+
+    ``only``, a list of today's spec files, narrows what the map must place
+    to the files a caller needs; a revision's own configuration always
+    answers for all of them. A spec file created after ``rev`` cannot be
+    told from one that moved where the map does not say, so the whole spec
+    of such a revision is unplaced, while one section in an older file is
+    still found."""
     top_ = top_ or top()
     sha = _resolve(top_, rev)
     prefix = _prefix(top_)
     files, why = _configured(top_, sha, prefix)
     if files is not None:
         return Spec(files, "configuration")
-    return Spec(_mapped(top_, sha, prefix), "moved paths", why)
+    return Spec(_mapped(top_, sha, prefix, only), "moved paths", why)
 
 
 def _sections(top_, rev, name, owner):
@@ -282,7 +290,11 @@ def locate(slug: str, rev: str, top_: Path | None = None) -> Location | None:
     holds no such section. A unit's own section, ``unit/anchor``, is looked
     for by its anchor in that unit's spec file."""
     top_ = top_ or top()
-    for name, owner in spec_at(rev, top_).files:
+    # Only the file that holds the section today needs placing: a spec file
+    # created later has nothing to say about where this section was.
+    today = notes.spec_file_of(slug)
+    only = [today] if today is not None else None
+    for name, owner in spec_at(rev, top_, only).files:
         for found, section, text in _sections(top_, rev, name, owner):
             if found == slug:
                 lines = section_range(text, section.anchor)
