@@ -94,7 +94,14 @@ def test_a_valid_declaration_passes(tmp_path):
                 {"path": "drills", "role": "tests"},
                 {"path": "drills/", "role": "expressions"},
             ],
-            "names drills/ twice",
+            "names the directory drills twice, as drills and drills/",
+        ),
+        (
+            [
+                {"path": "drills", "role": "tests"},
+                {"path": "./drills", "role": "expressions"},
+            ],
+            "names the directory drills twice, as drills and ./drills",
         ),
         ([{"path": "drills", "role": "tests", "gate": True}], "sets gate"),
         (["drills"], "is not a table"),

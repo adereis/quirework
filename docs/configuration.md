@@ -1790,14 +1790,18 @@ never to fail a verdict, and one list cannot do both.
 Schema 1 kept everything about the written work in one `[book]` section.
 Schema 2 splits it by job, and a schema-1 file is refused with a pointer
 here rather than read with guesses. Set `schema = 2`, then move each key
-to the section this table names. The key names do not change.
+to the section this table names. The key names do not change, except the
+two a later release renamed, which the table gives under their current
+names.
 
 | Schema 1 | Schema 2 |
 |---|---|
 | `book.source`, `book.chapters`, `book.quarto` | `manuscript.*` |
 | `book.spec`, `book.spec_trail`, `book.spec_trail_leads` | `manuscript.*` |
-| `book.references`, `book.review_notes` | `manuscript.*` |
-| `book.companion_dirs`, `book.noncanonical_roots`, `book.chapter_policy` | `manuscript.*` |
+| `book.review_notes` | `manuscript.*` |
+| `book.references` | `manuscript.related_work`, with `related_work_shape = "prose"` |
+| `book.companion_dirs` | `manuscript.supplements`, one table per directory with a `path` and a `role` |
+| `book.noncanonical_roots`, `book.chapter_policy` | `manuscript.*` |
 | `book.build`, `book.figures`, `book.figure_fonts` | `publish.*` |
 | `book.figure_type_floor_pt`, `book.figure_checks` | `publish.*` |
 | `book.grayscale_transform`, `book.grayscale_policy` | `publish.*` |

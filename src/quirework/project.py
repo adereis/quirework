@@ -14,6 +14,7 @@ import hashlib
 import importlib
 import json
 import os
+import posixpath
 import tempfile
 import tomllib
 from contextlib import contextmanager
@@ -420,7 +421,7 @@ class Project:
                 f"{key} is a list of tables: write each as [[{key}]] with a path "
                 "and a role"
             )
-        seen = set()
+        seen: dict[str, str] = {}
         for i, entry in enumerate(found, 1):
             if not isinstance(entry, Mapping):
                 raise ConfigurationError(
@@ -444,10 +445,16 @@ class Project:
                     + ". Tests apply the spec and are counted by `spec notes "
                     "--coverage`; expressions tell it to a reader."
                 )
-            folded = path.rstrip("/")
+            # One directory, however it is spelled: `drills`, `drills/` and
+            # `./drills` are the same supplement and take one role.
+            folded = posixpath.normpath(path.strip())
             if folded in seen:
-                raise ConfigurationError(f"{key} names {path} twice")
-            seen.add(folded)
+                raise ConfigurationError(
+                    f"{key} names the directory {folded} twice, as "
+                    f"{seen[folded]} and {path}; a supplement names its "
+                    "directory once, with one role"
+                )
+            seen[folded] = path
 
     def path_at(self, root, key, default=None):
         """Apply a configured layout to an explicitly supplied project root."""
