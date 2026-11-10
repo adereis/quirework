@@ -302,3 +302,31 @@ def test_by_commit_finds_an_edit_made_at_a_home_between_the_ends(tmp_path):
     assert [(c.subject, [x.slug for x in c.changes]) for c in found] == [
         ("Sharpen the lamp", ["flash"])
     ]
+
+
+def test_a_file_split_by_its_configuration_names_the_section_directory(tmp_path):
+    """Where a revision's own setting named one spec file and today's names
+    a manifest, the old file's name today is the manifest's directory, so a
+    section's advisory finds its section file."""
+    root = tmp_path / "site"
+    (root / "spec").mkdir(parents=True)
+    (root / "spec" / "claims.md").write_text("# C\n\n## The lamp {#flash}\n\nIt.\n")
+    (root / "quirework.toml").write_text(
+        'schema = 2\n\n[manuscript]\nsource = "spec"\nspec = "spec/claims.md"\n'
+    )
+    git(root, "init", "-q")
+    git(root, "add", "-A")
+    git(root, "commit", "-qm", "Write the claims")
+    first = git(root, "rev-parse", "HEAD")
+    git(root, "rm", "-q", "spec/claims.md")
+    (root / "spec").mkdir(exist_ok=True)
+    (root / "spec" / "flash.md").write_text("## The lamp {#flash}\n\nIt.\n")
+    (root / "spec" / "manifest.toml").write_text('sections = ["flash"]\n')
+    (root / "quirework.toml").write_text(
+        'schema = 2\n\n[manuscript]\nsource = "spec"\nspec = "spec/manifest.toml"\n'
+    )
+    git(root, "add", "-A")
+    git(root, "commit", "-qm", "Split the claims")
+    settings = {"manuscript": {"source": "spec", "spec": "spec/manifest.toml"}}
+    with project_scope(Project.from_settings(root, settings)):
+        assert history.path_today("spec/claims.md", first) == "spec/"

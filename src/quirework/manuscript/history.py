@@ -367,10 +367,14 @@ def path_today(rel: str, rev: str, top_: Path | None = None) -> str:
             paired = best[0] + rel[len(best[1]) :]
     root = current_project().root
     candidates = [paired, _forward(paired, moves), _forward(rel, moves)]
-    for found in candidates:
-        if (root / found).exists():
-            return found
-    return paired if paired != rel else candidates[2]
+    found = next((c for c in candidates if (root / c).exists()), None)
+    if found is None:
+        found = paired if paired != rel else candidates[2]
+    if manifest.is_manifest(Path(found)) and not manifest.is_manifest(Path(rel)):
+        # A spec file whose setting now names a manifest was split into
+        # the manifest's directory: answer the directory, as the map does.
+        return str(PurePosixPath(found).parent) + "/"
+    return found
 
 
 def _configured(top_, rev, prefix) -> tuple[tuple | None, str]:
