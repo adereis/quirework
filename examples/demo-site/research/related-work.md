@@ -1,8 +1,8 @@
-# What the Lighthouse Log stands on
+# The Lighthouse Log's related work
 
 <!--
-  One source per section. A post cites one from its marks as
-  @source(slug), and `quirework spec sources` lists who cites what.
+  One work per section. A post cites one from its marks as
+  @cite(slug), and `quirework spec related-work` lists who cites what.
   Captures of what was read live in copies/, one per slug.
 -->
 

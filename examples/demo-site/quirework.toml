@@ -17,9 +17,11 @@ unit_spec = "specs/{slug}/spec.md"
 # The keeper's briefs; `spec units` lists the ones no post has taken up.
 ideas = "ideas/*/brief.md"
 noncanonical_roots = ["ideas/"]
-# What the posts stand on, and plain-text captures of what was read.
-sources = "research/sources.md"
-source_copies = "research/copies/{slug}.txt"
+# The related work the posts are placed against, one work per section, and
+# plain-text captures of what was read.
+related_work = "research/related-work.md"
+related_work_shape = "entries"
+related_work_copies = "research/copies/{slug}.txt"
 
 [publish]
 # Hugo builds the site with its own configuration, into build/site.
