@@ -14,7 +14,7 @@ procedures/workflows/write-a-post.md
 quirework.toml
 quirework/terms.toml
 research/copies/coast-pilot.txt
-research/sources.md
+research/related-work.md
 specs/_site.md
 specs/a-keepers-first-winter/spec.md
 specs/what-the-fog-signal-is-for/marks.md

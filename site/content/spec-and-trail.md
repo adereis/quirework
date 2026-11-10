@@ -118,12 +118,13 @@ retired.
 
 {{< listing name="checks" caption="The sample book's structural checks as they stand. The advisory is real: one note carries a date, and a note, like the spec, states the current position, never its history." >}}
 
-Research gets a register of its own. Each source has a slug, and a mark
-cites it as `@source(slug)`. `spec sources --slug S` lists every chapter
-that leans on a source, and the check refuses a citation of a source the
-register does not hold. A source can keep a plain-text capture of
-itself, and a quotation from it is checked against that capture. A
-misremembered line is caught the way a misquoted chapter is.
+Research gets a register of its own: the related work, the other work
+this one is placed against. Each work has a slug, and a mark cites it as
+`@cite(slug)`. `spec related-work --slug S` lists every chapter that
+leans on a work, and the check refuses a citation of a work the register
+does not hold. A work can keep a plain-text capture of itself, and a
+quotation from it is checked against that capture. A misremembered line
+is caught the way a misquoted chapter is.
 
 ## The trail
 
