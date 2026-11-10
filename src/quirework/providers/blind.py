@@ -2177,6 +2177,15 @@ def cheapest_model(name: str) -> str | None:
 
 # The shared blind flag set. A command Quirework builds is canaried under its
 # own flags, rebuilt by its own builder; a command written by hand for
+# agy 1.5 asks permission before its file-reading tool runs. Headless, it
+# cannot ask, so it denies the read and ends the session with no answer at
+# all, which leaves the canary nothing to judge. The canary's READ line exists
+# to prove the JAIL refuses the project tree, so the read must reach the jail:
+# this grants the reading tool, the one grant the canary's own read needs, and
+# nothing else. A seat that reads its materials launches with a wider grant
+# than this (an operator's choice), and the jail is what confines either.
+AGY_CANARY_READS = ["--settings", '{"permissions":{"allow":["read_file(/)"]}}']
+
 # `blind run` cannot be rebuilt, so its runners are proven under these.
 CANARY_ARGV = {
     "claude": lambda p, m: [
@@ -2207,7 +2216,7 @@ CANARY_ARGV = {
         m,
         p,
     ],
-    "agy": lambda p, m: ["agy", "-p", p, "--model", m],
+    "agy": lambda p, m: ["agy", "-p", p, "--model", m, *AGY_CANARY_READS],
 }
 
 

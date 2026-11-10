@@ -805,6 +805,15 @@ def test_the_shared_flag_set_lacks_no_seat_switch(tmp_path):
         assert blind.lacking_switches(cmd, [name], tmp_path) == {}
 
 
+def test_the_agy_canary_lets_its_read_reach_the_jail():
+    """agy 1.5 ends a headless session that needs a permission it cannot ask
+    for, so the canary grants its reading tool, and only that."""
+    cmd = blind.CANARY_ARGV["agy"]("Say hello.", "a-model")
+    at = cmd.index("--settings")
+    assert json.loads(cmd[at + 1]) == {"permissions": {"allow": ["read_file(/)"]}}
+    assert "--dangerously-skip-permissions" not in cmd
+
+
 def test_a_codex_command_without_its_seat_switches_is_named(tmp_path):
     cmd = ["timeout", "900", "codex", "exec", "-m", "a-model", "Say hello."]
     lacking = blind.lacking_switches(cmd, ["codex"], tmp_path)
