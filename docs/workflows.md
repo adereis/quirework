@@ -1107,18 +1107,24 @@ checks it already passed and the next step. The checks are the served
 model and effort, no compaction, find-only, the report's quotations and
 what the harness loaded before the prompt. A check the harness did not
 supply is reported as missing. For a completed turn the next step is to
-verify the findings, and it gives the `Reviewed-by:` trailer a commit
-using one carries. A turn can complete without finishing: the harness
-completing means the process ended with an answer, not that the answer
-covers the delta. When the reviewer's own report ends at a `STATUS:`
-other than `complete`, the checks say the review is not finished and the
-next step says so before anything else. A reviewer that never wrote its
-report file is flagged the same way, and what is banked is its final
-message. A reviewer whose tools all failed ends like this, having read
-nothing either, while every other check passes. For a quota stop the
-next step is the `continue` command, and for a failure it is the
-evidence to read before anything is launched again. The operator does
-not have to reconstruct any of this from the record.
+verify the findings, and it gives the trailers a commit using one
+carries: `Review-Record:` naming the review's record, and an
+`Assisted-by:` line crediting the reviewing model by the versioned id
+its receipt recorded. A reviewer is a model, and `Reviewed-by:` is a
+person's statement, so the record has a trailer of its own. Earlier
+releases asked for `Reviewed-by: <model> (<record>)`, and
+`sop review audit` still reads that key in older history. A turn can
+complete without finishing: the harness completing means the process
+ended with an answer, not that the answer covers the delta. When the
+reviewer's own report ends at a `STATUS:` other than `complete`, the
+checks say the review is not finished and the next step says so before
+anything else. A reviewer that never wrote its report file is flagged
+the same way, and what is banked is its final message. A reviewer whose
+tools all failed ends like this, having read nothing either, while every
+other check passes. For a quota stop the next step is the `continue`
+command, and for a failure it is the evidence to read before anything is
+launched again. The operator does not have to reconstruct any of this
+from the record.
 
 A reviewer can put a sentence in quotation marks that no file holds,
 inside a finding whose substance is sound, and an operator who trusts

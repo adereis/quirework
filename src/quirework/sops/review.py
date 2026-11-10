@@ -2124,11 +2124,7 @@ def handoff(entry, name, harness, record):
             )
         if entry["workspace"] == "reviewed-files-moved":
             step += " The files under review changed during the run."
-        model = entry.get("model") or entry["selected_model"]
-        step += (
-            f" A commit that uses a finding ends its trailer block with "
-            f"`Reviewed-by: {model} ({name})`."
-        )
+        step += " " + _trailer_step(entry, name, harness)
     elif status == "quota-stopped" and entry.get("session_id"):
         step = f"quirework sop review continue {name}" + (
             f" (the quota resets {entry['quota_resets_at']})"
@@ -2173,16 +2169,56 @@ def _trailer(rev, key):
     return git("log", "-1", f"--format=%(trailers:key={key},valueonly)", rev).strip()
 
 
+# The trailer a commit that uses a review's finding carries, naming the
+# review's record. Earlier releases asked for `Reviewed-by: <model> (<record>)`
+# instead. That key is a person's statement that they vouch for a change, so
+# it no longer names a model; the reviewing model is credited with an
+# `Assisted-by` line beside the record. Older history keeps its trailers, so
+# the audit still reads both keys.
+REVIEW_TRAILER = "Review-Record"
+REVIEW_TRAILERS = (REVIEW_TRAILER, "Reviewed-by")
+
+
+def _reviewed(rev):
+    """Whether ``rev`` carries a review trailer, under either key."""
+    return any(_trailer(rev, key) for key in REVIEW_TRAILERS)
+
+
+def _trailer_step(entry, name, harness):
+    """What a commit using a finding of this turn ends its trailers with: the
+    review's record, and the reviewing model credited by the versioned id
+    its receipt recorded. Where the receipt recorded no served model, the
+    selection is not that id, so the step says so rather than writing a
+    trailer that would credit an alias."""
+    from quirework.sops.roundtable import HARNESS_NAMES
+
+    tool = HARNESS_NAMES.get(harness, harness)
+    record = f"`{REVIEW_TRAILER}: {name}`"
+    served = entry.get("model")
+    if served:
+        return (
+            f"A commit that uses a finding ends its trailer block with {record} "
+            f"and `Assisted-by: {tool} ({served})`."
+        )
+    return (
+        f"A commit that uses a finding ends its trailer block with {record} and "
+        f"an `Assisted-by: {tool} (<model-id>)` line. The receipt recorded no "
+        f"served model, and {entry['selected_model']} is the selection, not a "
+        "versioned id: find the id the harness served before writing the line."
+    )
+
+
 def last_reviewed():
-    """The most recent commit that carried a `Reviewed-by:` trailer."""
+    """The most recent commit that carried a review trailer."""
     for rev in git("log", "--format=%H", "-500").split():
-        if _trailer(rev, "Reviewed-by"):
+        if _reviewed(rev):
             return rev
     return None
 
 
 def audit(since=None):
-    """Reviewable commits since a ref that carry no `Reviewed-by:` trailer.
+    """Reviewable commits since a ref that carry no review trailer
+    (`Review-Record:`, or `Reviewed-by:` in older history).
 
     An advisory, and it stays one. Whether a given edit needed a foreign
     reviewer is a judgment about the edit, and a script that answered it would
@@ -2192,7 +2228,8 @@ def audit(since=None):
         since = last_reviewed()
         if since is None:
             _fail(
-                "no commit in the last 500 carries a Reviewed-by: trailer; "
+                "no commit in the last 500 carries a Review-Record: or "
+                "Reviewed-by: trailer; "
                 "pass --since REF to say where to start"
             )
         since = f"{since}..HEAD"
@@ -2206,7 +2243,7 @@ def audit(since=None):
             for f in git("show", "--name-only", "--format=", rev).split()
             if _options().REVIEWABLE(f)
         ]
-        if touched and not _trailer(rev, "Reviewed-by"):
+        if touched and not _reviewed(rev):
             unreviewed.append(
                 {
                     "commit": rev[:8],
@@ -2607,7 +2644,8 @@ Cross-model editorial review of a delta. Procedure: docs/workflows.md.
       revision, such as the one reviewed, instead of the working tree.
   quirework sop review audit [--since REF]
       Commits touching the configured reviewable paths since the last commit
-      carrying a Reviewed-by: trailer that carry none themselves. Advisory:
+      carrying a Review-Record: trailer (or Reviewed-by:, in older history)
+      that carry none themselves. Advisory:
       whether an edit needed a foreign reviewer is a judgment, not a gate.
   quirework sop review prompt SCOPE --range A..B --brief FILE --model M
       Print the composed prompt and argv, launch nothing.
@@ -2625,8 +2663,9 @@ Every turn prints where its report was banked, the receipt checks it already
 passed (served model and effort, no compaction, find-only), the quotations the
 report carries that are not in the sources it cites, what the harness loaded
 into the reviewer's context before the prompt and how often the reviewer read
-it again, and the next step, including the Reviewed-by: trailer a commit using
-a finding carries.
+it again, and the next step, including the Review-Record: trailer and the
+Assisted-by: line for the reviewing model that a commit using a finding
+carries.
 
 A frame may name {preloaded}, which tells the reviewer what its harness
 already loaded, so the frame need not ask for it; the prompt prints any line

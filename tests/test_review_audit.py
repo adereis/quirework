@@ -100,3 +100,24 @@ def test_a_bare_ref_is_read_as_a_range_to_head(history):
     assert review.audit("HEAD~3")["range"] == "HEAD~3..HEAD"
     spec = f"{history['first']}..{history['tooling']}"
     assert review.audit(spec)["range"] == spec
+
+
+RECORD = "Review-Record: 2026-01-02-review-tide"
+
+
+def test_the_record_trailer_marks_a_commit_reviewed(history, tmp_path):
+    """Today's trailer names the review's record, and a model is credited
+    with Assisted-by beside it; the older Reviewed-by still reads, so the
+    history written before the change stays legible."""
+    repo = tmp_path / "book"
+    newer = _commit(
+        repo,
+        f"Revise the tide\n\n{RECORD}\nAssisted-by: Demo CLI (demo-model-1)",
+        "chapters/tide.md",
+    )
+    out = review.audit()
+    assert out["range"] == f"{newer}..HEAD"
+    assert out["commits"] == 0
+    since_first = review.audit(f"{history['first']}..HEAD")
+    reported = [row["commit"] for row in since_first["unreviewed"]]
+    assert newer[:8] not in reported and history["reviewed"][:8] not in reported

@@ -56,7 +56,9 @@ def test_a_completed_turn_states_its_report_its_checks_and_the_trailer(project):
     assert "no compaction" in out["checks"][1]
     assert out["checks"][2] == "find-only (workspace: unchanged)"
     assert out["report_path"] in out["next"]
-    assert f"`Reviewed-by: demo-model ({RUN})`" in out["next"]
+    assert f"`Review-Record: {RUN}`" in out["next"]
+    assert "`Assisted-by: Codex CLI (demo-model)`" in out["next"]
+    assert "Reviewed-by" not in out["next"]
     jailed = review.handoff(
         entry(sandbox="danger-full-access"), RUN, "codex", project / "state"
     )
@@ -113,7 +115,9 @@ def test_a_report_that_says_it_stopped_short_is_not_passed_off_as_done(project):
     assert out["next"].startswith("The reviewer's own report says it did not")
     assert f"quirework sop review resume {RUN}" in out["next"]
     # The findings it did bank are still to be verified, with the trailer.
-    assert f"`Reviewed-by: demo-model ({RUN})`" in out["next"]
+    assert f"`Review-Record: {RUN}`" in out["next"]
+    assert "`Assisted-by: Codex CLI (demo-model)`" in out["next"]
+    assert "Reviewed-by" not in out["next"]
 
 
 def _banked(project, report=None):
@@ -298,3 +302,12 @@ def test_a_continued_turn_is_not_offered_for_continuing_again(project):
         )
     )
     assert review.status(RUN, store=record.parent)["continuable"] == []
+
+
+def test_a_receipt_with_no_served_model_never_credits_the_selection(project):
+    """The selection may be a family name; the trailer credits a versioned
+    id, so where the receipt recorded none the step says so."""
+    out = review.handoff(entry(model=None), RUN, "codex", project / "state")
+    assert f"`Review-Record: {RUN}`" in out["next"]
+    assert "`Assisted-by: Codex CLI (<model-id>)`" in out["next"]
+    assert "recorded no served model" in out["next"]
