@@ -8,7 +8,7 @@ BOOK_NOTES_FILE = "_review-notes.md"
 
 
 def project_at(root):
-    """A Quarto book with a spec, review notes and two companion collections,
+    """A Quarto book with a spec, review notes and two supplements,
     laid out as the configuration guide teaches, at `root`."""
     return Project.from_settings(
         root,
@@ -19,7 +19,10 @@ def project_at(root):
                 "quarto": "docs/_quarto.yml",
                 "spec": f"docs/canon/{SPEC_FILE}",
                 "review_notes": f"docs/canon/{BOOK_NOTES_FILE}",
-                "companion_dirs": ["exercises", "cases"],
+                "supplements": [
+                    {"path": "exercises", "role": "tests"},
+                    {"path": "cases", "role": "tests"},
+                ],
                 "noncanonical_roots": ["analysis/", "ideas/", "scratchpad/"],
             }
         },
@@ -626,7 +629,7 @@ def test_primer_with_path_omits_repo_spec_toc(tmp_path, capsys):
 
 
 # --------------------------------------------------------------------------- #
-# the companion collections: exercises/ and cases/ resolve back into the spec,
+# the supplements: exercises/ and cases/ resolve back into the spec,
 # and their quotations still exist in the book they quote
 # --------------------------------------------------------------------------- #
 def _mini_repo(tmp_path, entry: str, canon_prose: str = "Prose."):
@@ -642,7 +645,7 @@ def _mini_repo(tmp_path, entry: str, canon_prose: str = "Prose."):
     return docs
 
 
-def test_check_flags_companion_spec_slug_binding_nothing(tmp_path, capsys):
+def test_check_flags_supplement_spec_slug_binding_nothing(tmp_path, capsys):
     """Invariant 7. The entries are canon's one licensed outward dependency
     and they cite back in by slug; a distillation that folds a section away
     strands the citation, and nothing read these files before."""
@@ -653,13 +656,13 @@ def test_check_flags_companion_spec_slug_binding_nothing(tmp_path, capsys):
     assert "exercises/e.md:1" in err
 
 
-def test_check_companion_resolving_slug_is_silent(tmp_path, capsys):
+def test_check_supplement_resolving_slug_is_silent(tmp_path, capsys):
     docs = _mini_repo(tmp_path, "The position rests on `#shore`.\n")
     assert notes.check(docs) == 0
     assert "does not exist" not in capsys.readouterr().err
 
 
-def test_check_companion_ignores_markdown_link_fragments(tmp_path, capsys):
+def test_check_supplement_ignores_markdown_link_fragments(tmp_path, capsys):
     entry = (
         "# Entry\n\n"
         "See [the local discussion](#discussion) and "
@@ -671,7 +674,7 @@ def test_check_companion_ignores_markdown_link_fragments(tmp_path, capsys):
     assert "does not exist" not in capsys.readouterr().err
 
 
-def test_check_companion_ignores_backticked_url_fragments(tmp_path, capsys):
+def test_check_supplement_ignores_backticked_url_fragments(tmp_path, capsys):
     entry = (
         "# Entry\n\nThe method is documented at "
         "`https://example.test/paper/#methods` and "
@@ -703,8 +706,8 @@ def test_check_rejects_bind_token_outside_anchors(tmp_path, capsys):
     assert "appears outside the **Anchors:** run" in err
 
 
-def test_check_flags_companion_quote_absent_from_canon(tmp_path, capsys):
-    """A companion quotation can drift from the current prose."""
+def test_check_flags_supplement_quote_absent_from_canon(tmp_path, capsys):
+    """A supplement quotation can drift from the current prose."""
     docs = _mini_repo(
         tmp_path,
         "There is an identity rule. `#shore` states it in one phrase:\n"
@@ -716,7 +719,7 @@ def test_check_flags_companion_quote_absent_from_canon(tmp_path, capsys):
     assert "same rulebook plus same state" in err
 
 
-def test_check_companion_quote_allows_case_and_trailing_punctuation(tmp_path, capsys):
+def test_check_supplement_quote_allows_case_and_trailing_punctuation(tmp_path, capsys):
     """Lifting a sentence into the middle of another lowercases its initial
     capital, and American style puts the comma inside the closing quote. Both
     are correct quotation; flagging them buried the one real hit three deep."""
@@ -730,7 +733,7 @@ def test_check_companion_quote_allows_case_and_trailing_punctuation(tmp_path, ca
     assert "appear nowhere in the work" not in capsys.readouterr().err
 
 
-def test_check_companion_curly_quote_survives_a_short_curly_span(tmp_path, capsys):
+def test_check_supplement_curly_quote_survives_a_short_curly_span(tmp_path, capsys):
     """Curly marks pair by direction. A class taking either mark at either end
     let the close of “it” open a span running to the next quotation's open, so
     the prose between was checked and the quotation itself never was."""
@@ -746,7 +749,7 @@ def test_check_companion_curly_quote_survives_a_short_curly_span(tmp_path, capsy
     assert "for short" not in err
 
 
-def test_check_companion_ignores_entry_subheadings(tmp_path, capsys):
+def test_check_supplement_ignores_entry_subheadings(tmp_path, capsys):
     """A bold span opening a block or a list item is the entry's own
     subheading, never a quotation of the book."""
     docs = _mini_repo(
@@ -759,7 +762,7 @@ def test_check_companion_ignores_entry_subheadings(tmp_path, capsys):
     assert "appear nowhere in the work" not in capsys.readouterr().err
 
 
-def test_check_companion_ignores_unattributed_quotes(tmp_path, capsys):
+def test_check_supplement_ignores_unattributed_quotes(tmp_path, capsys):
     """The entries quote Nozick and Searle too. Attribution is read from the
     200 characters before the span, so only a quotation the entry hands to the
     book is measured against the book."""
@@ -1033,7 +1036,7 @@ def test_quotes_reads_figure_labels_from_the_svg(tmp_path, monkeypatch):
 
 def test_quotes_corpus_excludes_the_marks_themselves(tmp_path, monkeypatch):
     """Folding the sidecars in would make every span match the mark it came
-    from, which is what notes._canon_corpus does for the companion check."""
+    from, which is what notes._canon_corpus does for the supplement check."""
     from quirework.manuscript import notes as _n
     from quirework.manuscript import quotes as _q
 
@@ -1139,7 +1142,7 @@ def test_stale_anchor_is_a_hard_problem(tmp_path):
     (ex / "e.md").write_text(
         "# E\n\n**Anchors:** `09-b` `@bind(intrinsic-weight)`.\n\nbody.\n"
     )
-    problems, _, _ = _n.companion_check(docs, _n.spec_slugs(docs), root=tmp_path)
+    problems, _, _ = _n.supplement_check(docs, _n.spec_slugs(docs), root=tmp_path)
     assert len(problems) == 1
     assert "09-b" in problems[0] and "does not bind" in problems[0]
     assert "08-a" in problems[0]  # names who does bind it
@@ -1162,7 +1165,7 @@ def test_correct_anchor_passes(tmp_path):
     (ex / "e.md").write_text(
         "# E\n\n**Anchors:** `08-a` `@bind(intrinsic-weight)`.\n\nbody.\n"
     )
-    problems, _, anchors = _n.companion_check(docs, _n.spec_slugs(docs), root=tmp_path)
+    problems, _, anchors = _n.supplement_check(docs, _n.spec_slugs(docs), root=tmp_path)
     assert problems == [] and anchors == []
 
 
@@ -1175,7 +1178,7 @@ def test_readme_is_not_an_entry_and_owes_no_anchors(tmp_path):
     ex = tmp_path / "exercises"
     ex.mkdir()
     (ex / "README.md").write_text("# The collection\n\nAn index, not an entry.\n")
-    _, _, anchors = _n.companion_check(docs, _n.spec_slugs(docs), root=tmp_path)
+    _, _, anchors = _n.supplement_check(docs, _n.spec_slugs(docs), root=tmp_path)
     assert anchors == []
 
 
@@ -1354,7 +1357,7 @@ def test_unresolvable_chapter_reference_in_a_run_is_a_hard_problem(tmp_path):
     (ex / "e.md").write_text(
         "# E\n\n**Anchors:** `gone.qmd` `@bind(intrinsic-weight)`.\n\nbody.\n"
     )
-    problems, _, _ = _n.companion_check(docs, {"intrinsic-weight"}, root=tmp_path)
+    problems, _, _ = _n.supplement_check(docs, {"intrinsic-weight"}, root=tmp_path)
     assert any("gone" in p and "no chapter" in p for p in problems)
 
 

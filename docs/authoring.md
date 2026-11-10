@@ -47,7 +47,7 @@ without the ones below it.
 | Canon prose | Quarto chapters in a declared reading order, or a site's pages and where each stands | `publish build`, `spec units` |
 | Spec | numbered commitments, each with a slug, in one file or one per unit | `spec notes --primer` |
 | Marks | per-chapter sidecars of `@`-annotations, including which spec section a chapter expresses | `spec notes`, `spec notes bind` |
-| Companion documents | reader-facing material that cites the spec or canon | `spec notes --check` |
+| Supplements | reader-facing collections beside the work, tests that apply the spec or expressions that tell it | `spec notes --check`, `spec notes --coverage` |
 | Related work | a register of the work this one is placed against, cited by slug from the marks | `spec related-work` |
 | Variants | derived editions whose master remains the canon | `publish variant` |
 | Figures | the book's illustration set, materialized into the build | `publish figures` |
@@ -78,7 +78,7 @@ private = "private"
 source = "manuscript"
 quarto = "manuscript/_quarto.yml"
 chapters = "manuscript/sections"
-companion_dirs = ["companion"]
+supplements = [{ path = "companion", role = "expressions" }]
 noncanonical_roots = ["scratchpad"]
 
 [publish]
@@ -276,12 +276,12 @@ work states it in another. List them, in the order they are read:
 spec = ["spec/claims.md", "spec/house.md"]
 ```
 
-The files are one register. A binding, an `@omit`, a companion citation,
-the trail and `spec rename` reach a section in either file by its
-anchor, and an anchor is unique across all of them, so moving a section
-from one file to the other keeps its name, its bindings and its trail.
-The primer lists each file under its own heading. A single path is the
-same register with one file in it.
+The files are one register. A binding, an `@omit`, a supplement
+citation, the trail and `spec rename` reach a section in either file by
+its anchor, and an anchor is unique across all of them, so moving a
+section from one file to the other keeps its name, its bindings and its
+trail. The primer lists each file under its own heading. A single path
+is the same register with one file in it.
 
 Not every file need be published. A project that publishes its claims
 and keeps its house rules to itself says which files a reader can see:
@@ -293,7 +293,7 @@ spec_public = ["spec/claims.md"]
 ```
 
 Each published file must also be listed in `spec`. What is published may
-not cite what is not: `notes --check` refuses a companion entry that
+not cite what is not: `notes --check` refuses a supplement entry that
 cites a section of an unpublished file, and a `#slug` reference in a
 published spec file that names one, since its reader would follow it to
 a page they cannot open. An unpublished file may cite anything, and a
@@ -305,10 +305,10 @@ name a section of the register, as a binding must. A heading's own
 `{#slug}`, code, comments and frontmatter are not read as references.
 
 A related-work register (`manuscript.related_work`) cites the spec as a
-companion entry does, with the slug in a code span, `` `#slug` ``, since
-its own `](#anchor)` links point at its own headings. Each citation must
-name a spec section. When the register is published beside the spec, say
-so, and its citations are held to the boundary too:
+supplement entry does, with the slug in a code span, `` `#slug` ``,
+since its own `](#anchor)` links point at its own headings. Each
+citation must name a spec section. When the register is published beside
+the spec, say so, and its citations are held to the boundary too:
 
 ```toml
 [manuscript]
@@ -330,7 +330,7 @@ A slug is a name, and a section can outgrow it: reverse what a section
 says and its slug may now say the opposite. The slug is written in the
 spec's heading, in its links and in its bare `#slug` references, in
 every sidecar that binds the section or names it in a mark's body, a
-derived edition's included, in an edition's `@omit` marks, in companion
+derived edition's included, in an edition's `@omit` marks, in supplement
 citations and the related-work register's, in the trail's heading and in
 the backfill ledger, so renaming it by hand means finding all of them.
 `quirework spec rename OLD NEW` renames it in every one, and refuses

@@ -1,7 +1,7 @@
 """A pointer to a unit reads the same in a book and on a site.
 
 The metadata layer names a chapter or a post with `@unit(slug)`, and a
-companion entry's **Anchors:** run may also name one by its file, written as
+supplement entry's **Anchors:** run may also name one by its file, written as
 the format writes it. Neither form may assume a Quarto book. Every fixture
 here is fiction.
 """
@@ -62,7 +62,7 @@ def _site(root, entry):
                 "marks": "specs/{slug}/marks.md",
                 "unit_name": "post",
                 "spec": "specs/_site.md",
-                "companion_dirs": ["notes"],
+                "supplements": [{"path": "notes", "role": "tests"}],
             }
         },
     )
@@ -74,7 +74,7 @@ def _check(project, capsys):
     return rc, capsys.readouterr().err
 
 
-def test_a_site_s_companion_names_a_post_by_its_page(tmp_path, capsys):
+def test_a_site_s_supplement_names_a_post_by_its_page(tmp_path, capsys):
     entry = (
         "# A kettle at sea\n\n**Anchors:** `posts/notes-on-a-kettle/index.md` "
         "`@bind(kettle-signal)`\n\nA ship's kettle still whistles.\n"
@@ -83,7 +83,7 @@ def test_a_site_s_companion_names_a_post_by_its_page(tmp_path, capsys):
     assert rc == 0, err
 
 
-def test_a_companion_naming_a_missing_post_says_post(tmp_path, capsys):
+def test_a_supplement_naming_a_missing_post_says_post(tmp_path, capsys):
     entry = (
         "# A kettle at sea\n\n**Anchors:** `posts/a-kettle-overboard/index.md` "
         "`@bind(kettle-signal)`\n"
@@ -205,7 +205,7 @@ def test_a_project_names_its_own_anchors_label(tmp_path, capsys):
         tmp_path, "**Rests on:** `@unit(notes-on-a-kettle)` `@bind(kettle-signal)`\n"
     )
     settings = project.describe()["settings"]
-    settings["manuscript"]["companion_anchors"] = "Rests on"
+    settings["manuscript"]["supplement_anchors"] = "Rests on"
     project = Project.from_settings(tmp_path, settings)
     rc, err = _check(project, capsys)
     assert rc == 0, err
@@ -217,6 +217,6 @@ def test_a_project_names_its_own_anchors_label(tmp_path, capsys):
 def test_an_entry_under_another_label_anchors_nothing(tmp_path, capsys):
     project = _site(tmp_path, "**Anchors:** `@bind(kettle-signal)`\n")
     settings = project.describe()["settings"]
-    settings["manuscript"]["companion_anchors"] = "Rests on"
+    settings["manuscript"]["supplement_anchors"] = "Rests on"
     rc, err = _check(Project.from_settings(tmp_path, settings), capsys)
     assert "no **Rests on:** run resolves" in err

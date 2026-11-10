@@ -1350,7 +1350,7 @@ def cmd_triage(args):
     """Mechanical relevance prioritizer over local sessions (free, no model calls).
 
     A session that edits document files (the manuscript, the spec, retained
-    analysis, scratch notes, the companion collections) is 'keep'.
+    analysis, scratch notes, the supplements) is 'keep'.
     A session that does not is 'review':
     it might still be a substantive discussion that only touched tooling, so it
     needs an intelligent read before any removal -- the mechanics alone never

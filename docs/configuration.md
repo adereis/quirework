@@ -19,7 +19,7 @@ private = "private"
 source = "manuscript"
 quarto = "manuscript/_quarto.yml"
 chapters = "manuscript/sections"
-companion_dirs = ["companion"]
+supplements = [{ path = "companion", role = "expressions" }]
 noncanonical_roots = ["scratchpad"]
 
 [publish]
@@ -119,7 +119,7 @@ non-publishing spaces. Session capture also skips any session whose
 recorded working directory is inside `project.scratchpad`, so workshop
 seats and experiments run there are never swept into the corpus.
 `manuscript.noncanonical_roots` tells checks which working paths have no
-authority. `manuscript.companion_dirs` names reader-facing documents
+authority. `manuscript.supplements` names reader-facing collections
 outside the canon. `publish.variants` names the root for derived
 editions, and `publish build` renders each one composed there into
 `<publish.build>/variants/KIND/book/_site`.
@@ -1475,8 +1475,8 @@ and visual choices out of Quirework's implementation:
 
 Three settings describe a project's own placement, and all three default
 to describing nothing rather than to another project's directory names.
-`manuscript.companion_dirs` names reader-facing collections beside the
-book, whose quotations and spec citations `spec notes --check` then
+`manuscript.supplements` names the reader-facing collections beside the
+work, whose quotations and spec citations `spec notes --check` then
 gates. `manuscript.noncanonical_roots` names directories that hold
 working material rather than authority, so a mark resting on one is
 reported. `runs.evidence_roots` names every directory holding saved run
@@ -1486,11 +1486,34 @@ authority, which is the guarantee these three settings buy. An edition's
 blind drafts, in `_raw/` inside each edition under `publish.variants`,
 are never reflowed either, with no declaration.
 
-Each Markdown file directly inside a companion directory is an entry,
+A supplement is one directory, declared as a table with its path and its
+role:
+
+```toml
+[[manuscript.supplements]]
+path = "drills"
+role = "tests"
+
+[[manuscript.supplements]]
+path = "explainers"
+role = "expressions"
+```
+
+The role says what the collection does with the spec. Tests apply it: an
+entry takes a case, works it through the commitments, and records the
+result, so it is run again when the spec changes. Expressions tell it to
+a reader, as an explainer or a set of questions and answers does. Both
+are held to the same checks below. Only tests are counted by
+`spec notes --coverage`, because an expression that mentions a section
+works no case, and counting it would read documentation as coverage. A
+role is required, a supplement names its directory once, and a table
+holds nothing but `path` and `role`.
+
+Each Markdown file directly inside a supplement's directory is an entry,
 except a `README.md`, which indexes the collection, and a file whose
 name starts with `_`, such as a template. An entry names what it rests
 on in a visible run in its header paragraph, labelled `**Anchors:**`
-unless `manuscript.companion_anchors` names another label:
+unless `manuscript.supplement_anchors` names another label:
 
 ```markdown
 **Anchors:** `@unit(why-the-lamp-turns)` `@bind(lamp-period)`
@@ -1500,7 +1523,14 @@ A unit is named by `@unit(slug)`, by its bare slug, or by its file as
 the format writes it (`opening.qmd`,
 `posts/why-the-lamp-turns/index.md`). Each `@bind(slug)` after it must
 be a section that unit binds. `spec notes --coverage` then maps which
-commitments the entries work through.
+commitments the entries of the tests supplements work through.
+
+Earlier releases called the setting `manuscript.companion_dirs`, a list
+of directories with no role, and its label
+`manuscript.companion_anchors`. Both are refused with the names that
+replaced them. A tool reading a revision committed before the change
+reads each old directory as a supplement with no role; such a revision
+is read, never validated, so a missing role there is no error.
 
 ### Where the work lives
 
@@ -1515,7 +1545,7 @@ answer, built from what the project already declares:
   source, or a site's pages, their bundles and `manuscript.marks`;
 - the register: each `manuscript.spec` file, each
   `manuscript.unit_spec`, and the references and review notes;
-- `manuscript.companion_dirs`;
+- every `manuscript.supplements` directory, of either role;
 - and `manuscript.noncanonical_roots`, kept apart as writing without
   authority. Authorship counts it, and a reviewer is not owed it.
 
@@ -1793,7 +1823,7 @@ a site's post is no chapter and a site is no book:
 
 | Before | Now | Where it is written |
 |---|---|---|
-| `@ch(slug)` | `@unit(slug)` | marks, spec, companion entries |
+| `@ch(slug)` | `@unit(slug)` | marks, spec, supplement entries |
 | scope `book` | scope `work` | instruments, panels, run plans |
 | `--scope book` | `--scope work` | `provenance metrics`, `provenance coldread`, `spec trail backfill plan` |
 

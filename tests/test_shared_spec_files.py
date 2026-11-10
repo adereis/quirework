@@ -50,7 +50,7 @@ def _settings(spec=SPEC):
             "chapters": "manuscript/sections",
             "spec": spec,
             "spec_trail": "private/spec-trail.md",
-            "companion_dirs": ["companion"],
+            "supplements": [{"path": "companion", "role": "expressions"}],
         }
     }
 

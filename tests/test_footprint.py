@@ -35,7 +35,7 @@ BOOK = {
         "chapters": "manuscript/sections",
         "quarto": "manuscript/_quarto.yml",
         "spec": "manuscript/sections/_spec.md",
-        "companion_dirs": ["companion"],
+        "supplements": [{"path": "companion", "role": "expressions"}],
         "noncanonical_roots": ["scratchpad"],
     }
 }
@@ -73,7 +73,7 @@ def test_working_material_is_writing_but_not_authority(tmp_path):
     assert fp.covers("ideas/the-kettle/brief.md", working=True)
 
 
-def test_a_book_s_footprint_is_its_source_and_companions(tmp_path):
+def test_a_book_s_footprint_is_its_source_and_supplements(tmp_path):
     fp = footprint(Project.from_settings(tmp_path, BOOK))
     assert fp.covers("manuscript/sections/opening.qmd")
     assert fp.covers("manuscript/sections/_marks/opening.md")

@@ -21,7 +21,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from types import MappingProxyType
 from threading import RLock
-from typing import Any, Iterator, Mapping
+from typing import Any, Callable, Iterator, Mapping, NamedTuple
 
 from quirework import settings as _settings
 
@@ -134,22 +134,49 @@ RETIRED = {
 }
 
 
-# Settings a release renamed, each with its new name and any setting the old
-# name implied. Refused under the old name, with the new one: a project still
-# using it would otherwise have its register read as absent. A tool reading a
-# revision committed before the rename translates it instead
+# Settings a release renamed, each with its new name, any setting the old name
+# implied, and, where the setting changed shape as well as name, how an old
+# value reads in the new shape. Refused under the old name, with the new one: a
+# project still using it would otherwise have its register read as absent. A
+# tool reading a revision committed before the rename translates it instead
 # (`translate_renamed`), so older history stays readable.
+class Renamed(NamedTuple):
+    new: str
+    implied: Mapping = MappingProxyType({})
+    # An old value in the new shape, for a revision committed before the
+    # rename. What the old shape could not say stays unsaid: the translated
+    # value is read, never validated as today's configuration is.
+    convert: Callable | None = None
+    # How the new shape is written, for the refusal: a pointer to the new
+    # name alone would leave the old value to be pasted under it.
+    shape: str = ""
+
+
+# The roles a supplement declares. Tests apply the spec to a case and record
+# the result, so `spec notes --coverage` counts them; expressions tell the
+# spec to a reader, as an explainer does, and are held to the same citation
+# and quotation checks without being counted.
+SUPPLEMENT_ROLES = ("tests", "expressions")
+
+
 RENAMED = {
-    "manuscript.sources": (
-        "manuscript.related_work",
-        {"manuscript.related_work_shape": "entries"},
+    "manuscript.sources": Renamed(
+        "manuscript.related_work", {"manuscript.related_work_shape": "entries"}
     ),
-    "manuscript.source_copies": ("manuscript.related_work_copies", {}),
-    "manuscript.references": (
-        "manuscript.related_work",
-        {"manuscript.related_work_shape": "prose"},
+    "manuscript.source_copies": Renamed("manuscript.related_work_copies"),
+    "manuscript.references": Renamed(
+        "manuscript.related_work", {"manuscript.related_work_shape": "prose"}
     ),
-    "manuscript.references_public": ("manuscript.related_work_public", {}),
+    "manuscript.references_public": Renamed("manuscript.related_work_public"),
+    "manuscript.companion_dirs": Renamed(
+        "manuscript.supplements",
+        convert=lambda dirs: [{"path": d} for d in dirs],
+        shape=(
+            ", one [[manuscript.supplements]] table per directory, each with "
+            "its path and its role, tests or expressions"
+        ),
+    ),
+    "manuscript.companion_anchors": Renamed("manuscript.supplement_anchors"),
 }
 
 
@@ -168,10 +195,12 @@ def translate_renamed(values):
     renamed into one, raise ``ValueError``."""
     out = copy.deepcopy(values)
     claimed: dict[str, str] = {}
-    for key, (new, implied) in RENAMED.items():
+    for key, (new, implied, convert, _) in RENAMED.items():
         old = _setting(out, key)
         if old is None:
             continue
+        if convert is not None:
+            old = convert(old)
         for target, value in ((new, old), *implied.items()):
             held = _setting(out, target)
             if target in claimed or (held is not None and held != value):
@@ -193,7 +222,7 @@ def translate_renamed(values):
 
 
 def _check_retired(values, origins):
-    for key, (new, implied) in RENAMED.items():
+    for key, (new, implied, _, shape) in RENAMED.items():
         if _setting(values, key) is not None:
             where = origins.get(key, "configuration")
             also = "".join(
@@ -201,7 +230,7 @@ def _check_retired(values, origins):
                 "old name meant"
                 for k, v in implied.items()
             )
-            raise ConfigurationError(f"{where}: {key} is renamed {new}{also}")
+            raise ConfigurationError(f"{where}: {key} is renamed {new}{shape}{also}")
     for key, why in RETIRED.items():
         if _setting(values, key) is not None:
             where = origins.get(key, "configuration")
@@ -375,6 +404,51 @@ class Project:
         if shown is not None and not isinstance(shown, bool):
             raise ConfigurationError(f"{key}_public must be true or false")
 
+    def _check_supplements(self):
+        """The supplements, each a table with a path and a role. A role is
+        what decides which checks count an entry, so a supplement without one
+        is refused rather than read as either. Checked here, where a command
+        needs the manuscript, and not when a project is built: a revision
+        committed before the setting existed translates its directories with
+        no role, and is read, never validated."""
+        key = "manuscript.supplements"
+        found = self.get(key)
+        if found is None:
+            return
+        if not isinstance(found, (list, tuple)):
+            raise ConfigurationError(
+                f"{key} is a list of tables: write each as [[{key}]] with a path "
+                "and a role"
+            )
+        seen = set()
+        for i, entry in enumerate(found, 1):
+            if not isinstance(entry, Mapping):
+                raise ConfigurationError(
+                    f"{key} entry {i} is not a table: write it as [[{key}]] with a "
+                    "path and a role"
+                )
+            unknown = set(entry) - {"path", "role"}
+            if unknown:
+                raise ConfigurationError(
+                    f"{key} entry {i} sets {', '.join(sorted(unknown))}; a "
+                    "supplement has a path and a role"
+                )
+            path = entry.get("path")
+            if not isinstance(path, str) or not path.strip():
+                raise ConfigurationError(f"{key} entry {i} needs a nonempty path")
+            role = entry.get("role")
+            if role not in SUPPLEMENT_ROLES:
+                raise ConfigurationError(
+                    f"{key} entry {i} ({path}) needs a role: "
+                    + " or ".join(f"'{r}'" for r in SUPPLEMENT_ROLES)
+                    + ". Tests apply the spec and are counted by `spec notes "
+                    "--coverage`; expressions tell it to a reader."
+                )
+            folded = path.rstrip("/")
+            if folded in seen:
+                raise ConfigurationError(f"{key} names {path} twice")
+            seen.add(folded)
+
     def path_at(self, root, key, default=None):
         """Apply a configured layout to an explicitly supplied project root."""
         value = self.get(key, default)
@@ -512,6 +586,7 @@ class Project:
             # reads it; whether it is published beside the spec is the
             # project's to say, and nothing is published by default.
             self._check_related_work()
+            self._check_supplements()
             key = "manuscript.review_notes"
             if self.get(key) is not None and not self.path(key).is_file():
                 raise ConfigurationError(

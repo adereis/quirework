@@ -54,8 +54,6 @@ SETTINGS: tuple[str, ...] = (
             "chapters",
             "collections.*.order",
             "collections.*.pages",
-            "companion_anchors",
-            "companion_dirs",
             "format",
             "ideas",
             "marks",
@@ -73,6 +71,8 @@ SETTINGS: tuple[str, ...] = (
             "spec_public",
             "spec_trail",
             "spec_trail_leads",
+            "supplement_anchors",
+            "supplements",
             "unit_name",
             "unit_spec",
         )

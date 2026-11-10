@@ -30,8 +30,10 @@ chapters = "manuscript/sections"
 # spec_trail_leads = "private/spec-trail-leads"
 # Optional book-wide annotations used by the red-pen review copy.
 # review_notes = "manuscript/sections/_review-notes.md"
-# Reader-facing documents that cite the spec or quote the canon.
-companion_dirs = ["companion"]
+# Reader-facing collections beside the work that cite the spec or quote the
+# canon, each with its role: "tests" apply the spec to cases, and
+# `spec notes --coverage` counts them; "expressions" tell it to a reader.
+supplements = [{ path = "companion", role = "expressions" }]
 # Working material is never treated as an authority by annotation checks.
 noncanonical_roots = ["scratchpad"]
 # Optional project terminology and formatting policy.

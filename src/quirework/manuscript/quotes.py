@@ -176,7 +176,7 @@ def _prose_corpus(docs: Path) -> str:
     """What a mark may be quoting, MINUS the marks themselves.
 
     notes._canon_corpus folds the sidecars in, which is right for the
-    companion check (an entry may quote a mark) and fatal here: every span
+    supplement check (an entry may quote a mark) and fatal here: every span
     would match the very mark it was lifted from.
 
     The illustrations are in, because a @figure mark quotes the plate as

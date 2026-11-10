@@ -122,7 +122,7 @@ class Format:
     def footprint(self, project: Project) -> tuple[str, ...]:
         """Where the units and their marks live, as globs over project-relative
         paths (`core.globs`). Everything else in a work's footprint, its spec
-        and companions, is the project's to declare and `footprint` adds it."""
+        and supplements, is the project's to declare and `footprint` adds it."""
         return ()
 
 

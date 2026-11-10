@@ -145,7 +145,7 @@ _LINE_PIN = re.compile(
 )
 
 # The structural `@bind(slug)` token, used by bodyless sidecar relationships and
-# by companion `Anchors:` joins. Semantic prose cites the spec as `#slug`.
+# by a supplement entry's `Anchors:` joins. Semantic prose cites the spec as `#slug`.
 _BIND_REF = re.compile(r"@bind\(([\w-]+(?:/[\w-]+)?)\)")
 _BIND_TOKEN = re.compile(r"@bind\(([^)]*)\)")
 _OMIT_TOKEN = re.compile(r"@omit\(([^)]*)\)")
@@ -180,21 +180,37 @@ def _unit_shaped(tok: str) -> bool:
 _IMPERATIVE = re.compile(r"\b(NEVER|DO NOT|DON'T|MUST NOT|MAY NOT|BANNED)\b")
 
 
-# Companion documents are a declared exception to canon self-containment. They
-# can cite the spec by slug and quote the canon by passage, so the check follows
-# both directions without assuming their directory names.
-def companion_dirs() -> tuple[str, ...]:
-    """The reader-facing companion collections this project declares, if any.
+# Supplements are a declared exception to canon self-containment: the
+# reader-facing collections beside the work, which can cite the spec by slug
+# and quote the canon by passage, so the check follows both directions without
+# assuming their directory names. Each declares a role. Tests apply the spec to
+# a case and record the result; expressions tell it to a reader. Both are held
+# to the same checks, and only tests are counted as exercising the spec.
+class Supplement(NamedTuple):
+    path: str
+    role: str | None  # None only in a revision translated from before roles
 
-    `manuscript.companion_dirs` names them. The default is none: a work with no
-    companion collection has nothing here to check, and naming another
-    project's directories would check a tree this one does not have.
+
+def supplements(project=None) -> tuple[Supplement, ...]:
+    """The supplements this project declares, if any, in declared order.
+
+    `manuscript.supplements` names them, one table per directory with its
+    path and its role. The default is none: a work with no supplement has
+    nothing here to check, and naming another project's directories would
+    check a tree this one does not have. A role is required in today's
+    configuration (`Project.require`); a revision committed before roles
+    existed reads its directories with none.
     """
-    return tuple(current_project().get("manuscript.companion_dirs", ()) or ())
+    project = project or current_project()
+    out = []
+    for entry in project.get("manuscript.supplements", ()) or ():
+        if isinstance(entry, dict) and entry.get("path"):
+            out.append(Supplement(str(entry["path"]), entry.get("role")))
+    return tuple(out)
 
 
 def _is_entry(path: Path) -> bool:
-    """Whether a file in a companion collection is one of its entries.
+    """Whether a file in a supplement is one of its entries.
 
     A README indexes the collection, and a `_`-prefixed file is its apparatus
     (a template carrying placeholder citations, a partial), so neither is
@@ -214,13 +230,13 @@ def _is_entry(path: Path) -> bool:
 # on each side.
 # An entry's header paragraph carries a bold-labelled run naming the units
 # and commitments its position rests on, "**Anchors:**" unless the project
-# names its own label (`manuscript.companion_anchors`). It is READER-FACING
+# names its own label (`manuscript.supplement_anchors`). It is READER-FACING
 # prose and stays that way: minting a parallel @-mark would put the same fact in
 # two places, and a duplicated fact is the drift this whole layer exists to
 # prevent. So the visible run is the single owner and the check reads it where
 # it stands.
 def _anchors_label() -> str:
-    return str(current_project().get("manuscript.companion_anchors", "Anchors"))
+    return str(current_project().get("manuscript.supplement_anchors", "Anchors"))
 
 
 def _anchors_run(text: str) -> re.Match | None:
@@ -234,7 +250,7 @@ _BACKTICKED = re.compile(r"`([^`]+)`")
 def _code_spec_refs(text: str) -> list[tuple[str, int]]:
     """Spec ``#slug`` citations inside Markdown code spans.
 
-    Companion prose uses code spans to distinguish spec slugs from local
+    Supplement prose uses code spans to distinguish spec slugs from local
     Markdown anchors and URL fragments. Return each slug with its absolute
     offset in ``text`` so diagnostics retain correct line numbers.
     """
@@ -963,13 +979,15 @@ def _searchable(quote: str) -> str:
     return _norm(quote).rstrip(".,;:").lower()
 
 
-def companion_files(root: Path | None = None) -> list[Path]:
-    """Every entry in the reader-facing companion collections."""
+def supplement_files(root: Path | None = None, role: str | None = None) -> list[Path]:
+    """Every entry in the supplements, or in those of one role."""
     base = Path(root) if root is not None else current_project().root
     out: list[Path] = []
-    for d in companion_dirs():
-        if (base / d).is_dir():
-            out += [p for p in sorted((base / d).glob("*.md")) if _is_entry(p)]
+    for sup in supplements():
+        if role is not None and sup.role != role:
+            continue
+        if (base / sup.path).is_dir():
+            out += [p for p in sorted((base / sup.path).glob("*.md")) if _is_entry(p)]
     return out
 
 
@@ -1149,11 +1167,14 @@ def anchor_pairs(
 def coverage(
     docs: Path | None = None, root: Path | None = None
 ) -> tuple[dict[str, list[str]], list[tuple[str, str]]]:
-    """Which commitments the companion collections actually exercise.
+    """Which commitments the tests among the supplements actually exercise.
 
     Returns (slug -> the entries anchored to it, unexercised (anchor, title)
     pairs in spec order). The marks say which units *express* a commitment,
-    and this says which ones have been *worked* in a companion entry.
+    and this says which ones have been *worked* in an entry of a supplement
+    whose role is tests. An expression, such as an explainer, tells a
+    commitment to a reader and works no case, so counting it would read
+    documentation as coverage.
 
     It is a map and never a scorecard. A section with no entry is not a gap by
     itself: a section about the spec's own organization or vocabulary belongs
@@ -1165,7 +1186,7 @@ def coverage(
     spec = spec_slugs(docs)
     stems = units.names(docs)
     by_slug: dict[str, list[str]] = {}
-    for f in companion_files(root if root is not None else docs.parent):
+    for f in supplement_files(root if root is not None else docs.parent, "tests"):
         pairs, _ = anchor_pairs(mask_fences(f.read_text()), stems, spec)
         for _, slug in pairs:
             if slug in spec:
@@ -1178,10 +1199,10 @@ def coverage(
     return by_slug, unexercised
 
 
-def companion_check(
+def supplement_check(
     docs: Path, spec: set[str], root: Path | None = None
 ) -> tuple[list[str], list[str], list[str]]:
-    """Resolve the companion collections against the work, in both directions.
+    """Resolve the supplements against the work, in both directions.
 
     Returns (problems, advisories). A `@bind(slug)` citation that names no
     spec section is a hard problem: it is a broken pointer with one right
@@ -1217,7 +1238,7 @@ def companion_check(
                 f"section this one serves, or publish its file."
             )
 
-    for f in companion_files(root):
+    for f in supplement_files(root):
         text = mask_fences(f.read_text())
         rel = _rel(f)
         anchor_run = _anchors_run(text)
@@ -1316,12 +1337,12 @@ def _findings(docs: Path) -> tuple[list[str], list[tuple[str, list[str]]]]:
       6. every @see(slug) resolves to a work-wide note in
          `manuscript.review_notes` (pointers into the spec are bindings or
          inline #slug refs, never @see);
-      7. every @bind(slug) cited in the companion collections
-         (`manuscript.companion_dirs`) names a spec section — the entries are
+      7. every @bind(slug) cited in the supplements
+         (`manuscript.supplements`), whatever their role, names a spec section — the entries are
          the work's one licensed outward dependency, and the citation runs
          back in.
       8. every anchor in an entry's anchors run (`**Anchors:**`, or the label
-         `manuscript.companion_anchors` names) names a unit that really binds
+         `manuscript.supplement_anchors` names) names a unit that really binds
          that slug. Invariant 7 gates the slug; this gates the unit
          attributed to it, which nothing checked, so an anchor could name a
          unit that had never expressed the commitment.
@@ -1345,7 +1366,7 @@ def _findings(docs: Path) -> tuple[list[str], list[tuple[str, list[str]]]]:
          `](#slug)` link), and every `#slug` the related-work register cites
          in a code span, names a spec section. Where `manuscript.spec_public`
          publishes only some spec files, a reference in a published file,
-         every citation in a companion entry, and every citation in a
+         every citation in a supplement entry, and every citation in a
          related-work register published beside the spec
          (`manuscript.related_work_public`), names a published section.
      15. a spec manifest lists each section file that exists beside it, each
@@ -1354,11 +1375,11 @@ def _findings(docs: Path) -> tuple[list[str], list[tuple[str, list[str]]]]:
     Plus seven advisories, printed but never fatal. The seventh names each
     section the canon binds that a composed edition neither binds nor omits.
 
-    Quotations in the companion collections that appear nowhere in canon.
+    Quotations in the supplements that appear nowhere in canon.
     Heuristic by necessity (entries quote outside sources too, so only a
     paragraph that also cites canon is read), and an advisory for that reason;
     what it catches is a chapter or other metadata edited out from under a live
-    quotation, which no gate saw before companion documents were configured.
+    quotation, which no gate saw before supplements were configured.
 
     Spec sections in the imperative or contract register (a
     NEVER / DO NOT / BANNED order, or an all-caps run). The spec states and
@@ -1367,8 +1388,8 @@ def _findings(docs: Path) -> tuple[list[str], list[tuple[str, list[str]]]]:
     is almost always an under-stated commitment.
 
     Marks that reference declared non-canonical working material. Retaining
-    evidence does not make it a semantic owner. Stable reader-facing companion
-    documents remain permitted. The check stays advisory.
+    evidence does not make it a semantic owner. Stable reader-facing supplement
+    entries remain permitted. The check stays advisory.
 
     And block-surfaced marks (`BLOCK_KINDS`) written in the AI register, detected
     by a run of three or more consecutive all-caps words — contract shorthand
@@ -1514,7 +1535,7 @@ def _findings(docs: Path) -> tuple[list[str], list[tuple[str, list[str]]]]:
                     f"(manuscript.spec_public), from a published spec file its "
                     f"reader would follow it out of."
                 )
-    # The related-work register cites the spec as a companion entry does, and
+    # The related-work register cites the spec as a supplement entry does, and
     # where it is published beside the spec it is held to the same boundary.
     from quirework.manuscript import related_work
 
@@ -1657,15 +1678,15 @@ def _findings(docs: Path) -> tuple[list[str], list[tuple[str, list[str]]]]:
     # registry.
     problems += units.order_problems(docs)
 
-    # 7/8. the companion collections resolve back into the spec, their
+    # 7/8. the supplements resolve back into the spec, their
     # quotations still exist in the book they quote, and each entry's
     # **Anchors:** run names chapters that really bind those slugs. Computed
     # here, before the problems are printed; the quotation half and the
     # missing-run half are advisories and print below with the others.
-    # Companion paths resolve from the project root, so a caller pointing check() at a
-    # temporary tree (the tests do) gets that tree's companions or none, never
+    # Supplement paths resolve from the project root, so a caller pointing check()
+    # at a temporary tree (the tests do) gets that tree's supplements or none, never
     # the live repo's measured against a synthetic spec.
-    comp_problems, comp_quotes, comp_anchors = companion_check(
+    comp_problems, comp_quotes, comp_anchors = supplement_check(
         docs, spec, root=docs.parent
     )
     problems += comp_problems
@@ -1806,16 +1827,16 @@ def _findings(docs: Path) -> tuple[list[str], list[tuple[str, list[str]]]]:
 
     groups.append(
         (
-            "{n} companion quotation(s) appear nowhere in the work; a quote is "
+            "{n} supplement quotation(s) appear nowhere in the work; a quote is "
             "primary evidence and is never paraphrased into existence",
             comp_quotes,
         )
     )
     groups.append(
         (
-            f"{{n}} companion entry/entries anchor nothing; an entry with no "
+            f"{{n}} supplement entry/entries anchor nothing; an entry with no "
             f"resolving **{_anchors_label()}:** run is invisible to the join "
-            f"that keeps the collection in step",
+            f"that keeps the supplement in step",
             comp_anchors,
         )
     )
@@ -2140,7 +2161,8 @@ def main(argv=None) -> int:
     ap.add_argument(
         "--coverage",
         action="store_true",
-        help="which spec sections a companion entry exercises, and which none does",
+        help="which spec sections an entry of a tests supplement exercises, and "
+        "which none does",
     )
     ap.add_argument(
         "--path",
@@ -2197,8 +2219,9 @@ def main(argv=None) -> int:
         by_slug, unexercised = coverage()
         total = len(spec_slugs())
         print(
-            f"companion coverage: {len(by_slug)}/{total} spec section(s) "
-            f"exercised by an entry\n"
+            f"coverage: {len(by_slug)}/{total} spec section(s) exercised by an "
+            f"entry of a supplement whose role is tests; expressions are not "
+            f"counted\n"
         )
         for slug in sorted(by_slug):
             entries = sorted(set(by_slug[slug]))

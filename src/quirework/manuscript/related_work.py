@@ -19,7 +19,7 @@ still what the work says.
   a fixed file, as `research/*/notes.md` does), its title from its frontmatter
   or first heading. A glob is always entries, so its shape may go unsaid.
 
-In either shape the register cites the spec as a companion entry does, with
+In either shape the register cites the spec as a supplement entry does, with
 the slug in a code span, `` `#slug` ``, and every such citation must name a spec
 section. Its own `](#anchor)` links, and a code span naming one of its own
 headings, point inside it. `manuscript.related_work_public` says whether the
@@ -186,7 +186,7 @@ def footprint_patterns(project) -> tuple[str, ...]:
 
 def spec_citation_problems(docs: Path, spec: set[str]) -> list[str]:
     """Resolve the register's spec citations, the `#slug`s it writes in code
-    spans as a companion entry does.
+    spans as a supplement entry does.
 
     Each one names a spec section. Where `manuscript.related_work_public`
     publishes the register beside the spec, each also names a published

@@ -1,7 +1,7 @@
 """Renaming a spec section everywhere its slug is written.
 
 A slug sits in the spec's heading and links, in every sidecar that binds the
-section, in companion citations, in the trail's heading and in the backfill
+section, in supplement citations, in the trail's heading and in the backfill
 ledger. Each case renames one and reads every one of those places back, then
 asks the gates whether the project still holds together. Every fixture here
 is fiction.
@@ -80,7 +80,7 @@ def _book(tmp_path):
                 "spec": "manuscript/sections/_spec.md",
                 "spec_trail": "private/spec-trail.md",
                 "spec_trail_leads": "private/leads",
-                "companion_dirs": ["companion"],
+                "supplements": [{"path": "companion", "role": "expressions"}],
             }
         },
     )

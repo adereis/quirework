@@ -103,7 +103,7 @@ def _options():
     )
     # Declared, `reviewable` is a list of path prefixes. Undeclared, it is the
     # work's footprint without its working roots: the prose, the marks, the
-    # spec and the companions, wherever the format keeps them.
+    # spec and the supplements, wherever the format keeps them.
     declared = current_project().data("sops.review_policy", {}).get("reviewable")
     if declared is not None:
         prefixes = tuple(declared)
@@ -2163,7 +2163,7 @@ def handoff(entry, name, harness, record):
     return {"report_path": report, "checks": checks, "next": step}
 
 
-# Where an edit is reviewable: the work, its spec and the companions that
+# Where an edit is reviewable: the work, its spec and the supplements that
 # reason from it. Tooling and records are outside, not because they matter
 # less, but because the reviewer this procedure describes checks claims against
 # what the work holds.
