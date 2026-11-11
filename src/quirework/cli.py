@@ -98,6 +98,11 @@ COMMANDS = {
         "Generate the index of the published spec",
         "manuscript",
     ),
+    ("spec", "section"): Command(
+        "manuscript.specsection",
+        "Print one spec section, with its context",
+        "manuscript",
+    ),
     ("publish", "build"): Command(
         "publish.build", "Render the manuscript through its backend", "publish"
     ),

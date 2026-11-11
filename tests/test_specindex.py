@@ -1,4 +1,4 @@
-"""The spec index.
+"""The spec index, and one section printed with its context.
 
 The index is generated from the published spec alone: a working register
 beside it never shows, and neither do the units that express a section. A
@@ -12,7 +12,7 @@ import json
 
 import pytest
 
-from quirework.manuscript import notes, specindex
+from quirework.manuscript import notes, specindex, specsection
 from quirework.project import ConfigurationError, Project, project_scope
 from quirework.text import mdwrap
 
@@ -159,10 +159,15 @@ def test_a_prose_register_is_counted_not_located(tmp_path):
     )
     with project_scope(project):
         index = specindex.build()
+        found = specsection.context("flash")
     assert _sections(index)["flash"]["related_work"] == [
         {"file": "research/related.md", "citations": 2}
     ]
     assert "Beacon chapter" not in specindex.render_json(index)
+    assert found["related_work"] == [
+        {"file": "research/related.md", "heading": "Lamps"},
+        {"file": "research/related.md", "heading": "Beacon chapter"},
+    ]
 
 
 def test_the_index_never_names_a_unit(tmp_path):
@@ -265,3 +270,36 @@ def test_the_setting_is_validated(tmp_path, value, says):
     project = _project(tmp_path, spec_index=value)
     with pytest.raises(ConfigurationError, match=says):
         project.require("manuscript")
+
+
+def test_a_section_prints_as_its_file_holds_it(tmp_path, capsys):
+    with project_scope(_project(tmp_path)):
+        assert specsection.main(["keeper"]) == 0
+    out = capsys.readouterr().out
+    assert out.startswith("spec/keeper.md\n\n## The keeper {#keeper}\n")
+    assert "<!-- a note #fog that is not a citation -->" in out
+
+
+def test_context_gathers_what_touches_a_section(tmp_path):
+    project = _project(tmp_path, spec_trail="provenance/spec-trail.md")
+    with project_scope(project):
+        found = specsection.context("flash")
+    assert [c["slug"] for c in found["cites"]] == ["fog", "keeper"]
+    assert found["cites"][0]["first_sentence"] == "Fog hides the flash (#flash)."
+    # Locally every spec file counts, the working register included.
+    assert [c["slug"] for c in found["cited_by"]] == ["fog", "lamp-rule"]
+    assert found["tested_by"] == [
+        {"path": "drills/cold-start.md", "title": "Cold start"}
+    ]
+    assert found["units"] == [{"slug": "beacon-chapter", "title": "Beacon chapter"}]
+    assert found["trail"] == 0
+    rendered = specsection.render(found)
+    assert "Bound by (1):\n  beacon-chapter  Beacon chapter" in rendered
+
+
+def test_an_unknown_slug_is_refused_with_close_matches(tmp_path, capsys):
+    with project_scope(_project(tmp_path)):
+        assert specsection.main(["flsh", "--context"]) == 2
+    err = capsys.readouterr().err
+    assert "no spec section is anchored 'flsh'" in err
+    assert "flash" in err

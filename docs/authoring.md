@@ -45,7 +45,7 @@ without the ones below it.
 | Layer | What it is | The commands |
 |---|---|---|
 | Canon prose | Quarto chapters in a declared reading order, or a site's pages and where each stands | `publish build`, `spec units` |
-| Spec | numbered commitments, each with a slug, in one file or one per unit | `spec notes --primer`, `spec index` |
+| Spec | numbered commitments, each with a slug, in one file or one per unit | `spec notes --primer`, `spec index`, `spec section` |
 | Marks | per-chapter sidecars of `@`-annotations, including which spec section a chapter expresses | `spec notes`, `spec notes bind` |
 | Supplements | reader-facing collections beside the work, tests that apply the spec or expressions that tell it | `spec notes --check`, `spec notes --coverage` |
 | Related work | a register of the work this one is placed against, cited by slug from the marks | `spec related-work` |
@@ -375,6 +375,15 @@ the names behind each row's counts under it; the JSON holds the same
 facts for a site or any other tool. Neither carries a date or a commit,
 so a file changes only when what it describes does. Without the setting,
 `spec index` prints a summary.
+
+To work on one section, `quirework spec section SLUG` prints it as its
+file holds it. With `--context` it adds what touches it: the title and
+first sentence of each section it cites and each section citing it, the
+supplement entries that test or tell it, the related work citing it, the
+units that bind it, and how many breadcrumbs its trail holds. It reads
+every spec file, published or not, since it is a tool for working in the
+project rather than a map for its readers. `--json` prints the same as
+data.
 
 The spec states; it does not argue, and it does not record how it got
 here. `notes --check` reports three register slips as advisories rather
