@@ -68,6 +68,8 @@ SETTINGS: tuple[str, ...] = (
             "revision_field",
             "source",
             "spec",
+            "spec_index.json",
+            "spec_index.markdown",
             "spec_public",
             "spec_trail",
             "spec_trail_leads",

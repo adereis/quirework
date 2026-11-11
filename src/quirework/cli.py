@@ -93,6 +93,11 @@ COMMANDS = {
         "List the spec sections a range of commits changed",
         "manuscript",
     ),
+    ("spec", "index"): Command(
+        "manuscript.specindex",
+        "Generate the index of the published spec",
+        "manuscript",
+    ),
     ("publish", "build"): Command(
         "publish.build", "Render the manuscript through its backend", "publish"
     ),

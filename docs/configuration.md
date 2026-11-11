@@ -81,19 +81,24 @@ file is published. `manuscript.related_work_public`, true or false, says
 whether the related-work register is published beside them; it requires
 `manuscript.related_work`, and left unset the register counts as
 unpublished. The [authoring guide](authoring.md#2-the-spec) says what
-the boundary refuses. `publish.typst_template` names the Typst file that
-sets the printed page. Quirework reads it and never writes it. It takes
-from it the faces `publish fonts` checks and the text block
-`figures --check` measures type against, and it names the file when
-figure numbers disagree across editions, since its numbering rule is one
-place they are set. `publish.figure_fonts` lists font files that every
-staged figure carries as subsets, so a figure shown as an image is
-lettered in the book's face on a device that lacks it; the
-[authoring guide](authoring.md#4-figures) explains it.
-`publish.figure_type_floor_pt` sets the printed size, in points, under
-which `figures --check` warns about a figure's type; it defaults to 6.
-Annotation bindings resolve against the configured semantic register; a
-book need not adopt another project's claims or vocabulary.
+the boundary refuses. `manuscript.spec_index` is a table naming the
+files `spec index --write` writes the spec's generated index to,
+`markdown`, `json` or both; each must lie inside the project and be no
+spec file, and `notes --check` fails while either is stale. The
+[authoring guide](authoring.md#the-specs-index) says what it holds.
+`publish.typst_template` names the Typst file that sets the printed
+page. Quirework reads it and never writes it. It takes from it the faces
+`publish fonts` checks and the text block `figures --check` measures
+type against, and it names the file when figure numbers disagree across
+editions, since its numbering rule is one place they are set.
+`publish.figure_fonts` lists font files that every staged figure carries
+as subsets, so a figure shown as an image is lettered in the book's face
+on a device that lacks it; the [authoring guide](authoring.md#4-figures)
+explains it. `publish.figure_type_floor_pt` sets the printed size, in
+points, under which `figures --check` warns about a figure's type; it
+defaults to 6. Annotation bindings resolve against the configured
+semantic register; a book need not adopt another project's claims or
+vocabulary.
 
 `manuscript.spec_trail` names the spec's trail sidecar, which points
 each spec section at the conversations that shaped it. It requires a

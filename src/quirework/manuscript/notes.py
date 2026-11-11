@@ -1371,6 +1371,8 @@ def _findings(docs: Path) -> tuple[list[str], list[tuple[str, list[str]]]]:
          (`manuscript.related_work_public`), names a published section.
      15. a spec manifest lists each section file that exists beside it, each
          holding the one section its file name anchors, and no other.
+     16. where `manuscript.spec_index` is set, each index file it names is
+         what `spec index --write` would write now.
 
     Plus seven advisories, printed but never fatal. The seventh names each
     section the canon binds that a composed edition neither binds nor omits.
@@ -1548,6 +1550,20 @@ def _findings(docs: Path) -> tuple[list[str], list[tuple[str, list[str]]]]:
         problems += [
             f"{_rel(path)}: {what}"
             for path, what in manifest.problems(found, _sections_of)
+        ]
+
+    # 16. the generated index, where the project keeps one, is what the spec,
+    # its supplements and its related work make it now. It is read by people
+    # and tools that never open the sections, so a stale index misleads them
+    # silently; it is regenerated, never edited. Only the project's tree, or a
+    # full copy of it, holds the index: a tree built to test another check is
+    # not asked for one.
+    from quirework.manuscript import specindex
+
+    if specindex.configured() and specindex.held_in(docs.parent):
+        problems += [
+            f"{_rel(path)}: the spec index is stale; run `{specindex.COMMAND}`"
+            for path in specindex.stale(docs, docs.parent)
         ]
 
     # 11. the trail sidecar, where the project keeps one, mirrors the spec. A

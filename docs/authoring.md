@@ -45,7 +45,7 @@ without the ones below it.
 | Layer | What it is | The commands |
 |---|---|---|
 | Canon prose | Quarto chapters in a declared reading order, or a site's pages and where each stands | `publish build`, `spec units` |
-| Spec | numbered commitments, each with a slug, in one file or one per unit | `spec notes --primer` |
+| Spec | numbered commitments, each with a slug, in one file or one per unit | `spec notes --primer`, `spec index` |
 | Marks | per-chapter sidecars of `@`-annotations, including which spec section a chapter expresses | `spec notes`, `spec notes bind` |
 | Supplements | reader-facing collections beside the work, tests that apply the spec or expressions that tell it | `spec notes --check`, `spec notes --coverage` |
 | Related work | a register of the work this one is placed against, cited by slug from the marks | `spec related-work` |
@@ -345,6 +345,36 @@ lists the files it would change.
 `quirework spec notes --primer` prints the spec's sections first, then
 the marks in reading order. That is the one command to run at the start
 of a writing session.
+
+### The spec's index
+
+A reader arriving at a long spec, a person or an agent, wants a map
+before a section. `quirework spec index` builds one from the published
+spec: every section with its part, its file and its length in words, the
+sections it cites and the sections citing it, the supplement entries
+that cite it (tests apart from expressions), and how often the
+related-work register cites it: by work for a register of entries, and
+as a count per file for a prose register, whose headings are its own
+organization and may follow the units. It reads only the files
+`spec_public` publishes, so a working register never appears in it, and
+it never lists units: which units express a section is the work's
+business, not the spec's.
+
+Keep it as files, and it is held to the spec:
+
+```toml
+[manuscript.spec_index]
+markdown = "spec/index.md"
+json = "spec/index.json"
+```
+
+`spec index --write` writes them, and `notes --check` fails while either
+is stale, so an edit to a section, an entry or the register lands with
+its index. The Markdown is the map a reader opens, a table per part with
+the names behind each row's counts under it; the JSON holds the same
+facts for a site or any other tool. Neither carries a date or a commit,
+so a file changes only when what it describes does. Without the setting,
+`spec index` prints a summary.
 
 The spec states; it does not argue, and it does not record how it got
 here. `notes --check` reports three register slips as advisories rather

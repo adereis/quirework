@@ -456,6 +456,47 @@ class Project:
                 )
             seen[folded] = path
 
+    def _check_spec_index(self):
+        """The generated index's files: a table naming a Markdown file, a
+        JSON file or both, each inside the project and neither a spec file,
+        since the index is written over whatever it names."""
+        key = "manuscript.spec_index"
+        found = self.get(key)
+        if found is None:
+            return
+        if not isinstance(found, Mapping) or not found:
+            raise ConfigurationError(
+                f"{key} is a table naming the index's files: markdown, json or both"
+            )
+        unknown = set(found) - {"markdown", "json"}
+        if unknown:
+            raise ConfigurationError(
+                f"{key} sets {', '.join(sorted(unknown))}; the index is written "
+                "as markdown, json or both"
+            )
+        from quirework.manuscript import manifest
+
+        spec = set()
+        if self.get("manuscript.spec") is not None:
+            for path in self.paths("manuscript.spec"):
+                spec.add(path)
+                if manifest.is_manifest(path) and path.is_file():
+                    spec.update(manifest.read(path).files())
+        for fmt, value in found.items():
+            if not isinstance(value, str) or not value.strip():
+                raise ConfigurationError(f"{key}.{fmt} must name a file")
+            path = (self.root / value).resolve()
+            if not path.is_relative_to(self.root.resolve()):
+                raise ConfigurationError(
+                    f"{key}.{fmt} names {value}, outside the project"
+                )
+            if path in {p.resolve() for p in spec}:
+                raise ConfigurationError(
+                    f"{key}.{fmt} names {value}, a spec file the index would overwrite"
+                )
+        if found.get("markdown") and found.get("markdown") == found.get("json"):
+            raise ConfigurationError(f"{key} names one file for both formats")
+
     def path_at(self, root, key, default=None):
         """Apply a configured layout to an explicitly supplied project root."""
         value = self.get(key, default)
@@ -594,6 +635,7 @@ class Project:
             # project's to say, and nothing is published by default.
             self._check_related_work()
             self._check_supplements()
+            self._check_spec_index()
             key = "manuscript.review_notes"
             if self.get(key) is not None and not self.path(key).is_file():
                 raise ConfigurationError(
