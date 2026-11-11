@@ -401,6 +401,34 @@ with no stance line or a malformed one, an undeclared stance or flag, a
 section linked twice from one work, a link naming no section (or, with
 `related_work_public`, an unpublished one), and facts that do not read.
 
+`related_work_notes` is a glob of notes, a second kind of record beside
+the works. A note holds prose that relates several works to each other
+and to the sections they bear on, prose that belongs to no one work. It
+names its works in TOML frontmatter and links to sections with the
+headings a work uses, without a stance: a stance says how one work bears
+on a section, so it stays on that work's link.
+
+```markdown
++++
+title = "The almanac and the letter on the winter light"
+works = ["almanac", "gull-letter"]
++++
+
+The almanac's period and the keeper's letter disagree about the winter
+the lamp was electrified.
+
+## `#lamp-period`
+
+The letter dates the change the almanac never records.
+```
+
+A note states no citation, since the works it names hold their own, and
+the gate refuses one that gives authors, a year, a venue or a
+verification. It also refuses a note naming a work the register lacks,
+naming none, taking a work's slug, or carrying a stance line. A note's
+citations of the spec are resolved with the rest of the register, and
+`spec rename` rewrites them.
+
 `related_work_copies` is a path pattern with `{slug}` naming a
 plain-text capture of each work as it was read, so it needs an entries
 register. A quoted span of five words or more in a mark citing that work

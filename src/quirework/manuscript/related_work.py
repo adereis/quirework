@@ -53,6 +53,14 @@ list), `year`, `venue` (the citation as text) and `verification`, a table whose
 the check and what it was made `against`. A work with no `verification` is
 unchecked.
 
+`manuscript.related_work_notes` is a glob of notes, a second kind of record
+beside the works: prose that relates several works to each other and to the
+sections they bear on, which belongs to no one work. A note names its works in
+TOML frontmatter (`title`, and `works`, a list of their slugs) and links to
+sections with the same headings a work uses, with no stance: a stance says how
+one work bears on a section, so it stays on that work's link. A note states
+no citation, since the works it names hold their own.
+
 `manuscript.related_work_copies` is a path pattern with `{slug}`, such as
 `research/copies/{slug}.txt`: a plain-text capture of a work as it was read. A
 quotation in a mark citing that work is then checked against it, the way
@@ -113,6 +121,19 @@ class Link:
 
 
 @dataclass(frozen=True)
+class Note:
+    """Prose relating several works to each other and to the sections they
+    bear on: a record of the register's that is no one work's."""
+
+    slug: str
+    title: str
+    path: Path
+    works: tuple[str, ...]
+    links: tuple[Link, ...]
+    facts: dict = field(default_factory=dict, compare=False)
+
+
+@dataclass(frozen=True)
 class Work:
     slug: str
     title: str
@@ -167,16 +188,57 @@ def _entry_files(pattern: str, docs: Path | None) -> list[Path]:
 
 
 def files(docs: Path | None = None) -> list[Path]:
-    """The register's files that exist: its one file, or one per work."""
+    """The register's files that exist: its one file, or one per work, and
+    one per note."""
     if not configured():
         return []
     pattern = _pattern()
     if is_glob(pattern):
-        return _entry_files(pattern, docs)
-    path = current_project().path(KEY)
-    if docs is not None:
-        path = notes._in_docs(docs, path)
-    return [path] if path.is_file() else []
+        found = _entry_files(pattern, docs)
+    else:
+        path = current_project().path(KEY)
+        if docs is not None:
+            path = notes._in_docs(docs, path)
+        found = [path] if path.is_file() else []
+    return found + [p for p in note_files(docs) if p not in found]
+
+
+def note_files(docs: Path | None = None) -> list[Path]:
+    """The notes' files, one per note; none where the project keeps none."""
+    pattern = current_project().get(f"{KEY}_notes")
+    return _entry_files(str(pattern), docs) if pattern else []
+
+
+def _slug_of(pattern: str, path: Path) -> str:
+    by_directory = not is_glob(pattern.rpartition("/")[2])
+    return path.parent.name if by_directory else path.stem
+
+
+def register_notes() -> list[Note]:
+    """Every note, in file order."""
+    pattern = current_project().get(f"{KEY}_notes")
+    out = []
+    for path in note_files():
+        text = path.read_text(encoding="utf-8")
+        try:
+            meta = frontmatter.fields(text)
+        except ValueError as exc:
+            raise ValueError(f"{formats.rel(path)}: {exc}") from None
+        slug = _slug_of(str(pattern), path)
+        title = frontmatter.as_text(meta.get("title")) or formats.h1(text)[0] or slug
+        found = frontmatter.block(text)
+        works = meta.get("works")
+        out.append(
+            Note(
+                slug,
+                title,
+                path,
+                tuple(works) if isinstance(works, list) else (),
+                _links(text, found.end() if found else 0, len(text), stanced=False),
+                dict(meta),
+            )
+        )
+    return out
 
 
 def register() -> list[Work]:
@@ -198,11 +260,10 @@ def register() -> list[Work]:
             for s in notes._sections_of(path)
             if s.slug
         ]
-    by_directory = not is_glob(pattern.rpartition("/")[2])
     out = []
     for path in _entry_files(pattern, None):
         text = path.read_text(encoding="utf-8")
-        slug = path.parent.name if by_directory else path.stem
+        slug = _slug_of(pattern, path)
         try:
             meta = frontmatter.fields(text)
         except ValueError as exc:
@@ -291,14 +352,16 @@ def citations() -> list[notes.Annotation]:
 
 
 def footprint_patterns(project) -> tuple[str, ...]:
-    """The register, as footprint globs: its file, or its glob."""
+    """The register, as footprint globs: its file or its glob, and its
+    notes' glob."""
     pattern = project.get(KEY)
     if not pattern:
         return ()
+    kept = (str(project.get(f"{KEY}_notes")),) if project.get(f"{KEY}_notes") else ()
     if is_glob(str(pattern)):
-        return (str(pattern),)
+        return (str(pattern), *kept)
     found = formats.relative(project, KEY)
-    return (found,) if found else ()
+    return ((found,) if found else ()) + kept
 
 
 def spec_citation_problems(docs: Path, spec: set[str]) -> list[str]:
@@ -369,6 +432,7 @@ def problems() -> list[str]:
             )
         seen.setdefault(w.slug, w)
         out += _record_problems(w)
+    out += _note_problems(seen)
     for a in citations():
         at = f"{a.source or a.file}:{a.line}"
         if len(a.args) != 1:
@@ -521,6 +585,54 @@ def _record_problems(work: Work) -> list[str]:
                     f"{at}: flag {flag!r} is not one the project declares "
                     f"({KEY}_flags: {', '.join(flags) or 'none'})"
                 )
+    return out
+
+
+def _note_problems(works: dict[str, Work]) -> list[str]:
+    """What a note cannot be: a citation of its own, a work it names that the
+    register lacks, a stance, a slug a work already has, a file that is also
+    a work's."""
+    out: list[str] = []
+    work_files = {w.path.resolve() for w in works.values()}
+    for note in register_notes():
+        rel = formats.rel(note.path)
+        at = f"{rel}: note '{note.slug}'"
+        if note.path.resolve() in work_files:
+            out.append(
+                f"{at} is also read as a work: the notes' glob and the works' "
+                "glob must not name the same file"
+            )
+            continue
+        if note.slug in works:
+            out.append(
+                f"{at} has the slug of the work in {formats.rel(works[note.slug].path)}"
+            )
+        cited = [k for k in FACTS if k != "title" and k in note.facts]
+        if cited:
+            out.append(
+                f"{at} states {', '.join(cited)}: a note states no citation, "
+                "since the works it names hold their own"
+            )
+        if "title" in note.facts and not isinstance(note.facts["title"], str):
+            out.append(f"{at}: title must be text")
+        named = note.facts.get("works")
+        if not isinstance(named, list) or not named:
+            out.append(
+                f"{at} names no works: give it `works`, a list of the slugs of "
+                "the works it relates, in TOML frontmatter"
+            )
+        else:
+            for slug in named:
+                if not isinstance(slug, str) or slug not in works:
+                    out.append(f"{at} names {slug!r}, which is no work in the register")
+        sections: set[str] = set()
+        for link in note.links:
+            where = f"{rel}:{link.line}: note '{note.slug}', link to '#{link.section}'"
+            if link.section in sections:
+                out.append(f"{where}: the note links this section twice")
+            sections.add(link.section)
+            if link.problem:
+                out.append(f"{where}: {link.problem}")
     return out
 
 

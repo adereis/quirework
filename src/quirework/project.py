@@ -370,6 +370,7 @@ class Project:
             f"{key}_public",
             f"{key}_stances",
             f"{key}_flags",
+            f"{key}_notes",
         ):
             if found is None and self.get(dependent) is not None:
                 raise ConfigurationError(
@@ -429,6 +430,17 @@ class Project:
                 )
             if len(set(declared)) != len(declared):
                 raise ConfigurationError(f"{key}_{words} names a word twice")
+        kept = self.get(f"{key}_notes")
+        if kept is not None:
+            if shape == "prose":
+                raise ConfigurationError(
+                    f"{key}_notes relates works, and a prose register holds none"
+                )
+            if not isinstance(kept, str) or not any(c in kept for c in "*?["):
+                raise ConfigurationError(
+                    f"{key}_notes is a glob with one file per note, such as "
+                    "'research/notes/*.md'"
+                )
         if self.get(f"{key}_stances") == []:
             raise ConfigurationError(
                 f"{key}_stances declares no stance, so every link would be "

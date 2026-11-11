@@ -63,6 +63,7 @@ SETTINGS: tuple[str, ...] = (
             "related_work",
             "related_work_copies",
             "related_work_flags",
+            "related_work_notes",
             "related_work_public",
             "related_work_shape",
             "related_work_stances",

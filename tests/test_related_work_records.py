@@ -249,3 +249,92 @@ def test_the_vocabularies_are_declared_so_they_can_be_read(site, change, message
     settings = {k: v for k, v in {**SETTINGS, **change}.items() if v is not None}
     with pytest.raises(ConfigurationError, match=message):
         Project.from_settings(site, {"manuscript": settings}).require("manuscript")
+
+
+NOTE = """+++
+title = "The almanac and the letter on the winter light"
+works = ["almanac", "gull-letter"]
++++
+
+The almanac's period and the keeper's letter disagree about the winter
+the lamp was electrified.
+
+## `#lamp-period`
+
+The letter dates the change the almanac never records.
+"""
+
+
+def _noted(root, text=NOTE):
+    _write(root / "research" / "notes" / "winter-light.md", text)
+    return _scope(root, related_work_notes="research/notes/*.md")
+
+
+def test_a_note_relates_works_to_a_section(site, capsys):
+    with _noted(site):
+        assert notes.check() == 0, capsys.readouterr().err
+        (note,) = related_work.register_notes()
+        files = related_work.files()
+    assert note.works == ("almanac", "gull-letter")
+    assert [(k.section, k.stance, k.note) for k in note.links] == [
+        ("lamp-period", None, "The letter dates the change the almanac never records.")
+    ]
+    # A note is part of the register, so its citations are resolved with it.
+    assert site / "research" / "notes" / "winter-light.md" in files
+
+
+@pytest.mark.parametrize(
+    "change, message",
+    [
+        (
+            ("## `#lamp-period`\n\n", "## `#lamp-period`\n\n*Stance: support.*\n\n"),
+            "a note's link takes no stance",
+        ),
+        (
+            ('works = ["almanac", "gull-letter"]', 'works = ["almanac", "tide-book"]'),
+            "names 'tide-book', which is no work",
+        ),
+        (('works = ["almanac", "gull-letter"]\n', ""), "names no works"),
+        (
+            ('works = ["almanac", "gull-letter"]', 'works = ["almanac"]\nyear = 1911'),
+            "states year: a note states no citation",
+        ),
+        (("## `#lamp-period`", "## `#tide-table`"), "cites '#tide-table'"),
+    ],
+)
+def test_a_note_that_does_not_read_fails_the_gate(site, capsys, change, message):
+    old, new = change
+    assert old in NOTE
+    with _noted(site, NOTE.replace(old, new)):
+        assert notes.check() == 1
+    assert message in capsys.readouterr().err
+
+
+def test_a_note_takes_no_work_s_slug(site, capsys):
+    _write(site / "research" / "notes" / "almanac.md", NOTE)
+    with _scope(site, related_work_notes="research/notes/*.md"):
+        assert notes.check() == 1
+    assert "has the slug of the work" in capsys.readouterr().err
+
+
+@pytest.mark.parametrize(
+    "change, message",
+    [
+        ({"related_work_notes": "research/notes.md"}, "is a glob with one file"),
+        (
+            {
+                "related_work": "research/related-work.md",
+                "related_work_shape": "prose",
+                "related_work_stances": None,
+                "related_work_flags": None,
+                "related_work_notes": "research/notes/*.md",
+            },
+            "a prose register holds none",
+        ),
+    ],
+)
+def test_the_notes_are_declared_so_they_can_be_read(site, change, message):
+    _write(site / "research" / "related-work.md", "# Related work\n")
+    settings = {k: v for k, v in {**SETTINGS, **change}.items() if v is not None}
+    with pytest.raises(ConfigurationError, match=message):
+        Project.from_settings(site, {"manuscript": settings}).require("manuscript")
