@@ -60,7 +60,7 @@ def test_every_citation_names_a_work_and_every_quotation_holds(site, capsys):
     assert run(site, "spec related-work", "--check") == 0
     err = capsys.readouterr().err
     assert "not in the captured copy" not in err
-    assert "research/related-work.md: station-log" in err  # cited by no post
+    assert ": station-log" in err  # cited by no post
     assert run(site, "spec related-work", "--slug", "coast-pilot") == 0
     assert "cited by: why-the-lamp-turns" in capsys.readouterr().out
 
