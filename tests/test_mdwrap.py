@@ -100,10 +100,10 @@ def test_comment_closing_and_reopening_on_one_line_is_split():
 def test_comment_after_prose_gets_its_own_line():
     # a comment opening mid-line was not seen as a comment at all: sentence mode
     # reflowed it AS PROSE, splitting the annotation at its internal ". "
-    src = "The vote never turned. <!-- @todo(x) gloss this. A watcher had the verdict. -->"
+    src = "The vote never turned. <!-- @todo(x) gloss this. The keeper logged the hour. -->"
     out = mdwrap.rewrap(src).split("\n")
     assert out[0] == "The vote never turned."
-    assert out[1] == "<!-- @todo(x) gloss this. A watcher had the verdict. -->"
+    assert out[1] == "<!-- @todo(x) gloss this. The keeper logged the hour. -->"
 
 
 def test_prose_after_a_comment_close_is_not_glued_to_it():

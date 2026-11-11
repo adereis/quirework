@@ -623,7 +623,7 @@ def render_png(which: str | None, out: Path) -> int:
         return 127
     # BOTH built-in sets re-materialize from source on every run, and the color
     # one used to not. It rebuilt only when the staged gallery was *empty*, so
-    # once anything had populated build/book/canon/illustrations -- a render, an
+    # once anything had populated the staged illustrations -- a render, an
     # earlier png -- an edited SVG rasterized to its previous state and the
     # eyes-only check silently passed on a stale plate. `figures --check` cannot
     # catch that: it validates the SOURCE and the gray transform, never a

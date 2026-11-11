@@ -199,7 +199,7 @@ def test_print_legibility_flags_a_screen_scale_label(tmp_path, monkeypatch):
 def test_png_rebuilds_the_color_set_before_rasterizing(tmp_path, monkeypatch):
     """An edited SVG must reach the PNG, even when the staged gallery is populated.
 
-    `png` used to rebuild only when build/book/canon/illustrations was EMPTY, so
+    `png` used to rebuild only when the staged illustrations were EMPTY, so
     once a render (or an earlier png) had populated it, editing a figure and
     re-rendering gave back the previous plate. `figures --check` cannot catch
     that: it validates the source and the gray transform, never a left-over

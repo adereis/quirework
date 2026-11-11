@@ -913,7 +913,7 @@ def test_quotes_ignores_spans_that_are_not_offered_as_citations(tmp_path, monkey
     docs = _quotes_docs(
         tmp_path,
         "By itself it explains nothing.",
-        'the whole move is a "state of states" argument here',
+        'the whole move is a "light behind the light" argument here',
     )
     monkeypatch.setattr(_n, "current_project", lambda: project_at(tmp_path))
     assert _q.scan(docs) == []
@@ -1053,21 +1053,21 @@ def test_quotes_corpus_excludes_the_marks_themselves(tmp_path, monkeypatch):
 # the **Anchors:** join: an entry's anchors must name chapters that bind them
 # --------------------------------------------------------------------------- #
 
-_STEMS = {"08-the-weight-inside", "09-the-weight-outside"}
-_SPEC = {"intrinsic-weight", "relational-weight"}
+_STEMS = {"08-the-lamp-room", "09-the-fog-horn"}
+_SPEC = {"flash-period", "horn-range"}
 
 
 def test_anchor_pairs_attaches_slugs_to_the_chapter_named_before_them():
     from quirework.manuscript import notes as _n
 
     run = (
-        "**Anchors:** `08-the-weight-inside` `@bind(intrinsic-weight)` (a\n"
-        "gloss); `09-the-weight-outside` `@bind(relational-weight)`.\n"
+        "**Anchors:** `08-the-lamp-room` `@bind(flash-period)` (a\n"
+        "gloss); `09-the-fog-horn` `@bind(horn-range)`.\n"
     )
     assert _n.anchor_pairs(run, _STEMS, _SPEC) == (
         [
-            ("08-the-weight-inside", "intrinsic-weight"),
-            ("09-the-weight-outside", "relational-weight"),
+            ("08-the-lamp-room", "flash-period"),
+            ("09-the-fog-horn", "horn-range"),
         ],
         [],
     )
@@ -1076,9 +1076,9 @@ def test_anchor_pairs_attaches_slugs_to_the_chapter_named_before_them():
 def test_anchor_pairs_reads_the_cases_bare_slug_form_with_no_chapter():
     from quirework.manuscript import notes as _n
 
-    run = "**Anchors:** `#intrinsic-weight`, `#relational-weight`.\n"
+    run = "**Anchors:** `#flash-period`, `#horn-range`.\n"
     assert _n.anchor_pairs(run, _STEMS, _SPEC) == (
-        [(None, "intrinsic-weight"), (None, "relational-weight")],
+        [(None, "flash-period"), (None, "horn-range")],
         [],
     )
 
@@ -1089,11 +1089,11 @@ def test_anchor_pairs_skips_tokens_that_are_neither():
     from quirework.manuscript import notes as _n
 
     run = (
-        "**Anchors:** `08-the-weight-inside` `@bind(intrinsic-weight)`. "
+        "**Anchors:** `08-the-lamp-room` `@bind(flash-period)`. "
         "Prior art is filed: `_map.md` carries a row naming Nozick.\n"
     )
     assert _n.anchor_pairs(run, _STEMS, _SPEC) == (
-        [("08-the-weight-inside", "intrinsic-weight")],
+        [("08-the-lamp-room", "flash-period")],
         [],
     )
 
@@ -1102,20 +1102,20 @@ def test_anchor_pairs_does_not_blame_a_chapter_nobody_named():
     """A slug before any stem is reported against the spec alone."""
     from quirework.manuscript import notes as _n
 
-    run = "**Anchors:** `@bind(intrinsic-weight)` opens it.\n"
-    assert _n.anchor_pairs(run, _STEMS, _SPEC) == ([(None, "intrinsic-weight")], [])
+    run = "**Anchors:** `@bind(flash-period)` opens it.\n"
+    assert _n.anchor_pairs(run, _STEMS, _SPEC) == ([(None, "flash-period")], [])
 
 
 def test_anchor_pairs_stops_at_the_end_of_the_header_paragraph():
     from quirework.manuscript import notes as _n
 
     run = (
-        "**Anchors:** `08-the-weight-inside` `@bind(intrinsic-weight)`.\n"
+        "**Anchors:** `08-the-lamp-room` `@bind(flash-period)`.\n"
         "\n"
-        "## The exercise\n\n`09-the-weight-outside` `@bind(relational-weight)`\n"
+        "## The exercise\n\n`09-the-fog-horn` `@bind(horn-range)`\n"
     )
     assert _n.anchor_pairs(run, _STEMS, _SPEC) == (
-        [("08-the-weight-inside", "intrinsic-weight")],
+        [("08-the-lamp-room", "flash-period")],
         [],
     )
 
@@ -1129,18 +1129,16 @@ def test_stale_anchor_is_a_hard_problem(tmp_path):
     (docs / "canon" / "_marks").mkdir(parents=True)
     (docs / "canon" / "08-a.qmd").write_text("# A {#sec-a}\n\nprose.\n")
     (docs / "canon" / "09-b.qmd").write_text("# B {#sec-b}\n\nprose.\n")
-    (docs / "canon" / SPEC_FILE).write_text(
-        "# Spec\n\n## W {#intrinsic-weight}\n\nbody.\n"
-    )
+    (docs / "canon" / SPEC_FILE).write_text("# Spec\n\n## W {#flash-period}\n\nbody.\n")
     # 08 binds it; 09 does not
     (docs / "canon" / "_marks" / "08-a.md").write_text(
-        "# A {#sec-a}\n\n<!-- @bind(intrinsic-weight) -->\n"
+        "# A {#sec-a}\n\n<!-- @bind(flash-period) -->\n"
     )
     (docs / "canon" / "_marks" / "09-b.md").write_text("# B {#sec-b}\n")
     ex = tmp_path / "exercises"
     ex.mkdir()
     (ex / "e.md").write_text(
-        "# E\n\n**Anchors:** `09-b` `@bind(intrinsic-weight)`.\n\nbody.\n"
+        "# E\n\n**Anchors:** `09-b` `@bind(flash-period)`.\n\nbody.\n"
     )
     problems, _, _ = _n.supplement_check(docs, _n.spec_slugs(docs), root=tmp_path)
     assert len(problems) == 1
@@ -1154,16 +1152,14 @@ def test_correct_anchor_passes(tmp_path):
     docs = tmp_path / "docs"
     (docs / "canon" / "_marks").mkdir(parents=True)
     (docs / "canon" / "08-a.qmd").write_text("# A {#sec-a}\n\nprose.\n")
-    (docs / "canon" / SPEC_FILE).write_text(
-        "# Spec\n\n## W {#intrinsic-weight}\n\nbody.\n"
-    )
+    (docs / "canon" / SPEC_FILE).write_text("# Spec\n\n## W {#flash-period}\n\nbody.\n")
     (docs / "canon" / "_marks" / "08-a.md").write_text(
-        "# A {#sec-a}\n\n<!-- @bind(intrinsic-weight) -->\n"
+        "# A {#sec-a}\n\n<!-- @bind(flash-period) -->\n"
     )
     ex = tmp_path / "exercises"
     ex.mkdir()
     (ex / "e.md").write_text(
-        "# E\n\n**Anchors:** `08-a` `@bind(intrinsic-weight)`.\n\nbody.\n"
+        "# E\n\n**Anchors:** `08-a` `@bind(flash-period)`.\n\nbody.\n"
     )
     problems, _, anchors = _n.supplement_check(docs, _n.spec_slugs(docs), root=tmp_path)
     assert problems == [] and anchors == []
@@ -1346,18 +1342,16 @@ def test_unresolvable_chapter_reference_in_a_run_is_a_hard_problem(tmp_path):
     docs = tmp_path / "docs"
     (docs / "canon" / "_marks").mkdir(parents=True)
     (docs / "canon" / "a.qmd").write_text("# A {#sec-a}\n\nprose.\n")
-    (docs / "canon" / SPEC_FILE).write_text(
-        "# Spec\n\n## W {#intrinsic-weight}\n\nbody.\n"
-    )
+    (docs / "canon" / SPEC_FILE).write_text("# Spec\n\n## W {#flash-period}\n\nbody.\n")
     (docs / "canon" / "_marks" / "a.md").write_text(
-        "# A {#sec-a}\n\n<!-- @bind(intrinsic-weight) -->\n"
+        "# A {#sec-a}\n\n<!-- @bind(flash-period) -->\n"
     )
     ex = tmp_path / "exercises"
     ex.mkdir()
     (ex / "e.md").write_text(
-        "# E\n\n**Anchors:** `gone.qmd` `@bind(intrinsic-weight)`.\n\nbody.\n"
+        "# E\n\n**Anchors:** `gone.qmd` `@bind(flash-period)`.\n\nbody.\n"
     )
-    problems, _, _ = _n.supplement_check(docs, {"intrinsic-weight"}, root=tmp_path)
+    problems, _, _ = _n.supplement_check(docs, {"flash-period"}, root=tmp_path)
     assert any("gone" in p and "no chapter" in p for p in problems)
 
 
@@ -1376,14 +1370,12 @@ def test_prior_art_in_a_run_stays_inert(tmp_path):
     from quirework.manuscript import notes as _n
 
     run = (
-        "**Anchors:** `08-the-weight-inside` `@bind(intrinsic-weight)`. "
+        "**Anchors:** `08-the-lamp-room` `@bind(flash-period)`. "
         "Prior art: `_map.md` carries a row naming Nozick.\n"
     )
-    pairs, unresolved = _n.anchor_pairs(
-        run, {"08-the-weight-inside"}, {"intrinsic-weight"}
-    )
+    pairs, unresolved = _n.anchor_pairs(run, {"08-the-lamp-room"}, {"flash-period"})
     assert unresolved == []
-    assert pairs == [("08-the-weight-inside", "intrinsic-weight")]
+    assert pairs == [("08-the-lamp-room", "flash-period")]
 
 
 def test_ch_is_rejected_as_a_mark_kind(tmp_path, capsys):
