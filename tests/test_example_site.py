@@ -65,6 +65,16 @@ def test_every_citation_names_a_work_and_every_quotation_holds(site, capsys):
     assert "cited by: why-the-lamp-turns" in capsys.readouterr().out
 
 
+def test_each_work_links_its_claims_with_a_stance(site, capsys):
+    assert run(site, "spec related-work", "--by-section") == 0
+    out = capsys.readouterr().out
+    assert "#recognizable-signal" in out
+    assert "coast-pilot                        support" in out
+    assert "note chart-and-log" in out
+    assert run(site, "spec related-work", "--unverified") == 0
+    assert capsys.readouterr().out.split() == ["station-log"]
+
+
 def test_the_marks_mirror_their_posts_and_bind_the_register(site, capsys):
     assert run(site, "spec notes", "--check") == 0
     err = capsys.readouterr().err
