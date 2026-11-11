@@ -342,6 +342,65 @@ stays free prose, since a passing citation need not be registered.
 gate and adds two advisories: a work no unit cites, and a quotation that
 is not in the work.
 
+A work in an entries register may say how it bears on each spec section
+it concerns. Each such link is a heading inside the work whose text is
+the section's slug in a code span and nothing else, and whose first line
+is the link's stance; the rest of the subsection is the link's note. In
+a file per work the links are level-2 headings, and in one file of
+works, level-3 headings under each work:
+
+```markdown
++++
+title = "The Keeper's Almanac, 1911"
+authors = ["Ada Lantern", "Ben Wick"]
+year = 1911
+venue = "Harbour Press, Port Quill"
+
+[verification]
+status = "checked"
+date = 2031-03-01
+against = "the library's bound copy"
++++
+
+A yearly book of light periods and fog signals for the northern coast.
+
+## `#lamp-period`
+
+*Stance: support.*
+
+It gives the period the lamp post relies on.
+
+## `#fog-signal`
+
+*Stance: counter, contested.*
+
+It times the horn differently, and the post sides with the log.
+```
+
+The stance line is `*Stance: NAME.*`, with any flags after commas.
+`related_work_stances` lists the stances a project uses and
+`related_work_flags` its flags, both lists of words; with one declared,
+a word outside it is refused, and without it any word is read:
+
+```toml
+[manuscript]
+related_work = "research/works/*.md"
+related_work_stances = ["support", "counter", "method"]
+related_work_flags = ["contested"]
+```
+
+A work kept in a file of its own states its facts in TOML frontmatter,
+since YAML is read for top-level scalars only and a list of authors
+there would be dropped; `spec notes --check` refuses one written in
+YAML. The facts are `title`, `authors` (a list of names), `year`,
+`venue` (the citation as written) and `verification`, a table whose
+`status` is `unchecked`, `checked` or `verified`; a checked or verified
+work gives the `date` of the check and what it was made `against`. A
+work that states no verification is unchecked. The gate refuses a link
+with no stance line or a malformed one, an undeclared stance or flag, a
+section linked twice from one work, a link naming no section (or, with
+`related_work_public`, an unpublished one), and facts that do not read.
+
 `related_work_copies` is a path pattern with `{slug}` naming a
 plain-text capture of each work as it was read, so it needs an entries
 register. A quoted span of five words or more in a mark citing that work

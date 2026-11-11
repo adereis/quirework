@@ -364,7 +364,13 @@ class Project:
         key = "manuscript.related_work"
         found = self.get(key)
         shape = self.get(f"{key}_shape")
-        for dependent in (f"{key}_shape", f"{key}_copies", f"{key}_public"):
+        for dependent in (
+            f"{key}_shape",
+            f"{key}_copies",
+            f"{key}_public",
+            f"{key}_stances",
+            f"{key}_flags",
+        ):
             if found is None and self.get(dependent) is not None:
                 raise ConfigurationError(
                     f"{dependent} describes a related-work register, and {key} "
@@ -404,6 +410,30 @@ class Project:
         shown = self.get(f"{key}_public")
         if shown is not None and not isinstance(shown, bool):
             raise ConfigurationError(f"{key}_public must be true or false")
+        for words in ("stances", "flags"):
+            declared = self.get(f"{key}_{words}")
+            if declared is None:
+                continue
+            if shape == "prose":
+                raise ConfigurationError(
+                    f"{key}_{words} describes the links of works, and a prose "
+                    "register holds none"
+                )
+            if not isinstance(declared, (list, tuple)) or not all(
+                isinstance(w, str) and w.strip() and "," not in w and "." not in w
+                for w in declared
+            ):
+                raise ConfigurationError(
+                    f"{key}_{words} is a list of words, each without a comma or "
+                    "a full stop, since a stance line separates them with those"
+                )
+            if len(set(declared)) != len(declared):
+                raise ConfigurationError(f"{key}_{words} names a word twice")
+        if self.get(f"{key}_stances") == []:
+            raise ConfigurationError(
+                f"{key}_stances declares no stance, so every link would be "
+                "refused; name the stances, or leave the setting out"
+            )
 
     def _check_supplements(self):
         """The supplements, each a table with a path and a role. A role is

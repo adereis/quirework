@@ -32,6 +32,27 @@ missing section is; with a prose register, any slug is, since there are no
 works to name. A `@cite` with no slug stays free prose, since a passing
 reference need not be registered.
 
+A work of an entries register may say how it bears on a section. A link is a
+heading inside the work whose text is the section's slug in a code span, and
+whose first line is the link's stance:
+
+    ## `#lamp-period`
+
+    *Stance: support.*
+
+    The almanac gives the period the post relies on.
+
+The rest of the subsection, up to the next heading of its level or above, is
+the link's note. A stance line may add flags after commas, `*Stance: counter,
+contested.*`. `manuscript.related_work_stances` names the stances a project
+uses and `manuscript.related_work_flags` the flags; with either declared, a
+word outside it is refused, and without it any word is read. A work kept in a
+file of its own may state its facts in TOML frontmatter: `title`, `authors` (a
+list), `year`, `venue` (the citation as text) and `verification`, a table whose
+`status` is unchecked, checked or verified, the last two with the `date` of
+the check and what it was made `against`. A work with no `verification` is
+unchecked.
+
 `manuscript.related_work_copies` is a path pattern with `{slug}`, such as
 `research/copies/{slug}.txt`: a plain-text capture of a work as it was read. A
 quotation in a mark citing that work is then checked against it, the way
@@ -44,7 +65,9 @@ from __future__ import annotations
 import argparse
 import re
 import sys
-from dataclasses import dataclass
+from collections.abc import Mapping
+from dataclasses import dataclass, field
+from datetime import date
 from pathlib import Path
 
 from quirework.core import frontmatter
@@ -62,12 +85,41 @@ SHAPES = ("prose", "entries")
 _QUOTED = re.compile(r"[\"“]([^\"“”]{1,600})[\"”]")
 
 
+# A work's facts, which its own file's frontmatter may state, and the values a
+# verification's status may take.
+FACTS = ("title", "authors", "year", "venue", "verification")
+STATUSES = ("unchecked", "checked", "verified")
+
+# A link: a heading whose text is a section's slug in a code span and nothing
+# else, below the level a work's own heading takes in a one-file register.
+_LINK = re.compile(r"(?m)^(#{2,6})[ \t]+`#([A-Za-z][\w-]*)`[ \t]*$")
+_ANY_HEADING = re.compile(r"(?m)^(#{1,6})[ \t]")
+# Its first line: `*Stance: NAME.*`, or with flags, `*Stance: NAME, FLAG.*`.
+_STANCE = re.compile(r"^\*Stance:[ \t]*(.*?)\.\*[ \t]*$")
+_ISO_DATE = re.compile(r"^\d{4}-\d{2}-\d{2}$")
+
+
+@dataclass(frozen=True)
+class Link:
+    """How a work bears on one spec section: the section, a stance and its
+    flags, and the note under the link's heading."""
+
+    section: str
+    stance: str | None
+    flags: tuple[str, ...]
+    note: str
+    line: int
+    problem: str | None = None  # a stance line that does not read
+
+
 @dataclass(frozen=True)
 class Work:
     slug: str
     title: str
     path: Path  # the register file, or the work's own file
     body: str
+    facts: dict = field(default_factory=dict, compare=False)
+    links: tuple[Link, ...] = ()
 
 
 def configured() -> bool:
@@ -139,8 +191,10 @@ def register() -> list[Work]:
             raise ConfigurationError(
                 f"configured related-work register is missing: {path}"
             )
+        text = path.read_text(encoding="utf-8")
+        spans = _work_spans(text)
         return [
-            Work(s.slug, s.title, path, s.body)
+            Work(s.slug, s.title, path, s.body, {}, _links(text, *spans[s.slug]))
             for s in notes._sections_of(path)
             if s.slug
         ]
@@ -155,8 +209,71 @@ def register() -> list[Work]:
             raise ValueError(f"{formats.rel(path)}: {exc}") from None
         title = frontmatter.as_text(meta.get("title")) or formats.h1(text)[0] or slug
         found = frontmatter.block(text)
-        out.append(Work(slug, title, path, text[found.end() :] if found else text))
+        start = found.end() if found else 0
+        facts = {k: meta[k] for k in FACTS if k in meta}
+        out.append(
+            Work(slug, title, path, text[start:], facts, _links(text, start, len(text)))
+        )
     return out
+
+
+def _work_spans(text: str) -> dict[str, tuple[int, int]]:
+    """slug -> (start, end) of each work's section in a one-file register: from
+    its level-2 heading to the next heading of level 1 or 2."""
+    masked = notes._mask_nonprose(notes.mask_fences(text))
+    heads = [
+        (m.start(), len(m.group(1)), (m.group(3) or "").strip())
+        for m in notes._HEADING.finditer(masked)
+        if len(m.group(1)) <= 2
+    ]
+    out: dict[str, tuple[int, int]] = {}
+    for i, (pos, level, anchor) in enumerate(heads):
+        end = heads[i + 1][0] if i + 1 < len(heads) else len(text)
+        slug = anchor.lstrip("#").split()[0] if anchor.startswith("#") else ""
+        if level == 2 and slug:
+            out.setdefault(slug, (pos, end))
+    return out
+
+
+def _links(text: str, start: int, end: int, *, stanced: bool = True) -> tuple:
+    """The links between ``start`` and ``end`` of ``text``. A work's link
+    needs a stance line; a note's (``stanced`` false) takes none."""
+    masked = notes._mask_nonprose(notes.mask_fences(text))
+    found = []
+    for m in _LINK.finditer(masked, start, end):
+        level = len(m.group(1))
+        stop = end
+        for h in _ANY_HEADING.finditer(masked, m.end(), end):
+            if len(h.group(1)) <= level:
+                stop = h.start()
+                break
+        body = text[m.end() : stop].strip("\n")
+        first, _, rest = body.lstrip("\n").partition("\n")
+        line = text.count("\n", 0, m.start()) + 1
+        stance, flags, problem, note = None, (), None, body.strip()
+        if first.startswith("*Stance"):
+            note = rest.strip()
+            read = _STANCE.match(first.strip())
+            parts = [p.strip() for p in read.group(1).split(",")] if read else []
+            if not stanced:
+                problem = (
+                    "a note's link takes no stance: a stance says how one work "
+                    "bears on a section, so it belongs on that work's link"
+                )
+            elif not parts or not all(parts):
+                problem = (
+                    f"the stance line reads {first.strip()!r}; write it as "
+                    "`*Stance: NAME.*`, or `*Stance: NAME, FLAG.*` with flags"
+                )
+            else:
+                stance, flags = parts[0], tuple(parts[1:])
+        elif stanced:
+            problem = (
+                "the link has no stance line: its first line says how the work "
+                "bears on the section, as `*Stance: NAME.*`"
+            )
+        found.append(Link(m.group(2), stance, flags, note, line, problem))
+    return tuple(found)
 
 
 def copy_path(slug: str) -> Path | None:
@@ -251,6 +368,7 @@ def problems() -> list[str]:
                 f"'{seen[w.slug].title}' in {formats.rel(seen[w.slug].path)}"
             )
         seen.setdefault(w.slug, w)
+        out += _record_problems(w)
     for a in citations():
         at = f"{a.source or a.file}:{a.line}"
         if len(a.args) != 1:
@@ -269,6 +387,140 @@ def problems() -> list[str]:
                 f"{at}: @cite({a.args[0]}) names no work in the related-work "
                 f"register{hint}"
             )
+    return out
+
+
+def vocabulary(key: str) -> tuple[str, ...] | None:
+    """The stances (``stances``) or flags (``flags``) the project declares, or
+    None where it declares none and any word is read."""
+    found = current_project().get(f"{KEY}_{key}")
+    return None if found is None else tuple(found)
+
+
+def verification(work: Work) -> dict:
+    """A work's verification as data: its status, and the date and source of
+    the check where one was made. A work that states none is unchecked."""
+    found = work.facts.get("verification")
+    if not isinstance(found, Mapping):
+        return {"status": "unchecked", "date": None, "against": None}
+    when = found.get("date")
+    return {
+        "status": found.get("status", "unchecked"),
+        "date": when.isoformat() if isinstance(when, date) else when,
+        "against": found.get("against"),
+    }
+
+
+def _yaml_facts(path: Path) -> list[str]:
+    """Facts a YAML block holds that its reader skips: YAML is read for
+    top-level scalars only, so a list of authors or a verification table there
+    would be dropped without a word."""
+    text = path.read_text(encoding="utf-8")
+    found = frontmatter.YAML.match(text)
+    if not found:
+        return []
+    return [
+        m.group(1)
+        for m in re.finditer(
+            r"(?m)^(authors|verification):[ \t]*(?:$|[\[{|>])", found.group(1)
+        )
+    ]
+
+
+def _fact_problems(where: str, facts: dict) -> list[str]:
+    out = []
+    if "title" in facts and not isinstance(facts["title"], str):
+        out.append(f"{where}: title must be text")
+    authors = facts.get("authors")
+    if authors is not None and (
+        not isinstance(authors, list)
+        or not authors
+        or not all(isinstance(a, str) and a.strip() for a in authors)
+    ):
+        out.append(f"{where}: authors must be a list of names")
+    year = facts.get("year")
+    if year is not None and (
+        isinstance(year, bool)
+        or not (isinstance(year, int) or (isinstance(year, str) and year.isdigit()))
+    ):
+        out.append(f"{where}: year must be a number, such as 1911")
+    if "venue" in facts and not isinstance(facts["venue"], str):
+        out.append(f"{where}: venue must be text, the citation as written")
+    checked = facts.get("verification")
+    if checked is None:
+        return out
+    if not isinstance(checked, Mapping):
+        return out + [
+            (
+                f"{where}: verification is a table with a status, and for a check "
+                "its date and what it was made against"
+            )
+        ]
+    unknown = set(checked) - {"status", "date", "against"}
+    if unknown:
+        out.append(
+            f"{where}: verification sets {', '.join(sorted(unknown))}; it holds "
+            "a status, a date and what the check was made against"
+        )
+    status = checked.get("status")
+    if status not in STATUSES:
+        out.append(
+            f"{where}: verification status is {status!r}; it is one of "
+            + ", ".join(STATUSES)
+        )
+        return out
+    when, against = checked.get("date"), checked.get("against")
+    if when is not None and not (
+        isinstance(when, date) or (isinstance(when, str) and _ISO_DATE.match(when))
+    ):
+        out.append(f"{where}: verification date must be a date, such as 2031-04-02")
+    if against is not None and not (isinstance(against, str) and against.strip()):
+        out.append(f"{where}: verification against must name what was read")
+    if status == "unchecked" and (when is not None or against is not None):
+        out.append(
+            f"{where}: an unchecked work records no check; give it a status of "
+            "checked or verified, or drop the date and the source"
+        )
+    if status != "unchecked" and (when is None or against is None):
+        out.append(
+            f"{where}: a {status} work says when it was checked (date) and "
+            "against what (against)"
+        )
+    return out
+
+
+def _record_problems(work: Work) -> list[str]:
+    """What a work's facts and links cannot be."""
+    rel = formats.rel(work.path)
+    out = _fact_problems(f"{rel}: work '{work.slug}'", work.facts)
+    if is_glob(_pattern()):
+        out += [
+            f"{rel}: work '{work.slug}' states {key} in YAML frontmatter, which "
+            "is read for top-level scalars only, so it would be dropped; write "
+            "the work's facts in TOML frontmatter between +++ lines"
+            for key in _yaml_facts(work.path)
+        ]
+    stances, flags = vocabulary("stances"), vocabulary("flags")
+    linked: set[str] = set()
+    for link in work.links:
+        at = f"{rel}:{link.line}: work '{work.slug}', link to '#{link.section}'"
+        if link.section in linked:
+            out.append(f"{at}: the work links this section twice; keep one link")
+        linked.add(link.section)
+        if link.problem:
+            out.append(f"{at}: {link.problem}")
+            continue
+        if stances is not None and link.stance not in stances:
+            out.append(
+                f"{at}: stance {link.stance!r} is not one the project declares "
+                f"({KEY}_stances: {', '.join(stances)})"
+            )
+        for flag in link.flags:
+            if flags is not None and flag not in flags:
+                out.append(
+                    f"{at}: flag {flag!r} is not one the project declares "
+                    f"({KEY}_flags: {', '.join(flags) or 'none'})"
+                )
     return out
 
 

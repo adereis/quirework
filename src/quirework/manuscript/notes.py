@@ -1358,8 +1358,10 @@ def _findings(docs: Path) -> tuple[list[str], list[tuple[str, list[str]]]]:
          its headings names a spec section. It points into the sessions that
          shaped the spec, and `spec trail --check` follows those pointers.
      12. where `manuscript.related_work` is set, every @cite(slug) names a
-         work in that register, and every work has a slug of its own; no
-         mark uses a kind a release renamed (`RENAMED_KINDS`).
+         work in that register, and every work has a slug of its own; each
+         work's facts read and each of its links carries a stance the project
+         declares, once per section; no mark uses a kind a release renamed
+         (`RENAMED_KINDS`).
      13. every @omit sits in a derived edition's sidecar, names one spec
          section, and gives its reason; no edition both binds and omits one.
      14. every section reference written in a spec file (`#slug`, or a
