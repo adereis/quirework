@@ -342,6 +342,27 @@ stays free prose, since a passing citation need not be registered.
 gate and adds two advisories: a work no unit cites, and a quotation that
 is not in the work.
 
+It lists the register four more ways: `--by-name` (each work with its
+authors and year), `--by-stance` (the links grouped by stance, in the
+order `related_work_stances` declares), `--by-section` (each section's
+works by stance, and the notes on it) and `--unverified` (the works no
+check is recorded for). `related_work_index` names a Markdown file
+holding all four, so the listings a reader opens are generated from the
+records rather than kept beside them by hand:
+
+```toml
+[manuscript]
+related_work_index = "research/listings.md"
+```
+
+`spec related-work --write` writes it, and both
+`spec related-work --check` and `spec notes --check` fail while it is
+stale. It lies outside the records' globs, and a prose register, which
+holds no works, refuses it. Where `manuscript.spec_index` is kept as
+well, the spec index names each section's works by stance from their
+links, and the notes that relate works to it; a work that declares no
+links is placed by the sections its prose cites, with no stance.
+
 A work in an entries register may say how it bears on each spec section
 it concerns. Each such link is a heading inside the work whose text is
 the section's slug in a code span and nothing else, and whose first line

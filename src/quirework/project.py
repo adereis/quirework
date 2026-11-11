@@ -371,6 +371,7 @@ class Project:
             f"{key}_stances",
             f"{key}_flags",
             f"{key}_notes",
+            f"{key}_index",
         ):
             if found is None and self.get(dependent) is not None:
                 raise ConfigurationError(
@@ -440,6 +441,26 @@ class Project:
                 raise ConfigurationError(
                     f"{key}_notes is a glob with one file per note, such as "
                     "'research/notes/*.md'"
+                )
+        listed = self.get(f"{key}_index")
+        if listed is not None:
+            if shape == "prose":
+                raise ConfigurationError(
+                    f"{key}_index lists works, and a prose register holds none"
+                )
+            if not isinstance(listed, str) or not listed.strip():
+                raise ConfigurationError(f"{key}_index must name a file")
+            where = (self.root / listed).resolve()
+            if not where.is_relative_to(self.root.resolve()):
+                raise ConfigurationError(
+                    f"{key}_index names {listed}, outside the project"
+                )
+            if where.match(str((self.root / str(found)).resolve())) or (
+                kept is not None and where.match(str((self.root / kept).resolve()))
+            ):
+                raise ConfigurationError(
+                    f"{key}_index names {listed}, which the register reads as a "
+                    "record; keep the listings outside the records' glob"
                 )
         if self.get(f"{key}_stances") == []:
             raise ConfigurationError(

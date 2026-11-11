@@ -169,7 +169,15 @@ def render(found: dict) -> str:
         lines.append(f"Related work ({len(found['related_work'])}):")
         for place in found["related_work"]:
             if "work" in place:
-                lines.append(f"  {place['work']}  {place['title']}")
+                stance = ", ".join(
+                    filter(None, [place.get("stance"), *place.get("flags", [])])
+                )
+                lines.append(
+                    f"  {place['work']}  {place['title']}"
+                    + (f"  [{stance}]" if stance else "")
+                )
+            elif "note" in place:
+                lines.append(f"  note {place['note']}  {place['title']}")
             else:
                 lines.append(f"  {place['file']}: {place['heading'] or '(top)'}")
     else:

@@ -1375,6 +1375,8 @@ def _findings(docs: Path) -> tuple[list[str], list[tuple[str, list[str]]]]:
          holding the one section its file name anchors, and no other.
      16. where `manuscript.spec_index` is set, each index file it names is
          what `spec index --write` would write now.
+     17. where `manuscript.related_work_index` is set, the listing file it
+         names is what `spec related-work --write` would write now.
 
     Plus seven advisories, printed but never fatal. The seventh names each
     section the canon binds that a composed edition neither binds nor omits.
@@ -1567,6 +1569,21 @@ def _findings(docs: Path) -> tuple[list[str], list[tuple[str, list[str]]]]:
             f"{_rel(path)}: the spec index is stale; run `{specindex.COMMAND}`"
             for path in specindex.stale(docs, docs.parent)
         ]
+
+    # 17. the related work's listing file, where the project keeps one, is
+    # what the records make now, for the reason the index is: it is read by
+    # people who never open the records. Held to the same trees as the index.
+    if (
+        related_work.configured()
+        and related_work.shape() == "entries"
+        and related_work.index_path() is not None
+        and specindex.held_in(docs.parent)
+        and related_work.stale_listing(docs, docs.parent)
+    ):
+        problems.append(
+            f"{_rel(related_work.index_path(docs.parent))}: the related-work "
+            f"listings are stale; run `{related_work.INDEX_COMMAND}`"
+        )
 
     # 11. the trail sidecar, where the project keeps one, mirrors the spec. A
     # renamed or retired section breaks its trail in the same edit that breaks

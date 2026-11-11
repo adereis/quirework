@@ -23,7 +23,8 @@ prose cites (`#slug`) and the sections citing it; the supplement entries that
 cite it, by role, tests apart from expressions; and where the related-work
 register cites it, as a count per file for a prose register, whose headings
 are its own organization and may follow the work's units, or as the works of
-a register of entries. It never lists units: which units express a section is the
+a register of entries: each with its stance where the work links the section,
+and the notes that relate works to it. It never lists units: which units express a section is the
 work's business, not the spec's, and `quirework spec section --context` shows
 it locally.
 
@@ -220,13 +221,37 @@ def _related_work(
             for slug, n in counted.items():
                 out.setdefault(slug, []).append({"file": rel, "citations": n})
         return out
+    # A work that declares links is placed by them, each with its stance; one
+    # that declares none, by the sections its prose cites, with no stance.
     for work in related_work.register():
-        for slug, _ in notes._code_spec_refs(notes.mask_fences(work.body)):
-            if slug not in spec:
-                continue
-            item = {"work": work.slug, "title": work.title}
+        if work.links:
+            bearing = [
+                (k.section, k.stance, list(k.flags))
+                for k in work.links
+                if k.section in spec and k.problem is None
+            ]
+        else:
+            bearing = [
+                (slug, None, [])
+                for slug in _unique(
+                    s for s, _ in notes._code_spec_refs(notes.mask_fences(work.body))
+                )
+                if slug in spec
+            ]
+        for slug, stance, flags in bearing:
+            item = {
+                "work": work.slug,
+                "title": work.title,
+                "stance": stance,
+                "flags": flags,
+            }
             if item not in out.setdefault(slug, []):
                 out[slug].append(item)
+    for note in related_work.register_notes():
+        for link in note.links:
+            item = {"note": note.slug, "title": note.title}
+            if link.section in spec and item not in out.setdefault(link.section, []):
+                out[link.section].append(item)
     return out
 
 
@@ -286,8 +311,39 @@ def render_json(index: dict) -> str:
 
 def _cited(places: list[dict]) -> int:
     """How often the related work cites a section: its citations in a prose
-    register, its works in a register of entries."""
-    return sum(p.get("citations", 1) for p in places)
+    register, its works in a register of entries (a note is not a work)."""
+    return sum(p.get("citations", 1) for p in places if "note" not in p)
+
+
+def _bearing(places: list[dict]) -> str | None:
+    """The works bearing on a section, grouped by stance in the project's
+    order, and the notes on it; None for a prose register's counts."""
+    works = [p for p in places if "work" in p]
+    kept = [p["note"] for p in places if "note" in p]
+    if not works and not kept:
+        return None
+    from quirework.manuscript import related_work
+
+    declared = related_work.vocabulary("stances") or ()
+    stances = sorted(
+        {p["stance"] for p in works},
+        key=lambda s: (
+            s is None,
+            declared.index(s) if s in declared else len(declared),
+            s or "",
+        ),
+    )
+    said = []
+    for stance in stances:
+        names = ", ".join(
+            f"`{p['work']}`" + (f" ({', '.join(p['flags'])})" if p["flags"] else "")
+            for p in works
+            if p["stance"] == stance
+        )
+        said.append(f"{stance or 'cited by'} {names}")
+    if kept:
+        said.append(f"noted in {_code(kept)}")
+    return "related work: " + "; ".join(said)
 
 
 def _count(n: int, noun: str) -> str:
@@ -366,6 +422,8 @@ def render_markdown(index: dict, at: Path, root: Path) -> str:
                 )
             if s["told_by"]:
                 said.append(f"told by {_code(_entry_name(p) for p in s['told_by'])}")
+            if (bearing := _bearing(s["related_work"])) is not None:
+                said.append(bearing)
             if said:
                 notes_.append(f"- `{slug}` " + "; ".join(said) + ".")
         if notes_:
