@@ -14,7 +14,9 @@ content/posts/<slug>/index.md   the posts, as Hugo page bundles
 specs/_site.md                  what several posts lean on
 specs/<slug>/spec.md            what one post commits to
 specs/<slug>/marks.md           that post's marks, mirroring its headings
-research/related-work.md        the work the posts lean on, cited by slug
+research/works/<slug>.md        a work the posts lean on, cited by slug
+research/notes/<slug>.md        prose relating several works
+research/listings.md            the works by name, stance and section
 research/copies/<slug>.txt      a capture of a work, to check quotes
 ideas/<name>/brief.md           a post that might be, with no authority
 quirework/terms.toml            the voice rules `text check` enforces
@@ -25,7 +27,9 @@ One post is published and one is a draft. A third has a spec and no post
 yet, and an idea has a brief and no spec; `spec units` lists both. The
 published post still carries a to-do, which `spec units --check`
 reports, and it quotes the coast pilot, which
-`spec related-work --check` holds to the captured copy.
+`spec related-work --check` holds to the captured copy. Each work links
+the claims it bears on with a stance, and `spec related-work --write`
+generates the listings from those links.
 
 ```bash
 cd examples/demo-site
@@ -35,6 +39,7 @@ quirework spec notes bind --slug recognizable-signal  # posts sharing a claim
 quirework spec notes --check                          # marks mirror, slugs resolve
 quirework spec units --check                          # what a published post owes
 quirework spec related-work --check                   # citations and quotations
+quirework spec related-work --by-section              # each claim's works, by stance
 quirework text wrap --check content/posts/*/index.md  # one sentence per line
 quirework text check                                  # no em-dash came back
 quirework publish build --drafts                      # Hugo, into build/site

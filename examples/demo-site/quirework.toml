@@ -17,10 +17,13 @@ unit_spec = "specs/{slug}/spec.md"
 # The keeper's briefs; `spec units` lists the ones no post has taken up.
 ideas = "ideas/*/brief.md"
 noncanonical_roots = ["ideas/"]
-# The related work the posts are placed against, one work per section, and
-# plain-text captures of what was read.
-related_work = "research/related-work.md"
-related_work_shape = "entries"
+# The related work the posts are placed against, one file per work, each
+# linking the sections it bears on with a stance; notes relating several
+# works; the generated listings; and plain-text captures of what was read.
+related_work = "research/works/*.md"
+related_work_stances = ["support", "counter", "source"]
+related_work_notes = "research/notes/*.md"
+related_work_index = "research/listings.md"
 related_work_copies = "research/copies/{slug}.txt"
 
 [publish]
