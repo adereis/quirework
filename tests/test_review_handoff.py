@@ -311,3 +311,20 @@ def test_a_receipt_with_no_served_model_never_credits_the_selection(project):
     assert f"`Review-Record: {RUN}`" in out["next"]
     assert "`Assisted-by: Codex CLI (<model-id>)`" in out["next"]
     assert "recorded no served model" in out["next"]
+
+
+@pytest.mark.parametrize(
+    "body, count",
+    [
+        ("## F1 A defect\n\n### F2 Another\n\nSee F1 again.\n", 2),
+        ("### 1. P2 — CONFIRMED: a defect\n\n### 2. P3 — PLAUSIBLE: another\n", 2),
+        ("## 1) First\n\n## 2) Second\n\n## 3) Third\n", 3),
+        ("Findings:\n\n1. a defect\n2. another\n", 2),
+        ("STATUS: complete\n\nNothing found.\n", 0),
+    ],
+    ids=["by-id", "numbered-headings", "parenthesized", "list", "none"],
+)
+def test_findings_are_counted_however_the_report_numbers_them(body, count):
+    """A report that heads its findings `### 1. ...` was counted as having
+    none, because only `F`-numbered headings and list items were read."""
+    assert review.count_findings(body) == count

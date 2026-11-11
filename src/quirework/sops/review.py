@@ -1358,6 +1358,21 @@ ones from where its numbering left off. Set STATUS: complete when the declared
 review is finished."""
 
 
+def count_findings(body):
+    """How many findings a report carries, read from how it numbers them.
+
+    The frame does not dictate a format, so this reads the common ones, in
+    order: headings that number findings by id (`### F3 ...`), then headings
+    that number them plainly (`### 3. ...`, `### 3) ...`), then, in a report
+    with neither, numbered list items. A finding counts once however often
+    its number recurs."""
+    for pattern in (r"^#{2,4}\s+F(\d+)\b", r"^#{2,4}\s+(\d+)[.)]\s"):
+        found = re.findall(f"(?m){pattern}", body)
+        if found:
+            return len(set(found))
+    return len(re.findall(r"(?m)^\d+\.\s", body))
+
+
 def _turn(
     name,
     mode,
@@ -1732,10 +1747,7 @@ def _collect(
     if not body.strip():
         body = ""
 
-    finding_ids = re.findall(r"(?m)^#{2,3}\s+F(\d+)\b", body)
-    findings = (
-        len(set(finding_ids)) if finding_ids else len(re.findall(r"(?m)^\d+\.\s", body))
-    )
+    findings = count_findings(body)
     progress = re.findall(r"(?m)^\s*PROGRESS:.*$", body)
     report_status = _report_status(body)
     moved = _moved_paths(before, after)
