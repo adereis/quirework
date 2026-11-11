@@ -17,6 +17,10 @@ spec = "manuscript/sections/_spec.md"
 # holds now.
 spec_trail = "provenance/spec-trail.md"
 noncanonical_roots = ["scratchpad"]
+# The spec's generated map, for a reader who wants the sections before
+# the book: `quirework spec index --write` keeps it, and `spec notes
+# --check` fails while it is stale.
+spec_index = { markdown = "spec-index.md", json = "spec-index.json" }
 
 [publish]
 build = "build"

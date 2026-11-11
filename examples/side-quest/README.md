@@ -24,7 +24,9 @@ for an author who judges every page, and this book had none.
   the book commits to. `quirework spec trail the-name` follows one
   commitment through the turns that shaped it, including the session
   where Cy remembered the name's origin wrongly and the one where Cy
-  corrected it.
+  corrected it. `spec-index.md` is its generated map, and
+  `quirework spec section the-name --context` prints one section with
+  everything that touches it.
 - **One commitment in every artifact.**
   `quirework spec notes bind --slug the-name` lists the chapter and
   every edition that carries it.

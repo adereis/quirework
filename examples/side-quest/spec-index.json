@@ -1,0 +1,169 @@
+{
+  "generated_by": "quirework spec index --write",
+  "parts": [
+    {
+      "title": "What this book holds",
+      "sections": [
+        "side-quest",
+        "claims-in-sentences",
+        "two-shops",
+        "notes-escalate",
+        "worth-what-you-check",
+        "the-name",
+        "no-villains",
+        "em-never-asked",
+        "em-dashes-off-the-page",
+        "people-who-ask",
+        "not-the-book-it-was-built-for",
+        "written-with-the-tool"
+      ]
+    }
+  ],
+  "sections": [
+    {
+      "slug": "side-quest",
+      "title": "The side quest is the subject",
+      "part": "What this book holds",
+      "file": "manuscript/sections/_spec.md",
+      "words": 51,
+      "cites": [],
+      "cited_by": [],
+      "tested_by": [],
+      "told_by": [],
+      "related_work": []
+    },
+    {
+      "slug": "claims-in-sentences",
+      "title": "Claims that lived only in sentences",
+      "part": "What this book holds",
+      "file": "manuscript/sections/_spec.md",
+      "words": 93,
+      "cites": [],
+      "cited_by": [],
+      "tested_by": [],
+      "told_by": [],
+      "related_work": []
+    },
+    {
+      "slug": "two-shops",
+      "title": "Two shops, one habit",
+      "part": "What this book holds",
+      "file": "manuscript/sections/_spec.md",
+      "words": 146,
+      "cites": [],
+      "cited_by": [],
+      "tested_by": [],
+      "told_by": [],
+      "related_work": []
+    },
+    {
+      "slug": "notes-escalate",
+      "title": "The notes escalate",
+      "part": "What this book holds",
+      "file": "manuscript/sections/_spec.md",
+      "words": 193,
+      "cites": [],
+      "cited_by": [],
+      "tested_by": [],
+      "told_by": [],
+      "related_work": []
+    },
+    {
+      "slug": "worth-what-you-check",
+      "title": "An assistant is worth what you can check",
+      "part": "What this book holds",
+      "file": "manuscript/sections/_spec.md",
+      "words": 269,
+      "cites": [],
+      "cited_by": [],
+      "tested_by": [],
+      "told_by": [],
+      "related_work": []
+    },
+    {
+      "slug": "the-name",
+      "title": "The name came from \"quire\"",
+      "part": "What this book holds",
+      "file": "manuscript/sections/_spec.md",
+      "words": 206,
+      "cites": [],
+      "cited_by": [],
+      "tested_by": [],
+      "told_by": [],
+      "related_work": []
+    },
+    {
+      "slug": "no-villains",
+      "title": "No villains",
+      "part": "What this book holds",
+      "file": "manuscript/sections/_spec.md",
+      "words": 86,
+      "cites": [],
+      "cited_by": [],
+      "tested_by": [],
+      "told_by": [],
+      "related_work": []
+    },
+    {
+      "slug": "em-never-asked",
+      "title": "Em is never asked",
+      "part": "What this book holds",
+      "file": "manuscript/sections/_spec.md",
+      "words": 196,
+      "cites": [],
+      "cited_by": [],
+      "tested_by": [],
+      "told_by": [],
+      "related_work": []
+    },
+    {
+      "slug": "em-dashes-off-the-page",
+      "title": "Em's dashes stay off the page",
+      "part": "What this book holds",
+      "file": "manuscript/sections/_spec.md",
+      "words": 53,
+      "cites": [],
+      "cited_by": [],
+      "tested_by": [],
+      "told_by": [],
+      "related_work": []
+    },
+    {
+      "slug": "people-who-ask",
+      "title": "The people who ask about the book",
+      "part": "What this book holds",
+      "file": "manuscript/sections/_spec.md",
+      "words": 517,
+      "cites": [],
+      "cited_by": [],
+      "tested_by": [],
+      "told_by": [],
+      "related_work": []
+    },
+    {
+      "slug": "not-the-book-it-was-built-for",
+      "title": "The tool is not the book it was built for",
+      "part": "What this book holds",
+      "file": "manuscript/sections/_spec.md",
+      "words": 95,
+      "cites": [],
+      "cited_by": [],
+      "tested_by": [],
+      "told_by": [],
+      "related_work": []
+    },
+    {
+      "slug": "written-with-the-tool",
+      "title": "Written with the tool it is about",
+      "part": "What this book holds",
+      "file": "manuscript/sections/_spec.md",
+      "words": 164,
+      "cites": [],
+      "cited_by": [],
+      "tested_by": [],
+      "told_by": [],
+      "related_work": []
+    }
+  ],
+  "supplements": []
+}

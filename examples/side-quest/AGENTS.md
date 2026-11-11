@@ -12,7 +12,9 @@ house rules, decisions about shape or voice) goes in this project, where
 any assistant Cy uses later can read it:
 
 - people, pronouns and house rules: this file;
-- what the book commits to: the spec, `manuscript/sections/_spec.md`;
+- what the book commits to: the spec, `manuscript/sections/_spec.md`,
+  mapped in `spec-index.md`, which `quirework spec index --write`
+  regenerates and nobody edits;
 - how one chapter should read, and its open work: that chapter's sidecar
   under `_marks/`;
 - how a spec section got to where it is: the trail,
