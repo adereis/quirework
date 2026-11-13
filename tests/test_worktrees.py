@@ -146,6 +146,32 @@ def test_a_nested_project_sees_only_its_own_directories(tmp_path):
     assert worktrees.contains(trees, str(book / "manuscript"))
 
 
+def test_a_worktree_inside_the_main_checkout_sees_every_checkout(tmp_path):
+    """A worktree kept under a scratch directory of main is still a checkout.
+
+    Main contains it, so main must not be taken for the checkout holding a
+    project rooted at the worktree: that read the worktree as a project in a
+    subdirectory of main, and every session recorded in main was out of reach.
+    """
+    main = _repo(tmp_path)
+    wt = _worktree(main, main / "scratch" / "worktrees", "wt-a")
+    expected = sorted([main, wt])
+    assert worktrees.project_trees(wt) == expected
+    assert worktrees.project_trees(main) == expected
+    assert worktrees.contains(worktrees.project_trees(wt), str(main / "docs"))
+
+
+def test_a_nested_project_in_a_nested_worktree_keeps_its_position(tmp_path):
+    main = _repo(tmp_path)
+    wt = _worktree(main, main / "scratch" / "worktrees", "wt-a")
+    for checkout in (main, wt):
+        (checkout / "examples" / "demo-book").mkdir(parents=True)
+    book = wt / "examples" / "demo-book"
+    assert worktrees.project_trees(book) == sorted(
+        [main / "examples" / "demo-book", book]
+    )
+
+
 def test_a_nested_project_absent_from_a_worktree_is_skipped(tmp_path):
     main = _repo(tmp_path)
     _worktree(main, tmp_path, "wt-a")

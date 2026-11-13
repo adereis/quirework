@@ -133,10 +133,18 @@ def project_trees(project_root):
     it to all of them: a project at `<checkout>/examples/demo-book` yields
     that subdirectory in each checkout that has one. A project at a checkout
     root, which is the ordinary case, yields the checkout list unchanged.
+
+    The checkout holding the project is the deepest one that contains it. A
+    linked worktree can live inside the main checkout, under a scratch
+    directory say, and then both contain its root; taking the outer one would
+    read the worktree as a project in a subdirectory of main and return only
+    the worktree, so a session recorded in main's own directory would never
+    be found from it.
     """
     root = Path(project_root).resolve()
     trees = checkouts(root)
-    holder = next((c for c in trees if c == root or c in root.parents), None)
+    holders = [c for c in trees if c == root or c in root.parents]
+    holder = max(holders, key=lambda c: len(c.parts)) if holders else None
     if holder is None or holder == root:
         return trees
     relative = root.relative_to(holder)
