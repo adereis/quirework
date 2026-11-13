@@ -185,10 +185,13 @@ _IMPERATIVE = re.compile(r"\b(NEVER|DO NOT|DON'T|MUST NOT|MAY NOT|BANNED)\b")
 # and quote the canon by passage, so the check follows both directions without
 # assuming their directory names. Each declares a role. Tests apply the spec to
 # a case and record the result; expressions tell it to a reader. Both are held
-# to the same checks, and only tests are counted as exercising the spec.
+# to the same checks, and only tests are counted as exercising the spec. A
+# supplement whose entries must rest on the spec alone declares
+# `unit_pointers = false`, and then an entry naming a unit is refused.
 class Supplement(NamedTuple):
     path: str
     role: str | None  # None only in a revision translated from before roles
+    unit_pointers: bool = True
 
 
 def supplements(project=None) -> tuple[Supplement, ...]:
@@ -199,13 +202,20 @@ def supplements(project=None) -> tuple[Supplement, ...]:
     nothing here to check, and naming another project's directories would
     check a tree this one does not have. A role is required in today's
     configuration (`Project.require`); a revision committed before roles
-    existed reads its directories with none.
+    existed reads its directories with none. `unit_pointers` defaults to
+    true, which is what every revision before the setting meant.
     """
     project = project or current_project()
     out = []
     for entry in project.get("manuscript.supplements", ()) or ():
         if isinstance(entry, dict) and entry.get("path"):
-            out.append(Supplement(str(entry["path"]), entry.get("role")))
+            out.append(
+                Supplement(
+                    str(entry["path"]),
+                    entry.get("role"),
+                    entry.get("unit_pointers", True) is not False,
+                )
+            )
     return tuple(out)
 
 
@@ -979,16 +989,26 @@ def _searchable(quote: str) -> str:
     return _norm(quote).rstrip(".,;:").lower()
 
 
-def supplement_files(root: Path | None = None, role: str | None = None) -> list[Path]:
-    """Every entry in the supplements, or in those of one role."""
+def supplement_entries(
+    root: Path | None = None, role: str | None = None
+) -> list[tuple[Supplement, Path]]:
+    """Every entry in the supplements, or in those of one role, each with the
+    supplement that holds it, for a check that depends on how it is declared."""
     base = Path(root) if root is not None else current_project().root
-    out: list[Path] = []
+    out: list[tuple[Supplement, Path]] = []
     for sup in supplements():
         if role is not None and sup.role != role:
             continue
         if (base / sup.path).is_dir():
-            out += [p for p in sorted((base / sup.path).glob("*.md")) if _is_entry(p)]
+            out += [
+                (sup, p) for p in sorted((base / sup.path).glob("*.md")) if _is_entry(p)
+            ]
     return out
+
+
+def supplement_files(root: Path | None = None, role: str | None = None) -> list[Path]:
+    """Every entry in the supplements, or in those of one role."""
+    return [p for _, p in supplement_entries(root, role)]
 
 
 def _canon_corpus(docs: Path) -> str:
@@ -1199,6 +1219,51 @@ def coverage(
     return by_slug, unexercised
 
 
+def _unit_pointers(
+    text: str, rel: str, where: str, anchor_run: re.Match | None, stems: set[str]
+) -> list[str]:
+    """Every pointer at a unit in an entry of a supplement that refuses them.
+
+    Such a supplement declares that its entries rest on the spec alone, so
+    that the work's units can be rebuilt without touching them: which unit
+    tells a section is derived from the bindings, never written in an entry.
+    Three forms point at a unit: `@unit(slug)` anywhere, `@bind(slug)`, the
+    join that attributes a section to the unit named before it, and a unit's
+    bare slug or file in the anchors run, which the run reads as that unit."""
+    noun = units.noun()
+    why = (
+        f"{where} declares unit_pointers = false, so its entries rest on the spec alone"
+    )
+    out: list[str] = []
+    for m in _UNIT_REF.finditer(text):
+        ln = text.count("\n", 0, m.start()) + 1
+        out.append(
+            f"{rel}:{ln}: names a {noun} with `{m.group(0)}`, and {why}. Cite "
+            f"the section it rests on as `#slug`; which {noun} tells it is "
+            f"derived from the bindings."
+        )
+    for m in _BIND_TOKEN.finditer(text):
+        ln = text.count("\n", 0, m.start()) + 1
+        out.append(
+            f"{rel}:{ln}: `{m.group(0)}` joins the entry to a {noun}, and {why}. "
+            f"Cite the section as `#{m.group(1).strip()}`."
+        )
+    if anchor_run is not None:
+        for t in _BACKTICKED.finditer(anchor_run.group(1)):
+            tok = t.group(1).strip()
+            if _UNIT_REF.search(tok) or _BIND_TOKEN.search(tok):
+                continue  # reported above, once
+            if _bare(tok) in stems or _unit_shaped(tok):
+                pos = anchor_run.start(1) + t.start()
+                ln = text.count("\n", 0, pos) + 1
+                out.append(
+                    f"{rel}:{ln}: the {_anchors_label()} run reads `{tok}` as a "
+                    f"{noun}, and {why}. Name the sections it rests on as "
+                    f"`#slug`."
+                )
+    return out
+
+
 def supplement_check(
     docs: Path, spec: set[str], root: Path | None = None
 ) -> tuple[list[str], list[str], list[str]]:
@@ -1238,10 +1303,12 @@ def supplement_check(
                 f"section this one serves, or publish its file."
             )
 
-    for f in supplement_files(root):
+    for sup, f in supplement_entries(root):
         text = mask_fences(f.read_text())
         rel = _rel(f)
         anchor_run = _anchors_run(text)
+        if not sup.unit_pointers:
+            problems += _unit_pointers(text, rel, sup.path, anchor_run, stems)
         for m in _BIND_TOKEN.finditer(text):
             if not re.fullmatch(r"\s*[\w-]+\s*", m.group(1)):
                 ln = text.count("\n", 0, m.start()) + 1
@@ -1345,7 +1412,10 @@ def _findings(docs: Path) -> tuple[list[str], list[tuple[str, list[str]]]]:
          `manuscript.supplement_anchors` names) names a unit that really binds
          that slug. Invariant 7 gates the slug; this gates the unit
          attributed to it, which nothing checked, so an anchor could name a
-         unit that had never expressed the commitment.
+         unit that had never expressed the commitment. A supplement that
+         declares `unit_pointers = false` names no unit at all: an entry of
+         it carrying a `@unit(slug)`, a `@bind(slug)` or a unit token in its
+         anchors run fails here instead.
       9. every unit reference in an anchors run resolves, and `@unit` is
          never used as a mark kind. A unit-shaped token that resolves to
          nothing used to be skipped in silence, which turned invariant 8 into

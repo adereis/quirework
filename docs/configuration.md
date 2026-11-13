@@ -1620,7 +1620,7 @@ are held to the same checks below. Only tests are counted by
 `spec notes --coverage`, because an expression that mentions a section
 works no case, and counting it would read documentation as coverage. A
 role is required, a supplement names its directory once, and a table
-holds nothing but `path` and `role`.
+holds nothing but `path`, `role` and the optional `unit_pointers` below.
 
 Each Markdown file directly inside a supplement's directory is an entry,
 except a `README.md`, which indexes the collection, and a file whose
@@ -1637,6 +1637,26 @@ the format writes it (`opening.qmd`,
 `posts/why-the-lamp-turns/index.md`). Each `@bind(slug)` after it must
 be a section that unit binds. `spec notes --coverage` then maps which
 commitments the entries of the tests supplements work through.
+
+A collection whose entries must rest on the spec alone declares
+`unit_pointers = false`:
+
+```toml
+[[manuscript.supplements]]
+path = "drills"
+role = "tests"
+unit_pointers = false
+```
+
+Its entries then cite sections only, as `` `#slug` `` in the anchors run
+and in the prose, and `spec notes --check` refuses a `@unit(slug)`
+anywhere in an entry, a `@bind(slug)`, and a unit's slug or file in the
+anchors run. Which unit tells a section is still known, from the
+bindings, and `spec section SLUG --context` prints it beside the entries
+that test it. The setting is for a collection meant to outlive a rebuild
+of the work: units can be split, merged or reordered without an entry
+changing, because no entry names one. It defaults to true, and a
+revision committed before it existed is read as true.
 
 Earlier releases called the setting `manuscript.companion_dirs`, a list
 of directories with no role, and its label

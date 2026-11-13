@@ -161,3 +161,76 @@ def test_a_translated_revision_is_read_without_a_role(tmp_path):
 def test_the_footprint_holds_every_role(tmp_path):
     fp = footprint.footprint(_book(tmp_path, BOTH))
     assert fp.covers("drills/entry.md") and fp.covers("explainers/entry.md")
+
+
+SPEC_ALONE = [
+    {"path": "drills", "role": "tests", "unit_pointers": False},
+    {"path": "explainers", "role": "expressions"},
+]
+
+
+def _problems(project, root):
+    with project_scope(project):
+        docs = project.path("manuscript.source")
+        problems, _, _ = notes.supplement_check(docs, notes.spec_slugs(docs), root=root)
+    return problems
+
+
+def test_a_supplement_may_refuse_unit_pointers(tmp_path):
+    project = _book(tmp_path, SPEC_ALONE)
+    project.require("manuscript")
+    with project_scope(project):
+        assert [s.unit_pointers for s in notes.supplements()] == [False, True]
+    (tmp_path / "drills" / "entry.md").write_text(
+        "# Entry\n\n**Anchors:** `#flash` (the flash, worked).\n\nbody.\n"
+    )
+    assert _problems(project, tmp_path) == []
+
+
+@pytest.mark.parametrize(
+    "anchors, names",
+    [
+        ("`lamp` `@bind(flash)`", ["`lamp`", "`@bind(flash)`"]),
+        ("`@unit(lamp)` `#flash`", ["`@unit(lamp)`"]),
+        ("`lamp.qmd` `#flash`", ["`lamp.qmd`"]),
+    ],
+)
+def test_an_entry_naming_a_unit_is_refused_where_pointers_are(tmp_path, anchors, names):
+    project = _book(tmp_path, SPEC_ALONE)
+    (tmp_path / "drills" / "entry.md").write_text(
+        f"# Entry\n\n**Anchors:** {anchors}.\n\nbody.\n"
+    )
+    refused = [p for p in _problems(project, tmp_path) if "unit_pointers" in p]
+    assert all("drills/entry.md" in p for p in refused)
+    for name in names:
+        assert any(name in p for p in refused), (name, refused)
+    assert len(refused) == len(names)
+
+
+def test_a_unit_named_in_the_body_is_refused_where_pointers_are(tmp_path):
+    project = _book(tmp_path, SPEC_ALONE)
+    (tmp_path / "drills" / "entry.md").write_text(
+        "# Entry\n\n**Anchors:** `#flash`.\n\nAs `@unit(lamp)` tells it.\n"
+    )
+    refused = [p for p in _problems(project, tmp_path) if "unit_pointers" in p]
+    assert len(refused) == 1 and "drills/entry.md:5" in refused[0]
+
+
+def test_unit_pointers_stay_allowed_by_default(tmp_path):
+    """The explainer keeps its `lamp` `@bind(fog)` run: only the supplement
+    that declared the refusal is held to it."""
+    project = _book(tmp_path, SPEC_ALONE)
+    (tmp_path / "drills" / "entry.md").write_text(
+        "# Entry\n\n**Anchors:** `#flash`.\n\nbody.\n"
+    )
+    assert _problems(project, tmp_path) == []
+
+
+def test_unit_pointers_must_be_true_or_false(tmp_path):
+    project = _book(tmp_path, BOTH)
+    values = project.describe()["settings"]
+    values["manuscript"]["supplements"] = [
+        {"path": "drills", "role": "tests", "unit_pointers": "no"}
+    ]
+    with pytest.raises(ConfigurationError, match="sets unit_pointers to 'no'"):
+        Project.from_settings(tmp_path, values).require("manuscript")

@@ -491,11 +491,12 @@ class Project:
                     f"{key} entry {i} is not a table: write it as [[{key}]] with a "
                     "path and a role"
                 )
-            unknown = set(entry) - {"path", "role"}
+            unknown = set(entry) - {"path", "role", "unit_pointers"}
             if unknown:
                 raise ConfigurationError(
                     f"{key} entry {i} sets {', '.join(sorted(unknown))}; a "
-                    "supplement has a path and a role"
+                    "supplement has a path, a role and, optionally, "
+                    "unit_pointers"
                 )
             path = entry.get("path")
             if not isinstance(path, str) or not path.strip():
@@ -507,6 +508,14 @@ class Project:
                     + " or ".join(f"'{r}'" for r in SUPPLEMENT_ROLES)
                     + ". Tests apply the spec and are counted by `spec notes "
                     "--coverage`; expressions tell it to a reader."
+                )
+            pointers = entry.get("unit_pointers", True)
+            if not isinstance(pointers, bool):
+                raise ConfigurationError(
+                    f"{key} entry {i} ({path}) sets unit_pointers to "
+                    f"{pointers!r}; it is true, the default, when an entry may "
+                    "name the units that tell what it rests on, or false when "
+                    "its entries rest on the spec alone"
                 )
             # One directory, however it is spelled: `drills`, `drills/` and
             # `./drills` are the same supplement and take one role.
