@@ -585,19 +585,39 @@ class Project:
                 "manuscript.spec_summary_label is the text a summary opens with "
                 "in bold, such as 'Summary.', with no space at either end"
             )
-        for key in ("manuscript.spec_summary_words", "manuscript.spec_digest"):
+        for key in (
+            "manuscript.spec_summary_words",
+            "manuscript.spec_summary_min_words",
+            "manuscript.spec_digest",
+        ):
             if self.get(key) is not None and label is None:
                 raise ConfigurationError(
                     f"{key} serves the summaries manuscript.spec_summary_label "
                     "turns on; set the label too, or remove it"
                 )
-        words = self.get("manuscript.spec_summary_words")
-        if words is not None and (
-            not isinstance(words, int) or isinstance(words, bool) or words < 1
+        for key in (
+            "manuscript.spec_summary_words",
+            "manuscript.spec_summary_min_words",
         ):
-            raise ConfigurationError(
-                "manuscript.spec_summary_words is a whole number of words, 1 or more"
-            )
+            words = self.get(key)
+            if words is not None and (
+                not isinstance(words, int) or isinstance(words, bool) or words < 1
+            ):
+                raise ConfigurationError(f"{key} is a whole number of words, 1 or more")
+        # A lower bound above the limit would name every summary, one way or
+        # the other; equal bounds ask for one exact length, which is allowed.
+        least = self.get("manuscript.spec_summary_min_words")
+        if least is not None:
+            from quirework.manuscript import specsummary
+
+            most = specsummary.word_limit(self)
+            if least > most:
+                raise ConfigurationError(
+                    f"manuscript.spec_summary_min_words is {least}, above the "
+                    f"{most}-word limit on a summary (manuscript.spec_summary_words, "
+                    f"{specsummary.DEFAULT_WORDS} unless set); lower it, or raise "
+                    "the limit"
+                )
         key = "manuscript.spec_digest"
         if self.get(key) is None:
             return

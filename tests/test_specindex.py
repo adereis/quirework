@@ -462,6 +462,42 @@ def test_notes_check_advises_long_summaries_and_counts_the_missing(tmp_path):
     assert _advised(groups, "spec sections with no summary yet") == [
         ["  2 of 3 published section(s) open with no **Summary.** paragraph"]
     ]
+    # With no lower bound set, no summary is too short.
+    assert not any("run under" in header for header, _ in groups)
+
+
+def test_notes_check_advises_short_summaries_under_a_lower_bound(tmp_path):
+    """A target length with a tolerance either way: the flash's nine words
+    sit inside it, the keeper's three fall short and the fog's fifteen run
+    past it, each named once and in its own advisory."""
+    project = _summarized(tmp_path, spec_summary_words=10, spec_summary_min_words=5)
+    (tmp_path / "spec" / "keeper.md").write_text(
+        "## The keeper {#keeper}\n\n**Summary.** The keeper winds.\n"
+    )
+    (tmp_path / "spec" / "fog.md").write_text(
+        "## The fog {#fog}\n\n**Summary.** Fog rolls in off the cold sea and"
+        " hides the flash from every passing ship.\n"
+    )
+    with project_scope(project):
+        assert specsummary.word_floor() == 5
+        problems, groups = notes._findings(project.path("manuscript.source"))
+    assert not any("summary" in p for p in problems)
+    assert _advised(groups, "{n} spec summary/summaries run under 5 words") == [
+        ["  spec/keeper.md#keeper — 3 words"]
+    ]
+    assert _advised(groups, "{n} spec summary/summaries run past 10 words") == [
+        ["  spec/fog.md#fog — 15 words"]
+    ]
+
+
+def test_a_lower_bound_equal_to_the_limit_asks_for_one_length(tmp_path):
+    project = _summarized(tmp_path, spec_summary_words=9, spec_summary_min_words=9)
+    project.require("manuscript")
+    with project_scope(project):
+        _, groups = notes._findings(project.path("manuscript.source"))
+    assert not any(
+        "run under" in header or "run past" in header for header, _ in groups
+    )
 
 
 @pytest.mark.parametrize(
@@ -474,6 +510,24 @@ def test_notes_check_advises_long_summaries_and_counts_the_missing(tmp_path):
         ({"spec_digest": "docs/digest.md"}, "set the label too"),
         ({"spec_summary_label": "S.", "spec_summary_words": 0}, "a whole number"),
         ({"spec_summary_label": "S.", "spec_summary_words": True}, "a whole number"),
+        ({"spec_summary_min_words": 20}, "set the label too"),
+        ({"spec_summary_label": "S.", "spec_summary_min_words": 0}, "a whole number"),
+        (
+            {"spec_summary_label": "S.", "spec_summary_min_words": "20"},
+            "a whole number",
+        ),
+        (
+            {"spec_summary_label": "S.", "spec_summary_min_words": 80},
+            "above the 70-word limit",
+        ),
+        (
+            {
+                "spec_summary_label": "S.",
+                "spec_summary_words": 30,
+                "spec_summary_min_words": 31,
+            },
+            "above the 30-word limit",
+        ),
         ({"spec_summary_label": "S.", "spec_digest": "../d.md"}, "outside the project"),
         (
             {"spec_summary_label": "S.", "spec_digest": "spec/fog.md"},

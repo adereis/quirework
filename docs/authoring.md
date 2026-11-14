@@ -411,8 +411,10 @@ A summary is read where its section is not, so it says what the section
 holds in words of its own. `notes --check` refuses one that cites a spec
 section, `#slug` in a code span or not, and a label with nothing after
 it, in any spec file. A summary over 70 words, or the number
-`spec_summary_words` sets, is an advisory. So is the count of published
-sections that have none yet, printed as one line, so a spec can gain its
+`spec_summary_words` sets, is an advisory, as is one under
+`spec_summary_min_words` where a project sets that lower bound to hold
+its summaries near one length. The count of published sections that have
+none yet is one too, printed as one line, so a spec can gain its
 summaries a few at a time. Without the label nothing here runs, and the
 index is what it was.
 

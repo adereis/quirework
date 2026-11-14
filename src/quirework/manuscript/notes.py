@@ -1455,7 +1455,8 @@ def _findings(docs: Path) -> tuple[list[str], list[tuple[str, list[str]]]]:
     section the canon binds that a composed edition neither binds nor omits.
     Where summaries are labeled, two more: each summary longer than
     `manuscript.spec_summary_words`, and one line counting the published
-    sections that have none yet.
+    sections that have none yet; and a third where
+    `manuscript.spec_summary_min_words` is set: each summary shorter.
 
     Quotations in the supplements that appear nowhere in canon.
     Heuristic by necessity (entries quote outside sources too, so only a

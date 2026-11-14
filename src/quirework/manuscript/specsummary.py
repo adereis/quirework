@@ -7,6 +7,7 @@ label the summary carries in bold, and the feature is off until it does:
     [manuscript]
     spec_summary_label = "Summary."
     spec_summary_words = 70           # the advisory limit, 70 by default
+    spec_summary_min_words = 40       # a lower bound, unset by default
     spec_digest = "spec/digest.md"    # every summary, by part
 
 A section's summary is then its first paragraph, directly under its heading,
@@ -25,8 +26,9 @@ page built from them, so it says what the section holds in words of its own.
 `spec notes --check` refuses a summary that cites a section (`#slug`, in a
 code span or not), since its reader has the gist and not the section to
 follow the citation from, and a label with no summary after it. A summary
-longer than the word limit is an advisory, and so is the count of published
-sections that have none yet, since a project may add them gradually.
+longer than the word limit is an advisory, and so is one shorter than the
+lower bound, where the project sets one, and the count of published sections
+that have none yet, since a project may add them gradually.
 """
 
 from __future__ import annotations
@@ -39,6 +41,7 @@ from quirework.project import current_project
 
 LABEL = "manuscript.spec_summary_label"
 WORDS = "manuscript.spec_summary_words"
+MIN_WORDS = "manuscript.spec_summary_min_words"
 DIGEST = "manuscript.spec_digest"
 DEFAULT_WORDS = 70
 
@@ -53,6 +56,12 @@ def label(project=None) -> str | None:
 def word_limit(project=None) -> int:
     """How many words a summary may run to before the advisory names it."""
     return (project or current_project()).get(WORDS, DEFAULT_WORDS)
+
+
+def word_floor(project=None) -> int | None:
+    """How many words a summary needs before the advisory stops naming it, or
+    None where the project sets no lower bound."""
+    return (project or current_project()).get(MIN_WORDS)
 
 
 def summary(paragraph: str, label: str) -> str | None:
@@ -108,9 +117,10 @@ def findings(docs: Path, spec: set[str]) -> tuple[list[str], list]:
         return [], []
     from quirework.manuscript import specindex
 
-    limit = word_limit()
+    limit, least = word_limit(), word_floor()
     problems: list[str] = []
     long: list[str] = []
+    short: list[str] = []
     read = {path: of_file(path, found) for path in notes.spec_files(docs)}
     for path, held in read.items():
         owner = notes.spec_owner(path)
@@ -135,6 +145,8 @@ def findings(docs: Path, spec: set[str]) -> tuple[list[str], list]:
             words = specindex._words(text)
             if words > limit:
                 long.append(f"  {at} — {words} words")
+            elif least is not None and words < least:
+                short.append(f"  {at} — {words} words")
     published = {
         slug: text
         for path in specindex._published(docs)
@@ -148,6 +160,14 @@ def findings(docs: Path, spec: set[str]) -> tuple[list[str], list]:
             long,
         )
     ]
+    if least is not None:
+        groups.append(
+            (
+                f"{{n}} spec summary/summaries run under {least} words; a "
+                f"summary is the section's gist, read where its text is not",
+                short,
+            )
+        )
     if missing:
         groups.append(
             (
