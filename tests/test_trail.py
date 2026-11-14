@@ -290,6 +290,107 @@ def test_a_renamed_section_breaks_the_trail_in_notes_check(book, capsys):
     assert trail.check() == 1
 
 
+# A section retitled in the spec keeps its slug, and so its trail.
+RETITLED = SPEC.replace(
+    "## Cooling is not the reverse of boiling {#cooling-asymmetry}",
+    "## Cooling takes its own route {#cooling-asymmetry}",
+)
+OLD_HEADING = "## Cooling is not the reverse of boiling {#cooling-asymmetry}"
+NEW_HEADING = "## Cooling takes its own route {#cooling-asymmetry}"
+
+
+def test_a_retitled_section_leaves_a_stale_heading_that_names_the_sync(book, capsys):
+    trail.add("cooling-asymmetry", "seed", session=SESSION, turn=2)
+    book.path("manuscript.spec").write_text(RETITLED)
+    assert notes.check() == 1
+    stale = (
+        "private/spec-trail.md:8: the heading of '#cooling-asymmetry' reads "
+        "'Cooling is not the reverse of boiling', and the spec now titles the "
+        "section 'Cooling takes its own route'; run `quirework spec trail sync`"
+    )
+    assert stale in capsys.readouterr().err
+    assert trail.check() == 1
+    assert stale in capsys.readouterr().err
+
+
+def test_sync_retitles_the_heading_and_changes_nothing_else(book, capsys):
+    trail.add("kettle-signal", "seed", session=SESSION, turn=1)
+    trail.add(
+        "cooling-asymmetry", "seed", session=SESSION, turn=2, note="Its own section."
+    )
+    before = _text(book)
+    book.path("manuscript.spec").write_text(RETITLED)
+    assert trail.main(["sync"]) == 0
+    out = capsys.readouterr().out
+    assert (
+        "  #cooling-asymmetry: 'Cooling is not the reverse of boiling' -> "
+        "'Cooling takes its own route'"
+    ) in out
+    assert "retitled 1 heading(s) in private/spec-trail.md" in out
+    assert _text(book) == before.replace(OLD_HEADING, NEW_HEADING)
+    assert mdwrap.reflow_columns(_text(book)) == _text(book)
+    assert notes.check() == 0
+    assert trail.check() == 0
+    capsys.readouterr()
+    assert trail.main(["sync"]) == 0
+    assert "every heading in private/spec-trail.md has its section's title" in (
+        capsys.readouterr().out
+    )
+
+
+def test_a_stale_title_does_not_stop_the_write_that_brings_it_in_step(book):
+    """Every write takes every heading's title from the spec, not only the
+    heading of the section it writes to."""
+    trail.add("cooling-asymmetry", "seed", session=SESSION, turn=2)
+    book.path("manuscript.spec").write_text(RETITLED)
+    assert trail.stale_headings() != []
+    trail.add("kettle-signal", "seed", session=SESSION, turn=1)
+    assert NEW_HEADING in _text(book) and OLD_HEADING not in _text(book)
+    assert trail.stale_headings() == []
+
+
+def test_sync_writes_only_the_title_of_a_heading_the_spec_holds(book):
+    """The slug, and anything else on the heading's line, stay; a heading in
+    the banner is no heading, and one whose slug the spec does not hold is a
+    structure problem the sync leaves for a rename, never a stale title."""
+    _write(
+        book,
+        f"<!--\n{OLD_HEADING}\n-->\n\n"
+        "## Cooling is not the reverse of boiling {#cooling-asymmetry .kept}\n\n"
+        f"- 2031-04-02T10:05:30Z · seed · claude-code {SESSION}\n\n"
+        "## A kettle that whistles {#whistle-signal}\n\n"
+        f"- 2031-04-02T10:00:05Z · seed · claude-code {SESSION}\n",
+    )
+    book.path("manuscript.spec").write_text(RETITLED)
+    assert trail.sync() == [
+        (
+            "cooling-asymmetry",
+            "Cooling is not the reverse of boiling",
+            "Cooling takes its own route",
+        )
+    ]
+    text = _text(book)
+    assert text.startswith(f"<!--\n{OLD_HEADING}\n-->\n")
+    assert "## Cooling takes its own route {#cooling-asymmetry .kept}\n" in text
+    assert "## A kettle that whistles {#whistle-signal}\n" in text
+    assert trail.stale_headings() == []
+    assert any(
+        "'#whistle-signal' names no spec" in p for p in trail.structure_problems()
+    )
+
+
+def test_a_title_is_compared_as_words():
+    text = "## A kettle  signals\twithout thinking {#kettle-signal}\n"
+    titles = {"kettle-signal": "A kettle signals without thinking"}
+    assert trail.retitle(text, titles) == (text, [])
+
+
+def test_sync_says_so_when_there_is_no_trail_yet(book, capsys):
+    assert trail.main(["sync"]) == 0
+    assert "holds no trail yet" in capsys.readouterr().out
+    assert not book.path("manuscript.spec_trail").exists()
+
+
 def test_the_check_follows_every_breadcrumb_to_its_turn(book, capsys):
     trail.add("kettle-signal", "seed", session=SESSION, turn=1, excerpt="nobody thinks")
     assert trail.check() == 0

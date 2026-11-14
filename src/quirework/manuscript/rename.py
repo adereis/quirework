@@ -7,7 +7,10 @@ the trail heads its history with it, and the backfill ledger files its flags
 and rulings under it.
 `spec notes --check` fails on any of those a hand rename misses, so renaming
 by hand is safe; it is also tedious enough that a slug saying the opposite of
-its section, after the section was reversed, stays as it is.
+its section, after the section was reversed, stays as it is. A rename writes
+the trail, and like every write to it, it leaves each heading under the title
+the spec gives its section, so a title the trail had kept from before a
+retitle is brought in step on the way.
 
 The rename is planned whole before anything is written: every file it would
 change is read, rewritten in memory and compared, and a refusal leaves the
@@ -146,6 +149,12 @@ def _omits(text: str, old: str, new: str):
     return notes._OMIT_TOKEN.sub(swap, text), count
 
 
+def _retitled(text: str, titles: dict[str, str]) -> tuple[str, int]:
+    """The trail's headings under the titles ``titles`` gives their slugs."""
+    after, changed = trail.retitle(text, titles)
+    return after, len(changed)
+
+
 def _code_refs(text: str, old: str, new: str) -> tuple[str, int]:
     """Spec citations ``#slug`` inside code spans, as supplement entries write them."""
     count = 0
@@ -212,6 +221,12 @@ def plan(old: str, new: str) -> tuple[str, list[Edit]]:
         change(f, lambda t: _code_refs(t, old, new), "citation")
     if trail.configured() and trail.sidecar_path().exists():
         change(trail.sidecar_path(), lambda t: _heading(t, old, new), "trail heading")
+        titles = {
+            new if s.slug == old else s.slug: s.title
+            for s in notes.spec_sections()
+            if s.slug
+        }
+        change(trail.sidecar_path(), lambda t: _retitled(t, titles), "trail title")
 
     for path, (before, after, whats) in texts.items():
         if after != before:

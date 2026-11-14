@@ -35,6 +35,13 @@ it has to appear in that turn. It also tells apart the answers of a turn that
 holds several, as a reply to a question with options does: each answer that
 shaped a section takes its own breadcrumb there, with its own excerpt.
 
+A heading's slug names its section and is the heading's identity; its title
+is a copy of the spec's, for whoever reads the trail as a file. Every write
+takes the titles from the spec again, so a section retitled in the spec keeps
+its trail and its heading follows at the next write; until then
+`spec notes --check` names the stale heading, and `spec trail sync` rewrites
+the titles alone.
+
 The sidecar is context, never authority. It lives wherever `manuscript.spec_trail`
 puts it, normally beside the private corpus, and the spec carries none of it:
 no session id, no date, no count. Leaving `manuscript.spec_trail` unset turns the
@@ -127,6 +134,7 @@ _CONTEXT = (
     "The trail is context, never authority: the spec states what the work "
     "holds now, and a request made now outranks anything on it."
 )
+SYNC_COMMAND = "quirework spec trail sync"
 
 
 @dataclass(frozen=True)
@@ -553,6 +561,84 @@ def structure_problems(slugs=None, sidecar=None):
                     "id; `quirework provenance show` prints it"
                 )
     return problems
+
+
+def _same_title(written, title):
+    """Whether a heading's title is the spec's, read as words: a reflow or a
+    stray double space is no retitle."""
+    return written.split() == title.split()
+
+
+def stale_headings(titles=None, sidecar=None):
+    """The trail's headings whose title is no longer the one the spec gives
+    their section.
+
+    The slug is the heading's identity, so a heading keeps its section and its
+    breadcrumbs whatever its title says. Every write takes the titles from the
+    spec again (`dump`), so a title goes stale only when a section is retitled
+    and nothing writes the trail after; `spec trail sync` rewrites them then.
+    These are kept apart from `structure_problems`, which refuse a write: the
+    write is what brings a stale title back in step. A heading whose slug the
+    spec does not hold is a structure problem, never a stale title.
+    """
+    titles = _spec_titles() if titles is None else titles
+    sidecar = load() if sidecar is None else sidecar
+    where = _rel(sidecar.path)
+    return [
+        f"{where}:{section.line}: the heading of '#{section.slug}' reads "
+        f"'{section.title}', and the spec now titles the section "
+        f"'{titles[section.slug]}'; run `{SYNC_COMMAND}`"
+        for section in sidecar.sections
+        if section.slug in titles
+        and not _same_title(section.title, titles[section.slug])
+    ]
+
+
+def retitle(text, titles):
+    """``text`` with each heading's title as ``titles`` gives it for the
+    heading's slug, and ``(slug, was, now)`` for each heading it changed.
+
+    Only the title is written. The heading's level, its slug and anything else
+    on the line stay as they are, and so does every other line, so the
+    rewrite cannot lose what the parser would refuse, and needs no sound
+    trail to run on. Headings are read as `parse` reads them, line by line
+    with comments and fences masked.
+    """
+    lines = text.split("\n")
+    shown = notes._mask_nonprose(notes.mask_fences(text)).split("\n")
+    changed = []
+    for i, seen in enumerate(shown):
+        head = notes._HEADING.match(seen)
+        if not (head and len(head.group(1)) == 2):
+            continue
+        anchor = notes._ATTR_ID.search(head.group(3) or "")
+        title = titles.get(anchor.group(1)) if anchor else None
+        if title is None or _same_title(head.group(2), title):
+            continue
+        line = lines[i]
+        lines[i] = line[: head.start(2)] + title + line[head.end(2) :]
+        changed.append((anchor.group(1), head.group(2), title))
+    return "\n".join(lines), changed
+
+
+def sync():
+    """Rewrite the trail's headings with the titles the spec gives them now;
+    return ``(slug, was, now)`` for each heading retitled.
+
+    For a section retitled in the spec, whose slug stays: its heading here
+    keeps the old title until something writes the trail. Nothing else in
+    the file changes.
+    """
+    titles = _spec_titles()
+    path = sidecar_path()
+    if not path.exists():
+        return []
+    with _locked(path):
+        before = path.read_text(encoding="utf-8")
+        after, changed = retitle(before, titles)
+        if after != before:
+            _write(path, after)
+    return changed
 
 
 def counts():
@@ -1507,7 +1593,8 @@ def check():
     """Every breadcrumb parses, mirrors the spec, and leads to its author turn.
 
     Fatal: a structure problem, among them a session named by a prefix of its
-    id; a breadcrumb into a session curation removed;
+    id; a heading under a title the spec no longer gives its section; a
+    breadcrumb into a session curation removed;
     a time or turn matching no author turn, or several; an excerpt the turn
     does not hold. Advisory: a session not captured yet, captured before the
     turn was made, or captured and not yet kept, which is the price of
@@ -1515,7 +1602,7 @@ def check():
     the report says so.
     """
     sidecar = load()
-    problems = structure_problems(sidecar=sidecar)
+    problems = structure_problems(sidecar=sidecar) + stale_headings(sidecar=sidecar)
     advisories, uncaptured = [], []
     project = current_project()
     if not project.get("provenance.enabled", False):
@@ -2106,6 +2193,12 @@ writing:
       answer a breadcrumb points at when one turn holds several); several
       SLUGs take the same breadcrumb, all or none
 
+keeping the headings:
+  quirework spec trail sync                 rewrite each heading's title as
+                                            the spec gives it now, for a
+                                            section retitled since the last
+                                            write; the slug stays
+
 correcting:
   quirework spec trail edit SLUG --session ID [--turn N | --at TIME]
       [--excerpt TEXT] --set-kind K | --set-note TEXT | --set-excerpt TEXT
@@ -2284,10 +2377,36 @@ def _edit_main(argv):
     return 0
 
 
+def _sync_main(argv):
+    ap = argparse.ArgumentParser(
+        prog="quirework spec trail sync",
+        description="Rewrite the trail's headings with the titles the spec "
+        "gives their sections now. A heading's slug is its identity and stays; "
+        "only the title follows a section retitled in the spec. Nothing else "
+        "in the file changes.",
+    )
+    ap.parse_args(argv)
+    path = sidecar_path()
+    where = _rel(path)
+    if not path.exists():
+        print(f"{where} holds no trail yet, so no heading to retitle")
+        return 0
+    changed = sync()
+    for slug, was, now in changed:
+        print(f"  #{slug}: '{was}' -> '{now}'")
+    if changed:
+        print(f"retitled {len(changed)} heading(s) in {where}")
+    else:
+        print(f"every heading in {where} has its section's title")
+    return 0
+
+
 def main(argv=None):
     argv = list(sys.argv[1:] if argv is None else argv)
     if argv and argv[0] == "add":
         return _add_main(argv[1:])
+    if argv and argv[0] == "sync":
+        return _sync_main(argv[1:])
     if argv and argv[0] == "drop":
         return _drop_main(argv[1:])
     if argv and argv[0] == "edit":

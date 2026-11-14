@@ -579,10 +579,17 @@ than one is refused with the candidates.
 
 `spec notes --check` fails a trail heading that names a section the spec
 no longer has, so a renamed section takes its trail along in the same
-edit; `spec rename` does that for you. `spec trail --check` follows
-every breadcrumb to your turn. It fails a pointer that leads to no turn,
-one into a session that curation removed, and one that names its session
-by a prefix. It only warns about a session not captured yet, or captured
+edit; `spec rename` does that for you. A retitled section keeps its
+slug, and with it its trail: a heading's slug is its identity, and its
+title is a copy of the spec's, for whoever reads the trail as a file.
+Every command that writes the trail takes the titles from the spec
+again, so the heading follows at the next write. Until then
+`notes --check` fails the heading that still carries the old title and
+names `quirework spec trail sync`, which rewrites the headings' titles
+and nothing else in the file. `spec trail --check` follows every
+breadcrumb to your turn. It fails a pointer that leads to no turn, one
+into a session that curation removed, and one that names its session by
+a prefix. It only warns about a session not captured yet, or captured
 before the turn was made, which is what pointing at a live conversation
 costs until that session is captured. Every checkout shares one store,
 and each branch keeps its own ledger, so a session another branch

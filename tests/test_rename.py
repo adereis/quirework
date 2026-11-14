@@ -128,6 +128,26 @@ def test_a_rename_reaches_every_place_the_slug_is_written(book):
     assert trail.structure_problems() == []
 
 
+def test_a_rename_brings_every_trail_title_in_step(book, capsys):
+    """A rename writes the trail, and every write to it leaves each heading
+    under its section's title: the renamed section's and the others' alike."""
+    spec = book / "manuscript" / "sections" / "_spec.md"
+    spec.write_text(
+        spec.read_text()
+        .replace("## A kettle signals without thinking", "## A whistle reports")
+        .replace("## Cooling is not the reverse of boiling", "## Cooling has a route")
+    )
+    assert rename.main(["kettle-signal", "whistle-signal"]) == 0
+    assert "private/spec-trail.md: trail heading, trail title ×2" in (
+        capsys.readouterr().out
+    )
+    text = (book / "private" / "spec-trail.md").read_text()
+    assert "## A whistle reports {#whistle-signal}\n" in text
+    assert "## Cooling has a route {#cooling-asymmetry}\n" in text
+    assert trail.stale_headings() == []
+    assert notes.check() == 0
+
+
 def test_a_dry_run_writes_nothing(book, capsys):
     before = _texts(book)
     assert rename.main(["kettle-signal", "whistle-signal", "--dry-run"]) == 0

@@ -1425,8 +1425,9 @@ def _findings(docs: Path) -> tuple[list[str], list[tuple[str, list[str]]]]:
          exists, every chapter on disk is listed); for a site, no two pages
          share a slug. The dual of invariant 2.
      11. where `manuscript.spec_trail` is set, the trail sidecar parses and each of
-         its headings names a spec section. It points into the sessions that
-         shaped the spec, and `spec trail --check` follows those pointers.
+         its headings names a spec section, under the title the spec gives it
+         now. It points into the sessions that shaped the spec, and
+         `spec trail --check` follows those pointers.
      12. where `manuscript.related_work` is set, every @cite(slug) names a
          work in that register, and every work has a slug of its own; each
          work's facts read and each of its links carries a stance the project
@@ -1675,12 +1676,21 @@ def _findings(docs: Path) -> tuple[list[str], list[tuple[str, list[str]]]]:
 
     # 11. the trail sidecar, where the project keeps one, mirrors the spec. A
     # renamed or retired section breaks its trail in the same edit that breaks
-    # its bindings, so the two are reported together. Following a breadcrumb
-    # into its session is `spec trail --check`'s job: that reads the corpus.
+    # its bindings, so the two are reported together. A retitled section keeps
+    # its trail, but the heading there keeps the old title until something
+    # writes the trail, so a stale one is reported with the command that
+    # rewrites it. Following a breadcrumb into its session is
+    # `spec trail --check`'s job: that reads the corpus.
     if current_project().get("manuscript.spec_trail") is not None:
         from quirework.manuscript import trail
 
-        problems.extend(trail.structure_problems(spec))
+        sidecar = trail.load()
+        problems.extend(trail.structure_problems(spec, sidecar))
+        problems.extend(
+            trail.stale_headings(
+                {slug: s.title for slug, s in spec_seen.items()}, sidecar
+            )
+        )
 
     # 5. every @bind slug resolves to a spec section. Duplicates across
     # units are the point: any number of units may express one section.
