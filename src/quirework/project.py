@@ -569,6 +569,62 @@ class Project:
         if found.get("markdown") and found.get("markdown") == found.get("json"):
             raise ConfigurationError(f"{key} names one file for both formats")
 
+    def _check_spec_summaries(self):
+        """The summaries' label, their word limit and the digest. The limit and
+        the digest mean nothing without summaries, so each requires the label,
+        and the digest, written over whatever it names, lies inside the
+        project and is neither a spec file nor one of the index's files."""
+        label = self.get("manuscript.spec_summary_label")
+        if label is not None and (
+            not isinstance(label, str)
+            or not label.strip()
+            or label != label.strip()
+            or "\n" in label
+        ):
+            raise ConfigurationError(
+                "manuscript.spec_summary_label is the text a summary opens with "
+                "in bold, such as 'Summary.', with no space at either end"
+            )
+        for key in ("manuscript.spec_summary_words", "manuscript.spec_digest"):
+            if self.get(key) is not None and label is None:
+                raise ConfigurationError(
+                    f"{key} serves the summaries manuscript.spec_summary_label "
+                    "turns on; set the label too, or remove it"
+                )
+        words = self.get("manuscript.spec_summary_words")
+        if words is not None and (
+            not isinstance(words, int) or isinstance(words, bool) or words < 1
+        ):
+            raise ConfigurationError(
+                "manuscript.spec_summary_words is a whole number of words, 1 or more"
+            )
+        key = "manuscript.spec_digest"
+        if self.get(key) is None:
+            return
+        digest = self.path(key)
+        if not digest.is_relative_to(self.root.resolve()):
+            raise ConfigurationError(
+                f"{key} names {self.get(key)}, outside the project"
+            )
+        from quirework.manuscript import manifest
+
+        if self.get("manuscript.spec") is not None:
+            for path in self.paths("manuscript.spec"):
+                held = [path]
+                if manifest.is_manifest(path) and path.is_file():
+                    held += manifest.read(path).files()
+                if digest in {p.resolve() for p in held}:
+                    raise ConfigurationError(
+                        f"{key} names {self.get(key)}, a spec file the digest "
+                        "would overwrite"
+                    )
+        index = self.get("manuscript.spec_index") or {}
+        for fmt, value in index.items():
+            if isinstance(value, str) and (self.root / value).resolve() == digest:
+                raise ConfigurationError(
+                    f"{key} names {self.get(key)}, the index's {fmt} file"
+                )
+
     def path_at(self, root, key, default=None):
         """Apply a configured layout to an explicitly supplied project root."""
         value = self.get(key, default)
@@ -708,6 +764,7 @@ class Project:
             self._check_related_work()
             self._check_supplements()
             self._check_spec_index()
+            self._check_spec_summaries()
             key = "manuscript.review_notes"
             if self.get(key) is not None and not self.path(key).is_file():
                 raise ConfigurationError(

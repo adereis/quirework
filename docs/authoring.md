@@ -376,6 +376,46 @@ facts for a site or any other tool. Neither carries a date or a commit,
 so a file changes only when what it describes does. Without the setting,
 `spec index` prints a summary.
 
+### Section summaries
+
+A reader of a long spec often wants each section's gist before its text.
+A project can open each section with a summary, a paragraph that starts
+with a label in bold, and name that label:
+
+```toml
+[manuscript]
+spec_summary_label = "Summary."
+spec_digest = "docs/digest.md"
+```
+
+```markdown
+## Cooling is not the reverse of boiling {#cooling-asymmetry}
+
+**Summary.** A kettle reaches the boil by one route and cools by
+another, so the way down says nothing about the way up.
+
+A kettle reaches the boil by one route and cools by another.
+```
+
+The summary is that first paragraph without its label, its whitespace
+collapsed. It must come directly under the heading: a labeled paragraph
+further down, or one behind a comment, is not a summary. The index
+carries each section's summary, in its JSON and under each part's table
+in its Markdown. Where `spec_digest` names a file, `spec index --write`
+also writes the digest: every section's title and summary under its
+part, in reading order, with a count of how many sections it covers. A
+section without a summary is left out of it, and `notes --check` fails
+while the digest is stale, as it does for the index.
+
+A summary is read where its section is not, so it says what the section
+holds in words of its own. `notes --check` refuses one that cites a spec
+section, `#slug` in a code span or not, and a label with nothing after
+it, in any spec file. A summary over 70 words, or the number
+`spec_summary_words` sets, is an advisory. So is the count of published
+sections that have none yet, printed as one line, so a spec can gain its
+summaries a few at a time. Without the label nothing here runs, and the
+index is what it was.
+
 To work on one section, `quirework spec section SLUG` prints it as its
 file holds it. With `--context` it adds what touches it: the title and
 first sentence of each section it cites and each section citing it, the

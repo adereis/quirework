@@ -12,7 +12,7 @@ import json
 
 import pytest
 
-from quirework.manuscript import notes, specindex, specsection
+from quirework.manuscript import notes, specindex, specsection, specsummary
 from quirework.project import ConfigurationError, Project, project_scope
 from quirework.text import mdwrap
 
@@ -303,3 +303,192 @@ def test_an_unknown_slug_is_refused_with_close_matches(tmp_path, capsys):
     err = capsys.readouterr().err
     assert "no spec section is anchored 'flsh'" in err
     assert "flash" in err
+
+
+# A section's summary is its first paragraph when that paragraph carries the
+# project's label in bold. The fog's labeled paragraph comes second, so the
+# fog opens with no summary.
+SUMMARIZED = {
+    "flash.md": (
+        "## The flash {#flash}\n\n**Summary.** The flash marks the rock\non a"
+        " clear  night.\n\nThe flash marks the rock. It needs #fog to matter,"
+        " and #keeper to run.\n"
+    ),
+    "fog.md": (
+        "## The fog {#fog}\n\nFog hides the flash (#flash).\n\n"
+        "**Summary.** A labeled paragraph that does not open the section.\n"
+    ),
+}
+
+
+def _summarized(root, **extra):
+    project = _project(root, spec_summary_label="Summary.", **extra)
+    for name, text in SUMMARIZED.items():
+        (root / "spec" / name).write_text(text)
+    return project
+
+
+def _advised(groups, start):
+    return [lines for header, lines in groups if header.startswith(start)]
+
+
+def test_summaries_are_off_until_the_label_is_set(tmp_path):
+    project = _project(tmp_path)
+    for name, text in SUMMARIZED.items():
+        (tmp_path / "spec" / name).write_text(text)
+    with project_scope(project):
+        index = specindex.build()
+        markdown = specindex.render_markdown(index, tmp_path / "i.md", tmp_path)
+        _, groups = notes._findings(project.path("manuscript.source"))
+    assert all("summary" not in s for s in index["sections"])
+    assert "Under each table" not in markdown
+    assert not any("summar" in header for header, _ in groups)
+
+
+def test_a_summary_is_the_labeled_paragraph_that_opens_a_section(tmp_path):
+    project = _summarized(tmp_path)
+    (tmp_path / "spec" / "keeper.md").write_text(
+        "## The keeper {#keeper}\n\n<!-- a draft -->\n\n**Summary.** Too late.\n"
+    )
+    with project_scope(project):
+        found = _sections(specindex.build())
+        assert specsummary.word_limit() == 70
+    assert found["flash"]["summary"] == "The flash marks the rock on a clear night."
+    assert "summary" in found["fog"] and found["fog"]["summary"] is None
+    assert found["keeper"]["summary"] is None
+
+
+def test_the_label_stands_alone_in_bold():
+    def read(paragraph):
+        return specsummary.summary(paragraph, "Summary.")
+
+    assert read("**Summary.** Kept <!-- not this --> short.") == "Kept short."
+    assert read("**Summary.**") == ""
+    assert read("**Summary.**s and more") is None
+    assert read("**Summary. All of it**") is None
+    assert read("Summary. Not in bold.") is None
+
+
+def test_the_markdown_index_puts_each_summary_under_its_table(tmp_path):
+    with project_scope(_summarized(tmp_path)):
+        text = specindex.render_markdown(
+            specindex.build(), tmp_path / "docs" / "index.md", tmp_path
+        )
+    table = text.index("| [The fog](../spec/fog.md)")
+    summary = text.index(
+        "**The flash** (`flash`). The flash marks the rock on a clear night."
+    )
+    assert table < summary < text.index("- `flash` cites")
+    assert "Under each table come the summaries" in text
+    assert "(`fog`)" not in text
+    assert mdwrap.reflow_columns(text) == text
+
+
+def test_the_digest_lists_the_summaries_by_part_and_counts_them(tmp_path, capsys):
+    project = _summarized(tmp_path, spec_digest="docs/digest.md")
+    keeper = tmp_path / "spec" / "keeper.md"
+    keeper.write_text(
+        "## The keeper {#keeper}\n\n**Summary.** The keeper winds the clock.\n"
+    )
+    project.require("manuscript")
+    with project_scope(project):
+        assert [p.name for p in specindex.stale()] == ["digest.md"]
+        assert specindex.main(["--write"]) == 0
+        text = (tmp_path / "docs" / "digest.md").read_text()
+        docs = project.path("manuscript.source")
+        assert not any("stale" in p for p in notes._findings(docs)[0])
+        assert specindex.main([]) == 0
+        keeper.write_text(
+            "## The keeper {#keeper}\n\n**Summary.** The keeper trims the wick.\n"
+        )
+        problems, _ = notes._findings(docs)
+    assert "2 of 3 sections have a summary" in text
+    order = [
+        "## The light",
+        "**[The flash](../spec/flash.md)** (`flash`). The flash marks",
+        "## The keeper",
+        "**[The keeper](../spec/keeper.md)** (`keeper`). The keeper winds",
+    ]
+    assert [text.index(s) for s in order] == sorted(text.index(s) for s in order)
+    assert "fog" not in text
+    assert mdwrap.reflow_columns(text) == text
+    printed = capsys.readouterr().out
+    assert "; 2 with a summary" in printed
+    assert "digest: docs/digest.md" in printed
+    assert [p for p in problems if "stale" in p] == [
+        f"docs/digest.md: the spec digest is stale; run `{specindex.COMMAND}`"
+    ]
+
+
+def test_notes_check_refuses_a_summary_that_cites_a_section(tmp_path):
+    project = _summarized(tmp_path)
+    (tmp_path / "spec" / "fog.md").write_text(
+        "## The fog {#fog}\n\n**Summary.** Fog hides the flash (#flash) and\n"
+        "the `#keeper` too, but not `#include`.\n"
+    )
+    (tmp_path / "spec" / "keeper.md").write_text(
+        "## The keeper {#keeper}\n\n**Summary.**\n\nThe keeper winds the clock.\n"
+    )
+    with project_scope(project):
+        problems, _ = notes._findings(project.path("manuscript.source"))
+    cited = [p for p in problems if "the summary cites" in p]
+    assert [p.split(". ")[0] for p in cited] == [
+        "spec/fog.md#fog: the summary cites '#flash'",
+        "spec/fog.md#fog: the summary cites '#keeper'",
+    ]
+    assert any(
+        p.startswith("spec/keeper.md#keeper: the summary label **Summary.** has")
+        for p in problems
+    )
+
+
+def test_notes_check_advises_long_summaries_and_counts_the_missing(tmp_path):
+    """Every summary is held to the limit, the working register's included;
+    the sections still without one are counted over the published spec."""
+    project = _summarized(tmp_path, spec_summary_words=5)
+    (tmp_path / "manuscript" / "sections" / "_working.md").write_text(
+        "# Working\n\n## The lamp rule {#lamp-rule}\n\n"
+        "**Summary.** A rule for lamps kept off the page entirely.\n\nSee #flash.\n"
+    )
+    with project_scope(project):
+        problems, groups = notes._findings(project.path("manuscript.source"))
+    assert not any("summary" in p for p in problems)
+    assert _advised(groups, "{n} spec summary/summaries run past 5 words") == [
+        [
+            "  spec/flash.md#flash — 9 words",
+            "  manuscript/sections/_working.md#lamp-rule — 9 words",
+        ]
+    ]
+    assert _advised(groups, "spec sections with no summary yet") == [
+        ["  2 of 3 published section(s) open with no **Summary.** paragraph"]
+    ]
+
+
+@pytest.mark.parametrize(
+    ("extra", "says"),
+    [
+        ({"spec_summary_label": ""}, "the text a summary opens with"),
+        ({"spec_summary_label": " Summary."}, "the text a summary opens with"),
+        ({"spec_summary_label": 5}, "the text a summary opens with"),
+        ({"spec_summary_words": 50}, "set the label too"),
+        ({"spec_digest": "docs/digest.md"}, "set the label too"),
+        ({"spec_summary_label": "S.", "spec_summary_words": 0}, "a whole number"),
+        ({"spec_summary_label": "S.", "spec_summary_words": True}, "a whole number"),
+        ({"spec_summary_label": "S.", "spec_digest": "../d.md"}, "outside the project"),
+        (
+            {"spec_summary_label": "S.", "spec_digest": "spec/fog.md"},
+            "a spec file the digest would overwrite",
+        ),
+        (
+            {
+                "spec_summary_label": "S.",
+                "spec_digest": "docs/index.md",
+                "spec_index": {"markdown": "docs/index.md"},
+            },
+            "the index's markdown file",
+        ),
+    ],
+)
+def test_the_summary_settings_are_validated(tmp_path, extra, says):
+    with pytest.raises(ConfigurationError, match=says):
+        _project(tmp_path, **extra).require("manuscript")

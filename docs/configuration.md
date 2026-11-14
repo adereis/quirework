@@ -86,6 +86,23 @@ files `spec index --write` writes the spec's generated index to,
 `markdown`, `json` or both; each must lie inside the project and be no
 spec file, and `notes --check` fails while either is stale. The
 [authoring guide](authoring.md#the-specs-index) says what it holds.
+`manuscript.spec_summary_label` turns on section summaries. It is the
+text a summary opens with in bold, such as `Summary.`: a section whose
+first paragraph, directly under its heading, opens with `**Summary.**`
+has that paragraph, without the label, as its summary. Left unset, the
+default, no section has one, the index is what it was, and nothing else
+in this paragraph applies. Once it is set, the index carries each
+section's summary, and `notes --check` refuses a summary that cites a
+spec section and a label with no summary after it. It advises on a
+summary longer than `manuscript.spec_summary_words` words, 70 unless
+set, and counts in one advisory line the published sections that have
+none yet. `manuscript.spec_digest` names a Markdown file that
+`spec index --write` writes with the index, or alone where no index is
+kept: every summary under its part in reading order, saying how many of
+the sections it covers. `notes --check` fails while it is stale. The
+word limit and the digest each require the label, and the digest must
+lie inside the project and be neither a spec file nor an index file. The
+[authoring guide](authoring.md#section-summaries) shows the form.
 `publish.typst_template` names the Typst file that sets the printed
 page. Quirework reads it and never writes it. It takes from it the faces
 `publish fonts` checks and the text block `figures --check` measures

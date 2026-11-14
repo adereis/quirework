@@ -28,6 +28,12 @@ and the notes that relate works to it. It never lists units: which units express
 work's business, not the spec's, and `quirework spec section --context` shows
 it locally.
 
+Where the project labels its sections' summaries (`specsummary`), each section
+also carries its summary, and `manuscript.spec_digest` may name a third file
+written with the index: every summary under its part, in reading order, for a
+reader who wants the gist of the whole spec at once. A section without a
+summary is left out of the digest, which says how many it covers.
+
 Nothing in it is dated or tied to a commit, so it changes only when what it
 describes does.
 """
@@ -43,7 +49,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 
 from quirework.core import frontmatter
-from quirework.manuscript import formats, notes, units
+from quirework.manuscript import formats, notes, specsummary, units
 from quirework.project import ConfigurationError, current_project
 from quirework.text import mdwrap
 
@@ -62,6 +68,7 @@ class Indexed:
     part: str | None
     file: str
     words: int
+    summary: str | None = None
     cites: list[str] = field(default_factory=list)
     cited_by: list[str] = field(default_factory=list)
     tested_by: list[str] = field(default_factory=list)
@@ -70,14 +77,20 @@ class Indexed:
 
 
 def configured(project=None) -> bool:
-    return (project or current_project()).get(KEY) is not None
+    """Whether the project keeps the index or the digest as files."""
+    project = project or current_project()
+    return project.get(KEY) is not None or project.get(specsummary.DIGEST) is not None
 
 
 def targets(project=None) -> dict[str, Path]:
-    """The files the index is written to, by format, from the project root."""
+    """The files the index is written to, by format, and the digest's under
+    `digest`, from the project root."""
     project = project or current_project()
     found = project.get(KEY) or {}
-    return {fmt: project.root / found[fmt] for fmt in FORMATS if found.get(fmt)}
+    out = {fmt: project.root / found[fmt] for fmt in FORMATS if found.get(fmt)}
+    if project.get(specsummary.DIGEST):
+        out["digest"] = project.path(specsummary.DIGEST)
+    return out
 
 
 def _published(docs: Path) -> list[Path]:
@@ -296,11 +309,23 @@ def build(docs: Path | None = None, root: Path | None = None) -> dict:
                 indexed[slug].told_by.append(entry["path"])
     for slug, places in _related_work(docs, root, spec, locate=False).items():
         indexed[slug].related_work = places
+    # A section's summary is held only where the project labels summaries,
+    # so a project that does not sees the index it always had.
+    label = specsummary.label()
+    if label is not None:
+        for path in files:
+            for slug, text in specsummary.of_file(path, label).items():
+                if slug in indexed:
+                    indexed[slug].summary = text or None
     order = [slug for _, slugs in parts for slug in slugs]
+    held = [vars(indexed[slug]) for slug in order]
+    if label is None:
+        for s in held:
+            del s["summary"]
     return {
         "generated_by": COMMAND,
         "parts": [{"title": title, "sections": slugs} for title, slugs in parts],
-        "sections": [vars(indexed[slug]) for slug in order],
+        "sections": held,
         "supplements": entries,
     }
 
@@ -364,11 +389,19 @@ def _cell(text: str) -> str:
     return text.replace("|", r"\|")
 
 
+def _summarized(title: str, slug: str, summary: str, href: str | None = None) -> str:
+    """One section's summary as a paragraph led by its title and slug."""
+    name = f"[{title}]({href})" if href is not None else title
+    return f"**{name}** (`{slug}`). {summary}"
+
+
 def render_markdown(index: dict, at: Path, root: Path) -> str:
     """The map a reader opens, written beside ``at``: a table per part, and
-    under it the names behind each row's counts."""
+    under it the summaries of its sections, where the project keeps them,
+    then the names behind each row's counts."""
     sections = {s["slug"]: s for s in index["sections"]}
     base = at.parent
+    summaries = any("summary" in s for s in sections.values())
 
     def link(file: str) -> str:
         return Path(os.path.relpath(root / file, base)).as_posix()
@@ -388,7 +421,13 @@ def render_markdown(index: dict, at: Path, root: Path) -> str:
             + ". Each table lists a part's sections in reading order, with "
             "how long each is, how many sections it cites and is cited by, "
             "how many entries test or tell it, and how often the related "
-            "work cites it. The names behind the counts follow each table."
+            "work cites it. "
+            + (
+                "Under each table come the summaries of its sections that "
+                "have one, then the names behind the counts."
+                if summaries
+                else "The names behind the counts follow each table."
+            )
         ),
     ]
     for part in index["parts"]:
@@ -408,6 +447,10 @@ def render_markdown(index: dict, at: Path, root: Path) -> str:
                 f"{len(s['tested_by'])} | {len(s['told_by'])} | "
                 f"{_cited(s['related_work'])} |"
             )
+        for slug in part["sections"]:
+            s = sections[slug]
+            if s.get("summary"):
+                lines += ["", _summarized(s["title"], slug, s["summary"])]
         notes_ = []
         for slug in part["sections"]:
             s = sections[slug]
@@ -431,21 +474,81 @@ def render_markdown(index: dict, at: Path, root: Path) -> str:
     return mdwrap.reflow_columns("\n".join(lines) + "\n")
 
 
-def rendered(docs: Path | None = None, root: Path | None = None) -> dict[Path, str]:
-    """Each configured index file and the text it should hold."""
+def render_digest(index: dict, at: Path, root: Path) -> str:
+    """The digest, written beside ``at``: every section's title and summary,
+    under its part in reading order. A section without a summary is left out,
+    and so is a part none of whose sections has one."""
+    sections = {s["slug"]: s for s in index["sections"]}
+    base = at.parent
+
+    def link(file: str) -> str:
+        return Path(os.path.relpath(root / file, base)).as_posix()
+
+    covered = sum(1 for s in sections.values() if s.get("summary"))
+    lines = [
+        f"<!-- Generated by `{COMMAND}` from the summaries",
+        "     that open the published spec's sections. Do not edit it by hand:",
+        "     the command rewrites it, and `quirework spec notes --check` fails",
+        "     while it is stale. -->",
+        "",
+        "# Digest",
+        "",
+        (
+            f"{covered} of {_count(len(sections), 'section')} "
+            f"{'has' if covered == 1 else 'have'} a summary, listed here under "
+            "its part in reading order with the section's title. A section "
+            "without a summary is left out."
+        ),
+    ]
+    for part in index["parts"]:
+        held = [sections[slug] for slug in part["sections"]]
+        held = [s for s in held if s.get("summary")]
+        if not held:
+            continue
+        lines += ["", f"## {part['title'] or 'Sections'}"]
+        for s in held:
+            lines += [
+                "",
+                _summarized(s["title"], s["slug"], s["summary"], link(s["file"])),
+            ]
+    return mdwrap.reflow_columns("\n".join(lines) + "\n")
+
+
+def _outputs(docs: Path | None = None, root: Path | None = None):
+    """Each configured file as (what it is, where, the text it should hold):
+    `markdown` and `json` for the index, `digest` for the digest."""
     project = current_project()
     root = Path(root) if root is not None else project.root
     found = targets(project)
     if not found:
-        return {}
+        return []
     index = build(docs, root)
-    out = {}
+    out = []
     for fmt, path in found.items():
         path = root / path.relative_to(project.root)
-        out[path] = (
-            render_json(index) if fmt == "json" else render_markdown(index, path, root)
-        )
+        if fmt == "json":
+            text = render_json(index)
+        elif fmt == "digest":
+            text = render_digest(index, path, root)
+        else:
+            text = render_markdown(index, path, root)
+        out.append((fmt, path, text))
     return out
+
+
+def rendered(docs: Path | None = None, root: Path | None = None) -> dict[Path, str]:
+    """Each configured index file, and the digest, and the text it should hold."""
+    return {path: text for _, path, text in _outputs(docs, root)}
+
+
+def stale_files(docs: Path | None = None, root: Path | None = None):
+    """(what it is, where) for each configured file missing or not as the spec
+    makes it; what it is is `digest` for the digest, a format for the index."""
+    return [
+        (fmt, path)
+        for fmt, path, text in _outputs(docs, root)
+        if not path.is_file() or path.read_text(encoding="utf-8") != text
+    ]
 
 
 def held_in(root: Path) -> bool:
@@ -462,12 +565,9 @@ def held_in(root: Path) -> bool:
 
 
 def stale(docs: Path | None = None, root: Path | None = None) -> list[Path]:
-    """The configured index files missing or not as the spec makes them."""
-    return [
-        path
-        for path, text in rendered(docs, root).items()
-        if not path.is_file() or path.read_text(encoding="utf-8") != text
-    ]
+    """The configured index files, and the digest, missing or not as the spec
+    makes them."""
+    return [path for _, path in stale_files(docs, root)]
 
 
 def main(argv=None) -> int:
@@ -475,24 +575,29 @@ def main(argv=None) -> int:
         prog="quirework spec index",
         description="Generate the index of the published spec: every section "
         "with its part, length, the sections it cites and is cited by, the "
-        "supplement entries that test or tell it, and the related work citing "
-        "it. Without a flag, print a summary.",
+        "supplement entries that test or tell it, the related work citing "
+        "it, and its summary where the project labels them. Without a flag, "
+        "print a summary of the index.",
     )
     mode = ap.add_mutually_exclusive_group()
     mode.add_argument(
         "--write",
         action="store_true",
-        help="write the files manuscript.spec_index names",
+        help="write the files manuscript.spec_index names, and the digest "
+        f"{specsummary.DIGEST} names",
     )
     mode.add_argument(
-        "--check", action="store_true", help="fail when an index file is stale"
+        "--check",
+        action="store_true",
+        help="fail when an index file or the digest is stale",
     )
     args = ap.parse_args(sys.argv[1:] if argv is None else argv)
     project = current_project()
     if not configured(project) and (args.write or args.check):
         print(
             f"spec index: configure {KEY} with a markdown file, a json file "
-            "or both, to write the index",
+            f"or both, to write the index, or {specsummary.DIGEST} to write "
+            "the digest",
             file=sys.stderr,
         )
         return 2
@@ -528,6 +633,11 @@ def main(argv=None) -> int:
         f"{len(entries)} supplement entr{'y' if len(entries) == 1 else 'ies'}; "
         f"{sum(1 for s in sections if s['related_work'])} section(s) cited by "
         "the related work"
+        + (
+            f"; {sum(1 for s in sections if s['summary'])} with a summary"
+            if specsummary.label(project) is not None
+            else ""
+        )
     )
     for fmt, path in targets(project).items():
         print(f"  {fmt}: {_rel(path, project.root)}")

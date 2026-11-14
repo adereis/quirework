@@ -1443,13 +1443,19 @@ def _findings(docs: Path) -> tuple[list[str], list[tuple[str, list[str]]]]:
          (`manuscript.related_work_public`), names a published section.
      15. a spec manifest lists each section file that exists beside it, each
          holding the one section its file name anchors, and no other.
-     16. where `manuscript.spec_index` is set, each index file it names is
-         what `spec index --write` would write now.
+     16. where `manuscript.spec_index` or `manuscript.spec_digest` is set,
+         each index file and the digest it names is what `spec index --write`
+         would write now.
      17. where `manuscript.related_work_index` is set, the listing file it
          names is what `spec related-work --write` would write now.
+     18. where `manuscript.spec_summary_label` is set, no section's summary
+         cites a spec section, and no label stands with no summary after it.
 
     Plus seven advisories, printed but never fatal. The seventh names each
     section the canon binds that a composed edition neither binds nor omits.
+    Where summaries are labeled, two more: each summary longer than
+    `manuscript.spec_summary_words`, and one line counting the published
+    sections that have none yet.
 
     Quotations in the supplements that appear nowhere in canon.
     Heuristic by necessity (entries quote outside sources too, so only a
@@ -1636,9 +1642,20 @@ def _findings(docs: Path) -> tuple[list[str], list[tuple[str, list[str]]]]:
 
     if specindex.configured() and specindex.held_in(docs.parent):
         problems += [
-            f"{_rel(path)}: the spec index is stale; run `{specindex.COMMAND}`"
-            for path in specindex.stale(docs, docs.parent)
+            f"{_rel(path)}: the spec {'digest' if fmt == 'digest' else 'index'} "
+            f"is stale; run `{specindex.COMMAND}`"
+            for fmt, path in specindex.stale_files(docs, docs.parent)
         ]
+
+    # 18. a summary, where the project labels them, says what its section
+    # holds in its own words: it is read in the index and the digest, away
+    # from the section, so a citation in it is refused, and so is a label
+    # with no summary after it. Its length and the sections still without
+    # one are advisories, printed with the others below.
+    from quirework.manuscript import specsummary
+
+    summary_problems, summary_groups = specsummary.findings(docs, spec)
+    problems += summary_problems
 
     # 17. the related work's listing file, where the project keeps one, is
     # what the records make now, for the reason the index is: it is read by
@@ -1975,6 +1992,7 @@ def _findings(docs: Path) -> tuple[list[str], list[tuple[str, list[str]]]]:
             spec_register,
         )
     )
+    groups += summary_groups
     return problems, [(header, lines) for header, lines in groups if lines]
 
 
