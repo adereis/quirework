@@ -838,6 +838,9 @@ def _print_spec_toc(docs: Path | None = None, only: set[str] | None = None) -> N
     register those units touch: their own spec files whole, and the shared
     sections they bind. A site with a spec per post would otherwise hand a
     session every post's commitments to change one.
+
+    Where the project labels summaries, each section's summary is printed
+    under its title, so a session meets every section's gist before its text.
     """
     sections = spec_sections(docs)
     if only is not None:
@@ -855,9 +858,11 @@ def _print_spec_toc(docs: Path | None = None, only: set[str] | None = None) -> N
     # Where a trail is kept, each section says how many breadcrumbs lead back
     # to the conversations that shaped it. Counting reads only the sidecar, so
     # the primer stays as cheap as it was; following them is `spec trail`.
-    from quirework.manuscript import trail
+    from quirework.manuscript import specsummary, trail
 
     held = trail.counts()
+    labeled = specsummary.label() is not None
+    gist = specsummary.summaries(docs) if labeled else {}
     # A spec kept as section files is grouped by the manifest's parts, since
     # a heading per file would list every section twice.
     placed = {
@@ -888,11 +893,19 @@ def _print_spec_toc(docs: Path | None = None, only: set[str] | None = None) -> N
             anchor = f"#{s.slug}" if s.slug else "(no anchor)"
             mark = f"  [trail ×{held[s.slug]}]" if held.get(s.slug) else ""
             print(f"  {anchor:<{width}} {s.title}{mark}")
+            if gist.get(s.slug):
+                print(specsummary.wrapped(gist[s.slug], 6))
     if trail.configured():
         with_trail = sum(1 for s in sections if held.get(s.slug))
         print(
             f"  {with_trail} of {len(sections)} section(s) have a trail of the "
             f"sessions that shaped them: quirework spec trail SLUG"
+        )
+    if labeled:
+        with_summary = sum(1 for s in sections if gist.get(s.slug))
+        print(
+            f"  {with_summary} of {len(sections)} section(s) open with a summary, "
+            f"printed under the title: quirework spec summary SLUG"
         )
 
 

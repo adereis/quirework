@@ -675,3 +675,198 @@ def test_a_project_directory_can_be_named_for_the_staged_summaries(tmp_path):
     (tmp_path / "spec" / "flash.md").write_text(REWORDED)
     _git(tmp_path, "add", "spec/flash.md")
     assert specsummary.staged_unrevised(tmp_path) == ["flash"]
+
+
+# The summaries are read through one function, and printed wherever a section
+# is printed for an agent or a reader: by `spec summary`, in the primer's
+# skeleton and in `spec section`.
+GIST = "The flash marks the rock on a clear night."
+NONE = "    no summary: the section opens with no **Summary.** paragraph"
+
+
+def _unlabeled(root):
+    """The summarized spec in a project that labels no summaries."""
+    project = _project(root)
+    for name, text in SUMMARIZED.items():
+        (root / "spec" / name).write_text(text)
+    return project
+
+
+def test_one_reader_serves_every_summary(tmp_path):
+    project = _summarized(tmp_path)
+    (tmp_path / "spec" / "keeper.md").write_text(
+        "## The keeper {#keeper}\n\n**Summary.**\n\nThe keeper winds the clock.\n"
+    )
+    with project_scope(project):
+        found = specsummary.summaries()
+        assert specsummary.summaries(files=[tmp_path / "spec" / "flash.md"]) == {
+            "flash": GIST
+        }
+    assert found == {"flash": GIST, "fog": None, "keeper": None, "lamp-rule": None}
+    assert list(found) == ["flash", "fog", "keeper", "lamp-rule"], "register order"
+    with project_scope(_unlabeled(tmp_path / "off")):
+        assert specsummary.summaries() == dict.fromkeys(found), "off, none has one"
+
+
+def test_spec_summary_prints_each_named_section_and_says_which_has_none(
+    tmp_path, capsys
+):
+    with project_scope(_summarized(tmp_path)):
+        assert specsummary.main(["flash", "#fog"]) == 1
+        assert capsys.readouterr().out == (
+            f"#flash  The flash\n    {GIST}\n#fog  The fog\n{NONE}\n"
+        )
+        assert specsummary.main(["flash"]) == 0
+        capsys.readouterr()
+        # A named section is found in any spec file, the working register's too.
+        assert specsummary.main(["lamp-rule"]) == 1
+        assert capsys.readouterr().out.startswith("#lamp-rule  The lamp rule\n")
+
+
+def test_a_long_summary_is_filled_under_its_title(tmp_path, capsys):
+    project = _summarized(tmp_path)
+    (tmp_path / "spec" / "fog.md").write_text(
+        "## The fog {#fog}\n\n**Summary.** Fog rolls in off the cold sea at dusk"
+        " and hides the flash from every passing ship, so the keeper sounds the"
+        " horn instead of trusting the lamp.\n"
+    )
+    with project_scope(project):
+        assert specsummary.main(["fog"]) == 0
+    out = capsys.readouterr().out.splitlines()
+    assert out[0] == "#fog  The fog"
+    assert len(out) > 2 and all(
+        line.startswith("    ") and len(line) <= 72 for line in out[1:]
+    )
+
+
+def test_spec_summary_all_lists_the_published_sections_by_part(tmp_path, capsys):
+    project = _summarized(tmp_path)
+    (tmp_path / "spec" / "keeper.md").write_text(
+        "## The keeper {#keeper}\n\n**Summary.** The keeper winds the clock.\n"
+    )
+    (tmp_path / "manuscript" / "sections" / "_working.md").write_text(
+        "# Working\n\n## The lamp rule {#lamp-rule}\n\n**Summary.** Kept off it.\n"
+    )
+    with project_scope(project):
+        assert specsummary.main(["--all"]) == 1, "the fog has none"
+    assert capsys.readouterr().out == (
+        f"The light\n  #flash  The flash\n      {GIST}\n  #fog  The fog\n"
+        f"  {NONE}\n\nThe keeper\n  #keeper  The keeper\n"
+        "      The keeper winds the clock.\n\n"
+        "2 of 3 published section(s) open with a summary\n"
+    )
+
+
+def test_spec_summary_missing_names_the_published_sections_without_one(
+    tmp_path, capsys
+):
+    project = _summarized(tmp_path)
+    fog = tmp_path / "spec" / "fog.md"
+    with project_scope(project):
+        assert specsummary.main(["--missing"]) == 1
+        assert capsys.readouterr().out == (
+            "The light\n  #fog  The fog\n\nThe keeper\n  #keeper  The keeper\n\n"
+            "2 of 3 published section(s) open with no **Summary.** paragraph\n"
+        )
+        for path, title in ((fog, "fog"), (tmp_path / "spec" / "keeper.md", "keeper")):
+            path.write_text(
+                f"## The {title} {{#{title}}}\n\n**Summary.** The {title} holds.\n"
+            )
+        assert specsummary.main(["--missing"]) == 0
+        assert capsys.readouterr().out == (
+            "every published section opens with a **Summary.** paragraph\n"
+        )
+        assert specsummary.main(["--missing", "--json"]) == 0
+        assert json.loads(capsys.readouterr().out) == []
+
+
+def test_spec_summary_prints_json_for_tools(tmp_path, capsys):
+    with project_scope(_summarized(tmp_path)):
+        assert specsummary.main(["flash", "fog", "--json"]) == 1
+    assert json.loads(capsys.readouterr().out) == [
+        {
+            "slug": "flash",
+            "title": "The flash",
+            "part": "The light",
+            "file": "spec/flash.md",
+            "summary": GIST,
+        },
+        {
+            "slug": "fog",
+            "title": "The fog",
+            "part": "The light",
+            "file": "spec/fog.md",
+            "summary": None,
+        },
+    ]
+
+
+@pytest.mark.parametrize(
+    ("argv", "says"),
+    [
+        ([], "name the sections, or list them"),
+        (["flash", "--all"], "name the sections, or list them"),
+        (["flsh"], "did you mean flash"),
+    ],
+)
+def test_spec_summary_refuses_what_it_cannot_answer(tmp_path, capsys, argv, says):
+    with project_scope(_summarized(tmp_path)):
+        assert specsummary.main(argv) == 2
+    assert says in capsys.readouterr().err
+
+
+def test_spec_summary_needs_the_label(tmp_path, capsys):
+    with project_scope(_project(tmp_path)):
+        assert specsummary.main(["flash"]) == 2
+    assert "summaries are off; set manuscript.spec_summary_label" in (
+        capsys.readouterr().err
+    )
+
+
+def test_the_primer_prints_each_summary_under_its_title(tmp_path, capsys):
+    with project_scope(_summarized(tmp_path)):
+        assert notes.main(["--primer"]) == 0
+    out = capsys.readouterr().out
+    assert "@bind(flash)" in out, "the marks follow the skeleton"
+    flash = next(line for line in out.splitlines() if "#flash" in line)
+    assert f"{flash}\n      {GIST}\n  #fog" in out
+    assert (
+        "  1 of 4 section(s) open with a summary, printed under the title: "
+        "quirework spec summary SLUG"
+    ) in out
+    with project_scope(_unlabeled(tmp_path / "off")):
+        assert notes.main(["--primer"]) == 0
+    out = capsys.readouterr().out
+    assert GIST not in out and "open with a summary" not in out
+
+
+def test_spec_section_leads_with_the_summary_where_summaries_are_labeled(
+    tmp_path, capsys
+):
+    with project_scope(_summarized(tmp_path)):
+        assert specsection.main(["flash", "--json"]) == 0
+        found = json.loads(capsys.readouterr().out)
+        context = specsection.context("fog")
+        rendered = specsection.render(context)
+        around = specsection.context("flash")
+    assert list(found) == ["slug", "title", "file", "summary", "text"]
+    assert found["summary"] == GIST
+    assert list(context)[3:5] == ["summary", "text"] and context["summary"] is None
+    assert context["cites"][0]["summary"] == GIST
+    # A neighbour with a summary is shown by it; one without, by its first
+    # sentence, as before.
+    assert f"Cites (1):\n  #flash  The flash\n      {GIST}\n" in rendered
+    assert around["cites"][0]["summary"] is None
+    assert "  #fog  The fog\n      Fog hides the flash (#flash).\n" in (
+        specsection.render(around)
+    )
+
+
+def test_spec_section_is_what_it_was_without_the_label(tmp_path, capsys):
+    with project_scope(_unlabeled(tmp_path)):
+        assert specsection.main(["flash", "--json"]) == 0
+        found = json.loads(capsys.readouterr().out)
+        context = specsection.context("fog")
+    assert list(found) == ["slug", "title", "file", "text"]
+    assert "summary" not in context and "summary" not in context["cites"][0]
+    assert context["cites"][0]["first_sentence"].startswith("**Summary.**")

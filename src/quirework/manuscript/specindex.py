@@ -313,10 +313,9 @@ def build(docs: Path | None = None, root: Path | None = None) -> dict:
     # so a project that does not sees the index it always had.
     label = specsummary.label()
     if label is not None:
-        for path in files:
-            for slug, text in specsummary.of_file(path, label).items():
-                if slug in indexed:
-                    indexed[slug].summary = text or None
+        for slug, text in specsummary.summaries(docs, files=files).items():
+            if slug in indexed:
+                indexed[slug].summary = text
     order = [slug for _, slugs in parts for slug in slugs]
     held = [vars(indexed[slug]) for slug in order]
     if label is None:

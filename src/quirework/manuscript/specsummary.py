@@ -18,8 +18,17 @@ when that paragraph opens with the label in bold:
     **Summary.** The flash marks the rock on a clear night.
 
 The summary is that paragraph without its label, comments dropped and
-whitespace collapsed. The spec index carries it, and the digest lists every
-section's summary under its part, in reading order (`specindex`).
+whitespace collapsed. `summaries` is the one reader of them: the spec's map
+carries what it returns, the digest lists every section's summary under its
+part, in reading order (`specindex`), and the primer, `spec section` and this
+module's command print it, so a tool of a project's own reads it there too:
+
+    quirework spec summary flash fog     each section's title and summary
+    quirework spec summary --all         every published section's, by part
+    quirework spec summary --missing     the published sections with none yet
+    quirework spec summary flash --json  the same, as data
+
+The command's exit status is 1 when a section it was asked for has no summary.
 
 A summary is read where its section is not, in the index, the digest or a
 page built from them, so it says what the section holds in words of its own.
@@ -39,11 +48,20 @@ the change confirms the summary still states what the section now holds.
 
 from __future__ import annotations
 
+import argparse
+import json
 import re
+import sys
+import textwrap
 from pathlib import Path
 
 from quirework.manuscript import history, notes
-from quirework.project import Project, current_project, project_scope
+from quirework.project import (
+    ConfigurationError,
+    Project,
+    current_project,
+    project_scope,
+)
 
 LABEL = "manuscript.spec_summary_label"
 WORDS = "manuscript.spec_summary_words"
@@ -119,6 +137,46 @@ def of_file(path: Path, label: str) -> dict[str, str | None]:
     its summary or None, read as `_opening` reads it."""
     text = path.read_text(encoding="utf-8")
     return {name: held for name, held, _ in _opening(path, text, label)}
+
+
+def summaries(docs: Path | None = None, files=None) -> dict[str, str | None]:
+    """Every anchored spec section's summary, by its full name, in the order
+    the register reads them, or None for a section that opens with none.
+
+    This is the reader the spec's map, the digest, the primer,
+    `spec section` and `spec summary` share, and the one a project's own tool
+    calls; only `spec notes --check` reads the paragraphs itself, since it
+    judges them. A label with nothing after it is no summary. While the
+    project labels no summaries no section has one, so every section maps to
+    None. ``files`` narrows the read to those spec files, as the map and the
+    digest read the published ones; by default every spec file is read,
+    published or not.
+    """
+    project = current_project()
+    docs = Path(docs) if docs is not None else project.path("manuscript.source")
+    files = notes.spec_files(docs) if files is None else files
+    found = label(project)
+    if found is None:
+        return {s.slug: None for f in files for s in notes._sections_of(f) if s.slug}
+    return {
+        name: held or None
+        for f in files
+        for name, held, _ in _opening(f, f.read_text(encoding="utf-8"), found)
+    }
+
+
+def wrapped(text: str, indent: int) -> str:
+    """``text`` filled to 72 columns, every line indented ``indent`` spaces,
+    as a summary prints under its section's title."""
+    pad = " " * indent
+    return textwrap.fill(
+        text,
+        72,
+        initial_indent=pad,
+        subsequent_indent=pad,
+        break_long_words=False,
+        break_on_hyphens=False,
+    )
 
 
 def findings(docs: Path, spec: set[str]) -> tuple[list[str], list]:
@@ -261,3 +319,142 @@ def staged_unrevised(root=None) -> list[str]:
         return []
     before, after = history.staged_specs()
     return unrevised(before, after)
+
+
+# --------------------------------------------------------------------------- #
+# quirework spec summary
+# --------------------------------------------------------------------------- #
+def rows(slugs=(), *, published=False, docs: Path | None = None) -> list[dict]:
+    """The sections `spec summary` prints, each as ``--json`` holds it: its
+    slug, title, part, file and summary, None where it has none.
+
+    Named by ``slugs``, a section is found in any spec file, since naming one
+    is work in the project; an unknown slug is refused with close matches.
+    With ``published``, the rows are every published section in reading order,
+    the sections the map, the digest and the advisory count read. Refused
+    while the project labels no summaries.
+    """
+    from quirework.manuscript import specindex, specsection
+
+    project = current_project()
+    if label(project) is None:
+        raise ConfigurationError(
+            f"summaries are off; set {LABEL} to the label a summary opens with"
+        )
+    docs = Path(docs) if docs is not None else project.path("manuscript.source")
+    files = specindex._published(docs) if published else notes.spec_files(docs)
+    sections = [s for f in files for s in notes._sections_of(f) if s.slug]
+    held = summaries(docs, files=files)
+    parts = specindex._parts_of(files, docs)
+    part_of = {slug: title for title, names in parts for slug in names}
+    if published:
+        by_slug = {s.slug: s for s in sections}
+        chosen = [by_slug[n] for _, names in parts for n in names if n in by_slug]
+    else:
+        chosen = [specsection._find(slug.lstrip("#"), sections) for slug in slugs]
+    return [
+        {
+            "slug": s.slug,
+            "title": s.title,
+            "part": part_of.get(s.slug),
+            "file": specindex._rel(s.path, project.root),
+            "summary": held.get(s.slug),
+        }
+        for s in chosen
+    ]
+
+
+def _entry(row: dict, indent: int) -> list[str]:
+    pad = " " * indent
+    lines = [f"{pad}#{row['slug']}  {row['title']}"]
+    if row["summary"]:
+        lines.append(wrapped(row["summary"], indent + 4))
+    else:
+        lines.append(
+            f"{pad}    no summary: the section opens with no **{label()}** paragraph"
+        )
+    return lines
+
+
+def _by_part(found: list[dict], entry) -> list[str]:
+    """``found`` under a line per part, each part after a blank line."""
+    lines: list[str] = []
+    part = object()
+    for row in found:
+        if row["part"] != part:
+            part = row["part"]
+            if lines:
+                lines.append("")
+            if part is not None:
+                lines.append(part)
+        lines += entry(row)
+    return lines
+
+
+def main(argv=None) -> int:
+    ap = argparse.ArgumentParser(
+        prog="quirework spec summary",
+        description="Print spec sections' summaries: each named section's "
+        "title and summary, every published section's by part (--all), or the "
+        "published sections with none yet (--missing). The exit status is 1 "
+        "when a section asked for has no summary.",
+        epilog="examples:\n"
+        "  quirework spec summary flash fog     each section's title and summary\n"
+        "  quirework spec summary --all         every published section's, by part\n"
+        "  quirework spec summary --missing     the published sections with none\n"
+        "  quirework spec summary flash --json  the same, as data",
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+    )
+    ap.add_argument("slugs", nargs="*", metavar="SLUG", help="a section's {#slug}")
+    which = ap.add_mutually_exclusive_group()
+    which.add_argument(
+        "--all",
+        action="store_true",
+        help="every published section, by part in reading order",
+    )
+    which.add_argument(
+        "--missing",
+        action="store_true",
+        help="only the published sections that have no summary yet",
+    )
+    ap.add_argument("--json", action="store_true", help="print them as JSON")
+    args = ap.parse_args(sys.argv[1:] if argv is None else argv)
+    listing = args.all or args.missing
+    if bool(args.slugs) == listing:
+        print(
+            "spec summary: name the sections, or list them with --all or "
+            "--missing, not both",
+            file=sys.stderr,
+        )
+        return 2
+    try:
+        found = rows(args.slugs, published=listing)
+    except (LookupError, ConfigurationError) as exc:
+        print(f"spec summary: {exc}", file=sys.stderr)
+        return 2
+    total = len(found)
+    if args.missing:
+        found = [row for row in found if not row["summary"]]
+    status = int(any(not row["summary"] for row in found))
+    if args.json:
+        print(json.dumps(found, indent=2, ensure_ascii=False))
+        return status
+    if args.missing:
+        if not found:
+            print(f"every published section opens with a **{label()}** paragraph")
+            return 0
+        lines = _by_part(found, lambda row: [f"  #{row['slug']}  {row['title']}"])
+        lines += [
+            "",
+            f"{len(found)} of {total} published section(s) open with no "
+            f"**{label()}** paragraph",
+        ]
+    elif args.all:
+        lines = _by_part(found, lambda row: _entry(row, 2))
+        have = sum(1 for row in found if row["summary"])
+        lines += [""] if lines else []
+        lines.append(f"{have} of {total} published section(s) open with a summary")
+    else:
+        lines = [line for row in found for line in _entry(row, 0)]
+    print("\n".join(lines))
+    return status

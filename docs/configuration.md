@@ -111,7 +111,8 @@ With the label set, `specsummary.staged_unrevised()` names, for a
 project's own pre-commit hook to print, each section a staged change
 rewrote outside its summary while leaving the summary as it was, as a
 reminder to confirm the summary still holds; without the label, it names
-none and never asks git. The
+none and never asks git. `spec summary` prints the summaries, and the
+primer and `spec section` lead with them where they print a section. The
 [authoring guide](authoring.md#section-summaries) shows the form.
 `publish.typst_template` names the Typst file that sets the printed
 page. Quirework reads it and never writes it. It takes from it the faces

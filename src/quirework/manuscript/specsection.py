@@ -13,7 +13,9 @@ those is a separate lookup otherwise. This prints them together:
 It reads every configured spec file, published or not, since it is a tool for
 working in the project; the published map of the spec is `spec index`. A
 neighbouring section is shown by its title and first sentence, enough to
-decide whether to open it.
+decide whether to open it. Where the project labels summaries (`specsummary`),
+a neighbour that has one is shown by its summary instead, and the section's
+own summary, which already opens its text, also leads its JSON as `summary`.
 """
 
 from __future__ import annotations
@@ -25,7 +27,7 @@ import re
 import sys
 from pathlib import Path
 
-from quirework.manuscript import notes, specindex, units
+from quirework.manuscript import notes, specindex, specsummary, units
 from quirework.project import ConfigurationError, current_project
 
 _COMMENTS = re.compile(r"<!--.*?-->", re.DOTALL)
@@ -54,12 +56,31 @@ def first_sentence(body: str) -> str:
     return (m.group(1) if m else prose).strip()
 
 
-def _brief(section: notes.Section) -> dict:
-    return {
-        "slug": section.slug,
-        "title": section.title,
-        "first_sentence": first_sentence(section.body),
-    }
+def _brief(section: notes.Section, held: dict | None) -> dict:
+    """A neighbouring section, by its title and first sentence, and by its
+    summary first where ``held``, the summaries, is not None."""
+    out = {"slug": section.slug, "title": section.title}
+    if held is not None:
+        out["summary"] = held.get(section.slug)
+    out["first_sentence"] = first_sentence(section.body)
+    return out
+
+
+def _summaries(docs: Path, files=None) -> dict | None:
+    """The sections' summaries, of ``files`` or of every spec file, or None
+    while the project labels none."""
+    if specsummary.label() is None:
+        return None
+    return specsummary.summaries(docs, files=files)
+
+
+def _led(out: dict, slug: str, held: dict | None) -> dict:
+    """``out`` with the section's summary added ahead of its text, where the
+    project labels summaries."""
+    if held is None:
+        return out
+    text = out.pop("text")
+    return {**out, "summary": held.get(slug), "text": text}
 
 
 def _find(slug: str, sections: list[notes.Section]) -> notes.Section:
@@ -78,12 +99,14 @@ def section(slug: str, docs: Path | None = None) -> dict:
     project = current_project()
     docs = Path(docs) if docs is not None else project.path("manuscript.source")
     found = _find(slug, [s for s in notes.spec_sections(docs) if s.slug])
-    return {
+    held = _summaries(docs, [found.path])
+    out = {
         "slug": slug,
         "title": found.title,
         "file": specindex._rel(found.path, project.root),
         "text": raw_text(found),
     }
+    return _led(out, slug, held)
 
 
 def context(slug: str, docs: Path | None = None) -> dict:
@@ -118,13 +141,17 @@ def context(slug: str, docs: Path | None = None) -> dict:
         from quirework.manuscript import trail
 
         crumbs = trail.counts().get(slug, 0)
-    return {
+    held = _summaries(docs)
+    out = {
         "slug": slug,
         "title": section.title,
         "file": specindex._rel(section.path, root),
         "text": raw_text(section),
-        "cites": [_brief(by_slug[n]) for n in cites],
-        "cited_by": [_brief(by_slug[n]) for n in cited_by],
+    }
+    return {
+        **_led(out, slug, held),
+        "cites": [_brief(by_slug[n], held) for n in cites],
+        "cited_by": [_brief(by_slug[n], held) for n in cited_by],
         "tested_by": [{"path": e["path"], "title": e["title"]} for e in tested],
         "told_by": [{"path": e["path"], "title": e["title"]} for e in told],
         "related_work": related,
@@ -139,7 +166,9 @@ def _neighbours(label: str, items: list[dict]) -> list[str]:
     out = [f"{label} ({len(items)}):"]
     for item in items:
         out.append(f"  #{item['slug']}  {item['title']}")
-        if item["first_sentence"]:
+        if item.get("summary"):
+            out.append(specsummary.wrapped(item["summary"], 6))
+        elif item["first_sentence"]:
             out.append(f"      {item['first_sentence']}")
     return out
 

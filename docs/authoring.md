@@ -45,7 +45,7 @@ without the ones below it.
 | Layer | What it is | The commands |
 |---|---|---|
 | Canon prose | Quarto chapters in a declared reading order, or a site's pages and where each stands | `publish build`, `spec units` |
-| Spec | numbered commitments, each with a slug, in one file or one per unit | `spec notes --primer`, `spec index`, `spec section` |
+| Spec | numbered commitments, each with a slug, in one file or one per unit | `spec notes --primer`, `spec index`, `spec section`, `spec summary` |
 | Marks | per-chapter sidecars of `@`-annotations, including which spec section a chapter expresses | `spec notes`, `spec notes bind` |
 | Supplements | reader-facing collections beside the work, tests that apply the spec or expressions that tell it | `spec notes --check`, `spec notes --coverage` |
 | Related work | a register of the work this one is placed against, cited by slug from the marks | `spec related-work` |
@@ -344,7 +344,9 @@ lists the files it would change.
 
 `quirework spec notes --primer` prints the spec's sections first, then
 the marks in reading order. That is the one command to run at the start
-of a writing session.
+of a writing session. Where the sections carry
+[summaries](#section-summaries), each prints under its section's title,
+so a session meets every section's gist before any of its text.
 
 ### The spec's index
 
@@ -418,6 +420,23 @@ none yet is one too, printed as one line, so a spec can gain its
 summaries a few at a time. Without the label nothing here runs, and the
 index is what it was.
 
+`quirework spec summary SLUG…` prints each named section's title and
+summary, from any spec file, and a plain line for a section that has
+none. `--all` prints every published section's, by part in reading
+order, and `--missing` names the published sections still without one,
+the ones the advisory counts. `--json` prints the same as data, a list
+of each section's slug, title, part, file and summary, null where it has
+none. The exit status is 1 when a section asked for has no summary, so a
+script can require them, and 2 when it cannot answer: summaries are off,
+or a slug names no section. The primer and `spec section` show the
+summaries too. A tool of your own reads them through
+`quirework.manuscript.specsummary.summaries()`, the one reader behind
+the generated map, the digest and these commands: every section's
+summary by its slug, in reading order, None where it has none, and None
+for every section while the label is unset. Its `files` argument narrows
+the read to some spec files, such as the published ones the digest
+reads.
+
 A summary is easiest to leave behind in the very edit that moved its
 section. `quirework.manuscript.specsummary.staged_unrevised()` is for a
 project's own pre-commit hook to print, beside the trail's reminder
@@ -438,7 +457,10 @@ supplement entries that test or tell it, the related work citing it, the
 units that bind it, and how many breadcrumbs its trail holds. It reads
 every spec file, published or not, since it is a tool for working in the
 project rather than a map for its readers. `--json` prints the same as
-data.
+data. Where sections carry summaries, a neighbour that has one is shown
+by its summary in place of its first sentence, and the JSON gives the
+section and each neighbour a `summary`, null where it has none. The
+section's own summary already opens its text.
 
 The spec states; it does not argue, and it does not record how it got
 here. `notes --check` reports three register slips as advisories rather

@@ -103,6 +103,11 @@ COMMANDS = {
         "Print one spec section, with its context",
         "manuscript",
     ),
+    ("spec", "summary"): Command(
+        "manuscript.specsummary",
+        "Print spec sections' summaries, or list those without one",
+        "manuscript",
+    ),
     ("publish", "build"): Command(
         "publish.build", "Render the manuscript through its backend", "publish"
     ),
