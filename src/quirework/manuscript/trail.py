@@ -1741,31 +1741,6 @@ def unbreadcrumbed(before_specs, after_specs, before_trail, after_trail):
     ]
 
 
-def _staged(path):
-    """``(at HEAD, in the index)``: the two texts of ``path`` a commit compares.
-
-    A version git does not hold, such as a file new to the index or a
-    repository with no commit yet, is empty.
-    """
-    path = Path(path).resolve()
-    where = next((p for p in path.parents if p.is_dir()), path.parent)
-    try:
-        top = Path(_git(where, "rev-parse", "--show-toplevel").strip())
-    except (OSError, subprocess.CalledProcessError) as exc:
-        raise LookupError(
-            f"{_rel(path)} is in no git repository, so nothing of it is staged"
-        ) from exc
-    name = path.relative_to(top).as_posix()
-
-    def version(ref):
-        try:
-            return _git(top, "show", f"{ref}:{name}")
-        except subprocess.CalledProcessError:
-            return ""
-
-    return version("HEAD"), version("")
-
-
 def staged_without_breadcrumb(root=None):
     """``unbreadcrumbed`` for what is staged: the index against ``HEAD``.
 
@@ -1776,17 +1751,8 @@ def staged_without_breadcrumb(root=None):
     if root is not None:
         with project_scope(Project.load(root)):
             return staged_without_breadcrumb()
-    sidecar = sidecar_path()
-    docs = current_project().path("manuscript.source")
-    # A shared spec file the work tree no longer holds may still be at HEAD,
-    # and a section that moved out of it is not new.
-    specs = dict.fromkeys(
-        [*notes._configured_book_files(docs, "manuscript.spec"), *notes.spec_files()]
-    )
-    before, after = {}, {}
-    for spec in specs:
-        before[spec], after[spec] = _staged(spec)
-    trail_before, trail_after = _staged(sidecar)
+    before, after = history.staged_specs()
+    trail_before, trail_after = history.staged(sidecar_path())
     return unbreadcrumbed(before, after, trail_before, trail_after)
 
 

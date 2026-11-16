@@ -9,6 +9,7 @@ instead of the sections.
 from __future__ import annotations
 
 import json
+import subprocess
 
 import pytest
 
@@ -546,3 +547,131 @@ def test_a_lower_bound_equal_to_the_limit_asks_for_one_length(tmp_path):
 def test_the_summary_settings_are_validated(tmp_path, extra, says):
     with pytest.raises(ConfigurationError, match=says):
         _project(tmp_path, **extra).require("manuscript")
+
+
+# A summary is easiest to leave behind in the edit that moved its section, so
+# a change that rewrites a section around a summary it leaves alone is named,
+# for whoever made it to confirm the summary still says what the section holds.
+FLASH = SUMMARIZED["flash.md"]
+REWORDED = FLASH.replace("and #keeper to run.", "and #keeper to wind it.")
+
+
+def _git(root, *args):
+    subprocess.run(
+        ["git", "-C", str(root), *args],
+        check=True,
+        capture_output=True,
+        env={
+            "GIT_AUTHOR_NAME": "A. Fictional Author",
+            "GIT_AUTHOR_EMAIL": "author@example.invalid",
+            "GIT_COMMITTER_NAME": "A. Fictional Author",
+            "GIT_COMMITTER_EMAIL": "author@example.invalid",
+            "PATH": "/usr/bin:/bin",
+            "HOME": str(root),
+        },
+    )
+
+
+def test_a_section_rewritten_around_its_summary_is_named(tmp_path):
+    spec = tmp_path / "spec" / "flash.md"
+    with project_scope(_summarized(tmp_path)):
+        assert specsummary.unrevised({spec: FLASH}, {spec: REWORDED}) == ["flash"]
+        revised = REWORDED.replace("a clear  night", "a clear or a misty night")
+        assert specsummary.unrevised({spec: FLASH}, {spec: revised}) == [], (
+            "a summary changed with its section"
+        )
+        rewrapped = REWORDED.replace("the rock\non a", "the rock on\na")
+        assert specsummary.unrevised({spec: FLASH}, {spec: rewrapped}) == ["flash"], (
+            "a summary rewrapped is the summary it was"
+        )
+
+
+def test_a_rewrap_a_mark_or_a_blank_line_outside_the_summary_is_no_rewrite(
+    tmp_path,
+):
+    spec = tmp_path / "spec" / "flash.md"
+    rewrapped = FLASH.replace("It needs #fog", "It needs\n#fog")
+    spaced = FLASH.replace("the rock. It", "the rock.  It")
+    split = FLASH.replace("the rock. It", "the rock.\n\nIt")
+    marked = FLASH.replace(
+        "The flash marks the rock. It",
+        "<!-- @todo how bright -->\nThe flash marks the rock. It",
+    )
+    with project_scope(_summarized(tmp_path)):
+        for after in (rewrapped, spaced, split, marked):
+            assert specsummary.unrevised({spec: FLASH}, {spec: after}) == []
+
+
+def test_a_first_summary_a_lost_one_a_new_or_a_deleted_section_is_not_named(
+    tmp_path,
+):
+    spec, fog = tmp_path / "spec" / "flash.md", tmp_path / "spec" / "fog.md"
+    plain = SECTIONS["fog.md"]
+    summarized = (
+        "## The fog {#fog}\n\n**Summary.** Fog hides the light from ships.\n\n"
+        "Fog hides the flash from every ship at sea.\n"
+    )
+    lost = REWORDED.replace(
+        "**Summary.** The flash marks the rock\non a clear  night.\n\n", ""
+    )
+    with project_scope(_summarized(tmp_path)):
+        assert specsummary.unrevised({fog: plain}, {fog: summarized}) == []
+        assert specsummary.unrevised({spec: FLASH}, {spec: lost}) == []
+        assert (
+            specsummary.unrevised(
+                {spec: FLASH, fog: ""}, {spec: FLASH, fog: summarized}
+            )
+            == []
+        ), "a new section with a summary"
+        assert specsummary.unrevised({spec: FLASH}, {spec: ""}) == []
+
+
+def test_a_moved_section_is_compared_by_its_slug(tmp_path):
+    spec, keeper = tmp_path / "spec" / "flash.md", tmp_path / "spec" / "keeper.md"
+    before = {spec: FLASH, keeper: SECTIONS["keeper.md"]}
+    with project_scope(_summarized(tmp_path)):
+        moved = {spec: "", keeper: SECTIONS["keeper.md"] + "\n" + FLASH}
+        assert specsummary.unrevised(before, moved) == []
+        moved[keeper] = SECTIONS["keeper.md"] + "\n" + REWORDED
+        assert specsummary.unrevised(before, moved) == ["flash"]
+
+
+def test_without_the_label_no_section_is_named_and_nothing_runs(tmp_path):
+    spec = tmp_path / "spec" / "flash.md"
+    with project_scope(_project(tmp_path)):
+        assert specsummary.unrevised({spec: FLASH}, {spec: REWORDED}) == []
+        # No repository here: off, it never asks git.
+        assert specsummary.staged_unrevised() == []
+
+
+def test_only_what_is_staged_is_compared_with_head_for_summaries(tmp_path):
+    spec = tmp_path / "spec" / "flash.md"
+    with project_scope(_summarized(tmp_path)):
+        _git(tmp_path, "init", "-q")
+        _git(tmp_path, "add", ".")
+        _git(tmp_path, "commit", "-q", "-m", "Light the lamp")
+        assert specsummary.staged_unrevised() == []
+        spec.write_text(REWORDED)
+        assert specsummary.staged_unrevised() == [], "an unstaged edit"
+        _git(tmp_path, "add", "spec/flash.md")
+        assert specsummary.staged_unrevised() == ["flash"]
+        spec.write_text(REWORDED.replace("a clear  night", "a misty night"))
+        assert specsummary.staged_unrevised() == ["flash"]
+        _git(tmp_path, "add", "spec/flash.md")
+        assert specsummary.staged_unrevised() == []
+
+
+def test_a_project_directory_can_be_named_for_the_staged_summaries(tmp_path):
+    _summarized(tmp_path)
+    (tmp_path / "quirework.toml").write_text(
+        "schema = 2\n\n[manuscript]\n"
+        'source = "manuscript"\nchapters = "manuscript/sections"\n'
+        'quarto = "manuscript/_quarto.yml"\nspec = "spec/manifest.toml"\n'
+        'spec_summary_label = "Summary."\n'
+    )
+    _git(tmp_path, "init", "-q")
+    _git(tmp_path, "add", ".")
+    _git(tmp_path, "commit", "-q", "-m", "Light the lamp")
+    (tmp_path / "spec" / "flash.md").write_text(REWORDED)
+    _git(tmp_path, "add", "spec/flash.md")
+    assert specsummary.staged_unrevised(tmp_path) == ["flash"]

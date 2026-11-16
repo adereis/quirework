@@ -418,6 +418,19 @@ none yet is one too, printed as one line, so a spec can gain its
 summaries a few at a time. Without the label nothing here runs, and the
 index is what it was.
 
+A summary is easiest to leave behind in the very edit that moved its
+section. `quirework.manuscript.specsummary.staged_unrevised()` is for a
+project's own pre-commit hook to print, beside the trail's reminder
+below: the spec sections a staged change rewrote outside their summaries
+while leaving each summary as it was, so you can confirm that each
+summary still states what its section now holds. It compares what is
+staged with `HEAD`. A rewrap, a comment or a section moved unchanged to
+another part or file is not a change, and a section that gains its first
+summary, changes or loses its summary, is new or is deleted is never
+listed. It is a reminder, never a gate, since many edits do not move
+what a section holds. `specsummary.unrevised` makes the same comparison
+between any two versions of the spec files.
+
 To work on one section, `quirework spec section SLUG` prints it as its
 file holds it. With `--context` it adds what touches it: the title and
 first sentence of each section it cites and each section citing it, the
@@ -606,7 +619,10 @@ comment or a section moved unchanged to another part or file is not a
 change, and a deleted section is never listed. It is a reminder, never a
 gate, since a section can rightly change with no turn of yours behind
 it. `trail.unbreadcrumbed` makes the same comparison between any two
-versions of the spec files and the trail.
+versions of the spec files and the trail. Where sections carry
+summaries, the hook prints `specsummary.staged_unrevised()` beside it,
+the sections rewritten around a summary left as it was
+([section summaries](#section-summaries)).
 
 ### Backfilling a trail
 

@@ -564,3 +564,43 @@ def body(location: Location, top_: Path | None = None) -> str:
     lines = (_show(top_, location.rev, location.path) or "").splitlines()
     text = "\n".join(lines[location.first : location.last])
     return " ".join(notes._COMMENT.sub(" ", text).split())
+
+
+# --------------------------------------------------------------------------- #
+# what a commit compares
+# --------------------------------------------------------------------------- #
+def staged(path) -> tuple[str, str]:
+    """``(at HEAD, in the index)``: the two texts of ``path`` a commit compares.
+
+    A version git does not hold, such as a file new to the index or a
+    repository with no commit yet, is empty.
+    """
+    path = Path(path).resolve()
+    where = next((p for p in path.parents if p.is_dir()), path.parent)
+    try:
+        top_ = Path(_git(where, "rev-parse", "--show-toplevel").strip())
+    except (OSError, subprocess.CalledProcessError) as exc:
+        raise LookupError(
+            f"{notes._rel(path)} is in no git repository, so nothing of it is staged"
+        ) from exc
+    name = path.relative_to(top_).as_posix()
+    return _show(top_, "HEAD", name) or "", _show(top_, "", name) or ""
+
+
+def staged_specs() -> tuple[dict[Path, str], dict[Path, str]]:
+    """Every spec file's text at ``HEAD`` and as staged, by path, as the
+    current project configures them: what a commit is about to change, and
+    what each reminder for spec commits compares.
+
+    A shared spec file the work tree no longer holds may still be at HEAD, and
+    a section that moved out of it is not new, so every configured file is
+    read, present or not.
+    """
+    docs = current_project().path("manuscript.source")
+    files = dict.fromkeys(
+        [*notes._configured_book_files(docs, "manuscript.spec"), *notes.spec_files()]
+    )
+    before, after = {}, {}
+    for path in files:
+        before[path], after[path] = staged(path)
+    return before, after

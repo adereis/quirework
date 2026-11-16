@@ -106,7 +106,12 @@ writes with the index, or alone where no index is kept: every summary
 under its part in reading order, saying how many of the sections it
 covers. `notes --check` fails while it is stale. The word limit, the
 lower bound and the digest each require the label, and the digest must
-lie inside the project and be neither a spec file nor an index file. The
+lie inside the project and be neither a spec file nor an index file.
+With the label set, `specsummary.staged_unrevised()` names, for a
+project's own pre-commit hook to print, each section a staged change
+rewrote outside its summary while leaving the summary as it was, as a
+reminder to confirm the summary still holds; without the label, it names
+none and never asks git. The
 [authoring guide](authoring.md#section-summaries) shows the form.
 `publish.typst_template` names the Typst file that sets the printed
 page. Quirework reads it and never writes it. It takes from it the faces

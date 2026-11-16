@@ -29,6 +29,12 @@ follow the citation from, and a label with no summary after it. A summary
 longer than the word limit is an advisory, and so is one shorter than the
 lower bound, where the project sets one, and the count of published sections
 that have none yet, since a project may add them gradually.
+
+A summary is easiest to leave behind in the edit that moved its section.
+`staged_unrevised` is for a project's own pre-commit hook to print, as
+`trail.staged_without_breadcrumb` is: the sections a staged change rewrote
+outside their summaries while leaving each summary as it was, so whoever made
+the change confirms the summary still states what the section now holds.
 """
 
 from __future__ import annotations
@@ -36,8 +42,8 @@ from __future__ import annotations
 import re
 from pathlib import Path
 
-from quirework.manuscript import notes
-from quirework.project import current_project
+from quirework.manuscript import history, notes
+from quirework.project import Project, current_project, project_scope
 
 LABEL = "manuscript.spec_summary_label"
 WORDS = "manuscript.spec_summary_words"
@@ -76,16 +82,16 @@ def summary(paragraph: str, label: str) -> str | None:
     return " ".join(notes._COMMENT.sub(" ", rest).split())
 
 
-def of_file(path: Path, label: str) -> dict[str, str | None]:
-    """Each anchored section of the spec file ``path``, by its full name, and
-    its summary or None. The paragraph is read as the file holds it, so a
-    comment or a code block between the heading and a labeled paragraph means
-    the section does not open with a summary."""
-    text = path.read_text(encoding="utf-8")
+def _opening(path: Path, text: str, label: str):
+    """``(name, summary, rest)`` for each anchored section of the spec file
+    ``path`` holding ``text``: its full name, its summary or None, and the
+    text after the summary's paragraph, or after the heading where it has no
+    summary. The paragraph is read as the file holds it, so a comment or a
+    code block between the heading and a labeled paragraph means the section
+    does not open with a summary."""
     masked = notes._mask_nonprose(notes.mask_fences(text))
     stops = notes.section_stops(masked)
     owner = notes.spec_owner(path)
-    out: dict[str, str | None] = {}
     for m in notes._HEADING.finditer(masked):
         if len(m.group(1)) != 2:
             continue
@@ -97,10 +103,22 @@ def of_file(path: Path, label: str) -> dict[str, str | None]:
         # trailing space runs on over a masked comment below it.
         line_end = masked.find("\n", m.start())
         start = len(text) if line_end == -1 else line_end
-        first = _PARAGRAPH_END.split(text[start:stop].strip(), 1)[0]
+        body = text[start:stop].strip()
+        first, *rest = _PARAGRAPH_END.split(body, 1)
+        held = summary(first, label)
         name = anchor.group(1)
-        out[f"{owner}/{name}" if owner else name] = summary(first, label)
-    return out
+        yield (
+            f"{owner}/{name}" if owner else name,
+            held,
+            body if held is None else "".join(rest),
+        )
+
+
+def of_file(path: Path, label: str) -> dict[str, str | None]:
+    """Each anchored section of the spec file ``path``, by its full name, and
+    its summary or None, read as `_opening` reads it."""
+    text = path.read_text(encoding="utf-8")
+    return {name: held for name, held, _ in _opening(path, text, label)}
 
 
 def findings(docs: Path, spec: set[str]) -> tuple[list[str], list]:
@@ -179,3 +197,67 @@ def findings(docs: Path, spec: set[str]) -> tuple[list[str], list]:
             )
         )
     return problems, groups
+
+
+# --------------------------------------------------------------------------- #
+# a reminder for spec commits
+# --------------------------------------------------------------------------- #
+def _holdings(specs, label):
+    """``{slug: (summary, rest)}`` for every section of ``specs``, as compared.
+
+    ``specs`` maps each spec file to its text. The rest of a section, its text
+    outside the summary's paragraph, is compared with its comments dropped
+    and its whitespace collapsed, as the summary already is, so a rewrap or a
+    mark changes nothing either holds, and with no regard to its file or part,
+    so a section moved unchanged is the same section.
+    """
+    out = {}
+    for path, text in specs.items():
+        for name, held, rest in _opening(Path(path), text, label):
+            out[name] = (held, " ".join(notes._COMMENT.sub(" ", rest).split()))
+    return out
+
+
+def unrevised(before_specs, after_specs) -> list[str]:
+    """The spec sections a change rewrote while it left their summaries as
+    they were.
+
+    ``before_specs`` and ``after_specs`` map each spec file to its text before
+    and after the change. A section counts when it had a summary before, its
+    summary after is the same, and its text outside the summary's paragraph is
+    not, once comments are dropped and whitespace collapsed. A section that
+    gains its first summary, changes or loses its summary, is new or is
+    deleted never counts. Slugs come in the order the spec after the change
+    holds them, and there are none while the project labels no summaries.
+
+    It reads no file and runs nothing. It is a reminder, never a gate: many
+    edits do not move what a section holds, and only whoever made the change
+    knows whether its summary still says it.
+    """
+    found = label()
+    if found is None:
+        return []
+    before, after = _holdings(before_specs, found), _holdings(after_specs, found)
+    out = []
+    for slug, (held, rest) in after.items():
+        then_held, then_rest = before.get(slug, (None, None))
+        if held and then_held == held and then_rest != rest:
+            out.append(slug)
+    return out
+
+
+def staged_unrevised(root=None) -> list[str]:
+    """``unrevised`` for what is staged, compared with ``HEAD``.
+
+    Reads every spec file as the project configures it, at ``HEAD`` and as
+    staged, and runs nothing while the project labels no summaries. ``root`` is
+    a project directory to read, for a caller outside one; by default, the
+    current project.
+    """
+    if root is not None:
+        with project_scope(Project.load(root)):
+            return staged_unrevised()
+    if label() is None:
+        return []
+    before, after = history.staged_specs()
+    return unrevised(before, after)
