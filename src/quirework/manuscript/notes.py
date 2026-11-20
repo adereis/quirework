@@ -840,7 +840,9 @@ def _print_spec_toc(docs: Path | None = None, only: set[str] | None = None) -> N
     session every post's commitments to change one.
 
     Where the project labels summaries, each section's summary is printed
-    under its title, so a session meets every section's gist before its text.
+    under its title, so a session meets every section's gist before its text,
+    and a spec manifest's opening that carries the spec's own summary prints
+    it above them all.
     """
     sections = spec_sections(docs)
     if only is not None:
@@ -876,6 +878,21 @@ def _print_spec_toc(docs: Path | None = None, only: set[str] | None = None) -> N
         groups.setdefault(key, []).append(s)
     width = max((len(s.slug or "") + 3 for s in sections), default=0)
     width = max(width, 26)
+    # A spec's own summary, carried by its manifest's opening, comes first:
+    # the gist of the whole before any part. It is shown with the manifest's
+    # sections, so a listing narrowed to other files leaves it out.
+    if labeled:
+        shown = {s.path for s in sections}
+        opened = {o.path: o for o in specsummary.openings(docs) if o.summary}
+        for found in spec_manifests(docs):
+            opening = opened.get(found.opening)
+            if opening is None or not shown.intersection(found.part_of()):
+                continue
+            print(
+                f"spec — {_rel(opening.path)} · {opening.title} (the spec's own "
+                f"summary; read it first):"
+            )
+            print(specsummary.wrapped(opening.summary, 2))
     for key, group in groups.items():
         if isinstance(key, tuple):
             found, title = key

@@ -346,7 +346,9 @@ lists the files it would change.
 the marks in reading order. That is the one command to run at the start
 of a writing session. Where the sections carry
 [summaries](#section-summaries), each prints under its section's title,
-so a session meets every section's gist before any of its text.
+so a session meets every section's gist before any of its text, and the
+spec's own summary, where its opening carries one, prints above them
+all.
 
 ### The spec's index
 
@@ -420,16 +422,53 @@ none yet is one too, printed as one line, so a spec can gain its
 summaries a few at a time. Without the label nothing here runs, and the
 index is what it was.
 
+A spec kept as section files can carry its own summary too, the gist of
+the whole spec, in the opening its manifest names. The opening's text
+starts below its title, the level-1 heading the file opens with once
+frontmatter and comments are passed over, or at the top of the file
+where it has no title. Paragraphs made only of metadata lines, each a
+name of up to four words, a colon and a value on one line, such as
+`Version: 3` or `Last revised: spring`, are skipped too, and the next
+paragraph is the spec's summary when it opens with the label in bold:
+
+```markdown
+# The kettle
+
+Version: 3
+
+**Summary.** A kettle boils by one route and cools by another, and
+each section states one step of either.
+
+This spec states what a kettle does.
+```
+
+As in a section, anything else in its place, a sentence of prose or a
+comment, means the opening carries no summary, and so does a metadata
+line left in the summary's own paragraph. The digest prints the spec's
+summary first, under the digest's own title and before the parts, led by
+the opening's title; the primer prints it above the sections, and
+`spec summary --opening` alone. `notes --check` refuses a citation in it
+and a label with nothing after it, as in a section's. Its length is
+advised on only where `spec_summary_opening_words` sets a limit, since a
+whole spec's gist runs longer than a section's, and the sections' limit
+and lower bound never apply to it. The generated map's Markdown and JSON
+describe sections and never hold it, and an opening with no labeled
+paragraph changes no output.
+
 `quirework spec summary SLUG…` prints each named section's title and
 summary, from any spec file, and a plain line for a section that has
 none. `--all` prints every published section's, by part in reading
 order, and `--missing` names the published sections still without one,
 the ones the advisory counts. `--json` prints the same as data, a list
 of each section's slug, title, part, file and summary, null where it has
-none. The exit status is 1 when a section asked for has no summary, so a
-script can require them, and 2 when it cannot answer: summaries are off,
-or a slug names no section. The primer and `spec section` show the
-summaries too. A tool of your own reads them through
+none. `--opening` prints the spec's own summary instead, from the
+opening of each spec manifest that names one, under the opening's file
+and title, and its `--json` gives each opening's file, title and
+summary. The exit status is 1 when a section or an opening asked for has
+no summary, so a script can require them, and 2 when it cannot answer:
+summaries are off, a slug names no section, or no manifest names an
+opening. The primer and `spec section` show the summaries too. A tool of
+your own reads them through
 `quirework.manuscript.specsummary.summaries()`, the one reader behind
 the generated map, the digest and these commands: every section's
 summary by its slug, in reading order, None where it has none, and None
@@ -449,6 +488,13 @@ summary, changes or loses its summary, is new or is deleted is never
 listed. It is a reminder, never a gate, since many edits do not move
 what a section holds. `specsummary.unrevised` makes the same comparison
 between any two versions of the spec files.
+`specsummary.staged_unrevised_openings()` is the same reminder for the
+openings, a separate call so that a hook printing section slugs keeps
+printing slugs: each opening, by its file from the project root, whose
+text after the summary a staged change rewrote while the summary stayed
+as it was. The title and the metadata lines above the summary are not
+compared, so a new version number is no rewrite, and
+`specsummary.unrevised_openings` compares any two versions.
 
 To work on one section, `quirework spec section SLUG` prints it as its
 file holds it. With `--context` it adds what touches it: the title and
@@ -643,7 +689,8 @@ gate, since a section can rightly change with no turn of yours behind
 it. `trail.unbreadcrumbed` makes the same comparison between any two
 versions of the spec files and the trail. Where sections carry
 summaries, the hook prints `specsummary.staged_unrevised()` beside it,
-the sections rewritten around a summary left as it was
+the sections rewritten around a summary left as it was, and
+`specsummary.staged_unrevised_openings()`, the openings
 ([section summaries](#section-summaries)).
 
 ### Backfilling a trail

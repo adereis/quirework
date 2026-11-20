@@ -570,9 +570,9 @@ class Project:
             raise ConfigurationError(f"{key} names one file for both formats")
 
     def _check_spec_summaries(self):
-        """The summaries' label, their word limit and the digest. The limit and
-        the digest mean nothing without summaries, so each requires the label,
-        and the digest, written over whatever it names, lies inside the
+        """The summaries' label, their word limits and the digest. The limits
+        and the digest mean nothing without summaries, so each requires the
+        label, and the digest, written over whatever it names, lies inside the
         project and is neither a spec file nor one of the index's files."""
         label = self.get("manuscript.spec_summary_label")
         if label is not None and (
@@ -588,6 +588,7 @@ class Project:
         for key in (
             "manuscript.spec_summary_words",
             "manuscript.spec_summary_min_words",
+            "manuscript.spec_summary_opening_words",
             "manuscript.spec_digest",
         ):
             if self.get(key) is not None and label is None:
@@ -598,6 +599,7 @@ class Project:
         for key in (
             "manuscript.spec_summary_words",
             "manuscript.spec_summary_min_words",
+            "manuscript.spec_summary_opening_words",
         ):
             words = self.get(key)
             if words is not None and (

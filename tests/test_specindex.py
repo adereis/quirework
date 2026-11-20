@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import json
 import subprocess
+from pathlib import Path
 
 import pytest
 
@@ -870,3 +871,286 @@ def test_spec_section_is_what_it_was_without_the_label(tmp_path, capsys):
     assert list(found) == ["slug", "title", "file", "text"]
     assert "summary" not in context and "summary" not in context["cites"][0]
     assert context["cites"][0]["first_sentence"].startswith("**Summary.**")
+
+
+# A spec kept as section files may name an opening in its manifest, and the
+# opening may carry the spec's own summary: the first paragraph after its
+# title and any metadata lines under the title, when it opens with the label.
+OPENING = (
+    "<!-- The lamp's opening. -->\n\n# The lamp\n\nVersion: 3\nLast revised: spring"
+    "\n\n**Summary.** A lamp on the rock warns ships by its flash, and a keeper\n"
+    "keeps it lit through the fog.\n\nWhat the lamp holds, part by part.\n"
+)
+SPEC_GIST = (
+    "A lamp on the rock warns ships by its flash, and a keeper keeps it lit "
+    "through the fog."
+)
+
+
+def _opened(root, opening=OPENING, **extra):
+    """The summarized spec, its opening carrying the spec's own summary."""
+    project = _summarized(root, **extra)
+    (root / "spec" / "opening.md").write_text(opening)
+    return project
+
+
+@pytest.mark.parametrize(
+    ("text", "title", "held"),
+    [
+        (OPENING, "The lamp", SPEC_GIST),
+        ("# The lamp\n**Summary.** Lit.\n", "The lamp", "Lit."),
+        ("# The lamp\nVersion: 3\n\n\n**Summary.** Lit.\n", "The lamp", "Lit."),
+        ("Version: 3\n\n**Summary.** Lit.\n", "opening.md", "Lit."),
+        ("+++\ntitle = 'The lamp'\n+++\n\n**Summary.** Lit.\n", "The lamp", "Lit."),
+        ("# The lamp\n\n**Summary.**\n\nLit.\n", "The lamp", ""),
+        # Anything else before the labeled paragraph: none is read.
+        ("# The lamp\n\nIt is lit.\n\n**Summary.** Lit.\n", "The lamp", None),
+        ("# The lamp\n\n<!-- a draft -->\n\n**Summary.** Lit.\n", "The lamp", None),
+        ("# The lamp\n\nVersion 3\n\n**Summary.** Lit.\n", "The lamp", None),
+        ("# The lamp\n\nVersion: 3\n**Summary.** Lit.\n", "The lamp", None),
+        (
+            "# The lamp\n\n## The flash {#flash}\n\n**Summary.** Lit.\n",
+            "The lamp",
+            None,
+        ),
+        ("Lit.\n\n# The lamp\n\n**Summary.** Lit.\n", "opening.md", None),
+    ],
+)
+def test_an_opening_summary_follows_its_title_and_metadata(text, title, held):
+    path = Path("spec/opening.md")
+    found_title, found, _ = specsummary._read_opening(path, text, "Summary.")
+    assert (found_title, found) == (title, held)
+
+
+def test_the_openings_are_read_with_their_summaries(tmp_path):
+    with project_scope(_opened(tmp_path)):
+        found = specsummary.openings()
+        assert specsummary.openings(published=True) == found
+        assert specsummary.summaries() == {
+            "flash": GIST,
+            "fog": None,
+            "keeper": None,
+            "lamp-rule": None,
+        }, "an opening is no section"
+    assert found == [
+        specsummary.Opening(tmp_path / "spec" / "opening.md", "The lamp", SPEC_GIST)
+    ]
+    project = _project(tmp_path / "off")
+    (tmp_path / "off" / "spec" / "opening.md").write_text(OPENING)
+    with project_scope(project):
+        assert [o.summary for o in specsummary.openings()] == [None], "off"
+
+
+def test_the_digest_prints_the_specs_own_summary_first(tmp_path):
+    project = _opened(tmp_path, spec_digest="docs/digest.md")
+    project.require("manuscript")
+    digest = tmp_path / "docs" / "digest.md"
+    with project_scope(project):
+        assert specindex.main(["--write"]) == 0
+        text = digest.read_text()
+        docs = project.path("manuscript.source")
+        assert not any("stale" in p for p in notes._findings(docs)[0])
+        (tmp_path / "spec" / "opening.md").write_text(
+            OPENING.replace("through the fog", "through fog and gale")
+        )
+        problems, _ = notes._findings(docs)
+    order = [
+        "# Digest",
+        "**[The lamp](../spec/opening.md)**. A lamp on the rock warns ships",
+        "1 of 3 sections has a summary",
+        "## The light",
+        "**[The flash](../spec/flash.md)** (`flash`)",
+    ]
+    assert [text.index(s) for s in order] == sorted(text.index(s) for s in order)
+    assert mdwrap.reflow_columns(text) == text
+    assert [p for p in problems if "stale" in p] == [
+        f"docs/digest.md: the spec digest is stale; run `{specindex.COMMAND}`"
+    ]
+
+
+def test_without_a_labeled_opening_the_digest_and_primer_are_unchanged(
+    tmp_path, capsys
+):
+    """The fixture's opening has no labeled paragraph, so nothing about the
+    digest or the primer changes; neither does a labeled opening while the
+    project labels no summaries."""
+    project = _summarized(tmp_path, spec_digest="docs/digest.md")
+    with project_scope(project):
+        assert specsummary.openings()[0].summary is None
+        at = tmp_path / "docs" / "digest.md"
+        assert specindex.rendered()[at] == specindex.render_digest(
+            specindex.build(), at, tmp_path
+        )
+        assert notes.main(["--primer"]) == 0
+    assert "the spec's own summary" not in capsys.readouterr().out
+    project = _project(tmp_path / "off")
+    (tmp_path / "off" / "spec" / "opening.md").write_text(OPENING)
+    with project_scope(project):
+        assert notes.main(["--primer"]) == 0
+    out = capsys.readouterr().out
+    assert "the spec's own summary" not in out and SPEC_GIST[:20] not in out
+
+
+def test_the_primer_prints_the_specs_own_summary_at_the_top(tmp_path, capsys):
+    with project_scope(_opened(tmp_path)):
+        assert notes.main(["--primer"]) == 0
+    lines = capsys.readouterr().out.splitlines()
+    assert lines[0] == (
+        "spec — spec/opening.md · The lamp (the spec's own summary; read it first):"
+    )
+    assert lines[1:3] == [
+        "  A lamp on the rock warns ships by its flash, and a keeper keeps it lit",
+        "  through the fog.",
+    ]
+    assert lines[3].startswith("spec — spec/ · The light")
+
+
+def test_spec_summary_opening_prints_the_specs_own_summary(tmp_path, capsys):
+    with project_scope(_opened(tmp_path)):
+        assert specsummary.main(["--opening"]) == 0
+        assert capsys.readouterr().out == (
+            "spec/opening.md  The lamp\n"
+            "    A lamp on the rock warns ships by its flash, and a keeper keeps it\n"
+            "    lit through the fog.\n"
+        )
+        assert specsummary.main(["--opening", "--json"]) == 0
+        assert json.loads(capsys.readouterr().out) == [
+            {"file": "spec/opening.md", "title": "The lamp", "summary": SPEC_GIST}
+        ]
+        # The listings are about sections, and are what they were.
+        assert specsummary.main(["--all", "--json"]) == 1
+        assert all("slug" in row for row in json.loads(capsys.readouterr().out))
+    with project_scope(_summarized(tmp_path / "plain")):
+        assert specsummary.main(["--opening"]) == 1
+        assert capsys.readouterr().out == (
+            "spec/opening.md  The lamp\n"
+            "    no summary: the opening carries no **Summary.** paragraph\n"
+        )
+        assert specsummary.main(["--opening", "--json"]) == 1
+        assert json.loads(capsys.readouterr().out)[0]["summary"] is None
+
+
+def test_spec_summary_opening_refuses_what_it_cannot_answer(tmp_path, capsys):
+    with project_scope(_opened(tmp_path)):
+        assert specsummary.main(["--opening", "flash"]) == 2
+        assert "name the sections, or list them" in capsys.readouterr().err
+    with project_scope(_project(tmp_path / "off")):
+        assert specsummary.main(["--opening"]) == 2
+        assert "summaries are off" in capsys.readouterr().err
+    project = _summarized(tmp_path / "bare")
+    manifest = tmp_path / "bare" / "spec" / "manifest.toml"
+    manifest.write_text(MANIFEST.replace('opening = "opening.md"\n', ""))
+    (tmp_path / "bare" / "spec" / "opening.md").unlink()
+    with project_scope(project):
+        assert specsummary.main(["--opening"]) == 2
+    assert "the spec has no opening" in capsys.readouterr().err
+
+
+def test_notes_check_holds_the_openings_summary_to_the_rules(tmp_path):
+    """The citation and empty-label refusals apply to an opening's summary; its
+    length is held to its own limit, never to the sections' bounds."""
+    cited = OPENING.replace("through the fog.", "through the fog (`#fog`, #flash).")
+    project = _opened(
+        tmp_path,
+        opening=cited,
+        spec_summary_words=5,
+        spec_summary_min_words=5,
+        spec_summary_opening_words=10,
+    )
+    with project_scope(project):
+        assert specsummary.opening_limit() == 10
+        problems, groups = notes._findings(project.path("manuscript.source"))
+    assert [p.split(". ")[0] for p in problems if "opening's summary" in p] == [
+        "spec/opening.md: the opening's summary cites '#fog'",
+        "spec/opening.md: the opening's summary cites '#flash'",
+    ]
+    assert _advised(groups, "{n} spec opening summary/summaries run past 10") == [
+        ["  spec/opening.md — 21 words"]
+    ]
+    for header, lines in groups:
+        if "run past 5" in header or "run under 5" in header:
+            assert not any("opening.md" in line for line in lines)
+    (tmp_path / "spec" / "opening.md").write_text("# The lamp\n\n**Summary.**\n")
+    with project_scope(project):
+        problems, _ = notes._findings(project.path("manuscript.source"))
+    assert (
+        "spec/opening.md: the summary label **Summary.** has no summary after it; "
+        "write the summary or drop the label"
+    ) in problems
+
+
+def test_an_openings_length_is_unchecked_without_its_own_limit(tmp_path):
+    project = _opened(tmp_path, spec_summary_words=5)
+    with project_scope(project):
+        assert specsummary.opening_limit() is None
+        problems, groups = notes._findings(project.path("manuscript.source"))
+    assert not any("opening" in p for p in problems)
+    assert not any("opening" in line for _, lines in groups for line in lines)
+
+
+@pytest.mark.parametrize(
+    ("extra", "says"),
+    [
+        ({"spec_summary_opening_words": 200}, "set the label too"),
+        (
+            {"spec_summary_label": "S.", "spec_summary_opening_words": 0},
+            "a whole number",
+        ),
+        (
+            {"spec_summary_label": "S.", "spec_summary_opening_words": "200"},
+            "a whole number",
+        ),
+    ],
+)
+def test_the_opening_word_limit_is_validated(tmp_path, extra, says):
+    with pytest.raises(ConfigurationError, match=says):
+        _project(tmp_path, **extra).require("manuscript")
+
+
+# The reminder: an opening whose text a change rewrote around its unchanged
+# summary is named, for whoever made the change to confirm the summary.
+REOPENED = OPENING.replace("part by part.", "part by part, and why.")
+
+
+def test_an_opening_rewritten_around_its_summary_is_named(tmp_path):
+    path = tmp_path / "spec" / "opening.md"
+    with project_scope(_opened(tmp_path)):
+        named = specsummary.unrevised_openings({path: OPENING}, {path: REOPENED})
+        assert named == ["spec/opening.md"]
+        assert specsummary.unrevised({path: OPENING}, {path: REOPENED}) == [], (
+            "the sections' reminder names sections only"
+        )
+        revised = REOPENED.replace("through the fog", "through fog and gale")
+        rewrapped = REOPENED.replace("and a keeper\nkeeps", "and a\nkeeper keeps")
+        for after, expected in (
+            (revised, []),
+            (rewrapped, ["spec/opening.md"]),
+            (OPENING.replace("part by part.", "part\nby  part."), []),
+            (OPENING.replace("Version: 3", "Version: 4"), []),
+            (OPENING.replace("# The lamp", "# The lamp on the rock"), []),
+            (OPENING.replace("<!-- The lamp's", "<!-- The rock's"), []),
+            (SECTIONS["opening.md"], []),
+            ("", []),
+        ):
+            assert specsummary.unrevised_openings({path: OPENING}, {path: after}) == (
+                expected
+            ), after
+        assert specsummary.unrevised_openings({path: ""}, {path: REOPENED}) == []
+    with project_scope(_project(tmp_path / "off")):
+        off = tmp_path / "off" / "spec" / "opening.md"
+        assert specsummary.unrevised_openings({off: OPENING}, {off: REOPENED}) == []
+        assert specsummary.staged_unrevised_openings() == [], "off, no git asked"
+
+
+def test_only_what_is_staged_is_compared_with_head_for_openings(tmp_path):
+    path = tmp_path / "spec" / "opening.md"
+    with project_scope(_opened(tmp_path)):
+        _git(tmp_path, "init", "-q")
+        _git(tmp_path, "add", ".")
+        _git(tmp_path, "commit", "-q", "-m", "Light the lamp")
+        assert specsummary.staged_unrevised_openings() == []
+        path.write_text(REOPENED)
+        assert specsummary.staged_unrevised_openings() == [], "an unstaged edit"
+        _git(tmp_path, "add", "spec/opening.md")
+        assert specsummary.staged_unrevised_openings() == ["spec/opening.md"]
+        assert specsummary.staged_unrevised() == []

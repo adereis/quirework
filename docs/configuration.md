@@ -100,19 +100,30 @@ none yet. `manuscript.spec_summary_min_words` sets a lower bound beside
 that limit, for a project that wants a target length with a tolerance
 either way: left unset, the default, no summary is too short, and once
 set, `notes --check` advises on a summary shorter than it, as it does on
-one longer than the limit. It may equal the limit but not exceed it.
-`manuscript.spec_digest` names a Markdown file that `spec index --write`
-writes with the index, or alone where no index is kept: every summary
-under its part in reading order, saying how many of the sections it
-covers. `notes --check` fails while it is stale. The word limit, the
-lower bound and the digest each require the label, and the digest must
-lie inside the project and be neither a spec file nor an index file.
-With the label set, `specsummary.staged_unrevised()` names, for a
-project's own pre-commit hook to print, each section a staged change
-rewrote outside its summary while leaving the summary as it was, as a
-reminder to confirm the summary still holds; without the label, it names
-none and never asks git. `spec summary` prints the summaries, and the
-primer and `spec section` lead with them where they print a section. The
+one longer than the limit. It may equal the limit but not exceed it. A
+spec manifest's `opening` may carry the spec's own summary by the same
+label: a paragraph opening with it in bold, directly after the opening's
+title and any paragraphs of metadata lines under the title, such as
+`Version: 3`. The digest, the primer and `spec summary --opening` print
+it, and `notes --check` holds it to the same refusals.
+`manuscript.spec_summary_opening_words` sets its word limit: left unset,
+the default, its length is never checked, since a whole spec's gist runs
+longer than a section's, and once set, `notes --check` advises on an
+opening's summary longer than it. The sections' limit and lower bound
+never apply to it. `manuscript.spec_digest` names a Markdown file that
+`spec index --write` writes with the index, or alone where no index is
+kept: every summary under its part in reading order, saying how many of
+the sections it covers. `notes --check` fails while it is stale. The
+word limits, the lower bound and the digest each require the label, and
+the digest must lie inside the project and be neither a spec file nor an
+index file. With the label set, `specsummary.staged_unrevised()` names,
+for a project's own pre-commit hook to print, each section a staged
+change rewrote outside its summary while leaving the summary as it was,
+as a reminder to confirm the summary still holds, and
+`specsummary.staged_unrevised_openings()` names each opening rewritten
+around its summary the same way; without the label, they name none and
+never ask git. `spec summary` prints the summaries, and the primer and
+`spec section` lead with them where they print a section. The
 [authoring guide](authoring.md#section-summaries) shows the form.
 `publish.typst_template` names the Typst file that sets the printed
 page. Quirework reads it and never writes it. It takes from it the faces

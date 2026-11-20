@@ -32,7 +32,10 @@ Where the project labels its sections' summaries (`specsummary`), each section
 also carries its summary, and `manuscript.spec_digest` may name a third file
 written with the index: every summary under its part, in reading order, for a
 reader who wants the gist of the whole spec at once. A section without a
-summary is left out of the digest, which says how many it covers.
+summary is left out of the digest, which says how many it covers. Where the
+published spec's opening carries the spec's own summary, the digest prints it
+first, under its title. The map's own files describe sections and never hold
+it.
 
 Nothing in it is dated or tied to a commit, so it changes only when what it
 describes does.
@@ -473,10 +476,14 @@ def render_markdown(index: dict, at: Path, root: Path) -> str:
     return mdwrap.reflow_columns("\n".join(lines) + "\n")
 
 
-def render_digest(index: dict, at: Path, root: Path) -> str:
+def render_digest(index: dict, at: Path, root: Path, openings=()) -> str:
     """The digest, written beside ``at``: every section's title and summary,
     under its part in reading order. A section without a summary is left out,
-    and so is a part none of whose sections has one."""
+    and so is a part none of whose sections has one.
+
+    ``openings`` are the spec's own summaries, as
+    `specsummary.opening_rows` gives them: each with a summary is printed
+    first, under the digest's title and led by its opening's title."""
     sections = {s["slug"]: s for s in index["sections"]}
     base = at.parent
 
@@ -492,6 +499,14 @@ def render_digest(index: dict, at: Path, root: Path) -> str:
         "",
         "# Digest",
         "",
+    ]
+    for found in openings:
+        if found["summary"]:
+            lines += [
+                f"**[{found['title']}]({link(found['file'])})**. {found['summary']}",
+                "",
+            ]
+    lines += [
         (
             f"{covered} of {_count(len(sections), 'section')} "
             f"{'has' if covered == 1 else 'have'} a summary, listed here under "
@@ -528,7 +543,12 @@ def _outputs(docs: Path | None = None, root: Path | None = None):
         if fmt == "json":
             text = render_json(index)
         elif fmt == "digest":
-            text = render_digest(index, path, root)
+            text = render_digest(
+                index,
+                path,
+                root,
+                specsummary.opening_rows(published=True, docs=docs, root=root),
+            )
         else:
             text = render_markdown(index, path, root)
         out.append((fmt, path, text))

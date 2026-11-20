@@ -78,6 +78,7 @@ SETTINGS: tuple[str, ...] = (
             "spec_public",
             "spec_summary_label",
             "spec_summary_min_words",
+            "spec_summary_opening_words",
             "spec_summary_words",
             "spec_trail",
             "spec_trail_leads",
