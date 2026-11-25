@@ -7,6 +7,10 @@
 # Each [targets.<name>] table is one destination. The name is yours, and
 # `store backup --target <name>` runs that one alone. Replace the example
 # below with your own, and uncomment any other you want.
+#
+# A machine that keeps another copy of this store names the same rclone or
+# directory target in its own copy of this file, and `store sync` on each
+# machine brings in what the others captured, accepted and rejected.
 
 # rclone copies to any remote `rclone config` has set up: Google Drive,
 # SFTP, S3, or a crypt remote that encrypts before anything leaves the

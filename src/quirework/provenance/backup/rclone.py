@@ -16,12 +16,15 @@ prompt nobody sees.
 
 from __future__ import annotations
 
+import json
 import os
 import shutil
 import tempfile
+from contextlib import contextmanager
 
 from quirework.project import ConfigurationError, private_tmp_parent
 from quirework.provenance.backup.base import TOP, BackupError, Transfer, run_tool
+from quirework.provenance.backup.exchange import Sig, parse_time
 from quirework.runs.storage import shown
 
 # rclone's filter rules apply in order, and the first that matches wins. These
@@ -111,9 +114,27 @@ class Rclone(Transfer):
     def read(self, name, log):
         return self._rclone(["cat", self._path(name)], log).stdout
 
-    def put(self, source, area, *, overwrite, within=(), log):
+    def put(self, source, area, *, overwrite, within=(), rels=None, log):
         local = source.root / area if area else source.root
-        if not local.is_dir():
+        if not local.is_dir() or rels == []:
+            return
+        if rels is not None:
+            # `run` chose these because its copy is the later one, so rclone
+            # copies each over what is there, whatever the times say.
+            with _listed(rels) as listed:
+                self._rclone(
+                    [
+                        "copy",
+                        str(local),
+                        self._path(area),
+                        "-v",
+                        "--files-from-raw",
+                        listed,
+                        "--ignore-times",
+                        "--no-traverse",
+                    ],
+                    log,
+                )
             return
         args = ["copy", str(local), self._path(area), "-v", *HIDDEN]
         args += ["--max-depth", "1"] if area == TOP else FAST
@@ -124,6 +145,42 @@ class Rclone(Transfer):
                 args += ["--filter", f"+ /{version}/**"]
             args += ["--filter", "- **"]
         self._rclone(args, log)
+
+    def signatures(self, area, log):
+        done = self._rclone(
+            ["lsjson", "-R", "--files-only", *HIDDEN, *FAST, self._path(area)],
+            log,
+            ok=(0, DIRECTORY_NOT_FOUND),
+        )
+        if done.returncode == DIRECTORY_NOT_FOUND or not done.stdout.strip():
+            return {}
+        try:
+            listed = json.loads(done.stdout)
+            return {
+                item["Path"]: Sig(int(item["Size"]), parse_time(item["ModTime"]))
+                for item in listed
+            }
+        except (ValueError, KeyError, TypeError) as exc:
+            raise BackupError(
+                f"rclone lsjson printed something other than a file listing: {exc}"
+            ) from exc
+
+    def get(self, area, rels, into, log):
+        if not rels:
+            return
+        with _listed(rels) as listed:
+            self._rclone(
+                [
+                    "copy",
+                    self._path(area),
+                    str(into),
+                    "-v",
+                    "--files-from-raw",
+                    listed,
+                    "--no-traverse",
+                ],
+                log,
+            )
 
     def listing(self, area, log):
         done = self._rclone(
@@ -136,18 +193,27 @@ class Rclone(Transfer):
         return {line for line in done.stdout.splitlines() if line}
 
     def remove(self, area, rels, log):
-        # The list goes through a file, so no session id is ever read by rclone
-        # as a flag or a pattern; ``--files-from-raw`` takes each line as is.
-        fd, listed = tempfile.mkstemp(
-            prefix="quirework-backup-", suffix=".txt", dir=private_tmp_parent()
-        )
-        try:
-            with os.fdopen(fd, "w", encoding="utf-8") as fh:
-                fh.write("".join(f"{rel}\n" for rel in rels))
+        with _listed(rels) as listed:
             self._rclone(
                 ["delete", self._path(area), "--files-from-raw", listed, "-v"], log
             )
-        finally:
-            os.unlink(listed)
         # A remote such as Google Drive keeps a folder after its last file goes.
         self._rclone(["rmdirs", self._path(area), "--leave-root"], log)
+
+
+@contextmanager
+def _listed(rels):
+    """A private file naming ``rels``, one per line, for ``--files-from-raw``.
+
+    The list goes through a file, so no session id is ever read by rclone as
+    a flag or a pattern; ``--files-from-raw`` takes each line as is.
+    """
+    fd, listed = tempfile.mkstemp(
+        prefix="quirework-backup-", suffix=".txt", dir=private_tmp_parent()
+    )
+    try:
+        with os.fdopen(fd, "w", encoding="utf-8") as fh:
+            fh.write("".join(f"{rel}\n" for rel in rels))
+        yield listed
+    finally:
+        os.unlink(listed)

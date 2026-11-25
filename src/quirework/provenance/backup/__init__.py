@@ -39,6 +39,7 @@ from pathlib import Path
 
 from quirework.project import ConfigurationError, extension
 from quirework.provenance import store
+from quirework.provenance.backup import base, exchange
 from quirework.provenance.backup.base import (
     PENDING,
     BackupError,
@@ -204,11 +205,13 @@ def _running(directory, target, root):
         yield
 
 
-def back_up(source, driver):
+def back_up(source, driver, *, pull=False):
     """Run one target and record the outcome; return the `Outcome`.
 
-    A run that fails is recorded as the last attempt, beside the last success,
-    and the error is raised again: the record is for ``store status``, not a
+    With ``pull`` a copying target is first read back (`Transfer.run`); a
+    git or command target only receives, which the outcome says. A run that
+    fails is recorded as the last attempt, beside the last success, and the
+    error is raised again: the record is for ``store status``, not a
     substitute for saying so.
     """
     directory = state_dir(source.identity)
@@ -240,7 +243,15 @@ def back_up(source, driver):
                 f"{_stamp(started)}\n"
             )
             try:
-                outcome = driver.run(source, log)
+                if pull and isinstance(driver, Transfer):
+                    outcome = driver.run(source, log, pull=True)
+                else:
+                    outcome = driver.run(source, log)
+                    if pull:
+                        note = f"a {driver.name} target only receives"
+                        outcome.detail = (
+                            f"{outcome.detail}; {note}" if outcome.detail else note
+                        )
             except Exception as exc:
                 record["attempt"] = {
                     "started": _stamp(started),
@@ -258,6 +269,13 @@ def back_up(source, driver):
             "ok": True,
             "error": None,
         }
+        # What arrived from the target is there by definition.
+        for rel in outcome.arrived:
+            try:
+                st = (source.root / PENDING / rel).stat()
+            except FileNotFoundError:
+                continue
+            captured[rel] = [st.st_size, st.st_mtime_ns]
         record["success"] = {
             "started": _stamp(started),
             "finished": _stamp(finished),
@@ -268,6 +286,59 @@ def back_up(source, driver):
         }
         write(directory / f"{driver.target}.json", record)
         return outcome
+
+
+# Stores this process already tried to fill from their targets, so a reader
+# that asks for many files pays for one attempt, not one per file.
+_FETCHED = set()
+
+
+def fetch_missing(opened, entries):
+    """Bring in the accepted versions ``entries`` name from the store's targets.
+
+    For a reader that found them missing: the ledger came by git from a
+    machine that accepted them, and its sync put them at a shared target.
+    Only copying targets can be read back. Return a line for each target that
+    could not supply them, for the reader's own refusal to quote; a store
+    with no backup returns nothing, as before.
+    """
+    if opened.root in _FETCHED:
+        return []
+    _FETCHED.add(opened.root)
+    try:
+        drivers = targets(opened.root) or []
+    except ConfigurationError as exc:
+        return [str(exc)]
+    wanted = {f"{e.family}/{e.version}" for e in entries}
+    source = Source(opened.root, opened.identity)
+    failures = []
+    for driver in drivers:
+        if not isinstance(driver, Transfer):
+            continue
+        log = io.StringIO()
+        try:
+            driver.ready(log)
+            driver.claim(source, log)
+            listed = driver.listing(base.ACCEPTED, log)
+            came = exchange.fetch_versions(
+                driver, opened.root, wanted - source.versions(), listed, log
+            )
+        except (ConfigurationError, OSError, RuntimeError, ValueError) as exc:
+            failures.append(f"fetching from {driver.target} failed: {exc}")
+            continue
+        if came:
+            print(
+                f"quirework: fetched {came} accepted version(s) from "
+                f"{driver.target}, {driver.describe()}",
+                file=sys.stderr,
+            )
+        if wanted <= source.versions():
+            return []
+        failures.append(
+            f"{driver.target} does not hold "
+            f"{len(wanted - source.versions())} of the version(s) yet"
+        )
+    return failures
 
 
 def log_of(identity, target):
@@ -381,8 +452,8 @@ def stores_in_home():
     return home, found
 
 
-def _one_store(source, names, check, out):
-    """Back up or check one store; return ``(configured, failures)``."""
+def _one_store(source, names, check, out, pull=False):
+    """Back up, sync or check one store; return ``(configured, failures)``."""
     print(f"store {shown(source.root)}", file=out)
     try:
         drivers = targets(source.root)
@@ -409,7 +480,7 @@ def _one_store(source, names, check, out):
                 driver.check(io.StringIO())
                 print("            ready", file=out)
             else:
-                outcome = back_up(source, driver)
+                outcome = back_up(source, driver, pull=pull)
                 print(
                     f"            done in {_duration(time.time() - started)}; "
                     f"{outcome.summary()}",
@@ -460,7 +531,9 @@ def cmd_backup(args):
         select(drivers, names, opened.root)
     configured, failures = 0, 0
     for source in sources:
-        did, failed = _one_store(source, names, args.check, out)
+        did, failed = _one_store(
+            source, names, args.check, out, getattr(args, "pull", False)
+        )
         configured += did
         failures += failed
     if not configured:

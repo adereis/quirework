@@ -21,6 +21,7 @@ from pathlib import Path
 
 from quirework.project import ConfigurationError
 from quirework.provenance.backup.base import BackupError, Transfer, hidden
+from quirework.provenance.backup.exchange import Sig
 from quirework.runs.storage import shown
 
 # Two copies of a pending capture are the same when their sizes match and
@@ -68,13 +69,21 @@ class Directory(Transfer):
     def _base(self, area):
         return self.destination / area if area else self.destination
 
-    def put(self, source, area, *, overwrite, within=(), log):
+    def put(self, source, area, *, overwrite, within=(), rels=None, log):
         base = self._base(area)
         copied = 0
-        for rel, path in source.files(area, within).items():
+        chosen = source.files(area, within)
+        if rels is not None:
+            chosen = {rel: chosen[rel] for rel in rels if rel in chosen}
+        for rel, path in chosen.items():
             target = base / rel
             if target.is_symlink() or (target.exists() and not target.is_file()):
                 raise BackupError(f"{shown(target)} is not a regular file")
+            if rels is not None:
+                # `run` chose these because its copy is the later one.
+                _copy(path, target)
+                copied += 1
+                continue
             if target.exists():
                 held, there = path.stat(), target.stat()
                 if overwrite:
@@ -104,6 +113,21 @@ class Directory(Transfer):
             for p in base.rglob("*")
             if not hidden(p.relative_to(base).as_posix()) and p.is_file()
         }
+
+    def signatures(self, area, log):
+        base = self._base(area)
+        return {rel: Sig.of(base / rel) for rel in self.listing(area, log)}
+
+    def get(self, area, rels, into, log):
+        base = self._base(area)
+        copied = 0
+        for rel in rels:
+            path = base / rel
+            if hidden(rel) or not path.is_file() or path.is_symlink():
+                continue
+            _copy(path, Path(into) / rel)
+            copied += 1
+        log.write(f"directory: copied {copied} file(s) from {base}\n")
 
     def remove(self, area, rels, log):
         base = self._base(area)

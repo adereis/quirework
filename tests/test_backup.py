@@ -307,8 +307,8 @@ def test_an_accept_in_the_middle_of_a_run_never_leaves_a_session_missing(
     seen = []
     put, remove = type(driver).put, type(driver).remove
 
-    def put_then_accept(self, src, area, *, overwrite, within=(), log):
-        put(self, src, area, overwrite=overwrite, within=within, log=log)
+    def put_then_accept(self, src, area, *, overwrite, within=(), rels=None, log):
+        put(self, src, area, overwrite=overwrite, within=within, rels=rels, log=log)
         seen.append(_at_destination(nas, STORM))
         if area == ACCEPTED and not within:
             # The person accepts just after the run listed accepted/: the new
@@ -354,10 +354,10 @@ def test_a_run_that_fails_has_removed_nothing(book, nas, monkeypatch):
     store.accept([STORM], live=True)
     put = type(driver).put
 
-    def fail_on_accepted(self, src, area, *, overwrite, within=(), log):
+    def fail_on_accepted(self, src, area, *, overwrite, within=(), rels=None, log):
         if area == ACCEPTED:
             raise BackupError("the share went away")
-        put(self, src, area, overwrite=overwrite, within=within, log=log)
+        put(self, src, area, overwrite=overwrite, within=within, rels=rels, log=log)
 
     monkeypatch.setattr(type(driver), "put", fail_on_accepted)
     with pytest.raises(BackupError, match="went away"):
@@ -645,8 +645,8 @@ def test_rclone_catches_up_with_an_accept_before_pruning(book, tmp_path, monkeyp
     backup.back_up(source, driver)
     put = type(driver).put
 
-    def put_then_accept(self, src, area, *, overwrite, within=(), log):
-        put(self, src, area, overwrite=overwrite, within=within, log=log)
+    def put_then_accept(self, src, area, *, overwrite, within=(), rels=None, log):
+        put(self, src, area, overwrite=overwrite, within=within, rels=rels, log=log)
         if area == ACCEPTED and not within:
             store.accept([STORM], live=True)
 
@@ -694,7 +694,8 @@ def test_rclone_lists_whole_trees_at_once(book, monkeypatch):
     driver.put(source, PENDING, overwrite=True, log=io.StringIO())
     driver.put(source, ACCEPTED, overwrite=False, log=io.StringIO())
     driver.listing(PENDING, io.StringIO())
-    assert len(calls) == 3
+    driver.signatures(PENDING, io.StringIO())
+    assert len(calls) == 4
     assert all("--fast-list" in argv for argv in calls)
 
 

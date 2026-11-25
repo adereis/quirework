@@ -199,7 +199,8 @@ COMMANDS = {
         "provenance",
     ),
     ("provenance", "store"): Command(
-        "provenance.store", "Create, inspect, verify and back up the session store"
+        "provenance.store",
+        "Create, inspect, verify, back up and sync the session store",
     ),
     ("provenance", "accept"): Command(
         "provenance.curate",

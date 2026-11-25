@@ -761,8 +761,10 @@ holds it, and how it is backed up.
 `quirework provenance store init` creates the store and records its
 identity in the ledger's `accepted.txt`. A ledger that already names an
 identity keeps it. On a second machine or in a fresh clone, init creates
-an empty store under that identity, and `store verify` lists the
-accepted files it lacks until you copy them in. A store another project
+an empty store under that identity. Copy `backup.toml` in from a machine
+that keeps the store and run `quirework provenance store sync`, which
+brings in every session the backup holds; until then `store verify`
+lists the accepted files the new store lacks. A store another project
 created under the same name is refused, so two projects never read each
 other's sessions.
 
@@ -932,8 +934,10 @@ destination, so both keep the same rules:
   never changes in the store, so a copy that differs means one side is
   damaged. The run stops and names the file rather than choosing a side.
   rclone compares checksums, and the directory driver compares sizes.
-- A pending file is deleted there only once the version that replaced it
-  has arrived.
+- A pending file is deleted there only once a decision covers it: the
+  version that accepted it has arrived, or its session was rejected. It
+  is never deleted for being absent from the store, because another
+  machine may keep a copy of the store and back up to the same place.
 - The first run writes the store's `store.toml` at the destination. A
   later run refuses a destination holding another store's identity, or
   holding files and no identity at all. A path copied from one store's
@@ -947,10 +951,11 @@ destination, so both keep the same rules:
   a git backup's `.git`.
 
 The order of a run is what keeps the second rule true while you work. A
-run copies `pending/`, then `accepted/`, and then takes the lock that
-`accept` and `reject` take. Holding it, the run uploads any version
-accepted since it copied `accepted/`. Only then does it delete the
-destination's pending files that the store no longer has.
+run copies the store's rejections, then each pending file whose copy is
+later than the destination's, then `accepted/`, and then takes the lock
+that `accept` and `reject` take. Holding it, the run uploads any version
+accepted, and any rejection made, since it copied them. Only then does
+it delete the destination's pending files those decisions cover.
 
 Say you accept a session while a run is uploading. The run had already
 copied the session's pending capture, and it missed the new version
@@ -960,11 +965,56 @@ copy. The session is at the destination throughout. A run that fails
 partway has deleted nothing.
 
 Pending files are deleted at all because `reject` deletes a capture on
-purpose, and a backup should not keep a session you curated out. The one
-loss this does not prevent is a pending file deleted by hand, which the
-next run deletes at the destination too. Its original stays where Claude
-Code keeps it until Claude Code prunes it, and the `git` driver keeps
-such a file in its history.
+purpose, and a backup should not keep a session you curated out. So
+`reject` records the decision in the store's `removed/` directory, one
+small file per session, holding the moment it covers. Every capture of
+that session made up to then is deleted wherever a copy of the store
+meets it, and a capture made later, after you take the session off the
+removed list, is not. A pending file deleted by hand is not a decision:
+the destination keeps its copy, and a sync brings it back. Use `reject`.
+
+#### One store on several machines
+
+Each machine that works on the project keeps its own copy of the store,
+under the identity the ledger names, and captures its own sessions into
+it. Give every copy the same target in its `backup.toml`, and that
+target becomes where the copies meet. `quirework provenance store sync`
+first brings in what the target holds that this copy lacks, then backs
+up to it:
+
+- accepted versions, each checked before it takes its place: the hashes
+  of its files must give the version's own name, which is how the store
+  named it at `accept`. A damaged one is refused whole and named;
+- rejections, so a capture rejected on one machine leaves the others;
+- pending captures whose copy at the target is later than this one's.
+
+Between two copies of one pending file the later wins, in either
+direction, by the modification time capture keeps. That time is the
+session's own, so two copies of one file are always compared on the
+clock of the machine that ran the session. Times within a second count
+as equal, because SFTP keeps them to the second, and of two copies that
+close the larger is the later, since a capture only grows. A pending
+file that an accepted copy matches, or that is older than one, is
+settled and leaves every copy, which is what an `accept` on one machine
+does to the capture another machine made.
+
+Say the desktop captures a session and syncs, and the laptop syncs and
+accepts it. The laptop's next sync puts the version at the target and
+then deletes the pending copy there. The desktop's next sync brings the
+version in and deletes its own pending copy. The session is in one area
+or the other on every copy at every moment.
+
+A reader that needs an accepted file this copy lacks fetches its version
+from the copying targets before it gives up, and says so on stderr. A
+`git pull` that brings a ledger listing sessions another machine
+accepted therefore needs no sync before `provenance search` reads them,
+as long as that machine's last sync put them at the target. Pending
+captures have no ledger line to fetch by, so they arrive only with a
+sync. Run one from a timer on every machine (below).
+
+Only `rclone` and `directory` targets can be read back. A `git` or
+`command` target only receives: a sync backs up to it and brings nothing
+in, and its run says so.
 
 #### Git and command targets
 
@@ -993,6 +1043,8 @@ quirework provenance store backup --check   # reach each destination, copy nothi
 quirework provenance store backup           # every target of this project's store
 quirework provenance store backup --target drive
 quirework provenance store backup --all     # every store under the provenance home
+quirework provenance store sync             # bring in what the targets hold, then back up
+quirework provenance store sync --all       # the same for every store, as a timer runs it
 ```
 
 Each run leaves a record and a log under
@@ -1015,25 +1067,27 @@ seconds.
 
 A session reaches the backup when it is captured, as a pending file, so
 nothing needs to run after `accept`. What matters is how often a run
-happens. `--all` needs no project, which suits a systemd user timer:
+happens. `--all` needs no project, which suits a systemd user timer. A
+sync does everything a backup does, and on a machine that is the store's
+only copy it brings nothing in, so the timer can run it everywhere:
 
 ```ini
 # ~/.config/systemd/user/quirework-backup.service
 [Unit]
-Description=Back up the Quirework provenance stores
+Description=Sync the Quirework provenance stores with their backups
 
 [Service]
 Type=oneshot
-ExecStart=/path/to/quirework provenance store backup --all
+ExecStart=/path/to/quirework provenance store sync --all
 ```
 
 ```ini
 # ~/.config/systemd/user/quirework-backup.timer
 [Unit]
-Description=Back up the Quirework provenance stores every four hours
+Description=Sync the Quirework provenance stores every fifteen minutes
 
 [Timer]
-OnCalendar=0/4:00
+OnCalendar=*:0/15
 Persistent=true
 
 [Install]
@@ -1052,13 +1106,13 @@ like any other process. `Persistent=true` runs a backup the machine
 slept through as soon as it wakes. A failed run shows in
 `journalctl --user -u quirework-backup` and in `store status`.
 
-Restoring is a copy in the other direction. On a new machine,
-`quirework provenance store init` creates an empty store under the
-identity the ledger names. Copy the backup into it, for example with
-`rclone copy gdrive:quirework-provenance/my-book <store directory>`,
-then run `quirework provenance store verify`, which proves that every
-accepted file came back intact. A `git` backup is restored by cloning it
-to where the store belongs, with no init.
+Restoring is a sync into an empty store. On a new machine,
+`quirework provenance store init` creates one under the identity the
+ledger names. Copy `backup.toml` into it from another machine, or write
+it again, then run `quirework provenance store sync` and
+`quirework provenance store verify`, which proves that every accepted
+file came back intact. A `git` backup is restored by cloning it to where
+the store belongs, with no init.
 
 ### What capture selects
 

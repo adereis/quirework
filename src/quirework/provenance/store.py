@@ -41,6 +41,11 @@ directory instead, for a project that keeps its sessions somewhere specific,
 inside its own repository included. The store records an identity and
 ``accepted.txt`` names it, so a ledger is refused a store that another project
 created under the same name.
+
+One store may be kept on several machines, each copy under the same identity
+and each capturing its own sessions. A backup target they share is where the
+copies meet: ``store sync`` brings in what the others accepted, rejected and
+captured, and ``backup.exchange`` holds the rules that keep that safe.
 """
 
 from __future__ import annotations
@@ -80,6 +85,9 @@ KIND_OF = {family: kind for kind, family in KINDS.items()}
 LIVE_FAMILIES = (CC, AGY, CODEX)
 
 MANIFEST = "accepted.txt"
+# Where the store records each rejection, so every machine keeping a copy of
+# it drops the rejected captures too (`backup.exchange`).
+REMOVALS = "removed"
 REMOVED = "removed-sessions.txt"
 MAKING = "making-sessions.txt"
 IDENTITY = "store.toml"
@@ -556,7 +564,7 @@ def locked(root):
     The lock is taken on the store's own directory rather than on a lock file,
     so a store kept inside a repository never gains a file nobody accepted.
     ``accept`` and ``reject`` hold it, and so does a backup while it removes
-    what the store no longer has, which is what keeps a session from being
+    what their decisions cover, which is what keeps a session from being
     missing at the destination while it moves from pending to accepted.
     """
     fd = os.open(root, os.O_RDONLY)
@@ -571,14 +579,28 @@ def locked(root):
 # reading the corpus
 # --------------------------------------------------------------------------- #
 def _present(store, entries):
+    """The accepted files ``entries`` name, fetching any this copy lacks.
+
+    A ledger arrives by git, and the files it names may have been accepted on
+    another machine that keeps a copy of this store. Those are fetched from
+    the store's backup targets, each version checked against its own name,
+    before a reader is refused.
+    """
     paths = [store.path(e) for e in entries]
     missing = [e for e, p in zip(entries, paths) if not p.is_file()]
     if missing:
-        raise ConfigurationError(
-            f"the store at {shown(store.root)} lacks {len(missing)} accepted "
-            f"file(s), e.g. {missing[0].stored}; run `quirework provenance store "
-            "verify`"
-        )
+        from quirework.provenance import backup
+
+        failures = backup.fetch_missing(store, missing)
+        missing = [e for e in missing if not store.path(e).is_file()]
+        if missing:
+            why = "".join(f"; {line}" for line in failures)
+            raise ConfigurationError(
+                f"the store at {shown(store.root)} lacks {len(missing)} accepted "
+                f"file(s), e.g. {missing[0].stored}{why}. If another machine "
+                "accepted them, run `quirework provenance store sync` there and "
+                "here; `quirework provenance store verify` lists every one"
+            )
     return paths
 
 
@@ -952,12 +974,16 @@ def accept(selectors=(), everything=False, live=False, project=None):
 def reject(selectors, reason, project=None):
     """Curate sessions out: drop them from this ledger and list them as removed.
 
-    A pending capture is deleted. An accepted version stays in the store,
+    A pending capture is deleted, and the store records the rejection under
+    ``removed/``, so every machine keeping a copy of the store deletes its
+    copies of the capture too. An accepted version stays in the store,
     because another branch's ledger may still name it; it only leaves this
     ledger's list.
     """
     if not reason or not reason.strip():
         raise ValueError("say why with --reason; the removed list keeps the reason")
+    from quirework.provenance.backup import exchange
+
     project = current_project() if project is None else project
     store = open_store(project)
     with locked(store.root):
@@ -966,7 +992,18 @@ def reject(selectors, reason, project=None):
         candidates = set(units) | {(e.family, e.unit) for e in entries}
         keys = _select(selectors, candidates, "reject")
         for family, unit in keys:
-            for path in units.get((family, unit), {}).values():
+            # Recorded first, so another machine's copy of the capture is
+            # dropped at its next sync too. The mark is now, by this clock,
+            # and never earlier than the captures held here, whose times come
+            # from the clock of the machine that made them.
+            waiting = list(units.get((family, unit), {}).values())
+            exchange.record_removal(
+                store.root,
+                family,
+                unit,
+                max([time.time_ns(), *(p.stat().st_mtime_ns for p in waiting)]),
+            )
+            for path in waiting:
                 path.unlink()
             entries = [
                 e for e in entries if not (e.family == family and e.unit == unit)
@@ -1247,8 +1284,9 @@ def cmd_init(_args):
         if missing:
             print(
                 f"the ledger lists {len(missing)} accepted file(s) this new store "
-                "lacks; copy the store's accepted/ directory from a machine that "
-                "has it, then run `quirework provenance store verify`. If this "
+                "lacks. Copy backup.toml from a machine that keeps this store "
+                f"into {shown(store.root)}, then run `quirework provenance store "
+                "sync`, which brings in every session the target holds. If this "
                 "machine already keeps them in another store, this one is in the "
                 f"wrong place: {_relocate(current_project())}, and delete the "
                 "empty store just created"
@@ -1295,6 +1333,12 @@ pending file is deleted only once the version that replaced it has
 arrived, so a session is never missing in between. Names starting with
 a dot are skipped, and a destination holding another store is refused.
 
+Several machines may keep copies of one store and name the same target.
+A pending file there is never deleted for being absent from this copy,
+only once an accepted copy or a rejection covers it, so one machine's
+run never deletes another's captures. `quirework provenance store sync`
+also brings in what the others put there.
+
 Each run's record and log go under
 $XDG_STATE_HOME/quirework/backup/<store id>/, and `quirework provenance
 store status` reports when each target last succeeded and what changed
@@ -1305,12 +1349,38 @@ was configured, 2 when the configuration cannot be read.
 """
 
 
+SYNC_HELP = """\
+Keep this machine's copy of the store and the other machines' copies in
+step, through the backup targets they share. For each rclone or
+directory target, a sync first brings in what the target holds that
+this copy lacks:
+
+  accepted versions   each checked against its own name, a hash of the
+                      files it holds, before it takes its place
+  rejections          so a capture rejected elsewhere leaves here too
+  pending captures    wherever the target's copy is later than this one
+
+and then backs up to the target as `store backup` does. A later copy
+of a pending capture wins in either direction, and a pending file is
+deleted, here or there, only once it was accepted or rejected.
+
+A reader that needs an accepted file this copy lacks fetches it from
+the targets by itself, so a sync is what brings in pending captures
+and keeps the copies close. Run it from a timer with `--all` on every
+machine that keeps the store. A git or command target only receives:
+a sync backs up to it and brings nothing in.
+
+Exit status: 0 when every target finished, 1 when one failed or nothing
+was configured, 2 when the configuration cannot be read.
+"""
+
+
 def main(argv=None):
-    """``quirework provenance store``: create, inspect, verify and back up."""
+    """``quirework provenance store``: create, inspect, verify, back up, sync."""
     parser = argparse.ArgumentParser(
         prog="quirework provenance store",
-        description="Create, inspect, verify and back up the store that holds "
-        "the sessions.",
+        description="Create, inspect, verify, back up and sync the store that "
+        "holds the sessions.",
     )
     actions = parser.add_subparsers(dest="action", required=True, metavar="ACTION")
     actions.add_parser(
@@ -1357,10 +1427,33 @@ def main(argv=None):
         action="store_true",
         help="read backup.toml and reach each destination, copying nothing",
     )
+    sync = actions.add_parser(
+        "sync",
+        help="bring in what the backup targets hold, then back up to them",
+        description=SYNC_HELP,
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+    )
+    sync.add_argument(
+        "--target",
+        action="append",
+        metavar="NAME",
+        help="sync with this target only; repeat it for several. Without it, "
+        "every target the store declares",
+    )
+    sync.add_argument(
+        "--all",
+        action="store_true",
+        dest="every_store",
+        help="sync every store under the provenance home instead of this "
+        "project's; needs no project, which is what a timer runs",
+    )
     args = parser.parse_args(argv)
-    if args.action == "backup":
+    if args.action in ("backup", "sync"):
         from quirework.provenance import backup as backups
 
+        args.pull = args.action == "sync"
+        if args.pull:
+            args.check = False
         return backups.cmd_backup(args)
     return {"init": cmd_init, "status": cmd_status, "verify": cmd_verify}[args.action](
         args

@@ -147,11 +147,15 @@ the work's history, and a grep across the repository never wades through
 them. `provenance store backup` copies the store to the destinations it
 names, through rclone, a mounted directory, git or a script of your own.
 It never deletes a session at a destination before the copy that
-replaced it has arrived. `provenance search` then reads the human's own
-turns, by keyword or by meaning; the semantic index is built and stored
-locally, so corpus text never leaves the machine. It reads the accepted
-corpus, and says which pending captures and live conversations it left
-out, so a miss is never taken for proof that a turn does not exist.
+replaced it has arrived. Several machines can keep copies of one store
+and meet at a shared destination: `provenance store sync` brings in what
+the others captured, accepted and rejected, so a search on any of them
+reads what every machine accepted. `provenance search` then reads the
+human's own turns, by keyword or by meaning; the semantic index is built
+and stored locally, so corpus text never leaves the machine. It reads
+the accepted corpus, and says which pending captures and live
+conversations it left out, so a miss is never taken for proof that a
+turn does not exist.
 
 `spec trail` connects that record to the spec without putting any of it
 in the spec. A trail sidecar, kept beside the private corpus, points

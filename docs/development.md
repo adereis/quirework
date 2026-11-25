@@ -31,11 +31,13 @@ by name, and a project or a store may select its own as an extension;
 everything above them asks the selected one rather than testing which it
 is. A backup driver that copies file by file subclasses `Transfer`,
 whose `run` alone decides the order of copies and deletions at the
-destination, so a new driver cannot get that order wrong. Which files
-are the work is answered once, by `manuscript.footprint`. The execution
-and provider layers import neither `manuscript` nor `publish`. Executor
-snapshots include their runtime dependencies without copying publishing
-code or book content.
+destination, so a new driver cannot get that order wrong. Its rules for
+a store kept on several machines live in `provenance.backup.exchange`,
+and a driver supplies only listings, copies in each direction and
+deletions. Which files are the work is answered once, by
+`manuscript.footprint`. The execution and provider layers import neither
+`manuscript` nor `publish`. Executor snapshots include their runtime
+dependencies without copying publishing code or book content.
 
 ## The jail
 
